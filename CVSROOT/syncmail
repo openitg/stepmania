@@ -403,7 +403,7 @@ def main():
     if verbose:
         print 'Generating notification message...'
     blast_mail(subject, people, specs[1:], contextlines, fromhost, replyto)
-    blast_mail(subject, "glenn@zewt.org", specs[1:], contextlines, fromhost, replyto)
+    blast_mail(subject, 'glenn@zewt.org', specs[1:], contextlines, fromhost, replyto)
     if verbose:
         print 'Generating notification message... done.'
 
