@@ -57,8 +57,6 @@ Subject: Announce $projectname
 commit by $uname to $module: $message
 EOF
 
-ls -l /tmp/lastlog-$projectname
-
 if [ -e /tmp/lastlog-$projectname ]; then
     if ! diff /tmp/lastlog-$projectname $tmpfile ; then
         # there are differences, so this is a different commit
@@ -66,7 +64,7 @@ if [ -e /tmp/lastlog-$projectname ]; then
 	# You can't unlink a file over one someone else owns in a +t dir,
 	# even if you have +w to it.  (mv'ing over a file unlinks the old one)
 #        mv $tmpfile /tmp/lastlog-$projectname
-        cat $tmpfile >! /tmp/lastlog-$projectname
+        cat $tmpfile > /tmp/lastlog-$projectname
         # To ensure that the next person to commit will be able to overwrite
         chmod a+w /tmp/lastlog-$projectname
 	echo OK2
