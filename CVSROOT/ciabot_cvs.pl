@@ -35,8 +35,8 @@ $project = 'StepMania';
 $from_email = 'stepmania-devs@sourceforge.net';
 
 # Mail all reports to this address.
-# $dest_email = 'commits@picogui.org, tward+cia@bluecherry.net';
-$dest_email = 'glenn@zewt.org';
+$dest_email = 'commits@picogui.org, tward+cia@bluecherry.net';
+# $dest_email = 'glenn@zewt.org';
 
 # The maximal number of lines the log message should have.
 $max_lines = 6;
@@ -91,9 +91,7 @@ my $logmsg_lines;
 # These arguments are from %s; first the relative path in the repository
 # and then the list of files modified.
 
-print "got '$ARGV[0]'\n";
 @files = split (' ,,,', $ARGV[0]);
-print "... $#files, $files[0], '$ARGV[0]'\n";
 $dir[0] = shift @files or die "$0: no directory specified\n";
 $ci[0] = "@files" or die "$0: no files specified\n";
 
