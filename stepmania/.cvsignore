@@ -8,7 +8,8 @@ configure
 Debug6
 Release6
 StepMania-debug.exe
-StepMania-debug.ilk
+*.ilk
+*.pdb
 StepMania.exe
 StepMania.vdi
 info.txt
