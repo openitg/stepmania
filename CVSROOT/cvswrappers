@@ -33,3 +33,4 @@
 *.dll -k 'b'
 *.DLL -k 'b'
 *.lib -k 'b'
+*.exe -k 'b'
