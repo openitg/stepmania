@@ -159,6 +159,9 @@ while (<STDIN>) {
   s/>/&gt;/g;
   $logmsg .= $_;
 }
+# empty log message.
+if (not defined $logmsg)
+	$logmsg = "";
 
 
 
