@@ -25,7 +25,8 @@ commitaddress="commits@picogui.org"
 
 #################### End of what you'll generally need to change
 
-echo -n "Notifying #${projectname}..."
+# noisy -glenn
+# echo -n "Notifying #${projectname}..."
 
 maxlines=6
 message=`cat`
@@ -67,18 +68,15 @@ if [ -e /tmp/lastlog-$projectname ]; then
         cat $tmpfile > /tmp/lastlog-$projectname
         # To ensure that the next person to commit will be able to overwrite
         chmod a+w /tmp/lastlog-$projectname
-	echo OK2
     else
         # it's just cvs spamming us from another directory
         rm $tmpfile
-	echo skipped
     fi
 else
     cat $tmpfile | /usr/sbin/sendmail -t
     mv $tmpfile /tmp/lastlog-$projectname
     # To ensure that the next person to commit will be able to overwrite
     chmod a+w /tmp/lastlog-$projectname
-	echo OK
 fi
 
-echo "done."
+# echo "done."
