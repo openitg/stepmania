@@ -25,4 +25,4 @@
 # or
 #DEFAULT (echo ""; id; echo %{sVv}; date; cat) >> $CVSROOT/CVSROOT/commitlog
 # testing
-DEFAULT $CVSROOT/CVSROOT/syncmail %{sVv} --quiet glenn@zewt.org
+DEFAULT $CVSROOT/CVSROOT/syncmail --quiet %{sVv} glenn@zewt.org
