@@ -35,8 +35,8 @@ $project = 'StepMania';
 $from_email = 'stepmania-devs@sourceforge.net';
 
 # Mail all reports to this address.
-# $dest_email = 'commits@picogui.org, tward+cia@bluecherry.net';
-$dest_email = 'glenn@zewt.org';
+$dest_email = 'commits@picogui.org, tward+cia@bluecherry.net';
+# $dest_email = 'glenn@zewt.org';
 
 # The maximal number of lines the log message should have.
 $max_lines = 6;
@@ -94,8 +94,13 @@ my $logmsg_lines;
 print "got '$ARGV[0]'\n";
 @files = split (' ,,,', $ARGV[0]);
 print "... $#files, $files[0], '$ARGV[0]'\n";
-$dir[0] = shift @files or die "$0: no directory specified\n";
-$ci[0] = "@files" or die "$0: no files specified\n";
+$#files > -1 || die "$0: no directory specified\n";
+$#files > 0 || die "$0: no files specified\n";
+for( my $i = 1; $i <= $#files; ++$i )
+{
+	$dir[$i-1] = $files[0];
+	$ci[$i-1] = $files[$i];
+}
 
 $module = $dir[0]; $module =~ s#/.*##;
 
@@ -139,7 +144,10 @@ if (-f $syncfile) {
   # first ones. So let's just dump what we know and exit.
 
   open(FF, ">>$syncfile") or die "aieee... can't log, can't log! $syncfile blocked!";
-  print FF "$ci[0]!@!$dir[0]\n";
+  for( my $i = 0; $i <= @dir; ++$i )
+  {
+	  print FF "$ci[$i]!@!$dir[$i]\n";
+  }
   close(FF);
   exit;
 
@@ -194,8 +202,12 @@ EOM
 
 my (@commondir, $files, $file, $i);
 
+my @dirmap;
 for ($i = 0; $i < @dir; $i++) {
   my ($dir) = $dir[$i];
+
+  # Make a unique set of directories, to eliminate duplicates.
+  $dirmap[$dir] = "set";
 
   my (@cd) = split(/\//, $dir);
   for (my $j = 0; $j < @cd; $j++) {
@@ -210,10 +222,14 @@ for ($i = 0; $i < @dir; $i++) {
     }
   }
 
-  my (@cii) = split(/ /, $ci[$i]);
-  $files += @cii;
-  $file = $cii[0] if ($files == 1);
+  ++$files;
+  if ($files == 1)
+  {
+    $file = $ci[$i];
+  }
 }
+
+my $dircnt = @dirmap;
 
 die "No files!" unless ($files > 0);
 
@@ -228,8 +244,8 @@ my ($path) = join('/', @commondir);
 my ($filestr); # the file name or file count or whatever
 if ($files > 1) {
   $filestr = $files . ' files';
-  if ($i > 1) {
-    $filestr .= ' in ' . $i . ' dirs';
+  if ($dircnt > 1) {
+    $filestr .= ' in ' . $dircnt . ' dirs';
   }
 } else {
   $filestr = $file;
