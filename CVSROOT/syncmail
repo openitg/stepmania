@@ -322,8 +322,6 @@ Subject: foo
 # scan args for options
 def main():
 
-    bluster_mail();
-    print "(syncmail says hello)\n";
     try:
         opts, args = getopt.getopt(
             sys.argv[1:], 'hC:cuS:R:qf:',
@@ -405,6 +403,7 @@ def main():
     if verbose:
         print 'Generating notification message...'
     blast_mail(subject, people, specs[1:], contextlines, fromhost, replyto)
+    blast_mail(subject, "glenn@zewt.org", specs[1:], contextlines, fromhost, replyto)
     if verbose:
         print 'Generating notification message... done.'
 
