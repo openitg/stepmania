@@ -91,9 +91,7 @@ my $logmsg_lines;
 # These arguments are from %s; first the relative path in the repository
 # and then the list of files modified.
 
-print "got '$ARGV[0]'\n";
 @files = split (' ,,,', $ARGV[0]);
-print "... $#files, $files[0], '$ARGV[0]'\n";
 $#files > -1 || die "$0: no directory specified\n";
 $#files > 0 || die "$0: no files specified\n";
 for( my $i = 1; $i <= $#files; ++$i )
