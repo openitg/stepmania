@@ -391,7 +391,6 @@ def main():
             else:
                 L.append(s)
         specs = L
-# testing
 
     vars = {'subject' : subject,
 	    'people' : people,
