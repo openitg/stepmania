@@ -5,8 +5,10 @@ autom4te.cache
 config.log
 config.status
 configure
+Debug
 Debug6
 Debug_XBox
+Release
 Release6
 Release_XBox
 StepMania-debug.exe
