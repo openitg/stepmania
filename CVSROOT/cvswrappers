@@ -32,3 +32,4 @@
 *.tgz -k 'b'
 *.dll -k 'b'
 *.DLL -k 'b'
+*.lib -k 'b'
