@@ -394,8 +394,13 @@ def main():
                 L.append(s)
         specs = L
 
-   
-    print 'noise: subject %s, people %s, fromhost %s, replyto %s, files %s' % subject, people, fromhost, replyto, specs[1:]
+    vars = {'subject' : subject,
+	    'people' : people,
+	    'fromhost' : fromhost,
+	    'replyto': replyto,
+	    'files': specs[1:],
+	    }
+    print 'noise: subject %(subject)s, people %(people)s, fromhost %(fromhost)s, replyto %(replyto)s, files %(files)s' % vars
     if verbose:
         print 'Generating notification message...'
     blast_mail(subject, people, specs[1:], contextlines, fromhost, replyto)
