@@ -1,29 +1,41 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 #
 # ciabot -- Mail a CVS log message to a given address, for the purposes of CIA
 #
 # Loosely based on cvslog by Russ Allbery <rra@stanford.edu>
 # Copyright 1998  Board of Trustees, Leland Stanford Jr. University
 #
-# Copyright 2001, 2003  Petr Baudis <pasky@ucw.cz>
+# Copyright 2001, 2003, 2004  Petr Baudis <pasky@ucw.cz>
 #
 # This program is free software; you can redistribute it and/or modify it under
 # the terms of the GNU General Public License version 2, as published by the
 # Free Software Foundation.
+#
+# The master location of this file is
+#   http://pasky.or.cz/~pasky/dev/cvs/ciabot.pl.
+#
+# This version has been modified a bit, and is available on CIA's web site:
+#   http://cia.navi.cx/clients/cvs/ciabot_cvs.pl
 #
 # This program is designed to run from the loginfo CVS administration file. It
 # takes a log message, massaging it and mailing it to the address given below.
 #
 # Its record in the loginfo file should look like:
 #
-#       ALL        $CVSROOT/CVSROOT/ciabot.pl %s $USER
+#     ALL $CVSROOT/CVSROOT/ciabot_cvs.pl %{,,,s} $USER project from_email dest_email ignore_regexp
+#
+# IMPORTANT: The %{,,,s} in loginfo is new, and is required for proper operation.
+#
+#            Make sure that you add the script to 'checkoutlist' and give it
+#            0755 permissions -before- committing it or adding it.
+#
+#            Note that the last four parameters are optional, you can alternatively
+#            change the defaults below in the configuration section.
 #
 
 use strict;
-use vars qw ($project $from_email $dest_email $max_lines $sync_delay
-		$commit_template $branch_template $trimmed_template);
-
-
+use vars qw ($project $from_email $dest_email $rpc_uri $sendmail $sync_delay
+		$xml_rpc $ignore_regexp $alt_local_message_target);
 
 
 ### Configuration
@@ -31,59 +43,77 @@ use vars qw ($project $from_email $dest_email $max_lines $sync_delay
 # Project name (as known to CIA).
 $project = 'StepMania';
 
-# The from address in the generated mails.
+# The from address in generated mails.
 $from_email = 'stepmania-devs@sourceforge.net';
 
 # Mail all reports to this address.
 $dest_email = 'cia@cia.navi.cx, tward+cia@bluecherry.net';
-# $dest_email = 'glenn@zewt.org';
 
-# The maximal number of lines the log message should have.
-$max_lines = 6;
+# If using XML-RPC, connect to this URI.
+$rpc_uri = 'http://cia.navi.cx/RPC2';
+
+# Path to your USCD sendmail compatible binary (your mailer daemon created this
+# program somewhere).
+$sendmail = '/usr/lib/sendmail';
 
 # Number of seconds to wait for possible concurrent instances. CVS calls up
 # this script for each involved directory separately and this is the sync
 # delay. 5s looks as a safe value, but feel free to increase if you are running
 # this on a slower (or overloaded) machine or if you have really a lot of
 # directories.
-$sync_delay = 5;
+# bumped to 8s as a safety net for when sourceforge is being slow
+$sync_delay = 8;
 
-# The template string describing how the commit message should look like.
-# Expansions:
-#  %user%   - who committed it
-#  %tag%    - expands to the branch tag template ($branch_template), if the
-#             commit hapenned in a branch
-#  %module% - the module where the commit happenned
-#  %path%   - the longest common path of all the committed files
-#  %file%   - the file name or number of files (and possibly number of dirs)
-#  %trimmed%- a notice about the log message being trimmed, if it is
-#             ($trimmed_template)
-#  %logmsg% - the log message
-$commit_template = '{green}%user%{normal}%tag% * {light blue}%module%{normal}/%path% (%file%): %trimmed%%logmsg%';
+# This script can communicate with CIA either by mail or by an XML-RPC
+# interface. The XML-RPC interface is faster and more efficient, however you
+# need to have RPC::XML perl module installed, and some large CVS hosting sites
+# (like Savannah or Sourceforge) might not allow outgoing HTTP connections
+# while they allow outgoing mail. Also, this script will hang and eventually
+# not deliver the event at all if CIA server happens to be down, which is
+# unfortunately not an uncommon condition.
+$xml_rpc = 0;
 
-# The template string describing how the branch tag name should look like.
-# Expansions:
-#  %tag%    - the tag name
-$branch_template = ' {yellow}%tag%{normal}';
+# You can make this bot to totally ignore events concerning the objects
+# specified below. Each object is composed of <module>/<path>/<filename>,
+# therefore file Manifest in root directory of module gentoo will be called
+# "gentoo/Manifest", while file src/bfu/inphist.c of module elinks will be
+# called "elinks/src/bfu/inphist.c". Easy, isn't it?
+#
+# This variable should contain regexp, against which will each object be
+# checked, and if the regexp is matched, the file is ignored. Therefore ie.  to
+# ignore all changes in the two files above and everything concerning module
+# 'admin', use:
+#
+# $ignore_regexp = "^(gentoo/Manifest|elinks/src/bfu/inphist.c|admin/)";
+$ignore_regexp = "";
 
-# The template string describing how the trimming notice should look like.
-# Expansions:
-#  none
-$trimmed_template = '(log message trimmed)';
+# It can be useful to also grab the generated XML message by some other
+# programs and ie. autogenerate some content based on it. Here you can specify
+# a file to which it will be appended.
+$alt_local_message_target = "";
 
 
 
 
 ### The code itself
 
-use vars qw ($user $module $tag @files $logmsg);
+use vars qw ($user $module $tag @files $logmsg $message);
 
 my @dir; # This array stores all the affected directories
-my @ci;  # This array is mapped to the @dir array and contains files affected
-         # in each directory
-my $logmsg_lines;
+my @dirfiles;  # This array is mapped to the @dir array and contains files
+               # affected in each directory
 
 
+# A nice nonprinting character we can use as a separator relatively safely.
+# The commas in loginfo above give us 4 commas and a space between file
+# names given to us on the command line. This is the separator used internally.
+# Now we can handle filenames containing spaces, and probably anything except
+# strings of 4 commas or the ASCII bell character.
+#
+# This was inspired by the suggestion in:
+#  http://mail.gnu.org/archive/html/info-cvs/2003-04/msg00267.html
+#
+$" = "\7";
 
 ### Input data loading
 
@@ -91,14 +121,12 @@ my $logmsg_lines;
 # These arguments are from %s; first the relative path in the repository
 # and then the list of files modified.
 
-@files = split (' ,,,', $ARGV[0]);
-$#files > -1 || die "$0: no directory specified\n";
-$#files > 0 || die "$0: no files specified\n";
-for( my $i = 1; $i <= $#files; ++$i )
-{
-	$dir[$i-1] = $files[0];
-	$ci[$i-1] = $files[$i];
-}
+@files = split (' ,,,', ($ARGV[0] or ''));
+$dir[0] = shift @files or die "$0: no directory specified\n";
+$dirfiles[0] = "@files" or die "$0: no files specified\n";
+
+
+# Guess module name.
 
 $module = $dir[0]; $module =~ s#/.*##;
 
@@ -109,6 +137,14 @@ $module = $dir[0]; $module =~ s#/.*##;
 (my $name, my $passwd, my $uid, my $gid, my $quota, my $comment, my $gcos ) = getpwuid($<);
 ( $user ) = split(/,/, $gcos);
 
+# Use the optional parameters, if supplied.
+
+$project = $ARGV[2] if $ARGV[2];
+$from_email = $ARGV[3] if $ARGV[3];
+$dest_email = $ARGV[4] if $ARGV[4];
+$ignore_regexp = $ARGV[5] if $ARGV[5];
+
+
 # Parse stdin (what's interesting is the tag and log message)
 
 while (<STDIN>) {
@@ -116,13 +152,25 @@ while (<STDIN>) {
   last if /^Log Message/;
 }
 
-$logmsg_lines = 0;
 while (<STDIN>) {
   next unless ($_ and $_ ne "\n" and $_ ne "\r\n");
-  $logmsg_lines++;
-  last if ($logmsg_lines > $max_lines);
+  s/&/&amp;/g;
+  s/</&lt;/g;
+  s/>/&gt;/g;
   $logmsg .= $_;
 }
+
+
+
+### Remove to-be-ignored files
+
+$dirfiles[0] = join (' ',
+  grep {
+    my $f = "$module/$dir[0]/$_";
+    $f !~ m/$ignore_regexp/;
+  } split (/\s+/, $dirfiles[0])
+) if ($ignore_regexp);
+exit unless $dirfiles[0];
 
 
 
@@ -137,15 +185,12 @@ my $syncfile; # Name of the file used for syncing
 $syncfile = "/tmp/cvscia.$project.$module.$sum";
 
 
-if (-f $syncfile) {
+if (-f $syncfile and -w $syncfile) {
   # The synchronization file for this file already exists, so we are not the
   # first ones. So let's just dump what we know and exit.
 
   open(FF, ">>$syncfile") or die "aieee... can't log, can't log! $syncfile blocked!";
-  for( my $i = 0; $i <= $#dir; ++$i )
-  {
-	  print FF "$ci[$i]!@!$dir[$i]\n";
-  }
+  print FF "$dirfiles[0]!@!$dir[0]\n";
   close(FF);
   exit;
 
@@ -157,21 +202,112 @@ if (-f $syncfile) {
   # We don't need to care about permissions since all the instances of the one
   # commit will obviously live as the same user.
 
-  system("touch $syncfile");
+  # system("touch") in a different way
+  open(FF, ">>$syncfile") or die "aieee... can't log, can't log! $syncfile blocked!";
+  close(FF);
 
   exit if (fork);
   sleep($sync_delay);
 
   open(FF, $syncfile);
+  my ($dirnum) = 1; # 0 is the one we got triggerred for
   while (<FF>) {
     chomp;
-    my($a, $b) = split(/!@!/);
-    push @ci, $a;
-    push @dir, $b;
+    ($dirfiles[$dirnum], $dir[$dirnum]) = split(/!@!/);
+    $dirnum++;
   }
   close(FF);
 
   unlink($syncfile);
+}
+
+
+
+### Compose the mail message
+
+
+my ($VERSION) = '2.1';
+my ($URL) = 'http://cia.navi.cx/clients/cvs/ciabot_cvs.pl';
+my $ts = time;
+
+$message = <<EM
+<message>
+   <generator>
+       <name>CIA Perl client for CVS</name>
+       <version>$VERSION</version>
+       <url>$URL</url>
+   </generator>
+   <source>
+       <project>$project</project>
+       <module>$module</module>
+EM
+;
+$message .= "       <branch>$tag</branch>" if ($tag);
+$message .= <<EM
+   </source>
+   <timestamp>
+       $ts
+   </timestamp>
+   <body>
+       <commit>
+           <author>$user</author>
+           <files>
+EM
+;
+
+for (my $dirnum = 0; $dirnum < @dir; $dirnum++) {
+  map {
+    $_ = $dir[$dirnum] . '/' . $_;
+    s#^.*?/##; # weed out the module name
+    s/&/&amp;/g;
+    s/</&lt;/g;
+    s/>/&gt;/g;
+    $message .= "  <file>$_</file>\n";
+  } split($", $dirfiles[$dirnum]);
+}
+
+$message .= <<EM
+           </files>
+           <log>
+$logmsg
+           </log>
+       </commit>
+   </body>
+</message>
+EM
+;
+
+
+
+### Write the message to an alt-target
+
+if ($alt_local_message_target and open (ALT, ">>$alt_local_message_target")) {
+  print ALT $message;
+  close ALT;
+}
+
+
+
+### Send out the XML-RPC message
+
+
+if ($xml_rpc) {
+  # We gotta be careful from now on. We silence all the warnings because
+  # RPC::XML code is crappy and works with undefs etc.
+  $^W = 0;
+  $RPC::XML::ERROR if (0); # silence perl's compile-time warning
+
+  require RPC::XML;
+  require RPC::XML::Client;
+
+  my $rpc_client = new RPC::XML::Client $rpc_uri;
+  my $rpc_request = RPC::XML::request->new('hub.deliver', $message);
+  my $rpc_response = $rpc_client->send_request($rpc_request);
+
+  unless (ref $rpc_response) {
+    die "XML-RPC Error: $RPC::XML::ERROR\n";
+  }
+  exit;
 }
 
 
@@ -181,8 +317,7 @@ if (-f $syncfile) {
 
 # Open our mail program
 
-open (MAIL, '| /usr/lib/sendmail -t -oi -oem')
-    or die "$0: cannot fork sendmail: $!\n";
+open (MAIL, "| $sendmail -t -oi -oem") or die "Cannot execute $sendmail : " . ($?>>8);
 
 
 # The mail header
@@ -190,125 +325,17 @@ open (MAIL, '| /usr/lib/sendmail -t -oi -oem')
 print MAIL <<EOM;
 From: $from_email
 To: $dest_email
-Content-type: text/plain
-Subject: Announce $project
+Content-type: text/xml
+Subject: DeliverXML
 
 EOM
 
-
-my (@commondir, $files, $file, $i);
-
-my @newdir;
-my @newci;
-
-# Reconstruct ci and dir, merging similar filenames.
-for ($i = 0; $i <= $#dir; $i++) {
-  push @newdir, $dir[$i];
-  push @newci, $ci[$i];
-  if( $i == 0 ) { next; }
-
-  if( $dir[$i] ne $dir[$i-1] ) { next; }
-
-  my $filename_without_extension = $ci[$i];
-  $filename_without_extension =~ s/\.[^\.]+$//;
-  my $prev_without_extension = $ci[$i-1];
-  $prev_without_extension =~ s/\.[^\.]+$//;
-
-  if( $filename_without_extension eq $prev_without_extension )
-  {
-	  pop @newdir;
-	  pop @newci;
-
-	  # Replace the previous name's extension with "*".
-	  $newci[$#newci] = $prev_without_extension . ".*";
-  }
-}
-@dir = @newdir;
-undef @newdir;
-@ci = @newci;
-undef @newci;
-
-my @dirmap;
-for ($i = 0; $i <= $#dir; $i++) {
-  my ($dir) = $dir[$i];
-
-  # Make a unique set of directories, to eliminate duplicates.
-  $dirmap[$dir] = "set";
-
-  # Compute the longest common path, plus make up the file and directory count
-  my (@cd) = split(/\//, $dir);
-  for (my $j = 0; $j <= $#cd; $j++) {
-    if (defined $commondir[$j] and $commondir[$j] ne $cd[$j]) {
-      splice(@commondir, $j);
-      last;
-    }
-    if ($i == 0) {
-      $commondir[$j] = $cd[$j];
-    } elsif (not defined $commondir[$j]) {
-      last;
-    }
-  }
-
-  ++$files;
-  if ($files == 1)
-  {
-    $file = $ci[$i];
-  }
-}
-
-my $dircnt = @dirmap;
-
-die "No files!" unless ($files > 0);
-
-shift(@commondir); # Throw away the module name.
-
-
-# Send out the mail body
-
-
-my ($path) = join('/', @commondir);
-
-my ($filestr); # the file name or file count or whatever
-my $joined = join(', ', @ci);
-if ($files > 1 && length($joined) > 40) {
-  $filestr = $files . ' files';
-} else {
-  $filestr = $joined;
-}
-if ($dircnt > 1) {
-  $filestr .= ' in ' . $dircnt . ' dirs';
-}
-
-my ($trimmedstr); # the trimmed string, if any at all
-if ($logmsg_lines > $max_lines) {
-  $trimmedstr = $trimmed_template;
-} else {
-  $trimmedstr = '';
-}
-
-my ($tagstr); # the branch name, if any at all
-if ($tag) {
-  $tagstr = $branch_template;
-  $tagstr =~ s/\%tag\%/$tag/g;
-} else {
-  $tagstr = '';
-}
-
-$logmsg = "\n" . $logmsg if ($logmsg_lines > 1);
-
-my ($bodystr) = $commit_template; # the message to be sent
-$bodystr =~ s/\%user\%/$user/g;
-$bodystr =~ s/\%tag\%/$tagstr/g;
-$bodystr =~ s/\%module\%/$module/g;
-$bodystr =~ s/\%path\%/$path/g;
-$bodystr =~ s/\%file\%/$filestr/g;
-$bodystr =~ s/\%trimmed\%/$trimmedstr/g;
-$bodystr =~ s/\%logmsg\%/$logmsg/g;
-
-print MAIL $bodystr."\n";
+print MAIL $message;
 
 
 # Close the mail
 
 close MAIL;
-die "$0: sendmail exit status " . $? >> 8 . "\n" unless ($? == 0);
+die "$0: sendmail exit status " . ($? >> 8) . "\n" unless ($? == 0);
+
+# vi: set sw=2:
