@@ -274,6 +274,45 @@ X-Mailer: Python syncmail %(version)s <http://sf.net/projects/cvs-syncmail>
                 print calculate_diff(file, contextlines)
         finally:
             sys.stdout = sys.__stdout__
+
+        resp = conn.sendmail(address, people, s.getvalue())
+        conn.close()
+        os._exit(0)
+
+
+
+def bluster_mail():
+    # cannot wait for child process or that will cause parent to retain cvs
+    # lock for too long.  Urg!
+    if not os.fork():
+        # Create the smtp connection to the localhost
+        conn = smtplib.SMTP()
+        conn.connect(MAILHOST, MAILPORT)
+        user = pwd.getpwuid(os.getuid())[0]
+        name = string.split(pwd.getpwuid(os.getuid())[4], ',')[0]
+#        domain = fromhost or getfqdn()
+#        address = '%s@%s' % (user, domain)
+        s = StringIO()
+        sys.stdout = s
+	address = 'testing@syncmail.com'
+	people = "glenn@zewt.org"
+        try:
+            vars = {'address' : address,
+                    'name'    : quotename(name),
+                    'people'  : people,
+                    'version' : __version__,
+                    }
+            print '''\
+To: glenn@zewt.org'''
+            print '''\
+Subject: foo
+
+%(name)s
+''' % vars
+            s.write(sys.stdin.read())
+            # append the diffs if available
+        finally:
+            sys.stdout = sys.__stdout__
         resp = conn.sendmail(address, people, s.getvalue())
         conn.close()
         os._exit(0)
@@ -282,6 +321,8 @@ X-Mailer: Python syncmail %(version)s <http://sf.net/projects/cvs-syncmail>
 
 # scan args for options
 def main():
+
+    bluster_mail();
     print "(syncmail says hello)\n";
     try:
         opts, args = getopt.getopt(
