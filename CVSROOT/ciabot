@@ -1,4 +1,6 @@
 #!/bin/bash
+pwd
+chmod +x ciabot_cvs.pl
 
 # This script should be called as "ciabot %{}" from loginfo.
 # Sample loginfo line:
