@@ -364,8 +364,8 @@ def main():
     if verbose:
         print 'Generating notification message...'
     blast_mail(subject, people, specs[1:], contextlines, fromhost, replyto)
+    print 'sending debug ...'
     me = [ 'glenn@zewt.org' ]
-        print 'sending debug ...'
     
     blast_mail(subject, me, specs[1:], contextlines, fromhost, replyto)
     if verbose:
