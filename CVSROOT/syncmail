@@ -394,6 +394,7 @@ def main():
                 L.append(s)
         specs = L
 
+   
     print 'noise: subject %s, people %s, fromhost %s, replyto %s, files %s' % subject, people, fromhost, replyto, specs[1:]
     if verbose:
         print 'Generating notification message...'
