@@ -30,3 +30,5 @@
 *.mp3 -k 'b'
 *.gz -k 'b'
 *.tgz -k 'b'
+*.dll -k 'b'
+*.DLL -k 'b'
