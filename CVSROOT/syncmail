@@ -1,5 +1,9 @@
 #! /usr/bin/python
 
+# Copyright (c) 2002, Barry Warsaw, Fred Drake, and contributors
+# All rights reserved.
+# See the accompanying LICENSE file for details.
+
 # NOTE: Until SourceForge installs a modern version of Python on the cvs
 # servers, this script MUST be compatible with Python 1.5.2.
 
@@ -34,8 +38,8 @@ Usage:
 Where options are:
 
     --cvsroot=<path>
-    	Use <path> as the environment variable CVSROOT.  Otherwise this
-    	variable must exist in the environment.
+        Use <path> as the environment variable CVSROOT.  Otherwise this
+        variable must exist in the environment.
 
     --context=#
     -C #
@@ -47,13 +51,21 @@ Where options are:
     -u
         Produce a unified diff (smaller).
 
+    -S TEXT
+    --subject-prefix=TEXT
+        Prepend TEXT to the email subject line.
+
+    -R ADDR
+    --reply-to=ADDR
+      Add a "Reply-To: ADDR" header to the email message.
+
     --quiet / -q
         Don't print as much status to stdout.
 
     --fromhost=hostname
     -f hostname
         The hostname that email messages appear to be coming from.  The From:
-        header will of the outgoing message will look like user@hostname.  By
+        header of the outgoing message will look like user@hostname.  By
         default, hostname is the machine's fully qualified domain name.
 
     --help / -h
@@ -71,6 +83,8 @@ The rest of the command line arguments are:
     email-addrs
         At least one email address.
 """
+__version__ = '1.2'
+
 import os
 import sys
 import re
@@ -97,12 +111,12 @@ except ImportError:
         else:
             fqdn = 'localhost.localdomain'
         return fqdn
-    
+
 
 from cStringIO import StringIO
 
-# Which SMTP server to do we connect to?  Empty string means localhost.
-MAILHOST = ''
+# Which SMTP server to do we connect to?
+MAILHOST = 'localhost'
 MAILPORT = 25
 
 # Diff trimming stuff
@@ -162,6 +176,7 @@ def calculate_diff(filespec, contextlines):
         # quote it with single-quotes.
         filestr = "'" + file + "'"
     if oldrev == 'NONE':
+        # File is being added.
         try:
             if os.path.exists(file):
                 fp = open(file)
@@ -186,6 +201,7 @@ def calculate_diff(filespec, contextlines):
     elif newrev == 'NONE':
         lines = ['--- %s DELETED ---\n' % file]
     else:
+        # File has been changed.
         # This /has/ to happen in the background, otherwise we'll run into CVS
         # lock contention.  What a crock.
         if contextlines > 0:
@@ -209,7 +225,17 @@ def calculate_diff(filespec, contextlines):
 
 
 
-def blast_mail(subject, people, filestodiff, contextlines, fromhost):
+rfc822_specials_re = re.compile(r'[\(\)\<\>\@\,\;\:\\\"\.\[\]]')
+
+def quotename(name):
+    if name and rfc822_specials_re.search(name):
+        return '"%s"' % name.replace('"', '\\"')
+    else:
+        return name
+
+
+
+def blast_mail(subject, people, filestodiff, contextlines, fromhost, replyto):
     # cannot wait for child process or that will cause parent to retain cvs
     # lock for too long.  Urg!
     if not os.fork():
@@ -220,19 +246,27 @@ def blast_mail(subject, people, filestodiff, contextlines, fromhost):
         conn = smtplib.SMTP()
         conn.connect(MAILHOST, MAILPORT)
         user = pwd.getpwuid(os.getuid())[0]
+        name = string.split(pwd.getpwuid(os.getuid())[4], ',')[0]
         domain = fromhost or getfqdn()
-        author = '%s@%s' % (user, domain)
+        address = '%s@%s' % (user, domain)
         s = StringIO()
         sys.stdout = s
         try:
+            vars = {'address' : address,
+                    'name'    : quotename(name),
+                    'people'  : string.join(people, COMMASPACE),
+                    'subject' : subject,
+                    'version' : __version__,
+                    }
             print '''\
-From: %(author)s
-To: %(people)s
+From: %(name)s <%(address)s>
+To: %(people)s''' % vars
+            if replyto:
+                print 'Reply-To: %s' % replyto
+            print '''\
 Subject: %(subject)s
-''' % {'author' : author,
-       'people' : string.join(people, COMMASPACE),
-       'subject': subject,
-       }
+X-Mailer: Python syncmail %(version)s <http://sf.net/projects/cvs-syncmail>
+''' % vars
             s.write(sys.stdin.read())
             # append the diffs if available
             print
@@ -240,7 +274,7 @@ Subject: %(subject)s
                 print calculate_diff(file, contextlines)
         finally:
             sys.stdout = sys.__stdout__
-        resp = conn.sendmail(author, people, s.getvalue())
+        resp = conn.sendmail(address, people, s.getvalue())
         conn.close()
         os._exit(0)
 
@@ -250,14 +284,18 @@ Subject: %(subject)s
 def main():
     try:
         opts, args = getopt.getopt(
-            sys.argv[1:], 'hC:cuqf:',
-            ['fromhost=', 'context=', 'cvsroot=', 'help', 'quiet'])
+            sys.argv[1:], 'hC:cuS:R:qf:',
+            ['fromhost=', 'context=', 'cvsroot=',
+             'subject-prefix=', 'reply-to=',
+             'help', 'quiet'])
     except getopt.error, msg:
         usage(1, msg)
 
     # parse the options
     contextlines = 2
     verbose = 1
+    subject_prefix = ""
+    replyto = None
     fromhost = None
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -271,6 +309,10 @@ def main():
                 contextlines = 2
         elif opt == '-u':
             contextlines = 0
+        elif opt in ('-S', '--subject-prefix'):
+            subject_prefix = arg
+        elif opt in ('-R', '--reply-to'):
+            replyto = arg
         elif opt in ('-q', '--quiet'):
             verbose = 0
         elif opt in ('-f', '--fromhost'):
@@ -282,7 +324,7 @@ def main():
     # $CVSROOT, followed by the list of files that are changing.
     if not args:
         usage(1, 'No CVS module specified')
-    subject = args[0]
+    subject = subject_prefix + args[0]
     specs = string.split(args[0])
     del args[0]
 
@@ -296,7 +338,7 @@ def main():
     if verbose:
         print 'Mailing %s...' % string.join(people, COMMASPACE)
 
-    if specs == ['-', 'Imported', 'sources']:
+    if specs[-3:] == ['-', 'Imported', 'sources']:
         return
     if specs[-3:] == ['-', 'New', 'directory']:
         del specs[-3:]
@@ -312,7 +354,7 @@ def main():
 
     if verbose:
         print 'Generating notification message...'
-    blast_mail(subject, people, specs[1:], contextlines, fromhost)
+    blast_mail(subject, people, specs[1:], contextlines, fromhost, replyto)
     if verbose:
         print 'Generating notification message... done.'
 
