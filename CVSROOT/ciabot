@@ -8,8 +8,8 @@
 # CVSROOT/checkoutlist, and
 #   echo | mail -s "JoinChannel #myproject" commits@picogui.org
 
-projectname="Penguinvine"  # will announce to channel #<whatever you put here>
-returnaddress="sburke@selway.umt.edu"
+projectname="StepMania"  # will announce to channel #<whatever you put here>
+returnaddress="stepmania-devs@sourceforge.net"
 
 # You should turn stripnewlines on if you tend to write short blocks
 # of text, and off if you tend to have any formatting.  If you stick
