@@ -229,6 +229,7 @@ def blast_mail(subject, people, filestodiff, contextlines, fromhost):
 From: %(author)s
 To: %(people)s
 Subject: %(subject)s
+Reply-To: stepmania-devs@sourceforge.net
 ''' % {'author' : author,
        'people' : string.join(people, COMMASPACE),
        'subject': subject,
