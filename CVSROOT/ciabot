@@ -65,18 +65,20 @@ if [ -e /tmp/lastlog-$projectname ]; then
 	# even if you have +w to it.  (mv'ing over a file unlinks the old one)
 #        mv $tmpfile /tmp/lastlog-$projectname
         cat $tmpfile >! /tmp/lastlog-$projectname
-        mv $tmpfile /tmp/lastlog-$projectname
         # To ensure that the next person to commit will be able to overwrite
         chmod a+w /tmp/lastlog-$projectname
+	echo OK2
     else
         # it's just cvs spamming us from another directory
         rm $tmpfile
+	echo skipped
     fi
 else
     cat $tmpfile | /usr/sbin/sendmail -t
     mv $tmpfile /tmp/lastlog-$projectname
     # To ensure that the next person to commit will be able to overwrite
     chmod a+w /tmp/lastlog-$projectname
+	echo OK
 fi
 
 echo "done."
