@@ -355,8 +355,8 @@ def main():
             subject_prefix = arg
         elif opt in ('-R', '--reply-to'):
             replyto = arg
-        elif opt in ('-q', '--quiet'):
-            verbose = 0
+#        elif opt in ('-q', '--quiet'):
+#            verbose = 0
         elif opt in ('-f', '--fromhost'):
             fromhost = arg
 
@@ -394,6 +394,7 @@ def main():
                 L.append(s)
         specs = L
 
+print 'noise: subject %s, people %s, fromhost %s, replyto %s, files %s' % subject, people, fromhost, replyto, specs[1:]
     if verbose:
         print 'Generating notification message...'
     blast_mail(subject, people, specs[1:], contextlines, fromhost, replyto)
