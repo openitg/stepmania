@@ -5,3 +5,13 @@ autom4te.cache
 config.log
 config.status
 configure
+Debug6
+Release6
+StepMania-debug.exe
+StepMania-debug.ilk
+StepMania.exe
+StepMania.vdi
+info.txt
+log.txt
+stats.html
+crashinfo.txt
