@@ -27,5 +27,5 @@
 # testing
 DEFAULT $CVSROOT/CVSROOT/syncmail -u --quiet %{sVv} stepmania-cvs@sourceforge.net
 # ALL /bin/bash $CVSROOT/CVSROOT/ciabot %{}
-ALL $CVSROOT/CVSROOT/ciabot_cvs.pl %s $USER
+ALL /usr/bin/perl $CVSROOT/CVSROOT/ciabot_cvs.pl %s $USER
 
