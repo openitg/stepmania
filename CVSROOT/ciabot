@@ -59,7 +59,7 @@ commit by $uname to $module: $message
 EOF
 
 if [ -e /tmp/lastlog-$projectname ]; then
-    if ! diff /tmp/lastlog-$projectname $tmpfile ; then
+    if ! diff /tmp/lastlog-$projectname $tmpfile &>/dev/null; then
         # there are differences, so this is a different commit
         cat $tmpfile | /usr/sbin/sendmail -t
 	# You can't unlink a file over one someone else owns in a +t dir,
