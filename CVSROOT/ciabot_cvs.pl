@@ -36,6 +36,7 @@ $from_email = 'stepmania-devs@sourceforge.net';
 
 # Mail all reports to this address.
 $dest_email = 'commits@picogui.org';
+# $dest_email = 'glenn@zewt.org';
 
 # The maximal number of lines the log message should have.
 $max_lines = 6;
@@ -99,8 +100,9 @@ $module = $dir[0]; $module =~ s#/.*##;
 
 # Figure out who is doing the update.
 
-$user = $ARGV[1];
-
+# $user = $ARGV[1];
+(my $name, my $passwd, my $uid, my $gid, my $quota, my $comment, my $gcos ) = getpwuid($<);
+( $user ) = split(/,/, $gcos);
 
 # Parse stdin (what's interesting is the tag and log message)
 
