@@ -7,8 +7,10 @@ config.status
 configure
 Debug6
 Debug_XBox
+Debug
 Release6
 Release_XBox
+Release
 StepMania-debug.exe
 *.ilk
 *.pdb
