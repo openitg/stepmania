@@ -33,7 +33,7 @@ use Digest::MD5;
 $MAILER = "/usr/sbin/sendmail -oi -oeq";
 
 # Set this to the path of the CVS binary responsible for this tree...
-$CVS = "/usr/local/bin/cvs";
+$CVS = "/usr/bin/cvs";
 
 # Don't touch this; use the -d command line option
 $debug = 0;
