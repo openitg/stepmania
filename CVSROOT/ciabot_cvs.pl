@@ -144,7 +144,7 @@ if (-f $syncfile) {
   # first ones. So let's just dump what we know and exit.
 
   open(FF, ">>$syncfile") or die "aieee... can't log, can't log! $syncfile blocked!";
-  for( my $i = 0; $i <= @dir; ++$i )
+  for( my $i = 0; $i <= $#dir; ++$i )
   {
 	  print FF "$ci[$i]!@!$dir[$i]\n";
   }
@@ -165,11 +165,11 @@ if (-f $syncfile) {
   sleep($sync_delay);
 
   open(FF, $syncfile);
-  my ($i) = 1;
   while (<FF>) {
     chomp;
-    ($ci[$i], $dir[$i]) = split(/!@!/);
-    $i++;
+    my($a, $b) = split(/!@!/);
+    push @ci, $a;
+    push @dir, $b;
   }
   close(FF);
 
@@ -198,19 +198,48 @@ Subject: Announce $project
 EOM
 
 
-# Compute the longest common path, plus make up the file and directory count
-
 my (@commondir, $files, $file, $i);
 
+my @newdir;
+my @newci;
+
+# Reconstruct ci and dir, merging similar filenames.
+for ($i = 0; $i <= $#dir; $i++) {
+  push @newdir, $dir[$i];
+  push @newci, $ci[$i];
+  if( $i == 0 ) { next; }
+
+  if( $dir[$i] ne $dir[$i-1] ) { next; }
+
+  my $filename_without_extension = $ci[$i];
+  $filename_without_extension =~ s/\.[^\.]+$//;
+  my $prev_without_extension = $ci[$i-1];
+  $prev_without_extension =~ s/\.[^\.]+$//;
+
+  if( $filename_without_extension eq $prev_without_extension )
+  {
+	  pop @newdir;
+	  pop @newci;
+
+	  # Replace the previous name's extension with "*".
+	  $newci[$#newci] = $prev_without_extension . ".*";
+  }
+}
+@dir = @newdir;
+undef @newdir;
+@ci = @newci;
+undef @newci;
+
 my @dirmap;
-for ($i = 0; $i < @dir; $i++) {
+for ($i = 0; $i <= $#dir; $i++) {
   my ($dir) = $dir[$i];
 
   # Make a unique set of directories, to eliminate duplicates.
   $dirmap[$dir] = "set";
 
+  # Compute the longest common path, plus make up the file and directory count
   my (@cd) = split(/\//, $dir);
-  for (my $j = 0; $j < @cd; $j++) {
+  for (my $j = 0; $j <= $#cd; $j++) {
     if (defined $commondir[$j] and $commondir[$j] ne $cd[$j]) {
       splice(@commondir, $j);
       last;
@@ -242,13 +271,14 @@ shift(@commondir); # Throw away the module name.
 my ($path) = join('/', @commondir);
 
 my ($filestr); # the file name or file count or whatever
-if ($files > 1) {
+my $joined = join(', ', @ci);
+if ($files > 1 && length($joined) > 40) {
   $filestr = $files . ' files';
-  if ($dircnt > 1) {
-    $filestr .= ' in ' . $dircnt . ' dirs';
-  }
 } else {
-  $filestr = $file;
+  $filestr = $joined;
+}
+if ($dircnt > 1) {
+  $filestr .= ' in ' . $dircnt . ' dirs';
 }
 
 my ($trimmedstr); # the trimmed string, if any at all
