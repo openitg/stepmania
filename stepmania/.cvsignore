@@ -20,3 +20,6 @@ Cache
 Screenshots
 smpackage-debug.exe
 smpackage.exe
+StepMania.app
+.DS_Store
+.gdb_history
