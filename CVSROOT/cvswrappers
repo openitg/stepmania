@@ -28,3 +28,5 @@
 *.wav -k 'b'
 *.ogg -k 'b'
 *.mp3 -k 'b'
+*.gz -k 'b'
+*.tgz -k 'b'
