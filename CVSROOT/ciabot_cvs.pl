@@ -92,7 +92,7 @@ my $logmsg_lines;
 # and then the list of files modified.
 
 print "got '$ARGV[0]'\n";
-@files = split (' ,~', $ARGV[0]);
+@files = split (' ,,,', $ARGV[0]);
 print "... $#files, $files[0], '$ARGV[0]'\n";
 $dir[0] = shift @files or die "$0: no directory specified\n";
 $ci[0] = "@files" or die "$0: no files specified\n";
