@@ -58,6 +58,7 @@ commit by $uname to $module: $message
 EOF
 
 ls -l /tmp/lastlog-$projectname
+
 if [ -e /tmp/lastlog-$projectname ]; then
     if ! diff /tmp/lastlog-$projectname $tmpfile ; then
         # there are differences, so this is a different commit
