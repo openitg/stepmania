@@ -194,7 +194,7 @@ def calculate_diff(filespec, contextlines):
             #        if c < ' ' or c > chr(127):
             #            lines = BINARY_EXPLANATION_LINES[:]
             #            break
-            lines = '--- NEW FILE: %s ---\n'
+            lines = '--- NEW FILE: %s ---\n' % file
         except IOError, e:
             lines = ['***** Error reading new file: ',
                      str(e), '\n***** file: ', file, ' cwd: ', os.getcwd()]
