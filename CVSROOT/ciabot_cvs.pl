@@ -35,7 +35,7 @@ $project = 'StepMania';
 $from_email = 'stepmania-devs@sourceforge.net';
 
 # Mail all reports to this address.
-$dest_email = 'commits@picogui.org, tward+cia@bluecherry.net';
+$dest_email = 'commits@picogui.org'; # testing , tward+cia@bluecherry.net';
 # $dest_email = 'glenn@zewt.org';
 
 # The maximal number of lines the log message should have.
