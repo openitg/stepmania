@@ -61,6 +61,10 @@ if [ -e /tmp/lastlog-$projectname ]; then
     if ! diff /tmp/lastlog-$projectname $tmpfile &>/dev/null; then
         # there are differences, so this is a different commit
         cat $tmpfile | /usr/sbin/sendmail -t
+	# You can't unlink a file over one someone else owns in a +t dir,
+	# even if you have +w to it.  (mv'ing over a file unlinks the old one)
+#        mv $tmpfile /tmp/lastlog-$projectname
+        cat $tmpfile >! /tmp/lastlog-$projectname
         mv $tmpfile /tmp/lastlog-$projectname
         # To ensure that the next person to commit will be able to overwrite
         chmod a+w /tmp/lastlog-$projectname
