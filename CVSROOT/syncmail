@@ -282,6 +282,7 @@ X-Mailer: Python syncmail %(version)s <http://sf.net/projects/cvs-syncmail>
 
 # scan args for options
 def main():
+    print "(syncmail says hello)\n";
     try:
         opts, args = getopt.getopt(
             sys.argv[1:], 'hC:cuS:R:qf:',
