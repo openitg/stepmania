@@ -29,10 +29,10 @@ use vars qw ($project $from_email $dest_email $max_lines $sync_delay
 ### Configuration
 
 # Project name (as known to CIA).
-$project = 'your_project_here';
+$project = 'StepMania';
 
 # The from address in the generated mails.
-$from_email = 'your@email.here';
+$from_email = 'stepmania-devs@sourceforge.net';
 
 # Mail all reports to this address.
 $dest_email = 'commits@picogui.org';
