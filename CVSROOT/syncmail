@@ -178,23 +178,23 @@ def calculate_diff(filespec, contextlines):
     if oldrev == 'NONE':
         # File is being added.
         try:
-            if os.path.exists(file):
-                fp = open(file)
-            else:
-                update_cmd = "cvs -fn update -r %s -p %s" % (newrev, filestr)
-                fp = os.popen(update_cmd)
-            lines = fp.readlines()
-            fp.close()
+            #if os.path.exists(file):
+            #    fp = open(file)
+            #else:
+            #    update_cmd = "cvs -fn update -r %s -p %s" % (newrev, filestr)
+            #    fp = os.popen(update_cmd)
+            #lines = fp.readlines()
+            #fp.close()
             # Is this a binary file?  Let's look at the first few
             # lines to figure it out:
-            for line in lines[:5]:
-                for c in string.rstrip(line):
-                    if c in string.whitespace:
-                        continue
-                    if c < ' ' or c > chr(127):
-                        lines = BINARY_EXPLANATION_LINES[:]
-                        break
-            lines.insert(0, '--- NEW FILE: %s ---\n' % file)
+            #for line in lines[:5]:
+            #    for c in string.rstrip(line):
+            #        if c in string.whitespace:
+            #            continue
+            #        if c < ' ' or c > chr(127):
+            #            lines = BINARY_EXPLANATION_LINES[:]
+            #            break
+            lines = '--- NEW FILE: %s ---\n'
         except IOError, e:
             lines = ['***** Error reading new file: ',
                      str(e), '\n***** file: ', file, ' cwd: ', os.getcwd()]
