@@ -91,7 +91,7 @@ my $logmsg_lines;
 # These arguments are from %s; first the relative path in the repository
 # and then the list of files modified.
 
-@files = split (' ', $ARGV[0]);
+@files = split (' ,~', $ARGV[0]);
 $dir[0] = shift @files or die "$0: no directory specified\n";
 $ci[0] = "@files" or die "$0: no files specified\n";
 
