@@ -7,7 +7,8 @@ stamp-h1
 stepmania
 Debug
 StepMania___Xbox_Release
-StepMania.ncb
+*.ncb
+*.suo
 StepMania.opt
 StepMania.plg
 version.bin
