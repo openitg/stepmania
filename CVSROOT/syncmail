@@ -274,7 +274,6 @@ X-Mailer: Python syncmail %(version)s <http://sf.net/projects/cvs-syncmail>
                 print calculate_diff(file, contextlines)
         finally:
             sys.stdout = sys.__stdout__
-
         resp = conn.sendmail(address, people, s.getvalue())
         conn.close()
         os._exit(0)
@@ -283,7 +282,7 @@ X-Mailer: Python syncmail %(version)s <http://sf.net/projects/cvs-syncmail>
 
 # scan args for options
 def main():
-
+    print "(syncmail says hello)\n";
     try:
         opts, args = getopt.getopt(
             sys.argv[1:], 'hC:cuS:R:qf:',
@@ -315,8 +314,8 @@ def main():
             subject_prefix = arg
         elif opt in ('-R', '--reply-to'):
             replyto = arg
-#        elif opt in ('-q', '--quiet'):
-#            verbose = 0
+        elif opt in ('-q', '--quiet'):
+            verbose = 0
         elif opt in ('-f', '--fromhost'):
             fromhost = arg
 
@@ -353,25 +352,12 @@ def main():
             else:
                 L.append(s)
         specs = L
-    # test
-    vars = {'subject' : subject,
-	    'people' : people,
-	    'fromhost' : fromhost,
-	    'replyto': replyto,
-	    'files': specs[1:],
-	    }
-    print 'noise: subject %(subject)s, people %(people)s, fromhost %(fromhost)s, replyto %(replyto)s, files %(files)s' % vars
+
     if verbose:
         print 'Generating notification message...'
     blast_mail(subject, people, specs[1:], contextlines, fromhost, replyto)
-    
-#    print 'sending debug ...'
-#    me = [ 'glenn@zewt.org' ]
-    
-#    blast_mail(subject, me, specs[1:], contextlines, fromhost, replyto)
     if verbose:
         print 'Generating notification message... done.'
-
 
 
 
