@@ -147,7 +147,7 @@ def calculate_diff(entry, contextlines):
     if file.find("'") <> -1:
         # Those crazy users put single-quotes in their file names!  Now we
         # have to escape everything that is meaningful inside double-quotes.
-        filestr = filestr.replace('\\', '\\\\')
+        filestr = file.replace('\\', '\\\\')
         filestr = filestr.replace('`', '\`')
         filestr = filestr.replace('"', '\"')
         filestr = filestr.replace('$', '\$')
