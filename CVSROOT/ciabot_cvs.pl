@@ -161,8 +161,9 @@ while (<STDIN>) {
 }
 # empty log message.
 if (not defined $logmsg)
-	$logmsg = "";
-
+{
+  $logmsg = "";
+}
 
 
 ### Remove to-be-ignored files
