@@ -5,3 +5,10 @@ config.h
 config.h.in
 stamp-h1
 stepmania
+Debug
+StepMania___Xbox_Release
+StepMania.ncb
+StepMania.opt
+StepMania.plg
+version.bin
+verstub.cpp
