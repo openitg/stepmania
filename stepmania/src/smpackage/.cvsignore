@@ -2,3 +2,4 @@ Debug
 Release
 *.ncb
 *.opt
+*.suo
