@@ -106,6 +106,7 @@ from cStringIO import StringIO
 from email.Utils import formataddr
 from email.MIMEText import MIMEText
 
+
 # Which SMTP server to do we connect to?
 MAILHOST = 'localhost'
 MAILPORT = 25
