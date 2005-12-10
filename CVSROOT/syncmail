@@ -104,8 +104,10 @@ import smtplib
 
 from cStringIO import StringIO
 from email.Utils import formataddr
+from email.Header import Header
+from email.Charset import *
 from email.MIMEText import MIMEText
-
+from email.MIMEMultipart import MIMEMultipart
 
 # Which SMTP server to do we connect to?
 MAILHOST = 'localhost'
@@ -231,34 +233,30 @@ def blast_mail(subject, people, entries, contextlines, fromhost, replyto, charse
         name = pwinfo[4]
         domain = fromhost or socket.getfqdn()
         address = '%s@%s' % (user, domain)
-        s = StringIO()
-        datestamp = time.strftime('%a, %d %b %Y %H:%M:%S +0000',
-                                  time.gmtime(time.time()))
-        vars = {'author'  : formataddr((name, address)),
-                'people'  : COMMASPACE.join(people),
-                'subject' : subject,
-                'version' : __version__,
-                'date'    : datestamp,
-                }
-        print >> s, '''\
-From: %(author)s
-To: %(people)s''' % vars
-        if replyto:
-            print >> s, 'Reply-To: %s' % replyto
-        if charset:
-            print >> s, 'MIME-Version: 1.0\nContent-Type: text/plain; charset=%s\nContent-Transfer-Encoding: 8bit' % charset
 
-        print >>s, '''\
-Subject: %(subject)s
-Date: %(date)s
-X-Mailer: Python syncmail %(version)s <http://sf.net/projects/cvs-syncmail>
-''' % vars
-        s.write(sys.stdin.read())
+	# Stop Python from encoding UTF-8.
+	add_charset('utf-8', SHORTEST, None, 'utf-8');
+
+	commitlog = sys.stdin.read()
+
+        s = StringIO()
+	print >> s, commitlog
+
         # append the diffs if available
         print >> s
         for entry in entries:
             print >> s, calculate_diff(entry, contextlines)
-        resp = conn.sendmail(address, people, s.getvalue())
+
+	msg = MIMEText( s.getvalue(), 'plain', charset )
+	msg['Subject'] = Header(subject, 'utf-8')
+	msg['From'] = formataddr((name, address))
+	msg['To'] = COMMASPACE.join(people)
+	msg['Reply-To'] = replyto
+	msg['X-Mailer'] = 'Python syncmail %s <http://sf.net/projects/cvs-syncmail>' % __version__
+
+	msg.add_header('Content-Disposition', 'inline', filename='cvs.diff')
+
+	conn.sendmail(address, people, msg.as_string())
         conn.close()
         os._exit(0)
 
