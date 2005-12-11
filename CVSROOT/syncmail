@@ -364,10 +364,10 @@ def main():
     # avoid threading so many positional args through everything.
     try:
         opts, args = getopt.getopt(
-            sys.argv[1:], 'hC:cuS:R:qf:m:',
+	    sys.argv[1:], 'hC:cuS:R:qf:m:t:',
             ['fromhost=', 'context=', 'cvsroot=', 'mailhost=',
              'subject-prefix=', 'reply-to=',
-             'help', 'quiet', 'charset='])
+             'help', 'quiet', 'charset=', 'to='])
     except getopt.error, msg:
         usage(1, msg)
 
@@ -378,6 +378,7 @@ def main():
     replyto = None
     charset = None
     fromhost = None
+    people = []
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage(0)
@@ -403,6 +404,11 @@ def main():
         elif opt in ('-m', '--mailhost'):
             global MAILHOST
             MAILHOST = arg
+        elif opt in ('-t', '--to'):
+            people[len(people):] = [arg]
+
+    if people == []:
+        usage(1, 'No recipients specified')
 
     # What follows is the specification containing the files that were
     # modified.  The argument actually must be split, with the first component
@@ -410,17 +416,11 @@ def main():
     # $CVSROOT, followed by the list of files that are changing.
     if not args:
         usage(1, 'No CVS module specified')
-    subject = subject_prefix + args[0]
+    subject = subject_prefix + ' '.join(args)
     specs = args[0].split()
     del args[0]
 
-    # The remaining args should be the email addresses
-    if not args:
-        usage(1, 'No recipients specified')
-
     # Now do the mail command
-    people = args
-
     if specs[-3:] == ['-', 'Imported', 'sources']:
         print 'Not sending email for imported sources.'
         return
