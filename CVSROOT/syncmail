@@ -224,7 +224,7 @@ def blast_mail(subject, people, entries, contextlines, fromhost, replyto, charse
     if not os.fork():
         # in the child
         # give up the lock you cvs thang!
-        #time.sleep(2)
+        time.sleep(0.25)
         # Create the smtp connection to the localhost
         conn = smtplib.SMTP()
         conn.connect(MAILHOST, MAILPORT)
