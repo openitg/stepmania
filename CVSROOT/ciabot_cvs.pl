@@ -212,7 +212,7 @@ if (-f $syncfile and -w $syncfile) {
   close(FF);
 
   exit if (fork);
-  sleep($sync_delay);
+#  sleep($sync_delay);
 
   open(FF, $syncfile);
   my ($dirnum) = 1; # 0 is the one we got triggerred for
