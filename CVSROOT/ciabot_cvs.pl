@@ -211,7 +211,11 @@ if (-f $syncfile and -w $syncfile) {
   open(FF, ">>$syncfile") or die "aieee... can't log, can't log! $syncfile blocked!";
   close(FF);
 
-  exit if (fork);
+  exit if (fork != 0);
+
+  close(STDOUT);
+  close(STDIN);
+  close(STDERR);
   sleep($sync_delay);
 
   open(FF, $syncfile);
@@ -290,7 +294,6 @@ if ($alt_local_message_target and open (ALT, ">>$alt_local_message_target")) {
   print ALT $message;
   close ALT;
 }
-
 
 
 ### Send out the XML-RPC message
