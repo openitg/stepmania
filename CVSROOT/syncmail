@@ -431,8 +431,8 @@ def main():
     if verbose:
         print 'Mailing %s...' % COMMASPACE.join(people)
         print 'Generating notification message...'
-    blast_mail(subject, people, changes.values(),
-               contextlines, fromhost, replyto, charset)
+    #blast_mail(subject, people, changes.values(),
+    #           contextlines, fromhost, replyto, charset)
     if verbose:
         print 'Generating notification message... done.'
 
