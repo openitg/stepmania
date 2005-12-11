@@ -25,6 +25,6 @@
 # or
 #DEFAULT (echo ""; id; echo %{sVv}; date; cat) >> $CVSROOT/CVSROOT/commitlog
 # testing
-#DEFAULT $CVSROOT/CVSROOT/syncmail -u --quiet --charset=utf-8 -R stepmania-devs@lists.sourceforge.net -t stepmania-cvs@lists.sourceforge.net %{sVv}
+DEFAULT $CVSROOT/CVSROOT/syncmail -u --quiet --charset=utf-8 -R stepmania-devs@lists.sourceforge.net -t stepmania-cvs@lists.sourceforge.net %{sVv}
 ALL /usr/bin/perl $CVSROOT/CVSROOT/ciabot_cvs.pl %{,,,s} $USER
  
