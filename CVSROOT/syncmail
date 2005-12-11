@@ -224,7 +224,7 @@ def blast_mail(subject, people, entries, contextlines, fromhost, replyto, charse
     if not os.fork():
         # in the child
         # give up the lock you cvs thang!
-        time.sleep(0.2)
+        #time.sleep(2)
         # Create the smtp connection to the localhost
         conn = smtplib.SMTP()
         conn.connect(MAILHOST, MAILPORT)
@@ -431,8 +431,8 @@ def main():
     if verbose:
         print 'Mailing %s...' % COMMASPACE.join(people)
         print 'Generating notification message...'
-    #blast_mail(subject, people, changes.values(),
-    #           contextlines, fromhost, replyto, charset)
+    blast_mail(subject, people, changes.values(),
+               contextlines, fromhost, replyto, charset)
     if verbose:
         print 'Generating notification message... done.'
 
