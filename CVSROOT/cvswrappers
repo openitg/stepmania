@@ -38,3 +38,5 @@
 *.tar -k 'b'
 *.zip -k '-b'
 *.ZIP -k '-b'
+*.bmp -k '-b'
+*.BMP -k '-b'
