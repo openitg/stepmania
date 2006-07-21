@@ -36,3 +36,5 @@
 *.exe -k 'b'
 *.bz2 -k 'b'
 *.tar -k 'b'
+*.zip -k '-b'
+*.ZIP -k '-b'
