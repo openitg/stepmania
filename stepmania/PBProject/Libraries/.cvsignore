@@ -11,3 +11,4 @@ lua-5.0
 .DS_Store
 dlcompat
 ffmpeg-0.4.9-pre1
+lib*_link.a
