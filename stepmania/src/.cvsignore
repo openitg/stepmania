@@ -6,7 +6,6 @@ config.h.in
 stamp-h1
 stepmania
 Debug
-FastDebug
 StepMania___Xbox_Release
 StepMania.opt
 StepMania.plg
