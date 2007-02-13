@@ -418,8 +418,9 @@ PaneTypes PaneDisplay::GetNext( PaneTypes current, int dir ) const
 	PaneTypes ret = current;
 	while( 1 )
 	{
-		ret = (PaneTypes) (ret + dir);
-		wrap( (int&) ret, NUM_PANES );
+		int temp = ret + dir;
+		wrap( temp, NUM_PANES );
+		ret = PaneTypes( temp );
 
 		if( PaneIsValid( ret ) )
 			break;
