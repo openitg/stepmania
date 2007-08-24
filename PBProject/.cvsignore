@@ -1,3 +1,5 @@
 ver.cpp
 build
 Hardware.plist
+*.zip
+*.pkg
