@@ -28,10 +28,10 @@ LowLevelWindow_SDL::LowLevelWindow_SDL()
 
 LowLevelWindow_SDL::~LowLevelWindow_SDL()
 {
-	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 	mySDL_EventState( SDL_VIDEORESIZE, SDL_IGNORE );
 	mySDL_EventState( SDL_ACTIVEEVENT, SDL_IGNORE );
 	mySDL_EventState( SDL_QUIT, SDL_IGNORE );
+	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
 void *LowLevelWindow_SDL::GetProcAddress(CString s)
