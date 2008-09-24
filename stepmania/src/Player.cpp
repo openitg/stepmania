@@ -1010,13 +1010,13 @@ void PlayerMinus::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 			{
 			case TapNote::empty:
 			case TapNote::attack:
+			case TapNote::mine:
 				continue; /* no note here */
 			}
 
 			if( GetTapNoteScore(t, r) != TNS_NONE ) /* note here is already hit */
 				continue; 
 			
-			if( GetTapNote(t, r).type != TapNote::mine )
 			{
 				// A normal note.  Penalize for not stepping on it.
 				MissedNoteOnThisRow = true;
