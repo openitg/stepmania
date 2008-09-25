@@ -1006,13 +1006,9 @@ void PlayerMinus::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 		bool MissedNoteOnThisRow = false;
 		for( int t=0; t<GetNumTracks(); t++ )
 		{
-			switch( GetTapNote(t, r).type )
-			{
-			case TapNote::empty:
-			case TapNote::attack:
-			case TapNote::mine:
-				continue; /* no note here */
-			}
+			unsigned type = GetTapNote( t, r ).type;
+			if( type != TapNote::tap && type != TapNote::hold_head )
+				continue;
 
 			if( GetTapNoteScore(t, r) != TNS_NONE ) /* note here is already hit */
 				continue; 
