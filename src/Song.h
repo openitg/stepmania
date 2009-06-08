@@ -130,6 +130,7 @@ public:
 	RString	m_sMusicFile;
 	RString	m_sInstrumentTrackFile[NUM_InstrumentTrack];
 
+	// TODO: separate out bpms from Song when they involve steps. (may not involve this part)
 	float	m_fMusicLengthSeconds;
 	float	m_fFirstBeat;	// beat of first note
 	float	m_fLastBeat;	// beat of last note
@@ -170,6 +171,7 @@ public:
 
 	bool Matches(RString sGroup, RString sSong) const;
 
+	// All songs have a base timing data.  Steps will potentially hve their own.
 	TimingData				m_Timing;
 
 	typedef vector<BackgroundChange> 	VBackgroundChange;
@@ -185,6 +187,7 @@ public:
 
 	vector<LyricSegment>			m_LyricSegments;	// this must be sorted before gameplay
 
+	// TODO: Separate out BPMs from Song when they involve Steps.
 	void AddBPMSegment( const BPMSegment &seg ) { m_Timing.AddBPMSegment( seg ); }
 	void AddStopSegment( const StopSegment &seg ) { m_Timing.AddStopSegment( seg ); }
 	void AddBackgroundChange( BackgroundLayer blLayer, BackgroundChange seg );
@@ -194,6 +197,7 @@ public:
 	void GetDisplayBpms( DisplayBpms &AddTo ) const;
 	const BackgroundChange &GetBackgroundAtBeat( BackgroundLayer iLayer, float fBeat ) const;
 
+	// TODO: Separate out BPMs from Song when they involve Steps.  Possibly include GetStepsSeconds().
 	float GetBPMAtBeat( float fBeat ) const { return m_Timing.GetBPMAtBeat( fBeat ); }
 	void SetBPMAtBeat( float fBeat, float fBPM ) { m_Timing.SetBPMAtBeat( fBeat, fBPM ); }
 	BPMSegment& GetBPMSegmentAtBeat( float fBeat ) { return m_Timing.GetBPMSegmentAtBeat( fBeat ); }

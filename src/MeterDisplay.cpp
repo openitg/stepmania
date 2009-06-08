@@ -65,10 +65,12 @@ void MeterDisplay::SetPercent( float fPercent )
 		m_sprTip->SetX( SCALE(fPercent, 0.f, 1.f, -m_fStreamWidth/2, m_fStreamWidth/2) );
 }
 
+// TODO: Make this work with steps based timing data?
 void SongMeterDisplay::Update( float fDeltaTime )
 {
 	if( GAMESTATE->m_pCurSong )
 	{
+		// TODO: Use the Steps Timing Data.
 		float fSongStartSeconds = GAMESTATE->m_pCurSong->m_Timing.GetElapsedTimeFromBeat( GAMESTATE->m_pCurSong->m_fFirstBeat );
 		float fSongEndSeconds = GAMESTATE->m_pCurSong->m_Timing.GetElapsedTimeFromBeat( GAMESTATE->m_pCurSong->m_fLastBeat );
 		float fPercentPositionSong = SCALE( GAMESTATE->m_fMusicSeconds, fSongStartSeconds, fSongEndSeconds, 0.0f, 1.0f );

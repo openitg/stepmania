@@ -409,7 +409,10 @@ static bool NeedsHoldJudging( const TapNote &tn )
 	{
 	DEFAULT_FAIL( tn.type );
 	case TapNote::hold_head:
-		return tn.HoldResult.hns == HNS_None;
+		if( tn.HoldResult.hns == HNS_None )
+			return true;
+		else
+			return false;
 	case TapNote::tap:
 	case TapNote::hold_tail:
 	case TapNote::mine:
@@ -738,7 +741,7 @@ void Player::Update( float fDeltaTime )
 			{
 				if( m_vAlterMap[i].inpMain == GameI )
 				{
-					bIsHoldingButton = bIsHoldingButton || INPUTMAPPER->IsBeingPressed( m_vAlterMap[i].inpAlt );
+					bIsHoldingButton = bIsHoldingButton | INPUTMAPPER->IsBeingPressed( m_vAlterMap[i].inpAlt );
 				}
 			}
 		}
@@ -2252,7 +2255,9 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 		bool bFreeze;
 		float fMissIfOlderThanThisBeat;
 		float fThrowAway;
-		GAMESTATE->m_pCurSong->m_Timing.GetBeatAndBPSFromElapsedTime( fEarliestTime, fMissIfOlderThanThisBeat, fThrowAway, bFreeze );
+		// TODO: Make this work with Steps based Timing Data.  Commented function below.
+		//GAMESTATE->m_pCurSong->m_Timing.GetBeatAndBPSFromElapsedTime( fEarliestTime, fMissIfOlderThanThisBeat, fThrowAway, bFreeze );
+		GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing.GetBeatAndBPSFromElapsedTime( fEarliestTime, fMissIfOlderThanThisBeat, fThrowAway, bFreeze );
 
 		iMissIfOlderThanThisRow = BeatToNoteRow( fMissIfOlderThanThisBeat );
 		if( bFreeze )

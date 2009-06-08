@@ -94,7 +94,7 @@ static void WriteGlobalTags( RageFile &f, const Song &out )
 		break;
 	}
 
-
+	// Main BPMs
 	f.Write( "#BPMS:" );
 	for( unsigned i=0; i<out.m_Timing.m_BPMSegments.size(); i++ )
 	{
@@ -106,6 +106,7 @@ static void WriteGlobalTags( RageFile &f, const Song &out )
 	}
 	f.PutLine( ";" );
 
+	// Main Stops
 	f.Write( "#STOPS:" );
 	for( unsigned i=0; i<out.m_Timing.m_StopSegments.size(); i++ )
 	{
@@ -118,6 +119,7 @@ static void WriteGlobalTags( RageFile &f, const Song &out )
 	f.PutLine( ";" );
 
 	ASSERT( !out.m_Timing.m_vTimeSignatureSegments.empty() );
+	// Main Time Signatures
 	f.Write( "#TIMESIGNATURES:" );
 	FOREACH_CONST( TimeSignatureSegment, out.m_Timing.m_vTimeSignatureSegments, iter )
 	{
@@ -194,6 +196,7 @@ static RString JoinLineList( vector<RString> &lines )
 	return join( "\r\n", lines.begin()+j, lines.end() );
 }
 
+// TODO: Fix for Timing Data for Steps.
 static RString GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCache )
 {
 	vector<RString> lines;
@@ -221,6 +224,36 @@ static RString GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCac
 	in.GetSMNoteData( sNoteData );
 
 	split( sNoteData, "\n", lines, true );
+	lines.push_back( ":" );
+	
+	// steps bpms
+	vector<RString> asBPMValues;
+	for( unsigned i=0; i<in.m_Timing.m_BPMSegments.size(); i++ )
+	{
+		const BPMSegment &bs = in.m_Timing.m_BPMSegments[i];
+		asBPMValues.push_back( ssprintf( "%.3f=%.3f", NoteRowToBeat(bs.m_iStartRow), bs.GetBPM() ) );
+	}
+	lines.push_back( ssprintf("%s:", join(",",asBPMValues).c_str() ) );
+	
+	// steps stops
+	vector<RString> asStopValues;
+	for( unsigned i=0; i<in.m_Timing.m_StopSegments.size(); i++ )
+	{
+		const StopSegment &fs = in.m_Timing.m_StopSegments[i];
+		asStopValues.push_back( ssprintf( "%.3f=%.3f", NoteRowToBeat(fs.m_iStartRow), fs.m_fStopSeconds ) );
+	}
+	lines.push_back( ssprintf("%s:", join(",",asStopValues).c_str() ) );
+	
+	// steps time signatures
+	vector<RString> asTimeSignatureValues;
+	for( unsigned i=0; i<in.m_Timing.m_vTimeSignatureSegments.size(); i++ )
+	{
+		const TimeSignatureSegment &ts = in.m_Timing.m_vTimeSignatureSegments[i];
+		asTimeSignatureValues.push_back( ssprintf( "%.03f=%i=%i", NoteRowToBeat(ts.m_iStartRow), ts.m_iNumerator, ts.m_iDenominator ) );
+	}
+	lines.push_back( ssprintf("%s", join(",",asTimeSignatureValues).c_str() ) );
+	// end bpms and stops and time signatures
+	
 	lines.push_back( ";" );
 
 	return JoinLineList( lines );

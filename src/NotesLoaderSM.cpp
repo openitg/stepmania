@@ -13,6 +13,8 @@
 
 const int MAX_EDIT_STEPS_SIZE_BYTES		= 30*1024;	// 30KB
 
+// TODO: Timing data with Steps.  Include a fallback for files that don't include this info.
+
 static void LoadFromSMTokens( 
 			     RString sStepsType, 
 			     RString sDescription,
@@ -20,6 +22,10 @@ static void LoadFromSMTokens(
 			     RString sMeter,
 			     RString sRadarValues,
 			     RString sNoteData,
+			     RString sBPMData,
+			     RString sStopsData,
+			     RString sTimeSignaturesData,
+			     TimingData td,
 			     Steps &out
 			     )
 {
@@ -29,6 +35,9 @@ static void LoadFromSMTokens(
 	Trim( sDescription );
 	Trim( sDifficulty );
 	Trim( sNoteData );
+	Trim( sBPMData );
+	Trim( sStopsData );
+	Trim( sTimeSignaturesData );
 
 	//	LOG->Trace( "Steps::LoadFromSMTokens()" );
 
@@ -57,6 +66,127 @@ static void LoadFromSMTokens(
 		out.SetCachedRadarValues( v );
 	}
 
+	// TODO: add proper timingdata
+	// bpms
+	if( sBPMData.CompareNoCase("") == 0 )
+	{
+		// import BPM data from Song
+		LOG->Trace( "imported timing data / bpm at beat 8: %f", td.GetBPMAtBeat(8) );
+		out.m_Timing.m_BPMSegments = td.m_BPMSegments;
+	}
+	else
+	{
+		// BPM data provided in Steps
+		LOG->Trace( "Steps::LoadFromSMTokens(): attempting to load bpm segments from steps..." );
+		vector<RString> arrayBPMChangeExpressions;
+		split( sBPMData, ",", arrayBPMChangeExpressions );
+		
+		for( unsigned b=0; b<arrayBPMChangeExpressions.size(); b++ )
+		{
+			vector<RString> arrayBPMChangeValues;
+			split( arrayBPMChangeExpressions[b], "=", arrayBPMChangeValues );
+			// XXX: Hard to tell which file caused this.
+			if( arrayBPMChangeValues.size() != 2 )
+			{
+				LOG->UserLog( "[LoadFromSMTokens] Song file", "(UNKNOWN)", "has an invalid #%s value \"%s\" (must have exactly one '='), ignored.",
+					     "BPM:", arrayBPMChangeExpressions[b].c_str() );
+				continue;
+			}
+			
+			const float fBeat = StringToFloat( arrayBPMChangeValues[0] );
+			const float fNewBPM = StringToFloat( arrayBPMChangeValues[1] );
+			
+			if( fNewBPM > 0.0f )
+				out.AddBPMSegment( BPMSegment(BeatToNoteRow(fBeat), fNewBPM) );
+			else
+				LOG->UserLog( "[LoadFromSMTokens] Song file", "(UNKNOWN)", "has an invalid BPM change at beat %f, BPM %f.", fBeat, fNewBPM );
+		}
+	}
+	
+	// stops
+	if( sStopsData.CompareNoCase("") == 0 )
+	{
+		// import Stops data from Song
+		if( td.HasStops() )
+			LOG->Trace( "imported timing data / song timing data has stops" );
+		else
+			LOG->Trace( "imported timing data / song timing data has no stops" );
+		out.m_Timing.m_StopSegments = td.m_StopSegments;
+	}
+	else
+	{
+		// Stops data provided in Steps
+		LOG->Trace( "Steps::LoadFromSMTokens(): attempting to load stop segments from steps..." );
+		vector<RString> arrayFreezeExpressions;
+		split( sStopsData, ",", arrayFreezeExpressions );
+		
+		for( unsigned f=0; f<arrayFreezeExpressions.size(); f++ )
+		{
+			vector<RString> arrayFreezeValues;
+			split( arrayFreezeExpressions[f], "=", arrayFreezeValues );
+			if( arrayFreezeValues.size() != 2 )
+			{
+				// XXX: Hard to tell which file caused this.
+				LOG->UserLog( "[LoadFromSMTokens] Song file", "(UNKNOWN)", "has an invalid #%s value \"%s\" (must have exactly one '='), ignored.",
+					     "Stops:", arrayFreezeExpressions[f].c_str() );
+				continue;
+			}
+			
+			const float fFreezeBeat = StringToFloat( arrayFreezeValues[0] );
+			const float fFreezeSeconds = StringToFloat( arrayFreezeValues[1] );
+			
+			StopSegment new_seg( BeatToNoteRow(fFreezeBeat), fFreezeSeconds );
+			
+			//	LOG->Trace( "Adding a freeze segment: beat: %f, seconds = %f", new_seg.m_fStartBeat, new_seg.m_fStopSeconds );
+			
+			out.AddStopSegment( new_seg );
+		}
+	}
+	
+	// time signatures
+	if( sTimeSignaturesData.CompareNoCase("") == 0 )
+	{
+		// import Time Signatures data from Song
+		if( td.HasTimeSignatures() )
+			LOG->Trace( "imported timing data / song timing data has time signatures" );
+		else
+			LOG->Trace( "imported timing data / song timing data has no time signatures" );
+		out.m_Timing.m_vTimeSignatureSegments = td.m_vTimeSignatureSegments;
+	}
+	else
+	{
+		// Time Signatures data provided in Steps
+		LOG->Trace( "Steps::LoadFromSMTokens(): attempting to load time signature segments from steps..." );
+		vector<RString> arrayTimeSignatureExpressions;
+		split( sTimeSignaturesData, ",", arrayTimeSignatureExpressions );
+		
+		for( unsigned f=0; f<arrayTimeSignatureExpressions.size(); f++ )
+		{
+			vector<RString> arrayTimeSignatureValues;
+			split( arrayTimeSignatureExpressions[f], "=", arrayTimeSignatureValues );
+			if( arrayTimeSignatureValues.size() != 3 )
+			{
+				// XXX: Hard to tell which file caused this.
+				LOG->UserLog( "[LoadFromSMTokens] Song file", "(UNKNOWN)", "has an invalid #%s value \"%s\" (must have exactly two '='s), ignored.",
+					     "Time Signatures:", arrayTimeSignatureExpressions[f].c_str() );
+				continue;
+			}
+			
+			const float fTimeSignatureBeat = StringToFloat( arrayTimeSignatureValues[0] );
+			int fTimeSignatureNume =  atoi( arrayTimeSignatureValues[1] ) ;
+			int fTimeSignatureDeno =  atoi( arrayTimeSignatureValues[2] ) ;
+			
+			TimeSignatureSegment new_seg;
+			new_seg.m_iStartRow = BeatToNoteRow( fTimeSignatureBeat );
+			new_seg.m_iNumerator = fTimeSignatureNume;
+			new_seg.m_iDenominator = fTimeSignatureDeno;
+			
+			//	LOG->Trace( "Adding a time signature segment: beat: %f, numerator = %f, denominator = %f", fTimeSignatureBeat, fTimeSignatureNume, fTimeSignatureDeno );
+			
+			out.AddTimeSignatureSegment( new_seg );
+		}
+	}
+	
 	out.SetSMNoteData( sNoteData );
 
 	out.TidyUpData();
@@ -81,6 +211,7 @@ bool SMLoader::LoadTimingFromFile( const RString &fn, TimingData &out )
 	return true;
 }
 
+// TODO: Make this work from Steps
 void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 {
 	out.m_fBeat0OffsetInSeconds = 0;
@@ -526,15 +657,38 @@ bool SMLoader::LoadFromSMFile( const RString &sPath, Song &out, bool bFromCache 
 			}
 
 			Steps* pNewNotes = new Steps;
-			LoadFromSMTokens( 
-				sParams[1], 
-				sParams[2], 
-				sParams[3], 
-				sParams[4], 
-				sParams[5], 
-				sParams[6],
-				*pNewNotes );
-
+			
+			// Check the format used: old format, or BPM in steps format.
+			if( iNumParams == 10 )
+			{
+				LoadFromSMTokens(
+						 sParams[1],	// StepsType
+						 sParams[2],	// Description
+						 sParams[3],	// Difficulty
+						 sParams[4],	// Meter
+						 sParams[5],	// RadarValues
+						 sParams[6],	// NoteData
+						 sParams[7],	// BPMs
+						 sParams[8],	// Stops
+						 sParams[9],	// Time Signatures
+						 out.m_Timing,	// Song timing data, just in case.
+						 *pNewNotes );	 
+			}
+			else
+			{
+				LoadFromSMTokens( 
+						 sParams[1],	// StepsType
+						 sParams[2],	// Description
+						 sParams[3],	// Difficulty
+						 sParams[4],	// Meter
+						 sParams[5],	// RadarValues
+						 sParams[6],	// NoteData
+						 "",		// BPMs
+						 "",		// Stops
+						 "",		// Time Signatures
+						 out.m_Timing,	// Song timing data, mandatory.
+						 *pNewNotes );
+			}
 			out.AddSteps( pNewNotes );
 		}
 		else if( sValueName=="OFFSET" || sValueName=="BPMS" || sValueName=="STOPS" || sValueName=="FREEZES" || sValueName=="TIMESIGNATURES" )
@@ -648,9 +802,38 @@ bool SMLoader::LoadEditFromMsd( const MsdFile &msd, const RString &sEditFilePath
 				return true;
 
 			Steps* pNewNotes = new Steps;
-			LoadFromSMTokens( 
-				sParams[1], sParams[2], sParams[3], sParams[4], sParams[5], sParams[6],
-				*pNewNotes);
+			
+			// Check the format used: old format, or BPM in steps format.
+			if( iNumParams == 10 )
+			{
+				LoadFromSMTokens(
+						 sParams[1],		// StepsType
+						 sParams[2],		// Description
+						 sParams[3],		// Difficulty
+						 sParams[4],		// Meter
+						 sParams[5],		// RadarValues
+						 sParams[6],		// NoteData
+						 sParams[7],		// BPMs
+						 sParams[8],		// Stops
+						 sParams[9],		// Time Signatures
+						 pSong->m_Timing,	// Song timing data, just in case.
+						 *pNewNotes );	 
+			}
+			else
+			{
+				LoadFromSMTokens( 
+						 sParams[1],		// StepsType
+						 sParams[2],		// Description
+						 sParams[3],		// Difficulty
+						 sParams[4],		// Meter
+						 sParams[5],		// RadarValues
+						 sParams[6],		// NoteData
+						 "",			// BPMs
+						 "",			// Stops
+						 "",			// Time Signatures
+						 pSong->m_Timing,	// Song timing data, mandatory.
+						 *pNewNotes );
+			}
 
 			pNewNotes->SetLoadedFromProfile( slot );
 			pNewNotes->SetDifficulty( Difficulty_Edit );

@@ -19,6 +19,7 @@
 #include "BackgroundUtil.h"
 #include "Course.h"
 #include "NoteData.h"
+#include "Steps.h"
 
 static ThemeMetric<bool> SHOW_BOARD( "NoteField", "ShowBoard" );
 static ThemeMetric<bool> SHOW_BEAT_BARS( "NoteField", "ShowBeatBars" );
@@ -588,7 +589,9 @@ void NoteField::DrawPrimitives()
 	//
 	if( GAMESTATE->IsEditing() || SHOW_BEAT_BARS )
 	{
-		const vector<TimeSignatureSegment> &vTimeSignatureSegments = GAMESTATE->m_pCurSong->m_Timing.m_vTimeSignatureSegments;
+		//const vector<TimeSignatureSegment> &vTimeSignatureSegments = GAMESTATE->m_pCurSong->m_Timing.m_vTimeSignatureSegments;
+		const vector<TimeSignatureSegment> &vTimeSignatureSegments = GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing.m_vTimeSignatureSegments;		
+		
 		int iMeasureIndex = 0;
 		FOREACH_CONST( TimeSignatureSegment, vTimeSignatureSegments, iter )
 		{
@@ -634,7 +637,8 @@ void NoteField::DrawPrimitives()
 		//
 		// BPM text
 		//
-		const vector<BPMSegment> &aBPMSegments = GAMESTATE->m_pCurSong->m_Timing.m_BPMSegments;
+		//const vector<BPMSegment> &aBPMSegments = GAMESTATE->m_pCurSong->m_Timing.m_BPMSegments;
+		const vector<BPMSegment> &aBPMSegments = GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing.m_BPMSegments;
 		for( unsigned i=0; i<aBPMSegments.size(); i++ )
 		{
 			if( aBPMSegments[i].m_iStartRow >= iFirstRowToDraw &&
@@ -649,7 +653,8 @@ void NoteField::DrawPrimitives()
 		//
 		// Freeze text
 		//
-		const vector<StopSegment> &aStopSegments = GAMESTATE->m_pCurSong->m_Timing.m_StopSegments;
+		//const vector<StopSegment> &aStopSegments = GAMESTATE->m_pCurSong->m_Timing.m_StopSegments;
+		const vector<StopSegment> &aStopSegments = GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing.m_StopSegments;
 		for( unsigned i=0; i<aStopSegments.size(); i++ )
 		{
 			if( aStopSegments[i].m_iStartRow >= iFirstRowToDraw &&
@@ -664,7 +669,8 @@ void NoteField::DrawPrimitives()
 		//
 		// Time Signature text
 		//
-		const vector<TimeSignatureSegment> &vTimeSignatureSegments = GAMESTATE->m_pCurSong->m_Timing.m_vTimeSignatureSegments;
+		//const vector<TimeSignatureSegment> &vTimeSignatureSegments = GAMESTATE->m_pCurSong->m_Timing.m_vTimeSignatureSegments;
+		const vector<TimeSignatureSegment> &vTimeSignatureSegments = GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing.m_vTimeSignatureSegments;
 		for( unsigned i=0; i<vTimeSignatureSegments.size(); i++ )
 		{
 			if( vTimeSignatureSegments[i].m_iStartRow >= iFirstRowToDraw &&
@@ -688,8 +694,8 @@ void NoteField::DrawPrimitives()
 			FOREACH_CONST( Attack, ce.attacks, a )
 			{
 				float fSecond = a->fStartSecond;
-				float fBeat = GAMESTATE->m_pCurSong->m_Timing.GetBeatFromElapsedTime( fSecond );
-
+				//float fBeat = GAMESTATE->m_pCurSong->m_Timing.GetBeatFromElapsedTime( fSecond );
+				float fBeat = GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing.GetBeatFromElapsedTime( fSecond );
 				if( BeatToNoteRow(fBeat) >= iFirstRowToDraw &&
 					BeatToNoteRow(fBeat) <= iLastRowToDraw)
 				{

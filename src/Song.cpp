@@ -135,6 +135,7 @@ void Song::AddLyricSegment( LyricSegment seg )
 	m_LyricSegments.push_back( seg );
 }
 
+// All Songs have a display BPM regardless of Step Timing Data.
 void Song::GetDisplayBpms( DisplayBpms &AddTo ) const
 {
 	if( m_DisplayBPMType == DISPLAY_SPECIFIED )
@@ -457,6 +458,7 @@ void Song::TidyUpData()
 		m_sArtist = "Unknown artist";
 	TranslateTitles();
 
+	// All songs should have a base BPM, even if Steps have their own.
 	if( m_Timing.m_BPMSegments.empty() )
 	{
 		LOG->UserLog( "Song file", m_sSongDir + m_sSongFileName, "has no BPM segments, default provided." );

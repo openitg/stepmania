@@ -890,7 +890,9 @@ void ScreenEdit::Update( float fDeltaTime )
 	{
 		RageTimer tm;
 		const float fSeconds = m_pSoundMusic->GetPositionSeconds( NULL, &tm );
-		GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSong->m_Timing, tm );
+		// TODO: Use the step's timing data instead of the song's.  Get the difficulty.
+		//GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSong->m_Timing, tm );
+		GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing, tm );
 	}
 
 	if( m_EditState == STATE_RECORDING  )	
@@ -1537,6 +1539,7 @@ void ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 			}
 			
 			float fNewBPM = fBPM + fDelta;
+			// TODO: Have this work with the Step's timing data.  Get the difficulty.
 			m_pSong->SetBPMAtBeat( GAMESTATE->m_fSongBeat, fNewBPM );
 			(fDelta>0 ? m_soundValueIncrease : m_soundValueDecrease).Play();
 			SetDirty( true );
@@ -2519,6 +2522,7 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 	{
 		float fBPM = StringToFloat( ScreenTextEntry::s_sLastAnswer );
 		if( fBPM > 0 )
+			// TODO: Make this work with Steps-based timing data.  Get the difficulty.
 			m_pSong->SetBPMAtBeat( GAMESTATE->m_fSongBeat, fBPM );
 		SetDirty( true );
 	}
