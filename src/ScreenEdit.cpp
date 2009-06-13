@@ -891,8 +891,8 @@ void ScreenEdit::Update( float fDeltaTime )
 		RageTimer tm;
 		const float fSeconds = m_pSoundMusic->GetPositionSeconds( NULL, &tm );
 		// TODO: Use the step's timing data instead of the song's.  Get the difficulty.
-		//GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSong->m_Timing, tm );
-		GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing, tm );
+		GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSong->m_Timing, tm );
+		//GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing, tm );
 	}
 
 	if( m_EditState == STATE_RECORDING  )	
