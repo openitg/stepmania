@@ -1386,6 +1386,7 @@ public:
 		return 1;
 	}
 	static int GetSongDir( T* p, lua_State *L )		{ lua_pushstring(L, p->GetSongDir() ); return 1; }
+	static int GetSongFilePath(  T* p, lua_State *L )	{ lua_pushstring(L, p->GetSongFilePath() ); return 1; }
 	static int GetBannerPath( T* p, lua_State *L )		{ RString s = p->GetBannerPath(); if( s.empty() ) return 0; LuaHelpers::Push(L, s); return 1; }
 	static int GetBackgroundPath( T* p, lua_State *L )	{ RString s = p->GetBackgroundPath(); if( s.empty() ) return 0; lua_pushstring(L, s); return 1; }
 	static int IsTutorial( T* p, lua_State *L )		{ lua_pushboolean(L, p->IsTutorial()); return 1; }
@@ -1432,6 +1433,7 @@ public:
 		ADD_METHOD( GetAllSteps );
 		ADD_METHOD( GetStepsByStepsType );
 		ADD_METHOD( GetSongDir );
+		ADD_METHOD( GetSongFilePath );
 		ADD_METHOD( GetBannerPath );
 		ADD_METHOD( GetBackgroundPath );
 		ADD_METHOD( IsTutorial );
