@@ -55,6 +55,7 @@ ScreenNetSelectMusic.cpp ScreenNetSelectMusic.h ScreenNetSelectBase.cpp ScreenNe
 ScreenGameplay.cpp ScreenGameplay.h \
 ScreenGameplayLesson.cpp ScreenGameplayLesson.h \
 ScreenGameplayNormal.cpp ScreenGameplayNormal.h \
+ScreenGameplayShared.cpp ScreenGameplayShared.h \
 ScreenGameplaySyncMachine.cpp ScreenGameplaySyncMachine.h \
 ScreenHighScores.cpp ScreenHighScores.h \
 ScreenHowToPlay.cpp ScreenHowToPlay.h \
@@ -152,6 +153,7 @@ ScoreKeeper.h ScoreKeeper.cpp \
 ScoreKeeperGuitar.cpp ScoreKeeperGuitar.h \
 ScoreKeeperNormal.cpp ScoreKeeperNormal.h \
 ScoreKeeperRave.cpp ScoreKeeperRave.h \
+ScoreKeeperShared.cpp ScoreKeeperShared.h \
 Song.cpp Song.h SongCacheIndex.cpp SongCacheIndex.h \
 SongOptions.cpp SongOptions.h SongUtil.cpp SongUtil.h StageStats.cpp StageStats.h Steps.cpp Steps.h \
 SoundEffectControl.cpp SoundEffectControl.h \
