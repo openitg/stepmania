@@ -254,8 +254,12 @@ void OptionsList::Reset()
 }
 
 void OptionsList::Open()
-{	
+{
 	this->PlayCommand( "Reset" );
+
+	Message msg("OptionsListOpened");
+	msg.SetParam( "Player", m_pn );
+	MESSAGEMAN->Broadcast( msg );
 
 	/* Push the initial menu. */
 	ASSERT( m_asMenuStack.size() == 0 );
@@ -268,6 +272,10 @@ void OptionsList::Open()
 
 void OptionsList::Close()
 {
+	Message msg("OptionsListClosed");
+	msg.SetParam( "Player", m_pn );
+	MESSAGEMAN->Broadcast( msg );
+
 	m_bStartIsDown = false;
 	m_asMenuStack.clear();
 	this->PlayCommand( "TweenOff" );
@@ -467,7 +475,7 @@ void OptionsList::Input( const InputEventPlus &input )
 			return;
 //		if( input.type == IET_RELEASE )
 		{
-			Close();
+			Pop();
 			return;
 		}
 		return;
@@ -570,6 +578,11 @@ void OptionsList::Pop()
 		return;
 	}
 
+
+	Message msg("OptionsListPop");
+	msg.SetParam( "Player", m_pn );
+	MESSAGEMAN->Broadcast( msg );
+
 	RString sLastMenu = m_asMenuStack.back();
 
 	m_asMenuStack.pop_back();
@@ -589,6 +602,14 @@ void OptionsList::Pop()
 
 void OptionsList::Push( RString sDest )
 {
+	// Only broadcast if we've pushed a submenu, so we don't play on Open.
+	if( !m_asMenuStack.empty() )
+	{
+		Message msg("OptionsListPush");
+		msg.SetParam( "Player", m_pn );
+		MESSAGEMAN->Broadcast( msg );
+	}
+
 	m_asMenuStack.push_back( sDest );
 	SetDefaultCurrentRow();
 	SwitchToCurrentRow();
@@ -653,11 +674,6 @@ bool OptionsList::Start()
 	if( m_iMenuStackSelection == (int)bSelections.size() )
 	{
 		Pop();
-
-		Message msg("OptionsListPop");
-		msg.SetParam( "Player", m_pn );
-		MESSAGEMAN->Broadcast( msg );
-
 		return m_asMenuStack.empty();
 	}
 
@@ -692,19 +708,17 @@ bool OptionsList::Start()
 	{
 		Push( sDest );
 		TweenOnCurrentRow( true );
-
-		Message msg("OptionsListPush");
-		msg.SetParam( "Player", m_pn );
-		MESSAGEMAN->Broadcast( msg );
-
 		return false;
 	}
 
 	SelectItem( GetCurrentRow(), m_iMenuStackSelection );
 
-	/* Move to the exit row. */
-	m_iMenuStackSelection = (int)bSelections.size();
-	PositionCursor();
+	/* Move to the exit row if we made our selection. */
+	if( GetCurrentHandler()->m_Def.m_selectType == SELECT_ONE )
+	{
+		m_iMenuStackSelection = (int)bSelections.size();
+		PositionCursor();
+	}
 
 	Message msg("OptionsListStart");
 	msg.SetParam( "Player", m_pn );

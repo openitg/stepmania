@@ -1095,6 +1095,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath="ScoreKeeperRave.h">
 			</File>
 			<File
+				RelativePath=".\ScoreKeeperShared.cpp">
+			</File>
+			<File
+				RelativePath=".\ScoreKeeperShared.h">
+			</File>
+			<File
 				RelativePath="ScreenDimensions.cpp">
 			</File>
 			<File

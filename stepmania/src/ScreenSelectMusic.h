@@ -124,8 +124,6 @@ protected:
 	BitmapText		m_textHighScore[NUM_PLAYERS];
 	MusicWheel		m_MusicWheel;
 	OptionsList		m_OptionsList[NUM_PLAYERS];
-	void OpenOptionsList( PlayerNumber pn );
-	void CloseOptionsList( PlayerNumber pn );
 
 	SelectionState		m_SelectionState;
 	bool			m_bStepsChosen[NUM_PLAYERS];	// only used in SelectionState_SelectingSteps
