@@ -195,7 +195,7 @@ PrefsManager::PrefsManager() :
 	m_MusicWheelUsesSections	( "MusicWheelUsesSections",	MusicWheelUsesSections_ALWAYS ),
 	m_iMusicWheelSwitchSpeed	( "MusicWheelSwitchSpeed",	10 ),
 	m_AllowW1			( "AllowW1",			ALLOW_W1_EVERYWHERE ),
-	m_bEventMode			( "EventMode",			false ),
+	m_bEventMode			( "EventMode",			true ),
 	m_iCoinsPerCredit		( "CoinsPerCredit",		1 ),
 	m_iSongsPerPlay			( "SongsPerPlay",		3, ValidateSongsPerPlay ),
 	m_bDelayedCreditsReconcile	( "DelayedCreditsReconcile",	false ),
