@@ -359,8 +359,8 @@ void ScreenSelectMusic::Input( const InputEventPlus &input )
 
 	if ( bHoldingCtrl && ( c >= 'A' ) && ( c <= 'Z' ) )
 	{
-		// Don't change sort order when the wheel is locked.
-		if( !m_MusicWheel.WheelIsLocked() )
+		// Only allow changing the sort via Control+letter when the wheel isn't locked and we're not in course mode.
+		if( !m_MusicWheel.WheelIsLocked() && !GAMESTATE->IsCourseMode() )
 		{
 			SortOrder so = GAMESTATE->m_SortOrder;
 			if ( ( so != SORT_TITLE ) && ( so != SORT_ARTIST ) )
