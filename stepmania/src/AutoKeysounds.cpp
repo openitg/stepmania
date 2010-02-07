@@ -179,7 +179,7 @@ void AutoKeysounds::LoadTracks( const Song *pSong, RageSoundReader *&pShared, Ra
 		/* Load the buffering filter before the effects filters, so effects aren't delayed. */
 		pGuitarTrackReader = new RageSoundReader_Extend( pGuitarTrackReader );
 		pGuitarTrackReader = new RageSoundReader_ThreadedBuffer( pGuitarTrackReader );
-		pPlayer1 = pGuitarTrackReader;	
+		pPlayer1 = pGuitarTrackReader;
 	}
 
 	return;

@@ -524,7 +524,7 @@ XNode *LuaHelpers::GetLuaInformation()
 	{
 		RString sKey;
 		LuaHelpers::Pop( L, sKey );
-		
+
 		switch( lua_type(L, -1) )
 		{
 		case LUA_TTABLE:
@@ -532,7 +532,7 @@ XNode *LuaHelpers::GetLuaInformation()
 			if( luaL_getmetafield(L, -1, "class") )
 			{
 				const char *name = lua_tostring( L, -1 );
-				
+
 				if( !name )
 					break;
 				LClass &c = mClasses[name];
@@ -547,7 +547,7 @@ XNode *LuaHelpers::GetLuaInformation()
 				if( name )
 					c.m_sBaseName = name;
 				lua_pop( L, 2 ); // pop name and metatable
-				
+
 				// Get methods.
 				FOREACH_LUATABLE( L, -1 )
 				{
@@ -592,7 +592,7 @@ XNode *LuaHelpers::GetLuaInformation()
 			break;
 		}
 	}
-	
+
 	// Find namespaces
 	lua_pushcfunction( L, luaopen_package ); lua_call( L, 0, 0 );
 	lua_getglobal( L, "package" );
@@ -618,7 +618,7 @@ XNode *LuaHelpers::GetLuaInformation()
 		sort( vNamespaceFunctions.begin(), vNamespaceFunctions.end() );
 	}
 	lua_pop( L, 2 );
-	
+
 	LUA->Release( L );
 
 	sort( vFunctions.begin(), vFunctions.end() );
@@ -627,11 +627,11 @@ XNode *LuaHelpers::GetLuaInformation()
 		XNode *pFunctionNode = pGlobalsNode->AppendChild( "Function" );
 		pFunctionNode->AppendAttr( "name", *func );
 	}
-	
+
 	FOREACHM_CONST( RString, LClass, mClasses, c )
 	{
 		XNode *pClassNode = pClassesNode->AppendChild( "Class" );
-		
+
 		pClassNode->AppendAttr( "name", c->first );
 		if( !c->second.m_sBaseName.empty() )
 			pClassNode->AppendAttr( "base", c->second.m_sBaseName );
@@ -641,7 +641,7 @@ XNode *LuaHelpers::GetLuaInformation()
 			pMethodNode->AppendAttr( "name", *m );
 		}
 	}
-	
+
 	FOREACHM_CONST( RString, RString, mSingletons, s )
 	{
 		if( mClasses.find(s->first) != mClasses.end() )
@@ -650,13 +650,13 @@ XNode *LuaHelpers::GetLuaInformation()
 		pSingletonNode->AppendAttr( "name", s->first );
 		pSingletonNode->AppendAttr( "class", s->second );
 	}
-	
+
 	for( map<RString, vector<RString> >::const_iterator iter = mNamespaces.begin(); iter != mNamespaces.end(); ++iter )
 	{
 		XNode *pNamespaceNode = pNamespacesNode->AppendChild( "Namespace" );
 		const vector<RString> &vNamespace = iter->second;
 		pNamespaceNode->AppendAttr( "name", iter->first );
-		
+
 		FOREACH_CONST( RString, vNamespace, func )
 		{
 			XNode *pFunctionNode = pNamespaceNode->AppendChild( "Function" );
@@ -670,7 +670,7 @@ XNode *LuaHelpers::GetLuaInformation()
 
 		const vector<RString> &vEnum = iter->second;
 		pEnumNode->AppendAttr( "name", iter->first );
-		
+
 		for( unsigned i = 0; i < vEnum.size(); ++i )
 		{
 			XNode *pEnumValueNode = pEnumNode->AppendChild( "EnumValue" );
@@ -682,7 +682,7 @@ XNode *LuaHelpers::GetLuaInformation()
 	FOREACHM_CONST( RString, float, mConstants, c )
 	{
 		XNode *pConstantNode = pConstantsNode->AppendChild( "Constant" );
-		
+
 		pConstantNode->AppendAttr( "name", c->first );
 		if( c->second == truncf(c->second) )
 			pConstantNode->AppendAttr( "value", int(c->second) );
@@ -698,7 +698,7 @@ XNode *LuaHelpers::GetLuaInformation()
 
 	return pLuaNode;
 }
-	
+
 
 bool LuaHelpers::RunScriptFile( const RString &sFile )
 {
@@ -803,7 +803,7 @@ void LuaHelpers::ParseCommandList( Lua *L, const RString &sCommands, const RStri
 	{
 		Commands cmds;
 		ParseCommands( sCommands, cmds );
-		
+
 		//
 		// Convert cmds to a Lua function
 		//
@@ -1015,7 +1015,7 @@ namespace
 		LuaThreadVariable::GetThreadVariable( L );
 		return 1;
 	}
-	
+
 	const luaL_Reg luaTable[] =
 	{
 		LIST_METHOD( Trace ),
