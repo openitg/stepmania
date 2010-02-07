@@ -74,6 +74,7 @@ static const char *BlendModeNames[] =
 {
 	"Normal",
 	"Add",
+	"Subtract",
 
 	/*
 	 * Copy the source directly to the destination.  Alpha is not premultiplied.
