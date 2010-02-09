@@ -2104,6 +2104,12 @@ void ScreenEdit::InputPlay( const InputEventPlus &input, EditButton EditB )
 		bool bRelease = input.type == IET_RELEASE;
 		switch( input.pn )
 		{
+		case PLAYER_2:
+			// ignore player 2 input unless this mode requires it
+			if( GAMESTATE->GetCurrentStyle()->m_StyleType != StyleType_TwoPlayersSharedSides )
+					break;
+
+			// fall through to input handling logic
 		case PLAYER_1:
 			{
 				switch( gbt )
@@ -2124,9 +2130,6 @@ void ScreenEdit::InputPlay( const InputEventPlus &input, EditButton EditB )
 				}
 			}
 			break;
-		case PLAYER_2:
-			if( GAMESTATE->GetCurrentStyle()->m_StyleType == StyleType_TwoPlayersSharedSides )
-				m_Player->Step( iCol, -1, input.DeviceI.ts, false, input.type == IET_RELEASE );
 		}
 	}
 
