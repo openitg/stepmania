@@ -94,6 +94,14 @@ function tableslice( t, num )
 	return ret
 end
 
+function scale_clamp( val, l1, h1, l2, h2 )
+	val = scale(val, l1, h1, l2, h2);
+	if l2 > h2 then
+		return clamp(val, h2, l2);
+	else
+		return clamp(val, l2, h2);
+	end
+end
 
 function GetRandomSongBackground()
 	for i=0,50 do
