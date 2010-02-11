@@ -2567,14 +2567,6 @@
 				>
 			</File>
 			<File
-				RelativePath="MusicBannerWheel.cpp"
-				>
-			</File>
-			<File
-				RelativePath="MusicBannerWheel.h"
-				>
-			</File>
-			<File
 				RelativePath="MusicList.cpp"
 				>
 			</File>
