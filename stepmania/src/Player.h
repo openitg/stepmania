@@ -11,7 +11,6 @@
 #include "NoteData.h"
 #include "ScreenMessage.h"
 #include "ThemeMetric.h"
-#include "InputEventPlus.h"
 
 class ScoreDisplay;
 class LifeMeter;
@@ -109,7 +108,6 @@ public:
 	//
 	virtual void PushSelf( lua_State *L );
 
-	vector<AlternateMapping> m_vAlterMap;
 protected:
 	void UpdateTapNotesMissedOlderThan( float fMissIfOlderThanThisBeat );
 	void UpdateJudgedRows();
