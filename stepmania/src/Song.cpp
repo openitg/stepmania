@@ -1388,6 +1388,8 @@ public:
 	static int GetSongDir( T* p, lua_State *L )		{ lua_pushstring(L, p->GetSongDir() ); return 1; }
 	static int GetBannerPath( T* p, lua_State *L )		{ RString s = p->GetBannerPath(); if( s.empty() ) return 0; LuaHelpers::Push(L, s); return 1; }
 	static int GetBackgroundPath( T* p, lua_State *L )	{ RString s = p->GetBackgroundPath(); if( s.empty() ) return 0; lua_pushstring(L, s); return 1; }
+	static int GetFirstBeat( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_fFirstBeat); return 1; }
+	static int GetLastBeat( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_fLastBeat); return 1; }
 	static int IsTutorial( T* p, lua_State *L )		{ lua_pushboolean(L, p->IsTutorial()); return 1; }
 	static int GetGroupName( T* p, lua_State *L )		{ lua_pushstring(L, p->m_sGroupName); return 1; }
 	static int MusicLengthSeconds( T* p, lua_State *L )	{ lua_pushnumber(L, p->m_fMusicLengthSeconds); return 1; }
@@ -1434,6 +1436,8 @@ public:
 		ADD_METHOD( GetSongDir );
 		ADD_METHOD( GetBannerPath );
 		ADD_METHOD( GetBackgroundPath );
+		ADD_METHOD( GetFirstBeat );
+		ADD_METHOD( GetLastBeat );
 		ADD_METHOD( IsTutorial );
 		ADD_METHOD( GetGroupName );
 		ADD_METHOD( MusicLengthSeconds );
