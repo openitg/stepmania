@@ -587,12 +587,6 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath="ScreenSelectMaster.h">
 			</File>
 			<File
-				RelativePath="ScreenSelectMode.cpp">
-			</File>
-			<File
-				RelativePath="ScreenSelectMode.h">
-			</File>
-			<File
 				RelativePath="ScreenSelectMusic.cpp">
 			</File>
 			<File
@@ -1447,12 +1441,6 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			</File>
 			<File
 				RelativePath="ScrollBar.h">
-			</File>
-			<File
-				RelativePath="ScrollingList.cpp">
-			</File>
-			<File
-				RelativePath="ScrollingList.h">
 			</File>
 			<File
 				RelativePath="SnapDisplay.cpp">

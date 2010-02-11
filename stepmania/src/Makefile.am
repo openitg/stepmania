@@ -85,7 +85,7 @@ ScreenServiceAction.cpp ScreenServiceAction.h \
 ScreenStatsOverlay.cpp ScreenStatsOverlay.h \
 ScreenSelect.cpp ScreenSelect.h ScreenSelectCharacter.cpp ScreenSelectCharacter.h \
 ScreenSelectLanguage.cpp  ScreenSelectLanguage.h \
-ScreenSelectMaster.cpp ScreenSelectMaster.h ScreenSelectMode.cpp ScreenSelectMode.h \
+ScreenSelectMaster.cpp ScreenSelectMaster.h \
 ScreenSelectMusic.cpp ScreenSelectMusic.h \
 ScreenSelectProfile.cpp ScreenSelectProfile.h \
 ScreenSyncOverlay.cpp ScreenSyncOverlay.h \
@@ -325,7 +325,7 @@ MusicList.cpp MusicList.h MusicWheel.cpp MusicWheel.h \
 MusicWheelItem.cpp MusicWheelItem.h \
 OptionRow.cpp OptionRow.h OptionsCursor.cpp OptionsCursor.h \
 PaneDisplay.cpp PaneDisplay.h ScrollBar.cpp ScrollBar.h \
-ScrollingList.cpp ScrollingList.h SnapDisplay.cpp SnapDisplay.h \
+SnapDisplay.cpp SnapDisplay.h \
 TextBanner.cpp TextBanner.h WheelBase.cpp WheelBase.h WheelItemBase.cpp WheelItemBase.h \
 WheelNotifyIcon.cpp WheelNotifyIcon.h \
 WorkoutGraph.cpp WorkoutGraph.h 

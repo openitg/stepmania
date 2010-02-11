@@ -775,14 +775,6 @@
 				>
 			</File>
 			<File
-				RelativePath="ScreenSelectMode.cpp"
-				>
-			</File>
-			<File
-				RelativePath="ScreenSelectMode.h"
-				>
-			</File>
-			<File
 				RelativePath="ScreenSelectMusic.cpp"
 				>
 			</File>
@@ -2636,14 +2628,6 @@
 			</File>
 			<File
 				RelativePath="ScrollBar.h"
-				>
-			</File>
-			<File
-				RelativePath="ScrollingList.cpp"
-				>
-			</File>
-			<File
-				RelativePath="ScrollingList.h"
 				>
 			</File>
 			<File
