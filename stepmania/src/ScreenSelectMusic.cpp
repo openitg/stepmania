@@ -86,7 +86,6 @@ void ScreenSelectMusic::Init()
 	OPTIONS_LIST_TIMEOUT.Load( m_sName, "OptionsListTimeout" );
 	SELECT_MENU_CHANGES_DIFFICULTY.Load( m_sName, "SelectMenuChangesDifficulty" );
 	TWO_PART_SELECTION.Load( m_sName, "TwoPartSelection" );
-	TWO_PART_CONFIRMS_ONLY.Load( m_sName, "TwoPartConfirmsOnly" );
 	WRAP_CHANGE_STEPS.Load( m_sName, "WrapChangeSteps" );
 
 	m_GameButtonPreviousSong = INPUTMAPPER->GetInputScheme()->ButtonNameToIndex( THEME->GetMetric(m_sName,"PreviousSongButton") );
@@ -593,40 +592,25 @@ void ScreenSelectMusic::Input( const InputEventPlus &input )
 		}
 	}
 
-	if(!TWO_PART_CONFIRMS_ONLY)
+	if( m_SelectionState == SelectionState_SelectingSteps  &&
+		input.type == IET_FIRST_PRESS  &&
+		(input.MenuI == m_GameButtonNextSong || input.MenuI == m_GameButtonPreviousSong) &&
+		!m_bStepsChosen[input.pn] )
 	{
-
-		if( m_SelectionState == SelectionState_SelectingSteps  &&
-			input.type == IET_FIRST_PRESS  &&
-			(input.MenuI == m_GameButtonNextSong || input.MenuI == m_GameButtonPreviousSong) &&
-			!m_bStepsChosen[input.pn] )
+		if( input.MenuI == m_GameButtonPreviousSong )
 		{
-			if( input.MenuI == m_GameButtonPreviousSong )
-			{
-				if( GAMESTATE->IsAnExtraStageAndSelectionLocked() )
-					m_soundLocked.Play();
-				else
-					ChangeSteps( input.pn, -1 );
-			}
-			else if( input.MenuI == m_GameButtonNextSong )
-			{
-				if( GAMESTATE->IsAnExtraStageAndSelectionLocked() )
-					m_soundLocked.Play();
-				else
-					ChangeSteps( input.pn, +1 );
-			}		
-		}
-	}
-	else // two part selection without step selection
-	{
-		// moving the menu de-confirms your song choice.
-		if((input.MenuI == m_GameButtonPreviousSong || m_GameButtonNextSong) && input.MenuI != GAME_BUTTON_START)
-		{
-			if(GAMESTATE->IsAnExtraStageAndSelectionLocked())
+			if( GAMESTATE->IsAnExtraStageAndSelectionLocked() )
 				m_soundLocked.Play();
 			else
-				m_SelectionState = SelectionState_SelectingSong;
+				ChangeSteps( input.pn, -1 );
 		}
+		else if( input.MenuI == m_GameButtonNextSong )
+		{
+			if( GAMESTATE->IsAnExtraStageAndSelectionLocked() )
+				m_soundLocked.Play();
+			else
+				ChangeSteps( input.pn, +1 );
+		}		
 	}
 
 	if( input.type == IET_FIRST_PRESS && DetectCodes(input) )
@@ -990,13 +974,6 @@ void ScreenSelectMusic::MenuStart( const InputEventPlus &input )
 			}
 
 			bool bAllPlayersDoneSelectingSteps = bInitiatedByMenuTimer || bAllOtherHumanPlayersDone;
-
-			// if we are using song confirmation only, the confirmation affects all players
-			if(TWO_PART_CONFIRMS_ONLY) 
-			{
-				bAllPlayersDoneSelectingSteps = true;
-			}
-	
 			if( !bAllPlayersDoneSelectingSteps )
 			{
 				m_bStepsChosen[pn] = true;
@@ -1026,17 +1003,6 @@ void ScreenSelectMusic::MenuStart( const InputEventPlus &input )
 	MESSAGEMAN->Broadcast( msg );
 
 	m_soundStart.Play();
-
-	// if the menu timer has pressed start,
-	// and we are confirming song selection only,
-	// go straight to finalised state and initiate the song.
-	if(TWO_PART_CONFIRMS_ONLY)
-	{
-		if(m_MenuTimer->GetSeconds() < 1)
-		{
-			m_SelectionState = SelectionState_Finalized;
-		}
-	}
 
 
 	if( m_SelectionState == SelectionState_Finalized )

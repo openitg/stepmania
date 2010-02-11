@@ -70,8 +70,6 @@ public:
 	//
 	virtual void PushSelf( lua_State *L );
 
-	void SetAllStateDelays(float fDelay);
-
 protected:
 	void LoadFromTexture( RageTextureID ID );
 
