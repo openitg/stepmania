@@ -38,8 +38,6 @@
 #include "UnlockManager.h"
 #include "ScreenManager.h"
 #include "Screen.h"
-#include "arch/Dialog/Dialog.h"
-#include "GameConstantsAndTypes.h"
 
 #include <ctime>
 #include <set>
@@ -2138,40 +2136,7 @@ public:
 	static int GetCurrentSteps( T* p, lua_State *L )
 	{
 		PlayerNumber pn = Enum::Check<PlayerNumber>(L, 1);
-		
-		Steps* pSteps;
-		if( p->m_pCurSong.Get() != NULL )
-		{
-			// try our preferred steps type and difficulty first
-			pSteps = SongUtil::GetOneSteps( p->m_pCurSong.Get(), GAMESTATE->m_PreferredStepsType, GAMESTATE->m_PreferredDifficulty[pn] );
-
-			// no matches for preferred stepstype? try the current style
-			if( pSteps == NULL )
-				pSteps = SongUtil::GetOneSteps( p->m_pCurSong.Get(), GAMESTATE->GetCurrentStyle()->m_StepsType, GAMESTATE->m_PreferredDifficulty[pn] );
-
-			// nothing found with preferred difficulty? try with closest
-			// closest seems to return 'easy' when prefrred difficulty is 'medium'
-			// even if the song has medium steps?
-			if(	pSteps == NULL )
-				pSteps = SongUtil::GetOneSteps( p->m_pCurSong.Get(), GAMESTATE->GetCurrentStyle()->m_StepsType, GAMESTATE->GetClosestShownDifficulty(pn) );
-
-			if( pSteps == NULL )
-			{
-			//	Dialog::OK( ssprintf("GetCurrentSteps() -- No Steps (Difficulty = %s Preferred = %s)",DifficultyToString(GAMESTATE->m_PreferredDifficulty[pn]).c_str() ),"Error");
-				pSteps = p->m_pCurSteps[pn];
-			}
-		}
-		else
-		{
-		//	Dialog::OK("GetCurrentSteps() -- No Song","Error");
-			pSteps = p->m_pCurSteps[pn];
-		}
-
-		// if you're on the music select and change song, the current steps are not
-		// updated correctly/in time for CurrentSongChangedMessageCommand 
-		// (as such the returned steps are that of the previous song
-
-//		Steps *pSteps = p->m_pCurSteps[pn];  
+		Steps *pSteps = p->m_pCurSteps[pn];  
 		if( pSteps ) { pSteps->PushSelf(L); }
 		else		 { lua_pushnil(L); }
 		return 1;
