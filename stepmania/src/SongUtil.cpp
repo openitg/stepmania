@@ -952,13 +952,13 @@ bool SongUtil::GetStepsTypeAndDifficultyFromSortOrder( SortOrder so, StepsType &
 	switch( so )
 	{
 	DEFAULT_FAIL( so );
-	case SORT_EASY_METER:			dcOut = Difficulty_Easy;		break;
-	case SORT_MEDIUM_METER:			dcOut = Difficulty_Medium;		break;
-	case SORT_HARD_METER:			dcOut = Difficulty_Hard;		break;
+	case SORT_EASY_METER:			dcOut = Difficulty_Easy;	break;
+	case SORT_MEDIUM_METER:			dcOut = Difficulty_Medium;	break;
+	case SORT_HARD_METER:			dcOut = Difficulty_Hard;	break;
 	case SORT_CHALLENGE_METER:		dcOut = Difficulty_Challenge;	break;
-	case SORT_DOUBLE_EASY_METER:		dcOut = Difficulty_Easy;		break;
-	case SORT_DOUBLE_MEDIUM_METER:		dcOut = Difficulty_Medium;		break;
-	case SORT_DOUBLE_HARD_METER:		dcOut = Difficulty_Hard;		break;
+	case SORT_DOUBLE_EASY_METER:		dcOut = Difficulty_Easy;	break;
+	case SORT_DOUBLE_MEDIUM_METER:		dcOut = Difficulty_Medium;	break;
+	case SORT_DOUBLE_HARD_METER:		dcOut = Difficulty_Hard;	break;
 	case SORT_DOUBLE_CHALLENGE_METER:	dcOut = Difficulty_Challenge;	break;
 	}
 
