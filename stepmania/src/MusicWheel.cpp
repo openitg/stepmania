@@ -314,7 +314,7 @@ bool MusicWheel::SelectModeMenuItem()
 	return true;
 }
 
-void MusicWheel::GetSongList( vector<Song*> &arraySongs, SortOrder so, const RString &sPreferredGroup )
+void MusicWheel::GetSongList( vector<Song*> &arraySongs, SortOrder so )
 {
 	vector<Song*> apAllSongs;
 	switch( so )
@@ -323,10 +323,10 @@ void MusicWheel::GetSongList( vector<Song*> &arraySongs, SortOrder so, const RSt
 		SONGMAN->GetPreferredSortSongs( apAllSongs );
 		break;
 	case SORT_POPULARITY:
-		SONGMAN->GetPopularSongs( apAllSongs, GAMESTATE->m_sPreferredSongGroup );
+		apAllSongs = SONGMAN->GetPopularSongs();
 		break;
 	default:
-		apAllSongs = SONGMAN->GetSongs( GAMESTATE->m_sPreferredSongGroup );
+		apAllSongs = SONGMAN->GetAllSongs();
 		break;
 	}
 
@@ -425,7 +425,7 @@ void MusicWheel::BuildWheelItemDatas( vector<MusicWheelItemData *> &arrayWheelIt
 			///////////////////////////////////
 			vector<Song*> arraySongs;
 			
-			GetSongList( arraySongs, so, GAMESTATE->m_sPreferredSongGroup );
+			GetSongList( arraySongs, so );
 
 			bool bUseSections = true;
 
