@@ -661,8 +661,7 @@ void MusicWheel::UpdateWheelItemDatas( SortOrder so )
 	vector<bool> aiRemove;
 	aiRemove.insert( aiRemove.begin(), aWheelItemDatas.size(), false );
 
-	SongCriteria sc;
-	sc.m_iMaxStagesForSong = GAMESTATE->GetSmallestNumStagesLeftForAnyHumanPlayer();
+	const int iMaxStagesForSong = GAMESTATE->GetSmallestNumStagesLeftForAnyHumanPlayer();
 
 	Song *pExtraStageSong = NULL;
 	if( GAMESTATE->IsAnExtraStage() )
@@ -693,14 +692,19 @@ void MusicWheel::UpdateWheelItemDatas( SortOrder so )
 			if( pExtraStageSong && WID.m_pSong == pExtraStageSong )
 				continue;
 
-			/* Check that we have enough stages to play this song, and that it's not disabled. */
-			if( !sc.Matches(WID.m_pSong) )
+			/* Check that we have enough stages to play this song. */
+			if( GAMESTATE->GetNumStagesMultiplierForSong(WID.m_pSong) > iMaxStagesForSong )
 			{
 				aiRemove[i] = true;
 				continue;
 			}
 
 			int iLocked = UNLOCKMAN->SongIsLocked( pSong );
+			if( UNLOCKMAN->SongIsLocked(pSong) & LOCKED_DISABLED )
+			{
+				aiRemove[i] = true;
+				continue;
+			}
 
 			/* If we're on an extra stage, and this song is selected, ignore #SELECTABLE. */
 			if( pSong != GAMESTATE->m_pCurSong || !GAMESTATE->IsAnExtraStage() )
