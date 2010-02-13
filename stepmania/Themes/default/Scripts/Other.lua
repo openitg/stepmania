@@ -49,15 +49,6 @@ function JudgmentTransformCommand( self, params )
 	self:y( y )
 end
 
-function JudgmentTransformSharedCommand( self, params )
-	local x = -120
-	local y = -30
-	if params.bReverse then y = 30 end
-	if params.Player == PLAYER_1 then x = 120 end
-	self:x( x )
-	self:y( y )
-end
-
 function ComboTransformCommand( self, params )
 	local x = 0
 	local y = 30
