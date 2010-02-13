@@ -26,40 +26,6 @@ PlayerInfo &ScreenGameplayShared::GetPlayerInfoForInput( const InputEventPlus& i
 	return m_vPlayerInfo[GAMESTATE->m_MasterPlayerNumber];
 }
 
-void ScreenGameplayShared::SaveStats()
-{
-	ScreenGameplay::SaveStats();
-	return;
-	ASSERT( m_vPlayerInfo.size() == 2 );
-
-	vector<NoteData> vParts;
-	PlayerNumber mpn = GAMESTATE->m_MasterPlayerNumber;
-	float fMusicLen = GAMESTATE->m_pCurSong->m_fMusicLengthSeconds;
-	
-	NoteDataUtil::SplitCompositeNoteData( m_vPlayerInfo[0].m_pPlayer->GetNoteData(), vParts );
-	ASSERT( vParts.size() == 2 );
-	
-	FOREACH_HumanPlayer( pn )
-	for( size_t i = 0; i < m_vPlayerInfo.size(); ++i )
-	{
-		PlayerInfo &pi = m_vPlayerInfo[i];
-
-		if( !pi.IsEnabled() )
-			continue;
-
-		RadarValues rv;
-		PlayerStageStats &pss = STATSMAN->m_CurStageStats.m_player[pn];
-		const NoteData &nd = vParts[pn];
-		
-		NoteDataUtil::CalculateRadarValues( nd, fMusicLen, rv );
-		pss.m_radarPossible += rv;
-		
-		NoteDataWithScoring::GetActualRadarValues( nd, pss, fMusicLen, rv );
-		pss.m_radarActual += rv;
-	}
-}
-
-
 /*
  * (c) 2006 Steve Checkoway
  * All rights reserved.
