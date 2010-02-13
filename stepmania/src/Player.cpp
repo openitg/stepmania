@@ -232,7 +232,8 @@ void Player::Init(
 		//
 		// Init judgment positions
 		//
-		bool bPlayerUsingBothSides = GAMESTATE->GetCurrentStyle()->m_StyleType==StyleType_OnePlayerTwoSides;
+
+		bool bPlayerUsingBothSides = GAMESTATE->GetCurrentStyle()->GetUsesCenteredArrows();
 		Actor TempJudgment;
 		TempJudgment.SetName( "Judgment" );
 		ActorUtil::LoadCommand( TempJudgment, sType, "Transform" );
@@ -509,7 +510,7 @@ void Player::Load()
 		m_pNoteField->Load( &m_NoteData, iDrawDistanceAfterTargetsPixels, iDrawDistanceBeforeTargetsPixels );
 	}
 
-	bool bPlayerUsingBothSides = GAMESTATE->GetCurrentStyle()->m_StyleType==StyleType_OnePlayerTwoSides;
+	bool bPlayerUsingBothSides = GAMESTATE->GetCurrentStyle()->GetUsesCenteredArrows();
 	if( m_pAttackDisplay )
 		m_pAttackDisplay->SetX( ATTACK_DISPLAY_X.GetValue(pn, bPlayerUsingBothSides) - 40 );
 	// set this in Update //m_pAttackDisplay->SetY( bReverse ? ATTACK_DISPLAY_Y_REVERSE : ATTACK_DISPLAY_Y );
@@ -1370,7 +1371,7 @@ int Player::GetClosestNonEmptyRowDirectional( int iStartRow, int iEndRow, bool b
 
 		while( !iter.IsAtEnd() )
 		{
-			if( NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iter.Row(), m_pPlayerState->m_PlayerNumber) )
+			if( NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iter.Row()) )
 			{
 				++iter;
 				continue;
@@ -1384,7 +1385,7 @@ int Player::GetClosestNonEmptyRowDirectional( int iStartRow, int iEndRow, bool b
 
 		while( !iter.IsAtEnd() )
 		{
-			if( NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iter.Row(), m_pPlayerState->m_PlayerNumber) )
+			if( NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iter.Row()) )
 			{
 				++iter;
 				continue;
@@ -1794,7 +1795,6 @@ void Player::StepStrumHopo( int col, int row, const RageTimer &tm, bool bHeld, b
 			break;
 		}
 	}
-	
 	// calculate TapNoteScore
 	TapNoteScore score = TNS_None;
 
@@ -1941,7 +1941,6 @@ void Player::StepStrumHopo( int col, int row, const RageTimer &tm, bool bHeld, b
 			break;
 		}
 
-		
 		switch( pbt )
 		{
 		DEFAULT_FAIL(pbt);
@@ -2017,13 +2016,13 @@ void Player::StepStrumHopo( int col, int row, const RageTimer &tm, bool bHeld, b
 					int iRowsAgoLastNote = 100000;	// TODO: find more reasonable value based on HOPO_CHAIN_SECONDS?
 					NoteData::all_tracks_reverse_iterator iter = m_NoteData.GetTapNoteRangeAllTracksReverse( iRowsAgoLastNote-iRowsAgoLastNote, iRowOfOverlappingNoteOrRow-1 );
 					ASSERT( !iter.IsAtEnd() );	// there must have been a note that started the hopo
-					if( !NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iter.Row(), m_pPlayerState->m_PlayerNumber) )
+					if( !NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iter.Row()) )
 					{
 						bDidHopo = false;
 						goto done_checking_hopo;
 					}
 
-					const TapNoteResult &lastTNR = NoteDataWithScoring::LastTapNoteWithResult( m_NoteData, iter.Row(), m_pPlayerState->m_PlayerNumber ).result;
+					const TapNoteResult &lastTNR = NoteDataWithScoring::LastTapNoteWithResult( m_NoteData, iter.Row() ).result;
 					if( lastTNR.tns <= TNS_Miss )
 					{
 						bDidHopo = false;
@@ -2111,8 +2110,6 @@ done_checking_hopo:
 			}
 		}
 
-		// TODO: Remove use of PlayerNumber
-		PlayerNumber pn = pTN->pn == PLAYER_INVALID ? m_pPlayerState->m_PlayerNumber : pTN->pn;
 		m_LastTapNoteScore = score;
 		if( GAMESTATE->GetCurrentGame()->m_bCountNotesSeparately )
 		{
@@ -2127,9 +2124,9 @@ done_checking_hopo:
 					HideNote( col, iRowOfOverlappingNoteOrRow );
 			}
 		}
-		else if( NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iRowOfOverlappingNoteOrRow, pn) )
+		else if( NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iRowOfOverlappingNoteOrRow) )
 		{
-			FlashGhostRow( iRowOfOverlappingNoteOrRow, pn );
+			FlashGhostRow( iRowOfOverlappingNoteOrRow );
 		}
 	}
 
@@ -2269,8 +2266,6 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 		if( !NeedsTapJudging(tn) )
 			continue;
 		
-		if( tn.pn != PLAYER_INVALID && tn.pn != m_pPlayerState->m_PlayerNumber )
-			continue;
 		if( tn.type == TapNote::mine )
 		{
 			tn.result.tns = TNS_AvoidMine;
@@ -2292,7 +2287,6 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 void Player::UpdateJudgedRows()
 {
 	const int iEndRow = BeatToNoteRow( GAMESTATE->m_fSongBeat );
-	PlayerNumber pn = m_pPlayerState->m_PlayerNumber;
 	bool bAllJudged = true;
 	const bool bSeparately = GAMESTATE->GetCurrentGame()->m_bCountNotesSeparately;
 
@@ -2308,7 +2302,7 @@ void Player::UpdateJudgedRows()
 				iLastSeenRow = iRow;
 
 				// crossed a nonempty row
-				if( !NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iRow, pn) )
+				if( !NoteDataWithScoring::IsRowCompletelyJudged(m_NoteData, iRow) )
 				{
 					bAllJudged = false;
 					continue;
@@ -2317,7 +2311,7 @@ void Player::UpdateJudgedRows()
 					*m_pIterUnjudgedRows = iter;
 				if( m_pJudgedRows->JudgeRow(iRow) )
 					continue;
-				const TapNoteResult &lastTNR = NoteDataWithScoring::LastTapNoteWithResult( m_NoteData, iRow, pn ).result;
+				const TapNoteResult &lastTNR = NoteDataWithScoring::LastTapNoteWithResult( m_NoteData, iRow ).result;
 				
 				if( lastTNR.tns < TNS_Miss )
 					continue;
@@ -2327,7 +2321,6 @@ void Player::UpdateJudgedRows()
 					{
 						const TapNote &tn = m_NoteData.GetTapNote( iTrack, iRow );
 						if( tn.type == TapNote::empty || tn.type == TapNote::mine ) continue;
-						if( tn.pn != PLAYER_INVALID && tn.pn != pn ) continue;
 						SetJudgment( tn.result.tns, iTrack, tn.result.fTapNoteOffset );
 					}
 				}
@@ -2375,8 +2368,6 @@ void Player::UpdateJudgedRows()
 			if( m_pNoteField )
 				m_pNoteField->DidTapNote( iter.Track(), tn.result.tns, false );
 			
-			if( tn.pn != PLAYER_INVALID && tn.pn != pn )
-				continue;
 			if( tn.iKeysoundIndex >= 0 && tn.iKeysoundIndex < (int) m_vKeysounds.size() )
 				setSounds.insert( &m_vKeysounds[tn.iKeysoundIndex] );
 			else if( g_bEnableMineSoundPlayback )
@@ -2422,11 +2413,10 @@ void Player::UpdateJudgedRows()
 	}
 }
 
-void Player::FlashGhostRow( int iRow, PlayerNumber pn )
+void Player::FlashGhostRow( int iRow )
 {
-	TapNoteScore lastTNS = NoteDataWithScoring::LastTapNoteWithResult( m_NoteData, iRow, pn ).result.tns;
+	TapNoteScore lastTNS = NoteDataWithScoring::LastTapNoteWithResult( m_NoteData, iRow ).result.tns;
 	const bool bBlind = (m_pPlayerState->m_PlayerOptions.GetCurrent().m_fBlind != 0);
-	// XXX This is the wrong combo for shared players. STATSMAN->m_CurStageStats.m_Player[pn] might work but could be wrong.
 	const bool bBright = ( m_pPlayerStageStats && m_pPlayerStageStats->m_iCurCombo > int(BRIGHT_GHOST_COMBO_THRESHOLD) ) || bBlind;
 		
 	for( int iTrack = 0; iTrack < m_NoteData.GetNumTracks(); ++iTrack )
@@ -2434,8 +2424,6 @@ void Player::FlashGhostRow( int iRow, PlayerNumber pn )
 		const TapNote &tn = m_NoteData.GetTapNote( iTrack, iRow );
 		
 		if( tn.type == TapNote::empty || tn.type == TapNote::mine || tn.type == TapNote::fake )
-			continue;
-		if( tn.pn != PLAYER_INVALID && tn.pn != pn )
 			continue;
 		if( m_pNoteField )
 			m_pNoteField->DidTapNote( iTrack, lastTNS, bBright );
@@ -2652,8 +2640,7 @@ void Player::HandleTapRowScore( unsigned row )
 	if( bNoCheating && m_pPlayerState->m_PlayerController == PC_AUTOPLAY )
 		return;
 
-	PlayerNumber pn = m_pPlayerState->m_PlayerNumber;
-	TapNoteScore scoreOfLastTap = NoteDataWithScoring::LastTapNoteWithResult(m_NoteData, row, pn).result.tns;
+	TapNoteScore scoreOfLastTap = NoteDataWithScoring::LastTapNoteWithResult(m_NoteData, row).result.tns;
 	const int iOldCombo = m_pPlayerStageStats ? m_pPlayerStageStats->m_iCurCombo : 0;
 	const int iOldMissCombo = m_pPlayerStageStats ? m_pPlayerStageStats->m_iCurMissCombo : 0;
 
@@ -2665,8 +2652,6 @@ void Player::HandleTapRowScore( unsigned row )
 		const TapNote &tn = m_NoteData.GetTapNote( track, row );
 		// Mines cannot be handled here.
 		if( tn.type == TapNote::empty || tn.type == TapNote::fake || tn.type == TapNote::mine )
-			continue;
-		if( tn.pn != PLAYER_INVALID && tn.pn != pn )
 			continue;
 		if( m_pPrimaryScoreKeeper )
 			m_pPrimaryScoreKeeper->HandleTapScore( tn );

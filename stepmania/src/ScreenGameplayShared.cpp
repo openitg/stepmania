@@ -5,13 +5,20 @@
 #include "NoteDataUtil.h"
 #include "NoteDataWithScoring.h"
 #include "Song.h"
+#include "StatsManager.h"
 
 REGISTER_SCREEN_CLASS( ScreenGameplayShared );
 
 void ScreenGameplayShared::FillPlayerInfo( vector<PlayerInfo> &vPlayerInfoOut )
 {
-	vPlayerInfoOut.resize( 1 );
-	vPlayerInfoOut[0].Load( GAMESTATE->m_MasterPlayerNumber, MultiPlayer_Invalid, true, Difficulty_Invalid );
+	const PlayerNumber master = GAMESTATE->m_MasterPlayerNumber;
+	const PlayerNumber other = (master == PLAYER_1? PLAYER_2:PLAYER_1);
+
+	/* The master player is where all of the real work takes place.  The other player exists
+	 * only so we have a place to split stats out into at the end. */
+	vPlayerInfoOut.resize( 2 );
+	vPlayerInfoOut[0].Load( master, MultiPlayer_Invalid, true, Difficulty_Invalid );
+	vPlayerInfoOut[1].Load( other, MultiPlayer_Invalid, false, Difficulty_Invalid );
 }
 
 PlayerInfo &ScreenGameplayShared::GetPlayerInfoForInput( const InputEventPlus& iep )
@@ -21,20 +28,28 @@ PlayerInfo &ScreenGameplayShared::GetPlayerInfoForInput( const InputEventPlus& i
 
 void ScreenGameplayShared::SaveStats()
 {
+	ScreenGameplay::SaveStats();
+	return;
+	ASSERT( m_vPlayerInfo.size() == 2 );
+
 	vector<NoteData> vParts;
 	PlayerNumber mpn = GAMESTATE->m_MasterPlayerNumber;
 	float fMusicLen = GAMESTATE->m_pCurSong->m_fMusicLengthSeconds;
 	
-	NoteDataUtil::SplitCompositeNoteData( m_vPlayerInfo[mpn].m_pPlayer->GetNoteData(), vParts );
-	for( size_t i = 0; i < min(vParts.size(), m_vPlayerInfo.size()); ++i )
+	NoteDataUtil::SplitCompositeNoteData( m_vPlayerInfo[0].m_pPlayer->GetNoteData(), vParts );
+	ASSERT( vParts.size() == 2 );
+	
+	FOREACH_HumanPlayer( pn )
+	for( size_t i = 0; i < m_vPlayerInfo.size(); ++i )
 	{
 		PlayerInfo &pi = m_vPlayerInfo[i];
-		
+
 		if( !pi.IsEnabled() )
 			continue;
-		NoteData &nd = vParts[i];
+
 		RadarValues rv;
-		PlayerStageStats &pss = *pi.GetPlayerStageStats();
+		PlayerStageStats &pss = STATSMAN->m_CurStageStats.m_player[pn];
+		const NoteData &nd = vParts[pn];
 		
 		NoteDataUtil::CalculateRadarValues( nd, fMusicLen, rv );
 		pss.m_radarPossible += rv;
