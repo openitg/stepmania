@@ -4,25 +4,14 @@
 #include "Player.h"
 #include "NoteDataUtil.h"
 #include "NoteDataWithScoring.h"
-#include "ActiveAttackList.h"
-#include "ScoreDisplayNormal.h"
-#include "ScoreKeeperShared.h"
 #include "Song.h"
 
 REGISTER_SCREEN_CLASS( ScreenGameplayShared );
 
 void ScreenGameplayShared::FillPlayerInfo( vector<PlayerInfo> &vPlayerInfoOut )
 {
-	PlayerNumber mpn = GAMESTATE->m_MasterPlayerNumber;
-	vPlayerInfoOut.resize( NUM_PLAYERS );
-	PlayerInfo &mpi = vPlayerInfoOut[mpn];
-	FOREACH_PlayerNumber( pn )
-	{
-		PlayerInfo &pi = vPlayerInfoOut[pn];
-		pi.Load( pn, MultiPlayer_Invalid, pn == mpn, Difficulty_Invalid );
-
-		pi.m_pPlayer = new Player( mpi.m_NoteData, pn == mpn );
-	}
+	vPlayerInfoOut.resize( 1 );
+	vPlayerInfoOut[0].Load( GAMESTATE->m_MasterPlayerNumber, MultiPlayer_Invalid, true, Difficulty_Invalid );
 }
 
 PlayerInfo &ScreenGameplayShared::GetPlayerInfoForInput( const InputEventPlus& iep )
