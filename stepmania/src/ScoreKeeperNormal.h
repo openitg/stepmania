@@ -62,7 +62,6 @@ class ScoreKeeperNormal: public ScoreKeeper
 	virtual void AddTapScore( TapNoteScore tns );
 	virtual void AddHoldScore( HoldNoteScore hns );
 	virtual void AddTapRowScore( TapNoteScore tns, const NoteData &nd, int iRow );
-	virtual void HandleTapScoreNone();
 
 	/* Configuration: */
 	/* Score after each tap will be rounded to the nearest m_iRoundTo; 1 to do nothing. */
@@ -85,6 +84,7 @@ public:
 	void HandleHoldScore( const TapNote &tn );
 	void HandleHoldActiveSeconds( float fMusicSecondsHeld ) {};
 	void HandleHoldCheckpointScore( const NoteData &nd, int iRow, int iNumHoldsHeldThisRow, int iNumHoldsMissedThisRow );
+	void HandleTapScoreNone();
 
 	// This must be calculated using only cached radar values so that we can 
 	// do it quickly.
