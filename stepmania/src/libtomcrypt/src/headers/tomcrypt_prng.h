@@ -195,5 +195,5 @@ int rng_make_prng(int bits, int wprng, prng_state *prng, void (*callback)(void))
 
 
 /* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+/* $Revision: 24839 $ */
+/* $Date: 2007-01-24 00:42:14 -0500 (Wed, 24 Jan 2007) $ */

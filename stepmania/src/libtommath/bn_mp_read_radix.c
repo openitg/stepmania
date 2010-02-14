@@ -81,5 +81,5 @@ int mp_read_radix (mp_int * a, const char *str, int radix)
 #endif
 
 /* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+/* $Revision: 24838 $ */
+/* $Date: 2007-01-24 00:16:57 -0500 (Wed, 24 Jan 2007) $ */

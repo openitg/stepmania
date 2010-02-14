@@ -108,5 +108,5 @@ int mp_exptmod (mp_int * G, mp_int * X, mp_int * P, mp_int * Y)
 #endif
 
 /* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+/* $Revision: 24838 $ */
+/* $Date: 2007-01-24 00:16:57 -0500 (Wed, 24 Jan 2007) $ */

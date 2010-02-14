@@ -542,5 +542,5 @@ int der_length_utctime(ltc_utctime *utctime, unsigned long *outlen);
 #endif
 
 /* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+/* $Revision: 25319 $ */
+/* $Date: 2007-02-25 09:20:34 -0500 (Sun, 25 Feb 2007) $ */

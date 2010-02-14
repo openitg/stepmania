@@ -168,5 +168,5 @@ int fast_mp_montgomery_reduce (mp_int * x, mp_int * n, mp_digit rho)
 #endif
 
 /* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+/* $Revision: 24838 $ */
+/* $Date: 2007-01-24 00:16:57 -0500 (Wed, 24 Jan 2007) $ */

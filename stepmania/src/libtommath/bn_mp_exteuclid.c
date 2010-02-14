@@ -78,5 +78,5 @@ _ERR: mp_clear_multi(&u1, &u2, &u3, &v1, &v2, &v3, &t1, &t2, &t3, &q, &tmp, NULL
 #endif
 
 /* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+/* $Revision: 24838 $ */
+/* $Date: 2007-01-24 00:16:57 -0500 (Wed, 24 Jan 2007) $ */

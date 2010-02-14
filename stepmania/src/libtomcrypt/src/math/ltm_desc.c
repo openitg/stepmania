@@ -479,5 +479,5 @@ const ltc_math_descriptor ltm_desc = {
 #endif
 
 /* $Source$ */
-/* $Revision$ */
-/* $Date$ */
+/* $Revision: 24846 $ */
+/* $Date: 2007-01-24 02:29:36 -0500 (Wed, 24 Jan 2007) $ */
