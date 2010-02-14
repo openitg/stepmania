@@ -159,7 +159,8 @@ int RageFileDriverReadAhead::SeekInternal( int iOffset )
 		return iOffset;
 	}
 
-	return m_pFile->Seek( iOffset );
+	m_iFilePos = m_pFile->Seek( iOffset );
+	return m_iFilePos;
 }
 
 
