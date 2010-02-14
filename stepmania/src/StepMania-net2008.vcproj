@@ -81,7 +81,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 &quot;$(intdir)\verstub.obj&quot;"
 				AdditionalDependencies="shell32.lib gdi32.lib user32.lib ole32.lib advapi32.lib"
-				OutputFile="../Program/StepMania-debug.exe"
+				OutputFile="R:\piug\piu-data\Program\StepMania-debug.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
@@ -191,7 +191,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 &quot;$(intdir)\verstub.obj&quot;"
 				AdditionalDependencies="shell32.lib gdi32.lib user32.lib ole32.lib advapi32.lib"
-				OutputFile="..\Program/StepMania.exe"
+				OutputFile="R:\piug\piu-data\Program\StepMania.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
@@ -3050,6 +3050,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\RageFileDriverReadAhead.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\RageFileDriverReadAhead.h"
+				>
+			</File>
+			<File
 				RelativePath="RageFileDriverSlice.cpp"
 				>
 			</File>
@@ -3079,6 +3087,14 @@
 			</File>
 			<File
 				RelativePath="RageFileManager.h"
+				>
+			</File>
+			<File
+				RelativePath=".\RageFileManager_ReadAhead.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\RageFileManager_ReadAhead.h"
 				>
 			</File>
 			<File

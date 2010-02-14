@@ -6,6 +6,7 @@
 #include "RageUtil.h"
 #include "RageFile.h"
 #include "RageSurface.h"
+#include "RageFileDriverReadAhead.h"
 
 #include <cerrno>
 
@@ -571,34 +572,47 @@ int URLRageFile_open( avcodec::URLContext *h, const char *filename, int flags )
 	case URL_RDWR: FAIL_M( "O_RDWR unsupported" );
 	}
 
-	RageFile *f = new RageFile;
-	if( !f->Open(filename, mode) )
+	RageFileBasic *pFile = new RageFile;
+
 	{
-		LOG->Trace("Error opening \"%s\": %s", filename, f->GetError().c_str() );
-		delete f;
-	    return -EIO;
+		RageFile *f = new RageFile;
+		if( !f->Open(filename, mode) )
+		{
+			LOG->Trace("Error opening \"%s\": %s", filename, f->GetError().c_str() );
+			delete f;
+		    return -EIO;
+		}
+		pFile = f;
+	}
+
+	/* If possible, wrap this file in the read-ahead filter to avoid skips when we rewind. */
+	if( RageFileDriverReadAhead::FileSupported(pFile) )
+	{
+		RageFileDriverReadAhead *pBufferedFile = new RageFileDriverReadAhead( pFile, 1024*128 );
+		pBufferedFile->DeleteFileWhenFinished();
+		pFile = pBufferedFile;
 	}
 
 	h->is_streamed = false;
-	h->priv_data = f;
+	h->priv_data = pFile;
 	return 0;
 }
 
 int URLRageFile_read( avcodec::URLContext *h, unsigned char *buf, int size )
 {
-	RageFile *f = (RageFile *) h->priv_data;
+	RageFileBasic *f = (RageFileBasic *) h->priv_data;
 	return f->Read( buf, size );
 }
 
 int URLRageFile_write( avcodec::URLContext *h, unsigned char *buf, int size )
 {
-	RageFile *f = (RageFile *) h->priv_data;
+	RageFileBasic *f = (RageFileBasic *) h->priv_data;
 	return f->Write( buf, size );
 }
 
 avcodec::offset_t URLRageFile_seek( avcodec::URLContext *h, avcodec::offset_t pos, int whence )
 {
-	RageFile *f = (RageFile *) h->priv_data;
+	RageFileBasic *f = (RageFileBasic *) h->priv_data;
 	if( whence == AVSEEK_SIZE )
 		return f->Tell();
 
@@ -610,7 +624,7 @@ avcodec::offset_t URLRageFile_seek( avcodec::URLContext *h, avcodec::offset_t po
 
 int URLRageFile_close( avcodec::URLContext *h )
 {
-	RageFile *f = (RageFile *) h->priv_data;
+	RageFileBasic *f = (RageFileBasic *) h->priv_data;
 	delete f;
 	return 0;
 }
