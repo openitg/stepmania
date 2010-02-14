@@ -20,6 +20,7 @@ public:
 	int WriteInternal( const void *pBuffer, size_t iBytes ) { SetError( "Not implemented" ); return -1; }
 	int SeekInternal( int iOffset );
 	int GetFileSize() const { return m_iFileSize; }
+	int GetFD() { return m_pFile->GetFD(); }
 
 private:
 	RageFileBasic *m_pFile;
