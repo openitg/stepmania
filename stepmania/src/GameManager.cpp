@@ -741,7 +741,7 @@ static const Style g_Style_Pump_Couple_Edit =
 };
 
 static const Style g_Style_Pump_Routine =
-{	// STYLE_DANCE_ROUTINE
+{	// STYLE_PUMP_ROUTINE
 	true,				// m_bUsedForGameplay
 	true,				// m_bUsedForEdit
 	false,				// m_bUsedForDemonstration
