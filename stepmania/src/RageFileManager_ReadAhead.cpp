@@ -23,6 +23,10 @@ void RageFileManagerReadAhead::ReadAhead( RageFileBasic *pFile, int iBytes )
 }
 
 #else
+#if 0
+/* This doesn't currently work, because dup() locks the file position of the new FD with the old
+ * (which makes no sense at all), so it's not easy to read from a copy of the FD without
+ * interfering with the original. */
 class RageFileReadAheadThread
 {
 public:
@@ -39,6 +43,7 @@ public:
 
 	~RageFileReadAheadThread()
 	{
+		close( m_iFD );
 		m_WorkerThread.Wait();
 	}
 	bool IsFinished() const { return m_bFinished; }
@@ -95,6 +100,13 @@ void RageFileManagerReadAhead::ReadAhead( RageFileBasic *pFile, int iBytes )
 	if( iFD == -1 )
 		return;
 
+	iFD = dup( iFD );
+	if( iFD == -1 )
+	{
+		LOG->Trace( "error: dup(): %s", strerror(errno) );
+		return;
+	}
+
 	int iStart = lseek( iFD, 0, SEEK_CUR );
 
 	RageFileReadAheadThread *pReadAhead = new RageFileReadAheadThread( iFD, iStart, iBytes );
@@ -111,6 +123,11 @@ void RageFileManagerReadAhead::ReadAhead( RageFileBasic *pFile, int iBytes )
 		}
 	}
 }
+#else
+void RageFileManagerReadAhead::Init() { }
+void RageFileManagerReadAhead::Shutdown() { }
+void RageFileManagerReadAhead::ReadAhead( RageFileBasic *pFile, int iBytes ) { }
+#endif
 #endif
 
 #if defined(HAVE_POSIX_FADVISE)
