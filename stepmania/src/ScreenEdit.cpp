@@ -683,7 +683,7 @@ void ScreenEdit::Init()
 	CopyToLastSave();
 
 	m_CurrentAction = MAIN_MENU_CHOICE_INVALID;
-	if( GAMESTATE->m_pCurSteps[0]->m_StepsType == StepsType_dance_routine )
+	if( GAMESTATE->GetCurrentStyle()->m_StyleType == StyleType_TwoPlayersSharedSides )
 		m_InputPlayerNumber = PLAYER_1;
 	else
 		m_InputPlayerNumber = PLAYER_INVALID;
