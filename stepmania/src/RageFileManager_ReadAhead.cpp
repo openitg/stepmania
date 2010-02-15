@@ -139,7 +139,7 @@ void RageFileManagerReadAhead::CacheHintStreaming( RageFileBasic *pFile )
 	if( iFD == -1 )
 		return;
 	int iPos = pFile->Tell();
-	int iFrom = lseek( iFD, SEEK_CUR, 0 );
+	int iFrom = lseek( iFD, 0, SEEK_CUR );
 	int iBytes = pFile->GetFileSize() - iPos;
 	posix_fadvise( iFD, iFrom, iBytes, POSIX_FADV_SEQUENTIAL );
 }
