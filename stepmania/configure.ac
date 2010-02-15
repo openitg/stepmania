@@ -254,6 +254,8 @@ AC_CHECK_DECL(strtof, , AC_DEFINE([NEED_STRTOF],1,[Need strtof]), [#include <std
 # This doesn't work on glibc math functions:
 # AC_CHECK_FUNCS([sqrtf sinf tanf cosf acosf roundf truncf])
 
+AC_CHECK_FUNCS([posix_fadvise])
+
 AC_CHECK_DECLS([SIGPWR, SIGUSR1],,,[#include <signal.h>])
 
 AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[Build test programs]), enable_tests=$enableval, enable_tests=no)
