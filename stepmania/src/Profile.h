@@ -15,6 +15,7 @@
 #include "CourseUtil.h"	// for CourseID
 #include "TrailUtil.h"	// for TrailID
 #include "StyleUtil.h"	// for StyleID
+#include "LuaReference.h"
 
 class XNode;
 struct lua_State;
@@ -144,6 +145,7 @@ public:
 	int m_iNumTotalSongsPlayed;
 	int m_iNumStagesPassedByPlayMode[NUM_PlayMode];
 	int m_iNumStagesPassedByGrade[NUM_Grade];
+	LuaReference m_UserData;
 
 	//
 	// Song high scores

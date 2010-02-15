@@ -73,6 +73,9 @@ namespace LuaHelpers
 	/* Create a Lua array (a table with indices starting at 1) of the given vector,
 	 * and push it on the stack. */
 	void CreateTableFromArrayB( Lua *L, const vector<bool> &aIn );
+
+	/* Create a Lua table with contents set from this XNode, then push it on the stack. */
+	void CreateTableFromXNode( Lua *L, const XNode *pNode );
 	
 	/* Recursively copy elements from the table at stack element -2 into the table
 	 * at stack -1.  Pop both elements from the stack. */

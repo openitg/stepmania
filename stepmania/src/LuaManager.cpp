@@ -103,6 +103,46 @@ void LuaHelpers::CreateTableFromArrayB( Lua *L, const vector<bool> &aIn )
 	}
 }
 
+namespace
+{
+	/* Creates a table from an XNode and leaves it on the stack. */
+	void CreateTableFromXNodeRecursive( Lua *L, const XNode *pNode )
+	{
+		// create our base table
+		lua_newtable( L );
+
+
+		FOREACH_CONST_Attr( pNode, pAttr )
+		{
+			lua_pushstring( L, pAttr->first );			// push key
+			pNode->PushAttrValue( L, pAttr->first );	// push value
+
+			//add key-value pair to our table
+			lua_settable( L, -3 );
+		}
+
+		FOREACH_CONST_Child( pNode, c )
+		{
+			const XNode *pChild = c;
+			lua_pushstring( L, pChild->m_sName );	// push key
+
+			// push value (more correctly, build this child's table and leave it there
+			CreateTableFromXNodeRecursive( L, pChild );
+
+			// add key-value pair to the table
+			lua_settable( L, -3 );
+		}
+	}
+}
+
+void LuaHelpers::CreateTableFromXNode( Lua *L, const XNode *pNode )
+{
+	// This creates our table and leaves it on the stack.
+	CreateTableFromXNodeRecursive( L, pNode );
+
+
+}
+
 void LuaHelpers::ReadArrayFromTableB( Lua *L, vector<bool> &aOut )
 {
 	luaL_checktype( L, -1, LUA_TTABLE );

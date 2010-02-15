@@ -143,6 +143,8 @@ void Profile::InitGeneralData()
 	m_iNumTotalSongsPlayed = 0;
 	ZERO( m_iNumStagesPassedByPlayMode );
 	ZERO( m_iNumStagesPassedByGrade );
+
+	m_UserData.Unset();
 }
 
 void Profile::InitSongScores()
@@ -904,7 +906,7 @@ ProfileLoadResult Profile::LoadStatsXmlFromNode( const XNode *xml, bool bIgnoreE
 	LOAD_NODE( CategoryScores );
 	LOAD_NODE( ScreenshotData );
 	LOAD_NODE( CalorieData );
-		
+
 	if( bIgnoreEditable )
 	{
 		m_sDisplayName = sName;
@@ -1156,6 +1158,18 @@ XNode* Profile::SaveGeneralDataCreateNode() const
 		}
 	}
 
+	if( !IsMachine() && m_UserData.IsSet() )
+	{
+		Lua *L = LUA->Get();
+		m_UserData.PushSelf( L );
+		XNode* pUserTable = XmlFileUtil::XNodeFromTable( L );
+		LUA->Release( L );
+
+		// XXX: XNodeFromTable returns a root node with the name "Layer".
+		pUserTable->m_sName = "UserData";
+		pGeneralDataNode->AppendChild( pUserTable );
+	}
+
 	return pGeneralDataNode;
 }
 
@@ -1329,6 +1343,22 @@ void Profile::LoadGeneralDataFromNode( const XNode* pNode )
 	
 	}
 
+	/* Build the custom data table from the existing XNode. */
+	if( !IsMachine() )
+	{
+		const XNode *pUserData = pNode->GetChild( "UserData" );
+
+		Lua *L = LUA->Get();
+
+		/* If we have custom data, load it. Otherwise, make a blank table. */
+		if( pUserData )
+			LuaHelpers::CreateTableFromXNode( L, pUserData );
+		else
+			lua_newtable( L );
+
+		m_UserData.SetFromStack( L );
+		LUA->Release( L );
+	}
 }
 
 void Profile::AddStepTotals( int iTotalTapsAndHolds, int iTotalJumps, int iTotalHolds, int iTotalRolls, int iTotalMines, int iTotalHands, float fCaloriesBurned )
@@ -1927,6 +1957,7 @@ public:
 	static int GetTotalRolls( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iTotalRolls ); return 1; }
 	static int GetTotalMines( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iTotalMines ); return 1; }
 	static int GetTotalHands( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iTotalHands ); return 1; }
+	static int GetUserData( T* p, lua_State *L )		{ p->m_UserData.PushSelf(L); return 1; }
 
 	LunaProfile()
 	{
@@ -1967,6 +1998,7 @@ public:
 		ADD_METHOD( GetTotalRolls );
 		ADD_METHOD( GetTotalMines );
 		ADD_METHOD( GetTotalHands );
+		ADD_METHOD( GetUserData );
 	}
 };
 
