@@ -188,10 +188,8 @@ void ScreenSelectMusic::Init()
 	this->SortByDrawOrder();
 }
 
-#include "RageTimer.h"
 void ScreenSelectMusic::BeginScreen()
 {
-RageTimer tm;
 	g_ScreenStartedLoadingAt.Touch();
 
 	if( CommonMetrics::AUTO_SET_STYLE )
