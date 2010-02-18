@@ -52,7 +52,7 @@ function CustomDifficultyToLightColor( sCustomDifficulty )
 end
 
 function StepsOrTrailToColor(StepsOrTrail)
-	CustomDifficultyToColor( StepsOrTrailToCustomDifficulty(stepsOrTrail) );
+	return CustomDifficultyToColor( StepsOrTrailToCustomDifficulty(StepsOrTrail) );
 end
 
 
