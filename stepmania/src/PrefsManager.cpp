@@ -226,7 +226,6 @@ PrefsManager::PrefsManager() :
 	m_fCenterImageAddHeight		( "CenterImageAddHeight",		0 ),
 	m_AttractSoundFrequency		( "AttractSoundFrequency",		ASF_EVERY_TIME ),
 	m_bAllowExtraStage		( "AllowExtraStage",			true ),
-	m_bHideDefaultNoteSkin		( "HideDefaultNoteSkin",		false ),
 	m_iMaxHighScoresPerListForMachine	( "MaxHighScoresPerListForMachine",	10 ),
 	m_iMaxHighScoresPerListForPlayer	( "MaxHighScoresPerListForPlayer",	3 ),
 	m_bAllowMultipleHighScoreWithSameName	( "AllowMultipleHighScoreWithSameName",	true ),

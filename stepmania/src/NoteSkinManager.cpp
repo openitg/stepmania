@@ -189,18 +189,9 @@ void NoteSkinManager::GetNoteSkinNames( vector<RString> &AddTo )
 	GetNoteSkinNames( GAMESTATE->m_pCurGame, AddTo );
 }
 
-void NoteSkinManager::GetNoteSkinNames( const Game* pGame, vector<RString> &AddTo, bool bFilterDefault )
+void NoteSkinManager::GetNoteSkinNames( const Game* pGame, vector<RString> &AddTo )
 {
 	GetAllNoteSkinNamesForGame( pGame, AddTo );
-
-	/* Move "default" to the front if it exists. */
-	vector<RString>::iterator iter = find( AddTo.begin(), AddTo.end(), GAME_BASE_NOTESKIN_NAME );
-	if( iter != AddTo.end() )
-	{
-		AddTo.erase( iter );
-		if( !bFilterDefault || !PREFSMAN->m_bHideDefaultNoteSkin )
-			AddTo.insert( AddTo.begin(), GAME_BASE_NOTESKIN_NAME );
-	}
 }
 
 
