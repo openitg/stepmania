@@ -765,7 +765,7 @@ void GameState::FinishStage()
 	if( IsEventMode() )
 	{
 		const int iSaveProfileEvery = 3;
-		if( iOldStageIndex/iSaveProfileEvery < m_iCurrentStageIndex/iSaveProfileEvery )
+		if( m_iCurrentStageIndex % iSaveProfileEvery )
 		{
 			LOG->Trace( "Played %i stages; saving profiles ...", iSaveProfileEvery );
 			PROFILEMAN->SaveMachineProfile();
