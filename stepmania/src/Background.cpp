@@ -35,7 +35,7 @@ static ThemeMetric<bool> DONT_USE_STATIC_BG		("Background","DontUseStaticBackgro
 
 static Preference<bool>	g_bShowDanger( "ShowDanger", true );
 static Preference<float> g_fBGBrightness( "BGBrightness", 0.7f );
-static Preference<RandomBackgroundMode> g_RandomBackgroundMode( "RandomBackgroundMode",	BGMODE_ANIMATIONS );
+static Preference<RandomBackgroundMode> g_RandomBackgroundMode( "RandomBackgroundMode",	BGMODE_RANDOMMOVIES );
 static Preference<int> g_iNumBackgrounds( "NumBackgrounds", 8 );
 static Preference<bool> g_bSongBackgrounds( "SongBackgrounds", true );
 
