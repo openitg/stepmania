@@ -284,6 +284,8 @@ private:
 	avcodec::AVPacket m_Packet;
 	int m_iCurrentPacketOffset;
 
+	float m_fLastFrame;
+
 	/* 0 = no EOF
 	 * 1 = EOF from ReadPacket
 	 * 2 = EOF from ReadPacket and DecodePacket */
@@ -301,6 +303,8 @@ MovieDecoder_FFMpeg::MovieDecoder_FFMpeg()
 	/* Until we play the whole movie once without hitting a B-frame, assume
 	 * they exist. */
 	m_bHadBframes = true;
+
+	m_fLastFrame = 0;
 
 	Init();
 }
@@ -334,6 +338,16 @@ void MovieDecoder_FFMpeg::Init()
 /* Read until we get a frame, EOF or error.  Return -1 on error, 0 on EOF, 1 if we have a frame. */
 int MovieDecoder_FFMpeg::DecodeFrame( float fTargetTime )
 {
+	// xxx: hack to filter out stuttering
+	if(fTargetTime<m_fLastFrame)
+	{
+		fTargetTime=m_fLastFrame;
+	}
+	else
+	{
+		m_fLastFrame=fTargetTime;
+	}
+
 	while( 1 )
 	{
 		int ret = DecodePacket( fTargetTime );
