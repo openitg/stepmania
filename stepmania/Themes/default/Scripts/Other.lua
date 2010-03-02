@@ -113,6 +113,22 @@ function TextBannerAfterSet(self,param)
 	end
 end
 
+function StreamDisplayPillTransformFunction(self,offsetFromCenter,itemIndex,numItems)
+	local zoomed_width=28;
+	local zoomed_height=8;
+	local spacing_x=11.3;
+	self:zoomtoheight(zoomed_height);
+	self:x((itemIndex-(numItems/2))*spacing_x);
+	local zoomed_width=0;
+	if (itemIndex % 2) == 0 then
+		self:zoomtowidth(24);
+		self:rotationz(90);
+	else
+		self:zoomtowidth(31);
+		self:rotationz(-58);
+	end;
+end
+
 -- (c) 2005 Chris Danford
 -- All rights reserved.
 -- 
