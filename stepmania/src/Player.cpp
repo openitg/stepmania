@@ -2881,7 +2881,7 @@ void Player::SetCombo( int iCombo, int iMisses )
 		this->PlayCommand( "1000Milestone" );
 
 	// don't show a colored combo until 1/4 of the way through the song
-	bool bPastMidpoint = GAMESTATE->GetCourseSongIndex()>0 ||
+	bool bPastBeginning = (!GAMESTATE->IsCourseMode() || GAMESTATE->GetCourseSongIndex()>0) &&
 		GAMESTATE->m_fMusicSeconds > GAMESTATE->m_pCurSong->m_fMusicLengthSeconds/4;
 
 	if( m_bSendJudgmentAndComboMessages )
@@ -2891,12 +2891,14 @@ void Player::SetCombo( int iCombo, int iMisses )
 			msg.SetParam( "Combo", iCombo );
 		if( iMisses )
 			msg.SetParam( "Misses", iMisses );
-		if( bPastMidpoint && m_pPlayerStageStats->FullComboOfScore(TNS_W1) )
+		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W1) )
 			msg.SetParam( "FullComboW1", true );
-		if( bPastMidpoint && m_pPlayerStageStats->FullComboOfScore(TNS_W2) )
+		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W2) )
 			msg.SetParam( "FullComboW2", true );
-		if( bPastMidpoint && m_pPlayerStageStats->FullComboOfScore(TNS_W3) )
+		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W3) )
 			msg.SetParam( "FullComboW3", true );
+		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W4) )
+			msg.SetParam( "FullComboW4", true );
 		this->HandleMessage( msg );
 	}
 }
