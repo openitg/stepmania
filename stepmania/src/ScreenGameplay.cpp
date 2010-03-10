@@ -2528,6 +2528,8 @@ void ScreenGameplay::HandleScreenMessage( const ScreenMessage SM )
 
 		m_Out.StartTransitioning( SM_DoNextScreen );
 
+		this->PlayCommand("GameplayCleared");
+
 		// do they deserve an extra stage?
 		if( GAMESTATE->HasEarnedExtraStage() )
 			SOUND->PlayOnceFromAnnouncer( "gameplay extra" );
