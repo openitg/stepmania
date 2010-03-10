@@ -2864,24 +2864,24 @@ void Player::SetCombo( int iCombo, int iMisses )
 	if( m_iLastSeenCombo == -1 )	// first update, don't set bIsMilestone=true
 		m_iLastSeenCombo = iCombo;
 
-	bool b100Milestone = false;
-	bool b1000Milestone = false;
+	bool bMilestoneSmall = false;
+	bool bMilestoneLarge = false;
 	for( int i=m_iLastSeenCombo+1; i<=iCombo; i++ )
 	{
-		if( i < 600 )
-			b100Milestone |= ((i % 100) == 0);
+		if( i < 400 )
+			bMilestoneSmall |= ((i % 100) == 0);
 		else
-			b1000Milestone |= ((i % 200) == 0);
+			bMilestoneLarge |= ((i % 100) == 0);
 	}
 	m_iLastSeenCombo = iCombo;
 
-	if( b100Milestone )
-		this->PlayCommand( "100Milestone" );
-	if( b1000Milestone )
-		this->PlayCommand( "1000Milestone" );
+	if( bMilestoneSmall )
+		this->PlayCommand( "MilestoneSmall" );
+	if( bMilestoneLarge )
+		this->PlayCommand( "MilestoneLarge" );
 
 	// don't show a colored combo until 1/4 of the way through the song
-	bool bPastBeginning = (!GAMESTATE->IsCourseMode() || GAMESTATE->GetCourseSongIndex()>0) &&
+	bool bPartWayThrough = (!GAMESTATE->IsCourseMode() || GAMESTATE->GetCourseSongIndex()>0) &&
 		GAMESTATE->m_fMusicSeconds > GAMESTATE->m_pCurSong->m_fMusicLengthSeconds/4;
 
 	if( m_bSendJudgmentAndComboMessages )
@@ -2891,14 +2891,24 @@ void Player::SetCombo( int iCombo, int iMisses )
 			msg.SetParam( "Combo", iCombo );
 		if( iMisses )
 			msg.SetParam( "Misses", iMisses );
-		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W1) )
-			msg.SetParam( "FullComboW1", true );
-		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W2) )
-			msg.SetParam( "FullComboW2", true );
-		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W3) )
-			msg.SetParam( "FullComboW3", true );
-		if( bPastBeginning && m_pPlayerStageStats->FullComboOfScore(TNS_W4) )
-			msg.SetParam( "FullComboW4", true );
+
+		bool bFullComboW1 = m_pPlayerStageStats->FullComboOfScore(TNS_W1);
+		bool bFullComboW2 = m_pPlayerStageStats->FullComboOfScore(TNS_W2);
+		bool bFullComboW3 = m_pPlayerStageStats->FullComboOfScore(TNS_W3);
+		bool bFullComboW4 = m_pPlayerStageStats->FullComboOfScore(TNS_W4);
+
+		if( bPartWayThrough )
+		{
+			if( bFullComboW1 )
+				msg.SetParam( "FullComboW1", true );
+			else if( bFullComboW2 )
+				msg.SetParam( "FullComboW2", true );
+			else if( bFullComboW3 )
+				msg.SetParam( "FullComboW3", true );
+			else if( bFullComboW4 )
+				msg.SetParam( "FullComboW4", true );
+		}
+
 		this->HandleMessage( msg );
 	}
 }
