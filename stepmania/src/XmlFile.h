@@ -57,27 +57,31 @@ class XNode;
 typedef vector<XNode*> XNodes;
 
 #define FOREACH_Attr( pNode, Var ) \
+	XAttrs::const_iterator Var##End=(pNode)->m_attrs.end(); \
 	for( XAttrs::iterator Var = (pNode)->m_attrs.begin(); \
-		Var != (pNode)->m_attrs.end(); \
+		Var != Var##End; \
 		++Var )
 
 #define FOREACH_CONST_Attr( pNode, Var ) \
+	XAttrs::const_iterator Var##End=(pNode)->m_attrs.end(); \
 	for( XAttrs::const_iterator Var = (pNode)->m_attrs.begin(); \
-		Var != (pNode)->m_attrs.end(); \
+	Var != Var##End; \
 		++Var )
 
 #define FOREACH_Child( pNode, Var ) \
 	XNode *Var = NULL; \
+	XNodes::const_iterator Var##EndItr=(pNode)->m_childs.end(); \
 	for( XNodes::iterator Var##Iter = (pNode)->m_childs.begin(); \
-		Var = (Var##Iter != (pNode)->m_childs.end())? *Var##Iter:NULL, \
-		Var##Iter != (pNode)->m_childs.end(); \
+		Var = (Var##Iter != Var##EndItr)? *Var##Iter:NULL, \
+		Var##Iter != Var##EndItr; \
 		++Var##Iter )
 
 #define FOREACH_CONST_Child( pNode, Var ) \
 	const XNode *Var = NULL; \
+	XNodes::const_iterator Var##EndItr=(pNode)->m_childs.end(); \
 	for( XNodes::const_iterator Var##Iter = (pNode)->m_childs.begin(); \
-		Var = (Var##Iter != (pNode)->m_childs.end())? *Var##Iter:NULL, \
-		Var##Iter != (pNode)->m_childs.end(); \
+		Var = (Var##Iter != Var##EndItr)? *Var##Iter:NULL, \
+		Var##Iter != Var##EndItr; \
 		++Var##Iter )
 
 class XNode
