@@ -96,31 +96,19 @@ void MusicWheel::Load( RString sType )
 	 * to re-sort by title each time. */
 	SONGMAN->SortSongs();
 
-	RageTimer timer;
-	RString times;
-	/* Build all of the wheel item data.  Do this after selecting
-	 * the extra stage, so it knows to always display it. */
-	FOREACH_ENUM( SortOrder, so )
-	{
-		BuildWheelItemDatas( m_UnfilteredWheelItemDatas[so], so );
-		times += ssprintf( "%i:%.3f ", so, timer.GetDeltaTime() );
+	
+	FOREACH_ENUM( SortOrder, so ) {		
+		m_WheelItemDatasStatus[so]=false;
 	}
-	LOG->Trace( "MusicWheel sorting took: %s", times.c_str() );
 }
 
 void MusicWheel::BeginScreen()
 {
-	FOREACH_ENUM( SortOrder, so )
-	{
-		m_WheelItemDatas[so] = m_UnfilteredWheelItemDatas[so];
-		UpdateWheelItemDatas( so );
-	}
 
-
-	/* Set m_LastModeMenuItem to the first item that matches the current mode.  (Do this
-	 * after building wheel item data.) */
+	// Set m_LastModeMenuItem to the first item that matches the current mode.  (Do this
+	// after building wheel item data.) 
 	{
-		const vector<MusicWheelItemData *> &from = m_WheelItemDatas[SORT_MODE_MENU];
+		const vector<MusicWheelItemData *> &from = getWheelItemsData(SORT_MODE_MENU);
 		for( unsigned i=0; i<from.size(); i++ )
 		{
 			ASSERT( &*from[i]->m_pAction );
@@ -131,7 +119,6 @@ void MusicWheel::BeginScreen()
 			}
 		}
 	}
-
 
 	WheelBase::BeginScreen();
 
@@ -189,7 +176,7 @@ void MusicWheel::BeginScreen()
 MusicWheel::~MusicWheel()
 {
 	FOREACH_ENUM( SortOrder, so )
-		FOREACH( MusicWheelItemData*, m_UnfilteredWheelItemDatas[so], i )
+		FOREACH( MusicWheelItemData*, m__WheelItemDatas[so], i )
 			delete *i;
 }
 
@@ -208,7 +195,7 @@ bool MusicWheel::SelectSongOrCourse()
 		return true;
 
 	// Select the first selectable song based on the sort order...
-	vector<MusicWheelItemData *> &wiWheelItems = m_WheelItemDatas[GAMESTATE->m_SortOrder];
+	vector<MusicWheelItemData *> &wiWheelItems = getWheelItemsData(GAMESTATE->m_SortOrder);
 	for( unsigned i = 0; i < wiWheelItems.size(); i++ )
 	{
 		if( wiWheelItems[i]->m_pSong )
@@ -241,7 +228,7 @@ bool MusicWheel::SelectSong( const Song *p )
 		return false;
 
 	unsigned i;
-	vector<MusicWheelItemData *> &from = m_WheelItemDatas[GAMESTATE->m_SortOrder];
+	vector<MusicWheelItemData *> &from = getWheelItemsData(GAMESTATE->m_SortOrder);
 	for( i=0; i<from.size(); i++ )
 	{
 		if( from[i]->m_pSong == p )
@@ -269,7 +256,7 @@ bool MusicWheel::SelectCourse( const Course *p )
 		return false;
 
 	unsigned i;
-	vector<MusicWheelItemData *> &from = m_WheelItemDatas[GAMESTATE->m_SortOrder];
+	vector<MusicWheelItemData *> &from = getWheelItemsData(GAMESTATE->m_SortOrder);
 	for( i=0; i<from.size(); i++ )
 	{
 		if( from[i]->m_pCourse == p )
@@ -296,7 +283,7 @@ bool MusicWheel::SelectModeMenuItem()
 {
 	/* Select the last-chosen option. */
 	ASSERT( GAMESTATE->m_SortOrder == SORT_MODE_MENU );
-	const vector<MusicWheelItemData *> &from = m_WheelItemDatas[GAMESTATE->m_SortOrder];
+	const vector<MusicWheelItemData *> &from = getWheelItemsData(GAMESTATE->m_SortOrder);
 	unsigned i;
 	for( i=0; i<from.size(); i++ )
 	{
@@ -646,20 +633,35 @@ void MusicWheel::BuildWheelItemDatas( vector<MusicWheelItemData *> &arrayWheelIt
 	}
 }
 
-/* The screen is starting.  Take m_UnfilteredWheelItemDatas created on load by BuildWheelItemDatas
- * and update them for the current state.  Output the results into m_WheelItemDatas. */
-void MusicWheel::UpdateWheelItemDatas( SortOrder so )
+vector<MusicWheelItemData *> & MusicWheel::getWheelItemsData(SortOrder so) {
+
+	if(!m_WheelItemDatasStatus[so]) {
+		RageTimer timer;
+
+		vector<MusicWheelItemData *> aUnFilteredDatas;
+		BuildWheelItemDatas(  aUnFilteredDatas, so );
+		FilterWheelItemDatas( aUnFilteredDatas, m__WheelItemDatas[so], so );
+		m_WheelItemDatasStatus[so]=true;
+
+		LOG->Trace( "MusicWheel sorting took: %f", timer.GetTimeSinceStart() );
+	}
+	return m__WheelItemDatas[so];
+}
+
+void MusicWheel::FilterWheelItemDatas(vector<MusicWheelItemData *> &aUnFilteredDatas, vector<MusicWheelItemData *> &aFilteredData, SortOrder so )
 {
-	vector<MusicWheelItemData *> &aWheelItemDatas = m_UnfilteredWheelItemDatas[so];
 
 	/* Only add TYPE_PORTAL if there's at least one song on the list. */
 	bool bFoundAnySong = false;
-	for( unsigned i=0; !bFoundAnySong && i < aWheelItemDatas.size(); i++ )
-		if( aWheelItemDatas[i]->m_Type == TYPE_SONG )
+	for( unsigned i=0; i < aUnFilteredDatas.size(); i++ ) {
+		if( aUnFilteredDatas[i]->m_Type == TYPE_SONG ) {
 			bFoundAnySong = true;
+			break;
+		}
+	}
 
 	vector<bool> aiRemove;
-	aiRemove.insert( aiRemove.begin(), aWheelItemDatas.size(), false );
+	aiRemove.insert( aiRemove.begin(), aUnFilteredDatas.size(), false );
 
 	const int iMaxStagesForSong = GAMESTATE->GetSmallestNumStagesLeftForAnyHumanPlayer();
 
@@ -671,9 +673,9 @@ void MusicWheel::UpdateWheelItemDatas( SortOrder so )
 	}
 
 	/* Mark any songs that aren't playable in aiRemove. */
-	for( unsigned i=0; i< aWheelItemDatas.size(); i++ )
+	for( unsigned i=0; i< aUnFilteredDatas.size(); i++ )
 	{
-		MusicWheelItemData& WID = *aWheelItemDatas[i];
+		MusicWheelItemData& WID = *aUnFilteredDatas[i];
 
 		/* If we have no songs, remove Random and Portal. */
 		if( WID.m_Type == TYPE_RANDOM || WID.m_Type == TYPE_PORTAL )
@@ -700,7 +702,7 @@ void MusicWheel::UpdateWheelItemDatas( SortOrder so )
 			}
 
 			int iLocked = UNLOCKMAN->SongIsLocked( pSong );
-			if( UNLOCKMAN->SongIsLocked(pSong) & LOCKED_DISABLED )
+			if( iLocked & LOCKED_DISABLED )
 			{
 				aiRemove[i] = true;
 				continue;
@@ -746,13 +748,13 @@ void MusicWheel::UpdateWheelItemDatas( SortOrder so )
 	}
 
 	/* Filter out the songs we're removing. */
-	vector<MusicWheelItemData *> &aFilteredData = m_WheelItemDatas[so];
-	aFilteredData.reserve( aWheelItemDatas.size() );
-	for( unsigned i=0; i< aWheelItemDatas.size(); i++ )
+	 
+	aFilteredData.reserve( aUnFilteredDatas.size() );
+	for( unsigned i=0; i< aUnFilteredDatas.size(); i++ )
 	{
 		if( aiRemove[i] )
 			continue;
-		aFilteredData.push_back( aWheelItemDatas[i] );
+		aFilteredData.push_back( aUnFilteredDatas[i] );
 	}
 
 	// Update the song count in each section header.
@@ -925,7 +927,7 @@ bool MusicWheel::ChangeSort( SortOrder new_so )	// return true if change success
 		return false;
 
 	/* Don't change to SORT_MODE_MENU if it doesn't have at least two choices. */
-	if( new_so == SORT_MODE_MENU && m_WheelItemDatas[new_so].size() < 2 )
+	if( new_so == SORT_MODE_MENU && getWheelItemsData(new_so).size() < 2 )
 		return false;
 
 	switch( m_WheelState )
@@ -1056,7 +1058,7 @@ void MusicWheel::StartRandom()
 	{
 		/* Shuffle and use the roulette wheel. */
 		RandomGen rnd;
-		random_shuffle( m_WheelItemDatas[SORT_ROULETTE].begin(), m_WheelItemDatas[SORT_ROULETTE].end(), rnd );
+		random_shuffle( getWheelItemsData(SORT_ROULETTE).begin(), getWheelItemsData(SORT_ROULETTE).end(), rnd );
 		GAMESTATE->m_SortOrder.Set( SORT_ROULETTE );
 	}
 	else
@@ -1090,7 +1092,7 @@ void MusicWheel::SetOpenSection( RString group )
 		GAMEMAN->GetCompatibleStyles( GAMESTATE->m_pCurGame, GAMESTATE->GetNumPlayersEnabled(), vpPossibleStyles );
 
 	m_CurWheelItemData.clear();
-	vector<MusicWheelItemData *> &from = m_WheelItemDatas[GAMESTATE->m_SortOrder];
+	vector<MusicWheelItemData *> &from = getWheelItemsData(GAMESTATE->m_SortOrder);
 	m_CurWheelItemData.reserve( from.size() );
 	for( unsigned i = 0; i < from.size(); ++i )
 	{
@@ -1187,7 +1189,7 @@ Song *MusicWheel::GetPreferredSelectionForRandomOrPortal()
 	}
 
 	RString sPreferredGroup = m_sExpandedSectionName;
-	vector<MusicWheelItemData *> &wid = m_WheelItemDatas[GAMESTATE->m_SortOrder];
+	vector<MusicWheelItemData *> &wid = getWheelItemsData(GAMESTATE->m_SortOrder);
 
 	StepsType st = GAMESTATE->GetCurrentStyle()->m_StepsType;
 

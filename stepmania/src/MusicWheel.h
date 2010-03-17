@@ -48,16 +48,14 @@ public:
 protected:
 	MusicWheelItem *MakeItem();
 
-	void BuildWheelItemDatas( vector<MusicWheelItemData *> &arrayWheelItems, SortOrder so );
-	void UpdateWheelItemDatas( SortOrder so );
 	bool SelectSongOrCourse();
 	bool SelectCourse( const Course *p );
 	bool SelectModeMenuItem();
 
 	virtual void UpdateSwitch();
 
-	vector<MusicWheelItemData *>		m_UnfilteredWheelItemDatas[NUM_SortOrder];
-	vector<MusicWheelItemData *>		m_WheelItemDatas[NUM_SortOrder]; // aliases into m_UnfilteredWheelItemDatas
+	vector<MusicWheelItemData *> & getWheelItemsData(SortOrder so);
+	
 	const MusicWheelItemData *GetCurWheelItemData( int i ) { return (const MusicWheelItemData *) m_CurWheelItemData[i]; }
 	
 	RString				m_sLastModeMenuItem;
@@ -81,6 +79,14 @@ protected:
 	ThemeMetric1D<RageColor>	SECTION_COLORS;
 	ThemeMetric<LuaReference>	SORT_ORDERS;
 	ThemeMetric<bool>		SHOW_EASY_FLAG;
+
+private:
+	//use getWheelItemsData instead of touching this one
+	bool m_WheelItemDatasStatus[NUM_SortOrder];
+	vector<MusicWheelItemData *> m__WheelItemDatas[NUM_SortOrder];
+
+	void BuildWheelItemDatas( vector<MusicWheelItemData *> &arrayWheelItems, SortOrder so );
+	void FilterWheelItemDatas(vector<MusicWheelItemData *> &aUnFilteredDatas, vector<MusicWheelItemData *> &aFilteredData, SortOrder so );
 };
 
 #endif
