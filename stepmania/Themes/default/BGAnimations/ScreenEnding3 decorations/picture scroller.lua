@@ -14,7 +14,7 @@ for i=1,#names do
 		};
 		LoadActor( "picture frame" );
 		LoadFont( "_venacti bold 15px" ) .. {
-			InitCommand=cmd(horizalign,left;x,100;y,138;settext,string.upper(name[2] .. "\n" .. name[3]);strokecolor,color("#00000077"););
+			InitCommand=cmd(halign,0;x,100;y,138;settext,string.upper(name[2] .. "\n" .. name[3]);strokecolor,color("#00000077"););
 		};
 	};
 end

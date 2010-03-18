@@ -125,7 +125,7 @@ end;
 t[#t+1] = Def.BPMDisplay {
 	File=THEME:GetPathF("BPMDisplay", "bpm");
 	Name="BPMDisplay";
-	InitCommand=cmd(horizalign,right;x,SCREEN_CENTER_X+294;y,SCREEN_CENTER_Y-9;zoomx,0.8;shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000"););
+	InitCommand=cmd(halign,1;x,SCREEN_CENTER_X+294;y,SCREEN_CENTER_Y-9;zoomx,0.8;shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000"););
 	OnCommand=cmd(stoptweening;addx,SCREEN_WIDTH*0.6;bounceend,0.5;addx,-SCREEN_WIDTH*0.6);
 	OffCommand=cmd(bouncebegin,0.5;addx,SCREEN_WIDTH*0.6);
 	SetCommand=function(self) self:SetFromGameState() end;
@@ -133,7 +133,7 @@ t[#t+1] = Def.BPMDisplay {
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
 };
 t[#t+1] = LoadActor( "_bpm label" ) .. {
-	InitCommand=cmd(horizalign,left;x,SCREEN_CENTER_X+280;y,SCREEN_CENTER_Y-10);
+	InitCommand=cmd(halign,0;x,SCREEN_CENTER_X+280;y,SCREEN_CENTER_Y-10);
 	OnCommand=cmd(addx,SCREEN_WIDTH*0.6;bounceend,0.5;addx,-SCREEN_WIDTH*0.6);
 	OffCommand=cmd(bouncebegin,0.5;addx,SCREEN_WIDTH*0.6);
 };
@@ -156,7 +156,7 @@ t[#t+1] = Def.ActorFrame {
 	};
 
 	Def.Quad {
-		InitCommand=cmd(diffuse,color("#FFFFFF");setsize,120,16;horizalign,right;addx,60);
+		InitCommand=cmd(diffuse,color("#FFFFFF");setsize,120,16;halign,1;addx,60);
 		BeginCommand=cmd(zwrite,1;z,1;blend,"BlendMode_NoEffect");
 		UpdateCommand=function(self)
 			local function CalcZoomX(fBpm)
@@ -198,7 +198,7 @@ t[#t+1] = LoadActor( "stop icon" ) .. {
 };
 	
 t[#t+1] = LoadFont("_venacti Bold 15px") .. {
-	InitCommand=cmd(horizalign,left;x,SCREEN_CENTER_X-14;y,SCREEN_CENTER_Y-24;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,180);
+	InitCommand=cmd(halign,0;x,SCREEN_CENTER_X-14;y,SCREEN_CENTER_Y-24;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,180);
 	SetCommand=function(self)
 			local s = "---";
 			local song = GAMESTATE:GetCurrentSong();
@@ -223,7 +223,7 @@ t[#t+1] = LoadFont("_venacti Bold 15px") .. {
 	DisplayLanguageChangedMessageCommand=cmd(playcommand,"Set");
 };
 t[#t+1] = LoadFont("_venacti Bold 15px") .. {
-	InitCommand=cmd(horizalign,right;x,SCREEN_CENTER_X+224;y,SCREEN_CENTER_Y-6;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,156);
+	InitCommand=cmd(halign,1;x,SCREEN_CENTER_X+224;y,SCREEN_CENTER_Y-6;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,156);
 	SetCommand=function(self) 
 			local s = "---";
 			local song = GAMESTATE:GetCurrentSong();
@@ -320,7 +320,7 @@ t[#t+1] = Def.CourseContentsList {
 		};
 
 		LoadFont("Common","normal") .. {
-			OnCommand=cmd(x,-(SCREEN_CENTER_X*0.2);y,SCREEN_CENTER_Y-230;zoom,0.75;horizalign,right;shadowlength,0);
+			OnCommand=cmd(x,-(SCREEN_CENTER_X*0.2);y,SCREEN_CENTER_Y-230;zoom,0.75;halign,1;shadowlength,0);
 			SetSongCommand=function(self, params) self:settext(params.Modifiers); end;
 		};
 

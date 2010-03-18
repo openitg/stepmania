@@ -1,7 +1,7 @@
 return Def.ActorFrame {
 	Def.ActorFrame {
 		Def.Quad { 
-			InitCommand=cmd(horizalign,left;zoomtowidth,120;zoomtoheight,SCREEN_HEIGHT;diffuse,color("#000000");diffuserightedge,color("#00000011"););
+			InitCommand=cmd(halign,0;zoomtowidth,120;zoomtoheight,SCREEN_HEIGHT;diffuse,color("#000000");diffuserightedge,color("#00000011"););
 			OnCommand=cmd();
 		};	
 		LoadFont("common normal") .. {
@@ -17,7 +17,7 @@ return Def.ActorFrame {
 	};
 	Def.ActorFrame {
 		Def.Quad { 
-			InitCommand=cmd(horizalign,right;zoomtowidth,120;zoomtoheight,SCREEN_HEIGHT;diffuse,color("#000000");diffuseleftedge,color("#00000011"););
+			InitCommand=cmd(halign,1;zoomtowidth,120;zoomtoheight,SCREEN_HEIGHT;diffuse,color("#000000");diffuseleftedge,color("#00000011"););
 			OnCommand=cmd();
 		};	
 		LoadFont("common normal") .. {

@@ -4,7 +4,7 @@ t[#t+1] = StandardDecorationFromFile( "StageFrame", "StageFrame" );
 
 t[#t+1] = LoadActor("_warning") .. {
 	InitCommand=cmd(x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y;
-		vertalign,top;
+		valign,0;
 		wag;effectmagnitude,0,0,10;effectperiod,2;
 	);
 	OnCommand=cmd(diffusealpha,0);
