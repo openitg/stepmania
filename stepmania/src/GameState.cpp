@@ -739,6 +739,8 @@ void GameState::CommitStageStats()
 void GameState::FinishStage()
 {
 	// Increment the stage counter.
+	const int iOldStageIndex = m_iCurrentStageIndex;
+	
 	++m_iCurrentStageIndex;
 
 	m_iNumStagesOfThisSong = 0;
@@ -765,7 +767,7 @@ void GameState::FinishStage()
 	if( IsEventMode() )
 	{
 		const int iSaveProfileEvery = 3;
-		if( m_iCurrentStageIndex % iSaveProfileEvery )
+		if( iOldStageIndex/iSaveProfileEvery < m_iCurrentStageIndex/iSaveProfileEvery )
 		{
 			LOG->Trace( "Played %i stages; saving profiles ...", iSaveProfileEvery );
 			PROFILEMAN->SaveMachineProfile();
