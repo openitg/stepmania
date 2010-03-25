@@ -1476,11 +1476,23 @@
 	<Function name='GetTapNoteScores' return='int' arguments='TapNoteScore tns'>
 		Returns the number of judgments for a specified TapNoteScore.
 	</Function>
-	<Function name='MaxCombo' return='int' arguments=''>
-		Returns the max combo for this performance.
-	</Function>
 	<Function name='IsDisqualified' return='bool' arguments=''>
 		Returns <code>true</code> if the player was disqualified from ranking.
+	</Function>
+	<Function name='IsFullComboW1' return='bool' arguments=''>
+		Returns <code>true</code> if a full combo of TapNoteScore_W1 was obtained.
+	</Function>
+	<Function name='IsFullComboW2' return='bool' arguments=''>
+		Returns <code>true</code> if a full combo of TapNoteScore_W2 (and above) was obtained.
+	</Function>
+	<Function name='IsFullComboW3' return='bool' arguments=''>
+		Returns <code>true</code> if a full combo of TapNoteScore_W3 (and above) was obtained.
+	</Function>
+	<Function name='IsFullComboW4' return='bool' arguments=''>
+		Returns <code>true</code> if a full combo of TapNoteScore_W4 (and above) was obtained.
+	</Function>
+	<Function name='MaxCombo' return='int' arguments=''>
+		Returns the max combo for this performance.
 	</Function>
 </Class>
 <Class name='PlayerState'>
