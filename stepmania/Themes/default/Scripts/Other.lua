@@ -108,7 +108,7 @@ function TextBannerAfterSet(self,param)
 	else
 		-- subtitle below
 		(cmd(zoom,1;y,-6;zoom,0.9;))(Title);
-		(cmd(visible,true;zoom,0.6;y,7))(Subtitle); 
+		(cmd(maxwidth,340;visible,true;zoom,0.6;y,7))(Subtitle); 
 		--(cmd(zoom,0.66;maxwidth,300;y,9))(Artist); 
 	end
 end
