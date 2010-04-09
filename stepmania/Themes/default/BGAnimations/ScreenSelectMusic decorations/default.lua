@@ -245,6 +245,8 @@ t[#t+1] = LoadFont("_venacti Bold 15px") .. {
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
 };
 
+-- Not yet implemented.
+--[[
 t[#t+1] = Def.ActorFrame {
 	InitCommand=cmd(x,SCREEN_CENTER_X+26;y,SCREEN_CENTER_Y-5;);
 	LoadActor("star full") .. { InitCommand=cmd(x,16*-2); };
@@ -255,6 +257,7 @@ t[#t+1] = Def.ActorFrame {
 	CurrentSongChangedMessageCommand=cmd(playcommand,"Set");
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
 };
+]]
 
 t[#t+1] = Def.Quad{
 	Name="CourseContentsListMaskTop";
