@@ -220,6 +220,8 @@ t[#t+1] = LoadFont("_venacti Bold 15px") .. {
 		end;
 	CurrentSongChangedMessageCommand=cmd(playcommand,"Set");
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
+	CurrentTrailP1ChangedMessageCommand=cmd(playcommand,"Set");
+	CurrentTrailP2ChangedMessageCommand=cmd(playcommand,"Set");
 	DisplayLanguageChangedMessageCommand=cmd(playcommand,"Set");
 };
 t[#t+1] = LoadFont("_venacti Bold 15px") .. {
@@ -276,14 +278,15 @@ t[#t+1] = Def.Quad{
 t[#t+1] = Def.CourseContentsList {
 	MaxSongs = 5;
 
-	InitCommand=cmd(x,SCREEN_CENTER_X+160;y,SCREEN_CENTER_Y+91);
-	OnCommand=cmd(zoomy,0;bounceend,0.3;zoom,1;ztest,true);
+	InitCommand=cmd(x,SCREEN_CENTER_X+156;y,SCREEN_CENTER_Y+91);
+	OnCommand=cmd(zoomy,0;bounceend,0.3;zoom,1;ztest,true;playcommand,"Set");
 	OffCommand=cmd(zoomy,1;bouncebegin,0.3;zoomy,0);
 	ShowCommand=cmd(bouncebegin,0.3;zoomy,1);
 	HideCommand=cmd(linear,0.3;zoomy,0);
 	SetCommand=function(self)
 		self:SetFromGameState();
 		self:setsecondsperitem(0.7);
+		self:SetCurrentAndDestinationItem(0);
 		self:SetSecondsPauseBetweenItems(0.7);
 		self:scrollwithpadding(0, 0);
 	end;
@@ -309,7 +312,7 @@ t[#t+1] = Def.CourseContentsList {
 		};
 
 		LoadFont("CourseEntryDisplay","number") .. {
-			OnCommand=cmd(x,-118;shadowlength,0);
+			OnCommand=cmd(x,-118;y,-2;shadowlength,0);
 			SetSongCommand=function(self, params) self:settext(string.format("%i", params.Number)); end;
 		};
 
@@ -323,16 +326,20 @@ t[#t+1] = Def.CourseContentsList {
 		};
 
 		LoadFont("Common","normal") .. {
-			OnCommand=cmd(x,-(SCREEN_CENTER_X*0.2);y,SCREEN_CENTER_Y-230;zoom,0.75;halign,1;shadowlength,0);
+			OnCommand=cmd(x,-132;y,SCREEN_CENTER_Y-230;zoom,0.75;halign,0;shadowlength,0);
 			SetSongCommand=function(self, params) self:settext(params.Modifiers); end;
 		};
 
 		LoadFont("CourseEntryDisplay","difficulty") .. {
-			OnCommand=cmd(x,SCREEN_CENTER_X-254;y,1;shadowlength,0;settext,"1");
+			OnCommand=cmd(x,130;y,1;shadowlength,0;settext,"1");
 			DifficultyChangedCommand=function(self, params)
 				if params.PlayerNumber ~= GAMESTATE:GetMasterPlayerNumber() then return end
-				self:diffuse( StepsOrTrailToColor(params.Trail) );
+				if params.Trail then
+					self:diffuse( StepsOrTrailToColor(params.Trail) );
+				end;
 			end;
+			CurrentTrailP1ChangedMessageCommand=cmd(playcommand,"DifficultyChanged");
+			CurrentTrailP2ChangedMessageCommand=cmd(playcommand,"DifficultyChanged");
 		};
 	};
 };

@@ -58,8 +58,8 @@ if ShowStandardDecoration("ItsARecord") then
 					local pSongOrCourse = GAMESTATE:GetCurrentCourse() or GAMESTATE:GetCurrentSong();
 					local pSteps = GAMESTATE:GetCurrentSteps(pn);
 					local hsl = PROFILEMAN:GetMachineProfile():GetHighScoreList(pSongOrCourse,pSteps);
-					
-					local hs = hsl:GetHighScores()[1]
+
+					local hs = hsl:GetHighScores()[1];
 					local hsName = hs:GetName();
 					local hsPerc = FormatPercentScore( hs:GetPercentDP() );
 					self:GetChild("Record"):visible( false );
@@ -76,7 +76,7 @@ if ShowStandardDecoration("ItsARecord") then
 				LoadFont("common normal") .. {
 					InitCommand=cmd(name,"NoRecord";strokecolor,color("#706f43");shadowlength,0;); 
 				};
-			}
+			};
 			t[#t+1] = StandardDecorationFromTable( "ItsARecord" .. ToEnumShortString(pn), t2 );
 		end
 	end
@@ -94,7 +94,7 @@ if ShowStandardDecoration("ModIconRows") then
 	for pn in ivalues(PlayerNumber) do
 		local t2 = Def.ModIconRow {
 				InitCommand=cmd(Load,"ModIconRowEvaluation"..ToEnumShortString(pn),pn);
-			};	
+			};
 		t[#t+1] = StandardDecorationFromTable( "ModIconRow" .. ToEnumShortString(pn), t2 );
 	end
 end
@@ -103,7 +103,7 @@ if ShowStandardDecoration("StepsDisplay") then
 	for pn in ivalues(PlayerNumber) do
 		local t2 = Def.StepsDisplay {
 				InitCommand=cmd(Load,"StepsDisplayEvaluation",pn;SetFromGameState,pn;);
-			};	
+			};
 		t[#t+1] = StandardDecorationFromTable( "StepsDisplay" .. ToEnumShortString(pn), t2 );
 	end
 end
@@ -115,7 +115,7 @@ if ShowStandardDecoration("StageAward") then
 				local ss = SCREENMAN:GetTopScreen():GetStageStats();
 				self:playcommand( "Set", { StageAward = ss:GetPlayerStageStats(pn):GetStageAward() } );
 			end;
-		}
+		};
 	end
 end
 
