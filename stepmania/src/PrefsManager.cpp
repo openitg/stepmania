@@ -162,6 +162,7 @@ PrefsManager::PrefsManager() :
 	m_bAllowMultitexture	( "AllowMultitexture",		true ),
 	m_bShowStats		( "ShowStats",			TRUE_IF_DEBUG),
 	m_bShowBanners		( "ShowBanners",		true ),
+	m_bAcceptInputOnNoFocus	( "AcceptInputOnNoFocus",	false ),
 
 	m_bHiddenSongs		( "HiddenSongs",		false ),
 	m_bVsync		( "Vsync",			true ),

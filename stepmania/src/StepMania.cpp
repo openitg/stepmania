@@ -1408,9 +1408,10 @@ void HandleInputEvents(float fDeltaTime)
 	vector<InputEvent> ieArray;
 	INPUTFILTER->GetInputEvents( ieArray );
 
-	/* If we don't have focus, discard input. */
+	/* If we don't have focus, discard input unless there's AcceptInputOnNoFocus option set. */
 	if( !HOOKS->AppHasFocus() )
-		return;
+		if ( !PREFSMAN->m_bAcceptInputOnNoFocus )
+			return;
 
 	for( unsigned i=0; i<ieArray.size(); i++ )
 	{

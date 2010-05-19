@@ -150,6 +150,7 @@ public:
 	Preference<bool>	m_bAllowMultitexture;
 	Preference<bool>	m_bShowStats;
 	Preference<bool>	m_bShowBanners;
+	Preference<bool>	m_bAcceptInputOnNoFocus;
 
 	Preference<bool>	m_bHiddenSongs;
 	Preference<bool>	m_bVsync;
