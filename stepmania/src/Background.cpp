@@ -172,8 +172,8 @@ void BackgroundImpl::Init()
 	
 	if( DONT_USE_STATIC_BG )
 	{
-		m_StaticBackgroundDef.m_sColor1 = "0,0,0,0";
-		m_StaticBackgroundDef.m_sColor2 = "0,0,0,0";
+		m_StaticBackgroundDef.m_sColor1 = "#000";
+		m_StaticBackgroundDef.m_sColor2 = "#000";
 	}
 
 	// load transitions
@@ -348,8 +348,8 @@ bool BackgroundImpl::Layer::CreateBackground( const Song *pSong, const Backgroun
 
 
 	// Set Lua color globals
-	LuaThreadVariable sColor1( "Color1", bd.m_sColor1.empty() ? RString("1,1,1,1") : bd.m_sColor1 );
-	LuaThreadVariable sColor2( "Color2", bd.m_sColor2.empty() ? RString("1,1,1,1") : bd.m_sColor2 );
+	LuaThreadVariable sColor1( "Color1", bd.m_sColor1.empty() ? RString("#FFF") : bd.m_sColor1 );
+	LuaThreadVariable sColor2( "Color2", bd.m_sColor2.empty() ? RString("#FFF") : bd.m_sColor2 );
 
 
 	// Resolve the effect file.

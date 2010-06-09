@@ -212,10 +212,12 @@ bool LoadFromBGChangesString( BackgroundChange &change, const RString &sBGChange
 	case 11:
 		change.m_def.m_sColor2 = aBGChangeValues[10];
 		change.m_def.m_sColor2.Replace( '^', ',' );
+		change.m_def.m_sColor2 = RageColor::NormalizeColorString( change.m_def.m_sColor2 );
 		// fall through
 	case 10:
 		change.m_def.m_sColor1 = aBGChangeValues[9];
 		change.m_def.m_sColor1.Replace( '^', ',' );
+		change.m_def.m_sColor1 = RageColor::NormalizeColorString( change.m_def.m_sColor1 );
 		// fall through
 	case 9:
 		change.m_sTransition = aBGChangeValues[8];
