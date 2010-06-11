@@ -172,8 +172,8 @@ void BackgroundImpl::Init()
 	
 	if( DONT_USE_STATIC_BG )
 	{
-		m_StaticBackgroundDef.m_sColor1 = "#000";
-		m_StaticBackgroundDef.m_sColor2 = "#000";
+		m_StaticBackgroundDef.m_sColor1 = "#00000000";
+		m_StaticBackgroundDef.m_sColor2 = "#00000000";
 	}
 
 	// load transitions
