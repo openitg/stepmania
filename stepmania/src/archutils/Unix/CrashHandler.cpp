@@ -387,7 +387,7 @@ void CrashHandler::ForceDeadlock( RString reason, uint64_t iID )
 
 void CrashHandler::CrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
 {
-	static bool bInCrashSignalHandler = false;
+	static volatile bool bInCrashSignalHandler = false;
 	if( bInCrashSignalHandler )
 	{
 		safe_print( 2, "Fatal: crash from within the crash signal handler\n", NULL );
@@ -395,6 +395,11 @@ void CrashHandler::CrashSignalHandler( int signal, siginfo_t *si, const ucontext
 	}
 
 	bInCrashSignalHandler = true;
+
+	/* Work around a gcc bug: it reorders the above assignment past other work down
+	 * here, even if we declare it volatile.  This makes us not catch recursive
+	 * crashes. */
+	asm volatile("nop");
 
 	CrashData crash;
 	memset( &crash, 0, sizeof(crash) );
