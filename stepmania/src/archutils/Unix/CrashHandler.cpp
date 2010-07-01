@@ -48,22 +48,10 @@ static void safe_print( int fd, ... )
 #if defined(LINUX)
 static void GetExecutableName( char *buf, int bufsize )
 {
-	/* readlink(/proc/pid/exe).  This is more reliable than argv[0]. */
-	char proc_fn[1024] = "/proc/";
-	strcat( proc_fn, itoa( getpid() ) );
-	strcat( proc_fn, "/exe" );
-
-	int got = readlink( proc_fn, buf, bufsize-1 );
-	if( got == -1 )
-	{
-		safe_print( fileno(stderr), "Crash handler readlink ", proc_fn, " failed: ", strerror(errno), "\n", NULL );
-
-		strncpy( buf, g_pCrashHandlerArgv0, bufsize );
-		buf[bufsize-1] = 0;
-	}
-
-
-	buf[got] = 0;
+	/* Reading /proc/self/exe always gives the running binary, even if it no
+	 * longer exists. */
+	strncpy( buf, "/proc/self/exe", bufsize );
+	buf[bufsize-1] = 0;
 }
 #else
 static void GetExecutableName( char *buf, int bufsize )
