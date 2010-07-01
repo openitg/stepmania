@@ -390,7 +390,7 @@ void CrashHandler::CrashSignalHandler( int signal, siginfo_t *si, const ucontext
 	static bool bInCrashSignalHandler = false;
 	if( bInCrashSignalHandler )
 	{
-		fprintf(stderr, "Fatal: crash from within the crash signal handler\n");
+		safe_print( 2, "Fatal: crash from within the crash signal handler\n", NULL );
 		_exit(1);
 	}
 
