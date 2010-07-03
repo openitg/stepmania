@@ -532,6 +532,17 @@ bool PlayerStageStats::FullComboOfScore( TapNoteScore tnsAllGreaterOrEqual ) con
 	return false;
 }
 
+TapNoteScore PlayerStageStats::GetBestFullComboTapNoteScore() const
+{
+       // OPTIMIZATION OPPORTUNITY: ...
+       for( TapNoteScore i=TNS_W1; i>=TNS_W5; enum_add(i,-1) )
+       {
+               if( FullComboOfScore(i) )
+                       return i;
+       }
+       return TapNoteScore_Invalid;
+}
+
 bool PlayerStageStats::SingleDigitsOfScore( TapNoteScore tnsAllGreaterOrEqual ) const
 {
 	return FullComboOfScore( tnsAllGreaterOrEqual ) &&
@@ -678,10 +689,7 @@ public:
 	DEFINE_METHOD( GetStageAward,		m_StageAward )
 	DEFINE_METHOD( GetPeakComboAward,		m_PeakComboAward )
 	DEFINE_METHOD( IsDisqualified,			IsDisqualified() )
-	DEFINE_METHOD( IsFullComboW1,			FullComboOfScore(TNS_W1) )
-	DEFINE_METHOD( IsFullComboW2,			FullComboOfScore(TNS_W2) )
-	DEFINE_METHOD( IsFullComboW3,			FullComboOfScore(TNS_W3) )
-	DEFINE_METHOD( IsFullComboW4,			FullComboOfScore(TNS_W4) )
+	DEFINE_METHOD( GetBestFullComboTapNoteScore, GetBestFullComboTapNoteScore() )
 
 	static int GetPlayedSteps( T* p, lua_State *L )
 	{
@@ -728,10 +736,7 @@ public:
 		ADD_METHOD( GetStageAward );
 		ADD_METHOD( GetPeakComboAward );
 		ADD_METHOD( IsDisqualified );
-		ADD_METHOD( IsFullComboW1 );
-		ADD_METHOD( IsFullComboW2 );
-		ADD_METHOD( IsFullComboW3 );
-		ADD_METHOD( IsFullComboW4 );
+		ADD_METHOD( GetBestFullComboTapNoteScore );
 		ADD_METHOD( GetPlayedSteps );
 		ADD_METHOD( GetPossibleSteps );
 	}
