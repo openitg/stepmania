@@ -534,13 +534,13 @@ bool PlayerStageStats::FullComboOfScore( TapNoteScore tnsAllGreaterOrEqual ) con
 
 TapNoteScore PlayerStageStats::GetBestFullComboTapNoteScore() const
 {
-       // OPTIMIZATION OPPORTUNITY: ...
-       for( TapNoteScore i=TNS_W1; i>=TNS_W5; enum_add(i,-1) )
-       {
-               if( FullComboOfScore(i) )
-                       return i;
-       }
-       return TapNoteScore_Invalid;
+	// OPTIMIZATION OPPORTUNITY: ...
+	for( TapNoteScore i=TNS_W1; i>=TNS_W5; enum_add(i,-1) )
+	{
+		if( FullComboOfScore(i) )
+			return i;
+	}
+	return TapNoteScore_Invalid;
 }
 
 bool PlayerStageStats::SingleDigitsOfScore( TapNoteScore tnsAllGreaterOrEqual ) const
