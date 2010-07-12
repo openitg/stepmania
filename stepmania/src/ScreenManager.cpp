@@ -296,7 +296,10 @@ void ScreenManager::ThemeChanged()
 		pScreen->BeginScreen();
 		g_OverlayScreens.push_back( pScreen );
 	}
-	
+
+	// Reload song/course group colors to prevent a crash when switching themes.
+	SONGMAN->ResetGroupColors();
+
 	// force recreate of new BGA
 	SAFE_DELETE( g_pSharedBGA );
 	g_pSharedBGA = new Actor;

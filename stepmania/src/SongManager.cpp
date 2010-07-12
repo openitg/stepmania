@@ -521,6 +521,18 @@ RageColor SongManager::GetCourseColor( const Course* pCourse ) const
 	}
 }
 
+
+void SongManager::ResetGroupColors()
+{
+	SONG_GROUP_COLOR.Clear();
+	COURSE_GROUP_COLOR.Clear();
+
+	NUM_SONG_GROUP_COLORS	.Load( "SongManager", "NumSongGroupColors" );
+	SONG_GROUP_COLOR		.Load( "SongManager", SONG_GROUP_COLOR_NAME, NUM_SONG_GROUP_COLORS );
+	NUM_COURSE_GROUP_COLORS .Load( "SongManager", "NumCourseGroupColors" );
+	COURSE_GROUP_COLOR		.Load( "SongManager", COURSE_GROUP_COLOR_NAME, NUM_COURSE_GROUP_COLORS );
+}
+
 const vector<Song*> &SongManager::GetSongs( const RString &sGroupName ) const
 {
 	static const vector<Song*> vEmpty;

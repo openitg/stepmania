@@ -66,6 +66,7 @@ public:
 	bool DoesSongGroupExist( RString sSongGroup ) const;
 	RageColor GetSongGroupColor( const RString &sSongGroupName ) const;
 	RageColor GetSongColor( const Song* pSong ) const;
+	void ResetGroupColors(); // called on theme change
 
 	RString GetCourseGroupBannerPath( const RString &sCourseGroup ) const;
 	void GetCourseGroupNames( vector<RString> &AddTo ) const;
