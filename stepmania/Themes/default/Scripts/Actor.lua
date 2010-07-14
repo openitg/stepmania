@@ -96,9 +96,9 @@ function Actor:FullScreen()
 	self:stretchto( 0,0,SCREEN_WIDTH,SCREEN_HEIGHT );
 end
 
--- Most backgrounds are 640x480.  Some are 768x480.  Stretch the 640x480 ones.
+-- Most backgrounds are 640x480.  Some are 768x480.  Stretch the 4:3 ones.
 function Actor:scale_or_crop_background()
-	if self:GetWidth() == 640 and self:GetHeight() == 480 then
+	if (self:GetWidth() * 3) / 4 == self:GetHeight() then
 		self:stretchto( 0,0,SCREEN_WIDTH,SCREEN_HEIGHT );
 	else
 		self:scaletocover( 0,0,SCREEN_WIDTH,SCREEN_HEIGHT );
