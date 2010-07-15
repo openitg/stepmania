@@ -52,16 +52,14 @@ private:
 	float			m_fPassingAlpha;
 	float			m_fHotAlpha;
 
-	float			m_fBaseLifeDifficulty;
-	float			m_fLifeDifficulty;		// essentially same as pref
+	bool		m_bMercifulBeginnerInEffect;
+	float		m_fBaseLifeDifficulty;
+	float		m_fLifeDifficulty;		// essentially same as pref
 
 	int			m_iProgressiveLifebar;		// cached from prefs
 	int			m_iMissCombo;			// current number of progressive W5/miss
 
 	int			m_iComboToRegainLife;		// combo needed before lifebar starts filling up after fail
-		
-	ThemeMetric<TapNoteScore>   MIN_SCORE_TO_FLASH;
-	ThemeMetric<bool> FLASH_HOT_ON_NOTE_HIT;
 };
 
 #endif

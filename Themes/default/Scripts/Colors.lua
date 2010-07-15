@@ -10,18 +10,22 @@ function PlayerScoreColor( pn )
 	return color("1,1,1,1")
 end
 
-local CustomDifficultyColors = {
+-- let driving themes override just this table
+GameCustomDifficultyColors = {
 	Beginner	= color("#ff32f8"),
 	Easy		= color("#2cff00"),
 	Medium		= color("#fee600"),
 	Hard		= color("#ff2f39"),
 	Challenge	= color("#1cd8ff"),
+};
+
+CommonCustomDifficultyColors = {
 	Edit		= color("0.8,0.8,0.8,1"),	-- gray
 	Couple		= color("#ff9a00"),	-- orange
 	Routine		= color("#ff9a00"),	-- orange
 };
 
-local CourseDifficultyColors = {
+CourseDifficultyColors = {
 	Difficulty_Beginner	= color("0.0,0.9,1.0,1"),	-- light blue
 	Difficulty_Easy		= color("0.9,0.9,0.0,1"),	-- yellow
 	Difficulty_Medium	= color("1.0,0.1,0.1,1"),	-- light red
@@ -30,7 +34,9 @@ local CourseDifficultyColors = {
 };
 
 function CustomDifficultyToColor( sCustomDifficulty ) 
-	local c = CustomDifficultyColors[sCustomDifficulty]
+	local c = GameCustomDifficultyColors[sCustomDifficulty]
+	if c then return c end
+	c = CommonCustomDifficultyColors[sCustomDifficulty]
 	if c then return c end
 	return color("#000000");
 end
@@ -45,14 +51,12 @@ function CustomDifficultyToLightColor( sCustomDifficulty )
 	return { scale(c[1],0,1,0.5,1), scale(c[2],0,1,0.5,1), scale(c[3],0,1,0.5,1), c[4] };
 end
 
-function CourseDifficutlyToColor( cd )
-	local c = CourseDifficultyColors[cd]
-	if c then return c end
-	return color("#000000");
+function StepsOrTrailToColor(StepsOrTrail)
+	return CustomDifficultyToColor( StepsOrTrailToCustomDifficulty(StepsOrTrail) );
 end
 
 
-local StageColors = {
+StageColors = {
 	Stage_1st	= color("#00ffc7"),
 	Stage_2nd	= color("#58ff00"),
 	Stage_3rd	= color("#f400ff"),
@@ -82,7 +86,7 @@ function StageToStrokeColor( stage )
 end
 
 
-local JudgmentLineColors = {
+JudgmentLineColors = {
 	JudgmentLine_W1		= color("#00ffc7"),
 	JudgmentLine_W2		= color("#f6ff00"),
 	JudgmentLine_W3		= color("#00ff78"),

@@ -1,7 +1,7 @@
 local t = LoadFallbackB();
 
 t[#t+1] = LoadActor( "settings pane" ) .. {
-	InitCommand=cmd(x,SCREEN_CENTER_X-200;y,SCREEN_TOP;vertalign,top;);
+	InitCommand=cmd(x,SCREEN_CENTER_X-200;y,SCREEN_TOP;valign,0;);
 };
 t[#t+1] = LoadFont("Common", "normal") .. {
 	InitCommand=cmd(x,SCREEN_CENTER_X-202;y,SCREEN_TOP+40;shadowlengthx,0;shadowlengthy,2;playcommand,"Set");
@@ -36,7 +36,7 @@ t[#t+1] = LoadFont("Common", "normal") .. {
 	end;
 };
 t[#t+1] = LoadFont("Common", "normal") .. {
-	InitCommand=cmd(x,SCREEN_LEFT+20;y,SCREEN_TOP+36;horizalign,left;diffuse,0.6,0.6,0.6,1;shadowlength,2);
+	InitCommand=cmd(x,SCREEN_LEFT+20;y,SCREEN_TOP+36;halign,0;diffuse,0.6,0.6,0.6,1;shadowlength,2);
 };
 t[#t+1] = Def.ActorFrame {
        InitCommand=cmd(x,SCREEN_CENTER_X+210;y,SCREEN_CENTER_Y+200;);

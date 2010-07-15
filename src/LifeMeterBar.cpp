@@ -27,11 +27,7 @@ LifeMeterBar::LifeMeterBar()
 	MIN_STAY_ALIVE.Load	("LifeMeterBar","MinStayAlive");
 	m_fLifePercentChange.Load( "LifeMeterBar", LIFE_PERCENT_CHANGE_NAME, NUM_ScoreEvent );
 
-	FLASH_HOT_ON_NOTE_HIT.Load("LifeMeterBar","FlashHotOnNoteHit");
-	MIN_SCORE_TO_FLASH.Load("LifeMeterBar","MinScoreToFlash");
-
 	m_pPlayerState = NULL;
-
 
 	switch( GAMESTATE->m_SongOptions.GetStage().m_DrainType )
 	{
@@ -98,16 +94,11 @@ void LifeMeterBar::Load( const PlayerState *pPlayerState, PlayerStageStats *pPla
 	PlayerNumber pn = pPlayerState->m_PlayerNumber;
 
 	// Change life difficulty to really easy if merciful beginner on
-	bool bMercifulBeginnerInEffect = 
+	m_bMercifulBeginnerInEffect = 
 		GAMESTATE->m_PlayMode == PLAY_MODE_REGULAR  &&  
 		GAMESTATE->IsPlayerEnabled( pPlayerState )  &&
 		GAMESTATE->m_pCurSteps[pn]->GetDifficulty() == Difficulty_Beginner  &&
 		PREFSMAN->m_bMercifulBeginner;
-	if( bMercifulBeginnerInEffect )
-	{
-		m_fBaseLifeDifficulty = 1.5f;
-		m_fLifeDifficulty = m_fBaseLifeDifficulty;
-	}
 
 	AfterLifeChanged();
 }
@@ -129,11 +120,6 @@ void LifeMeterBar::ChangeLife( TapNoteScore score )
 	case TNS_CheckpointHit:	fDeltaLife = m_fLifePercentChange.GetValue(SE_CheckpointHit);	break;
 	case TNS_CheckpointMiss:fDeltaLife = m_fLifePercentChange.GetValue(SE_CheckpointMiss);	break;
 	}
-	
-	if(FLASH_HOT_ON_NOTE_HIT)
-		if(score >= MIN_SCORE_TO_FLASH)
-			m_fHotAlpha = 1.0f; // flash the hot temporarily
-
 	if( IsHot()  &&  fDeltaLife < 0 )
 		fDeltaLife = min( fDeltaLife, -0.10f );		// make it take a while to get back to "hot"
 
@@ -199,8 +185,9 @@ void LifeMeterBar::ChangeLife( HoldNoteScore score, TapNoteScore tscore )
 
 void LifeMeterBar::ChangeLife( float fDeltaLife )
 {
-	if( PREFSMAN->m_bMercifulDrain  &&  fDeltaLife < 0 )
-		fDeltaLife *= SCALE( m_fLifePercentage, 0.f, 1.f, 0.5f, 1.f);
+	bool bUseMercifulDrain = m_bMercifulBeginnerInEffect || PREFSMAN->m_bMercifulDrain;
+	if( bUseMercifulDrain  &&  fDeltaLife < 0 )
+		fDeltaLife *= 0.4f;
 
 	// handle progressiveness and ComboToRegainLife here
 	if( fDeltaLife >= 0 )

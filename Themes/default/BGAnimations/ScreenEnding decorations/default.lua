@@ -4,7 +4,7 @@ return Def.ActorFrame {
 		LoadActor("bar") .. {
 		};
 		LoadFont("_venacti Bold 15px") .. {
-			InitCommand=cmd(settext,"Thank you for playing!";horizalign,left;x,-280;shadowlength,0;strokecolor,color("#000000"););
+			InitCommand=cmd(settext,"Thank you for playing!";halign,0;x,-280;shadowlength,0;strokecolor,color("#000000"););
 		};
 	};
 };

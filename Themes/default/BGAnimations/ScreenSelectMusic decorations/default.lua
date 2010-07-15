@@ -125,7 +125,7 @@ end;
 t[#t+1] = Def.BPMDisplay {
 	File=THEME:GetPathF("BPMDisplay", "bpm");
 	Name="BPMDisplay";
-	InitCommand=cmd(horizalign,right;x,SCREEN_CENTER_X+294;y,SCREEN_CENTER_Y-9;zoomx,0.8;shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000"););
+	InitCommand=cmd(halign,1;x,SCREEN_CENTER_X+294;y,SCREEN_CENTER_Y-9;zoomx,0.8;shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000"););
 	OnCommand=cmd(stoptweening;addx,SCREEN_WIDTH*0.6;bounceend,0.5;addx,-SCREEN_WIDTH*0.6);
 	OffCommand=cmd(bouncebegin,0.5;addx,SCREEN_WIDTH*0.6);
 	SetCommand=function(self) self:SetFromGameState() end;
@@ -133,7 +133,7 @@ t[#t+1] = Def.BPMDisplay {
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
 };
 t[#t+1] = LoadActor( "_bpm label" ) .. {
-	InitCommand=cmd(horizalign,left;x,SCREEN_CENTER_X+280;y,SCREEN_CENTER_Y-10);
+	InitCommand=cmd(halign,0;x,SCREEN_CENTER_X+280;y,SCREEN_CENTER_Y-10);
 	OnCommand=cmd(addx,SCREEN_WIDTH*0.6;bounceend,0.5;addx,-SCREEN_WIDTH*0.6);
 	OffCommand=cmd(bouncebegin,0.5;addx,SCREEN_WIDTH*0.6);
 };
@@ -156,7 +156,7 @@ t[#t+1] = Def.ActorFrame {
 	};
 
 	Def.Quad {
-		InitCommand=cmd(diffuse,color("#FFFFFF");setsize,120,16;horizalign,right;addx,60);
+		InitCommand=cmd(diffuse,color("#FFFFFF");setsize,120,16;halign,1;addx,60);
 		BeginCommand=cmd(zwrite,1;z,1;blend,"BlendMode_NoEffect");
 		UpdateCommand=function(self)
 			local function CalcZoomX(fBpm)
@@ -198,7 +198,7 @@ t[#t+1] = LoadActor( "stop icon" ) .. {
 };
 	
 t[#t+1] = LoadFont("_venacti Bold 15px") .. {
-	InitCommand=cmd(horizalign,left;x,SCREEN_CENTER_X-14;y,SCREEN_CENTER_Y-24;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,180);
+	InitCommand=cmd(halign,0;x,SCREEN_CENTER_X-14;y,SCREEN_CENTER_Y-24;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,180);
 	SetCommand=function(self)
 			local s = "---";
 			local song = GAMESTATE:GetCurrentSong();
@@ -220,10 +220,12 @@ t[#t+1] = LoadFont("_venacti Bold 15px") .. {
 		end;
 	CurrentSongChangedMessageCommand=cmd(playcommand,"Set");
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
+	CurrentTrailP1ChangedMessageCommand=cmd(playcommand,"Set");
+	CurrentTrailP2ChangedMessageCommand=cmd(playcommand,"Set");
 	DisplayLanguageChangedMessageCommand=cmd(playcommand,"Set");
 };
 t[#t+1] = LoadFont("_venacti Bold 15px") .. {
-	InitCommand=cmd(horizalign,right;x,SCREEN_CENTER_X+224;y,SCREEN_CENTER_Y-6;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,156);
+	InitCommand=cmd(halign,1;x,SCREEN_CENTER_X+224;y,SCREEN_CENTER_Y-6;settext,"xxxx";shadowlengthx,0;shadowlengthy,2;shadowcolor,color("#000000");maxwidth,156);
 	SetCommand=function(self) 
 			local s = "---";
 			local song = GAMESTATE:GetCurrentSong();
@@ -245,6 +247,8 @@ t[#t+1] = LoadFont("_venacti Bold 15px") .. {
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
 };
 
+-- Not yet implemented.
+--[[
 t[#t+1] = Def.ActorFrame {
 	InitCommand=cmd(x,SCREEN_CENTER_X+26;y,SCREEN_CENTER_Y-5;);
 	LoadActor("star full") .. { InitCommand=cmd(x,16*-2); };
@@ -255,6 +259,7 @@ t[#t+1] = Def.ActorFrame {
 	CurrentSongChangedMessageCommand=cmd(playcommand,"Set");
 	CurrentCourseChangedMessageCommand=cmd(playcommand,"Set");
 };
+]]
 
 t[#t+1] = Def.Quad{
 	Name="CourseContentsListMaskTop";
@@ -273,14 +278,15 @@ t[#t+1] = Def.Quad{
 t[#t+1] = Def.CourseContentsList {
 	MaxSongs = 5;
 
-	InitCommand=cmd(x,SCREEN_CENTER_X+160;y,SCREEN_CENTER_Y+91);
-	OnCommand=cmd(zoomy,0;bounceend,0.3;zoom,1;ztest,true);
+	InitCommand=cmd(x,SCREEN_CENTER_X+156;y,SCREEN_CENTER_Y+91);
+	OnCommand=cmd(zoomy,0;bounceend,0.3;zoom,1;ztest,true;playcommand,"Set");
 	OffCommand=cmd(zoomy,1;bouncebegin,0.3;zoomy,0);
 	ShowCommand=cmd(bouncebegin,0.3;zoomy,1);
 	HideCommand=cmd(linear,0.3;zoomy,0);
 	SetCommand=function(self)
 		self:SetFromGameState();
 		self:setsecondsperitem(0.7);
+		self:SetCurrentAndDestinationItem(0);
 		self:SetSecondsPauseBetweenItems(0.7);
 		self:scrollwithpadding(0, 0);
 	end;
@@ -306,7 +312,7 @@ t[#t+1] = Def.CourseContentsList {
 		};
 
 		LoadFont("CourseEntryDisplay","number") .. {
-			OnCommand=cmd(x,-118;shadowlength,0);
+			OnCommand=cmd(x,-118;y,-2;shadowlength,0);
 			SetSongCommand=function(self, params) self:settext(string.format("%i", params.Number)); end;
 		};
 
@@ -315,21 +321,25 @@ t[#t+1] = Def.CourseContentsList {
 			DifficultyChangedCommand=function(self, params)
 				if params.PlayerNumber ~= GAMESTATE:GetMasterPlayerNumber() then return end
 				self:settext( params.Meter );
-				self:diffuse( CourseDifficutlyToColor(params.Difficulty) );
+				self:diffuse( StepsOrTrailToColor(params.Trail) );
 			end;
 		};
 
 		LoadFont("Common","normal") .. {
-			OnCommand=cmd(x,-(SCREEN_CENTER_X*0.2);y,SCREEN_CENTER_Y-230;zoom,0.75;horizalign,right;shadowlength,0);
+			OnCommand=cmd(x,-132;y,SCREEN_CENTER_Y-230;zoom,0.75;halign,0;shadowlength,0);
 			SetSongCommand=function(self, params) self:settext(params.Modifiers); end;
 		};
 
 		LoadFont("CourseEntryDisplay","difficulty") .. {
-			OnCommand=cmd(x,SCREEN_CENTER_X-254;y,1;shadowlength,0;settext,"1");
+			OnCommand=cmd(x,130;y,1;shadowlength,0;settext,"1");
 			DifficultyChangedCommand=function(self, params)
 				if params.PlayerNumber ~= GAMESTATE:GetMasterPlayerNumber() then return end
-				self:diffuse( CourseDifficutlyToColor(params.Difficulty) );
+				if params.Trail then
+					self:diffuse( StepsOrTrailToColor(params.Trail) );
+				end;
 			end;
+			CurrentTrailP1ChangedMessageCommand=cmd(playcommand,"DifficultyChanged");
+			CurrentTrailP2ChangedMessageCommand=cmd(playcommand,"DifficultyChanged");
 		};
 	};
 };
@@ -392,8 +402,8 @@ t[#t+1] = Def.ActorFrame{
 };
 
 if not GAMESTATE:IsCourseMode() then
-	t[#t+1] = Def.DifficultyList {
-		Name="DifficultyList";
+	t[#t+1] = Def.StepsDisplayList {
+		Name="StepsDisplayList";
 		InitCommand=cmd(x,SCREEN_CENTER_X+166;y,SCREEN_CENTER_Y+20);
 		CursorP1 = Def.ActorFrame {
 			BeginCommand=cmd(visible,true);
@@ -402,7 +412,7 @@ if not GAMESTATE:IsCourseMode() then
 				self:visible(false);
 			end;
 			children={
-				LoadActor( "DifficultyList highlight" ) .. {
+				LoadActor( "StepsDisplayList highlight" ) .. {
 					InitCommand=cmd(addx,-10;diffusealpha,0.3);
 					BeginCommand=cmd(player,"PlayerNumber_P1");
 					OnCommand=cmd(playcommand,"UpdateAlpha");
@@ -428,7 +438,7 @@ if not GAMESTATE:IsCourseMode() then
 				Def.ActorFrame {
 					InitCommand=cmd(x,-150;bounce;effectmagnitude,-12,0,0;effectperiod,1.0;effectoffset,0.0;effectclock,"bgm");
 					children={
-						LoadActor( "DifficultyList cursor p1" ) .. {
+						LoadActor( "StepsDisplayList cursor p1" ) .. {
 							BeginCommand=cmd(player,"PlayerNumber_P1";);
 							PlayerJoinedMessageCommand=function(self,param )
 								if param.Player ~= "PlayerNumber_P1" then return end;
@@ -454,7 +464,7 @@ if not GAMESTATE:IsCourseMode() then
 				self:visible(false);
 			end;
 			children={
-				LoadActor( "DifficultyList highlight" ) .. {
+				LoadActor( "StepsDisplayList highlight" ) .. {
 					InitCommand=cmd(addx,-10;zoomx,-1;diffusealpha,0.3);
 					BeginCommand=cmd(player,"PlayerNumber_P2");
 					OnCommand=cmd(playcommand,"UpdateAlpha");
@@ -480,7 +490,7 @@ if not GAMESTATE:IsCourseMode() then
 				Def.ActorFrame {
 					InitCommand=cmd(x,130;bounce;effectmagnitude,12,0,0;effectperiod,1.0;effectoffset,0.0;effectclock,"bgm");
 					children={
-						LoadActor( "DifficultyList cursor p2" ) .. {
+						LoadActor( "StepsDisplayList cursor p2" ) .. {
 							BeginCommand=cmd(player,"PlayerNumber_P2";);
 							PlayerJoinedMessageCommand=function(self,param )
 								if param.Player ~= "PlayerNumber_P2" then return end;

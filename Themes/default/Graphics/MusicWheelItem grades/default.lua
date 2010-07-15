@@ -8,8 +8,9 @@ local grades = {
 	Grade_Tier05 = 4;
 	Grade_Tier06 = 5;
 	Grade_Tier07 = 6;
-	Grade_Failed = 7;
-	Grade_None = 8;
+	Grade_Tier08 = 7;
+	Grade_Failed = 8;
+	Grade_None = 9;
 };
 
 local t = LoadActor( "grades" ) .. {

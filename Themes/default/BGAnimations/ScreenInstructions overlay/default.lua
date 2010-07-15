@@ -6,7 +6,7 @@ local Title = LoadFont( "Common", "normal" ) .. {
 local InstructionsZoom = .5;
 local Instructions = LoadFont( "Common", "normal" ) .. {
 	Text = THEME:GetString( "ScreenInstructions", pm .. " instructions" );
-	InitCommand = cmd(zoom,InstructionsZoom;addy,80;vertalign,'VertAlign_Bottom';wrapwidthpixels,480/InstructionsZoom;shadowlength,1);
+	InitCommand = cmd(zoom,InstructionsZoom;addy,80;valign,1;wrapwidthpixels,480/InstructionsZoom;shadowlength,1);
 };
 
 local Background = {
@@ -42,7 +42,7 @@ if pm == 'PlayMode_Regular' and sButton ~= '' then
 	};
 	local InstructionZoom = 0.4;
 	local InstructionFont = LoadFont( "Common", "normal" ) .. {
-		InitCommand = cmd(horizalign,'HorizAlign_Left';zoom,InstructionZoom;addy,30;wrapwidthpixels,160/InstructionZoom);
+		InitCommand = cmd(halign,0;zoom,InstructionZoom;addy,30;wrapwidthpixels,160/InstructionZoom);
 	}
 
 	-- Add Hold.

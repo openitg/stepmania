@@ -23,6 +23,7 @@ static bool HashFile( RageFileBasic &f, unsigned char buf_hash[20], int iHash )
 	RString s;
 	while( !f.AtEOF() )
 	{
+		s.erase();
 		if( f.Read(s, 1024*4) == -1 )
 		{
 			LOG->Warn( "Error reading %s: %s", f.GetDisplayPath().c_str(), f.GetError().c_str() );
@@ -113,7 +114,6 @@ void CryptManager::GenerateGlobalKeys()
 	{
 		LOG->Warn( "Keys missing or failed to load.  Generating new keys" );
 		GenerateRSAKeyToFile( KEY_LENGTH, PRIVATE_KEY_PATH, PUBLIC_KEY_PATH );
-		FlushDirCache();
 	}
 }
 
@@ -378,7 +378,7 @@ RString CryptManager::GetMD5ForString( RString sData )
 
 RString CryptManager::GetSHA1ForString( RString sData )
 {
-	unsigned char digest[16];
+	unsigned char digest[20];
 
 	int iHash = register_hash( &sha1_desc );
 
@@ -393,6 +393,24 @@ RString CryptManager::GetSHA1ForString( RString sData )
 RString CryptManager::GetPublicKeyFileName()
 {
 	return PUBLIC_KEY_PATH;
+}
+
+/* Generate a version 4 random UUID. */
+RString CryptManager::GenerateRandomUUID()
+{
+	uint32_t buf[4];
+	CryptManager::GetRandomBytes( buf, sizeof(buf) );
+
+	buf[1] &= 0xFFFF0FFF;
+	buf[1] |= 0x00004000;
+	buf[2] &= 0x0FFFFFFF;
+	buf[2] |= 0xA0000000;
+
+	return ssprintf("%08x-%04x-%04x-%04x-%04x%08x",
+			buf[0],
+			buf[1] >> 16, buf[1] & 0xFFFF,
+			buf[2] >> 16, buf[2] & 0xFFFF,
+			buf[3]);
 }
 
 /*

@@ -464,10 +464,12 @@ class LunaTimingData: public Luna<TimingData>
 {
 public:
 	static int HasStops( T* p, lua_State *L )		{ lua_pushboolean(L, p->HasStops()); return 1; }
+	static int GetElapsedTimeFromBeat( T* p, lua_State *L )	{ lua_pushnumber(L, p->GetElapsedTimeFromBeat(FArg(1))); return 1; }
 
 	LunaTimingData()
 	{
 		ADD_METHOD( HasStops );
+		ADD_METHOD( GetElapsedTimeFromBeat );
 	}
 };
 

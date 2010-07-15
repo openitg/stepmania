@@ -49,15 +49,6 @@ function JudgmentTransformCommand( self, params )
 	self:y( y )
 end
 
-function JudgmentTransformSharedCommand( self, params )
-	local x = -120
-	local y = -30
-	if params.bReverse then y = 30 end
-	if params.Player == PLAYER_1 then x = 120 end
-	self:x( x )
-	self:y( y )
-end
-
 function ComboTransformCommand( self, params )
 	local x = 0
 	local y = 30
@@ -117,9 +108,25 @@ function TextBannerAfterSet(self,param)
 	else
 		-- subtitle below
 		(cmd(zoom,1;y,-6;zoom,0.9;))(Title);
-		(cmd(visible,true;zoom,0.6;y,7))(Subtitle); 
+		(cmd(maxwidth,340;visible,true;zoom,0.6;y,7))(Subtitle); 
 		--(cmd(zoom,0.66;maxwidth,300;y,9))(Artist); 
 	end
+end
+
+function StreamDisplayPillTransformFunction(self,offsetFromCenter,itemIndex,numItems)
+	local zoomed_width=28;
+	local zoomed_height=8;
+	local spacing_x=11.3;
+	self:zoomtoheight(zoomed_height);
+	self:x((itemIndex-(numItems/2))*spacing_x);
+	local zoomed_width=0;
+	if (itemIndex % 2) == 0 then
+		self:zoomtowidth(24);
+		self:rotationz(90);
+	else
+		self:zoomtowidth(31);
+		self:rotationz(-58);
+	end;
 end
 
 -- (c) 2005 Chris Danford

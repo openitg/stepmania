@@ -1,5 +1,6 @@
 #include "global.h"
 #include "StatsManager.h"
+#include "RageFileManager.h"
 #include "GameState.h"
 #include "Foreach.h"
 #include "ProfileManager.h"
@@ -8,6 +9,10 @@
 #include "Steps.h"
 #include "StyleUtil.h"
 #include "LuaManager.h"
+#include "Profile.h"
+#include "XmlFile.h"
+#include "CryptManager.h"
+#include "XmlFileUtil.h"
 
 StatsManager*	STATSMAN = NULL;	// global object accessable from anywhere in the program
 
@@ -156,12 +161,47 @@ void AddPlayerStatsToProfile( Profile *pProfile, const StageStats &ss, PlayerNum
 	}
 }
 
+XNode* MakeRecentScoreNode( const StageStats &ss, Trail *pTrail, const PlayerStageStats &pss, MultiPlayer mp )
+{
+	XNode* pNode = NULL;
+	if( GAMESTATE->IsCourseMode() )
+	{
+		pNode = new XNode( "HighScoreForACourseAndTrail" );
+
+		CourseID courseID;
+		courseID.FromCourse(GAMESTATE->m_pCurCourse );
+		pNode->AppendChild( courseID.CreateNode() );
+
+		TrailID trailID;
+		trailID.FromTrail( pTrail );
+		pNode->AppendChild( trailID.CreateNode() );
+
+	}
+	else
+	{
+		pNode = new XNode( "HighScoreForASongAndSteps" );
+
+		SongID songID;
+		songID.FromSong( ss.m_vpPossibleSongs[0] );
+		pNode->AppendChild( songID.CreateNode() );
+
+		StepsID stepsID;
+		stepsID.FromSteps( pss.m_vpPossibleSteps[0] );
+		pNode->AppendChild( stepsID.CreateNode() );
+	}
+
+	XNode* pHighScore = pss.m_HighScore.CreateNode();
+	pHighScore->AppendChild("Pad", mp);
+	pHighScore->AppendChild("StageGuid", GAMESTATE->m_sStageGUID);
+	pHighScore->AppendChild("Guid", CryptManager::GenerateRandomUUID());
+
+	pNode->AppendChild( pHighScore );
+
+	return pNode;
+}
 
 void StatsManager::CommitStatsToProfiles( const StageStats *pSS )
 {
-	if( GAMESTATE->m_bMultiplayer )
-		return;
-
 	//
 	// Add step totals.  Use radarActual, since the player might have failed part way
 	// through the song, in which case we don't want to give credit for the rest of the
@@ -188,23 +228,73 @@ void StatsManager::CommitStatsToProfiles( const StageStats *pSS )
 	pMachineProfile->m_iNumTotalSongsPlayed += pSS->m_vpPlayedSongs.size();
 
 	CHECKPOINT;
-	FOREACH_HumanPlayer( pn )
+	if( !GAMESTATE->m_bMultiplayer )	// FIXME
 	{
-		CHECKPOINT;
-
-		Profile* pPlayerProfile = PROFILEMAN->GetProfile( pn );
-		if( pPlayerProfile )
+		FOREACH_HumanPlayer( pn )
 		{
-			pPlayerProfile->m_iTotalGameplaySeconds += iGameplaySeconds;
-			pPlayerProfile->m_iNumTotalSongsPlayed += pSS->m_vpPlayedSongs.size();
+			CHECKPOINT;
+
+			Profile* pPlayerProfile = PROFILEMAN->GetProfile( pn );
+			if( pPlayerProfile )
+			{
+				pPlayerProfile->m_iTotalGameplaySeconds += iGameplaySeconds;
+				pPlayerProfile->m_iNumTotalSongsPlayed += pSS->m_vpPlayedSongs.size();
+			}
+
+			AddPlayerStatsToProfile( pMachineProfile, *pSS, pn );
+
+			if( pPlayerProfile )
+				AddPlayerStatsToProfile( pPlayerProfile, *pSS, pn );
+
+			CHECKPOINT;
+		}
+	}
+
+	// Save recent scores
+	{
+		auto_ptr<XNode> xml( new XNode("Stats") );
+		xml->AppendChild( "MachineGuid",  PROFILEMAN->GetMachineProfile()->m_sGuid );
+
+		XNode *recent = NULL;
+		if( GAMESTATE->IsCourseMode() )
+			recent = xml->AppendChild( new XNode("RecentCourseScores") );
+		else
+			recent = xml->AppendChild( new XNode("RecentSongScores") );
+		
+		if(!GAMESTATE->m_bMultiplayer)
+		{
+			FOREACH_HumanPlayer( p )
+			{
+				if( pSS->m_player[p].m_HighScore.IsEmpty() )
+					continue;
+				recent->AppendChild( MakeRecentScoreNode( *pSS, GAMESTATE->m_pCurTrail[p], pSS->m_player[p], MultiPlayer_Invalid ) );
+			}
+		}
+		else
+		{
+			FOREACH_EnabledMultiPlayer( mp )
+			{
+				if( pSS->m_multiPlayer[mp].m_HighScore.IsEmpty() )
+					continue;
+				recent->AppendChild( MakeRecentScoreNode( *pSS, GAMESTATE->m_pCurTrail[GAMESTATE->m_MasterPlayerNumber], pSS->m_multiPlayer[mp], mp ) );
+			}
 		}
 
-		AddPlayerStatsToProfile( pMachineProfile, *pSS, pn );
+		RString sDate = DateTime::GetNowDate().GetString();
+		sDate.Replace(":","-");
 
-		if( pPlayerProfile )
-			AddPlayerStatsToProfile( pPlayerProfile, *pSS, pn );
-
-		CHECKPOINT;
+		const RString UPLOAD_DIR = "/Save/Upload/";
+		RString sFileNameNoExtension = Profile::MakeUniqueFileNameNoExtension(UPLOAD_DIR, sDate + " " );
+		RString fn = UPLOAD_DIR + sFileNameNoExtension + ".xml";
+		
+		bool bSaved = XmlFileUtil::SaveToFile( xml.get(), fn, "", false );
+		
+		if( bSaved )
+		{
+			FILEMAN->FlushDirCache( UPLOAD_DIR );
+			RString sStatsXmlSigFile = fn + SIGNATURE_APPEND;
+			CryptManager::SignFileToFile(fn, sStatsXmlSigFile);
+		}
 	}
 }
 

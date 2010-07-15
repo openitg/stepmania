@@ -66,6 +66,7 @@ public:
 	bool DoesSongGroupExist( RString sSongGroup ) const;
 	RageColor GetSongGroupColor( const RString &sSongGroupName ) const;
 	RageColor GetSongColor( const Song* pSong ) const;
+	void ResetGroupColors(); // called on theme change
 
 	RString GetCourseGroupBannerPath( const RString &sCourseGroup ) const;
 	void GetCourseGroupNames( vector<RString> &AddTo ) const;
@@ -79,8 +80,7 @@ public:
 	// Lookup
 	const vector<Song*> &GetSongs( const RString &sGroupName ) const;
 	const vector<Song*> &GetAllSongs() const { return GetSongs(GROUP_ALL); }
-	void GetPopularSongs( vector<Song*> &AddTo, const RString &sGroupName ) const;
-	const vector<Song*> &GetAllPopularSongs() const { return m_pPopularSongs; }
+	const vector<Song*> &GetPopularSongs() const { return m_pPopularSongs; }
 	void GetPreferredSortSongs( vector<Song*> &AddTo ) const;
 	RString SongToPreferredSortSectionName( const Song *pSong ) const;
 	const vector<Course*> &GetPopularCourses( CourseType ct ) const { return m_pPopularCourses[ct]; }

@@ -21,7 +21,7 @@ local t = Def.ActorFrame {
 		GainFocusCommand=cmd(visible,true);
 		LoseFocusCommand=cmd(visible,false);
 		LoadActor( "preview " .. gc:GetName() ) .. {
-			InitCommand=cmd(y,170;vertalign,bottom;);
+			InitCommand=cmd(y,170;valign,1;);
 			OnCommand=cmd(rotationx,90;diffusealpha,0;linear,.11;diffusealpha,.5;rotationx,0;linear,.11;diffusealpha,1);
 			OffCommand=cmd(rotationy,90;diffusealpha,1;linear,.2;rotationy,90;diffusealpha,0);
 		};
@@ -31,7 +31,7 @@ local t = Def.ActorFrame {
 			OffCommand=cmd(diffusealpha,1;accelerate,.2;diffusealpha,0;addy,-50);
 		};
 		LoadFont( "_venacti Bold 24px" ) .. {
-			InitCommand=cmd(horizalign,right;vertalign,bottom;x,70;y,150;settext,ScreenString(gc:GetName().."Explanation");shadowlengthx,0;shadowlengthy,3;maxwidth,500;diffuse,c;strokecolor,color("#00000044"););
+			InitCommand=cmd(halign,1;valign,1;x,70;y,150;settext,ScreenString(gc:GetName().."Explanation");shadowlengthx,0;shadowlengthy,3;maxwidth,500;diffuse,c;strokecolor,color("#00000044"););
 			OnCommand=cmd(zoomy,0;diffusealpha,.5;linear,.18;zoomy,1;diffusealpha,1);
 			OffCommand=cmd(zoomy,1;diffusealpha,1;linear,.18;zoomy,.2;diffusealpha,0);
 		};

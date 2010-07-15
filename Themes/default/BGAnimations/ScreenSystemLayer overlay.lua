@@ -28,13 +28,13 @@ end
 local t = Def.ActorFrame {
 	Def.ActorFrame {
 		Def.Quad {
-			InitCommand=cmd(zoomtowidth,SCREEN_WIDTH;zoomtoheight,30;horizalign,left;vertalign,top;y,SCREEN_TOP;diffusetopedge,color("#FFFFFF");diffusebottomedge,color("#000000");diffusealpha,0;);
+			InitCommand=cmd(zoomtowidth,SCREEN_WIDTH;zoomtoheight,30;halign,0;valign,0;y,SCREEN_TOP;diffusetopedge,color("#FFFFFF");diffusebottomedge,color("#000000");diffusealpha,0;);
 			OnCommand=cmd(finishtweening;x,SCREEN_LEFT;diffusealpha,0.3;addx,-SCREEN_WIDTH;linear,0.5;addx,SCREEN_WIDTH;);		
 			OffCommand=cmd(sleep,3;linear,0.5;diffusealpha,0;);
 		};
 		LoadFont(Var "LoadingScreen","SystemMessage") .. {
 			Name="Text";
-			InitCommand=cmd(maxwidth,750;horizalign,left;vertalign,top;y,SCREEN_TOP+10;strokecolor,color("#000000");shadowlength,0;diffusealpha,0;);
+			InitCommand=cmd(maxwidth,750;halign,0;valign,0;y,SCREEN_TOP+10;strokecolor,color("#000000");shadowlength,0;diffusealpha,0;);
 			OnCommand=cmd(finishtweening;x,SCREEN_LEFT+10;diffusealpha,1;addx,-SCREEN_WIDTH;linear,0.5;addx,SCREEN_WIDTH;);
 			OffCommand=cmd(sleep,3;linear,0.5;diffusealpha,0;);
 		};

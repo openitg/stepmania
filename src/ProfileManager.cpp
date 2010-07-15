@@ -667,13 +667,6 @@ void ProfileManager::AddStepsScore( const Song* pSong, const Steps* pSteps, Play
 		if( !pSteps->IsAPlayerEdit() )
 			GetMachineProfile()->AddStepsHighScore( pSong, pSteps, hs, iMachineIndexOut );
 	}
-
-	//
-	// save recent score	
-	//
-	if( IsPersistentProfile(pn) )
-		GetProfile(pn)->AddStepsRecentScore( pSong, pSteps, hs );
-	GetMachineProfile()->AddStepsRecentScore( pSong, pSteps, hs );
 }
 
 void ProfileManager::IncrementStepsPlayCount( const Song* pSong, const Steps* pSteps, PlayerNumber pn )
@@ -717,13 +710,6 @@ void ProfileManager::AddCourseScore( const Course* pCourse, const Trail* pTrail,
 		GetProfile(pn)->AddCourseHighScore( pCourse, pTrail, hs, iPersonalIndexOut );
 	if( hs.GetPercentDP() >= PREFSMAN->m_fMinPercentageForMachineCourseHighScore )
 		GetMachineProfile()->AddCourseHighScore( pCourse, pTrail, hs, iMachineIndexOut );
-
-	//
-	// save recent score	
-	//
-	if( IsPersistentProfile(pn) )
-		GetProfile(pn)->AddCourseRecentScore( pCourse, pTrail, hs );
-	GetMachineProfile()->AddCourseRecentScore( pCourse, pTrail, hs );
 }
 
 void ProfileManager::IncrementCoursePlayCount( const Course* pCourse, const Trail* pTrail, PlayerNumber pn )

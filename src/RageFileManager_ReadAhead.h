@@ -1,40 +1,29 @@
-/* ScreenEz2SelectPlayer - "Player Select Screen" for Ez2dancer */
+#ifndef RAGE_FILE_MANAGER_READAHEAD_H
+#define RAGE_FILE_MANAGER_READAHEAD_H
 
-#ifndef SCREENEZ2SELECTPLAYER_H
-#define SCREENEZ2SELECTPLAYER_H
+#include "RageFileBasic.h"
 
-#include "ScreenWithMenuElements.h"
-#include "Sprite.h"
-#include "RageSound.h"
-
-class ScreenEz2SelectPlayer : public ScreenWithMenuElements
+namespace RageFileManagerReadAhead
 {
-public:
-	virtual void Init();
-	virtual ~ScreenEz2SelectPlayer();
-	
-	/* Public Function Prototypes */
-	virtual void Update( float fDeltaTime );
-	virtual void Input( const InputEventPlus &input );
-	virtual void HandleScreenMessage( const ScreenMessage SM );
+	void Init();
+	void Shutdown();
 
-	virtual void MenuDown( const InputEventPlus &input );
-	virtual void MenuStart( const InputEventPlus &input );
-	virtual void MenuBack( const InputEventPlus &input );
-private:
-	void TweenOffScreen();
-	void TweenOnScreen();
-	
-	Sprite	m_sprJoinMessage[NUM_PLAYERS];
-	Sprite	m_sprJoinFrame[NUM_PLAYERS];
+	/* Nonblockingly read ahead iBytes in pFile, starting at the current file position. */
+	void ReadAhead( RageFileBasic *pFile, int iBytes );
+
+	/* Discard iBytes of kernel cache, starting at the current file position plus
+	 * iRelativePosition (which may be negative). */
+	void DiscardCache( RageFileBasic *pFile, int iRelativePosition, int iBytes );
+
+	void CacheHintStreaming( RageFileBasic *pFile );
 };
 
 #endif
 
 /*
- * (c) 2002-2003 "Frieza"
+ * Copyright (c) 2010 Glenn Maynard
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -44,7 +33,7 @@ private:
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

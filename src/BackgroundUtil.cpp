@@ -298,20 +298,17 @@ void BackgroundUtil::GetGlobalRandomMovies(
 
 			if( !ssFileNameWhitelist.empty() )
 			{
-				vector<RString> vsFiltered = vsPathsOut;
-				for( unsigned i=0; i<vsPathsOut.size(); i++ )
+				vector<RString> vsMatches;
+				FOREACH_CONST( RString, vsPathsOut, s )
 				{
-					RString sBasename = Basename( vsPathsOut[i] );
+					RString sBasename = Basename( *s );
 					bool bFound = ssFileNameWhitelist.find(sBasename) != ssFileNameWhitelist.end();
-					if( !bFound )
-					{
-						vsPathsOut.erase( vsPathsOut.begin()+i );
-						i--;
-					}
+					if( bFound )
+						vsMatches.push_back(*s);
 				}
-				// If we filtered every movie out then this was a bad whitelist, so ignore the whitelist.
-				if( !vsFiltered.empty() )
-					vsPathsOut = vsFiltered;
+				// If we found any that match the whitelist, use only them.  If none match the whitelist, ignore the whitelist..
+				if( !vsMatches.empty() )
+					vsPathsOut = vsMatches;
 			}
 
 			if( !vsPathsOut.empty() )

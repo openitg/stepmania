@@ -83,12 +83,11 @@ protected:
 	ThemeMetric<bool> SELECT_MENU_AVAILABLE;
 	ThemeMetric<bool> MODE_MENU_AVAILABLE;
 	ThemeMetric<bool> USE_OPTIONS_LIST;
+	ThemeMetric<float> OPTIONS_LIST_TIMEOUT;
 	ThemeMetric<bool> USE_PLAYER_SELECT_MENU;
+	ThemeMetric<RString> SELECT_MENU_NAME;
 	ThemeMetric<bool> SELECT_MENU_CHANGES_DIFFICULTY;
 	ThemeMetric<bool> TWO_PART_SELECTION;
-
-	ThemeMetric<bool> TWO_PART_CONFIRMS_ONLY;
-
 	ThemeMetric<bool> WRAP_CHANGE_STEPS;
 
 	bool CanChangeSong() const { return m_SelectionState == SelectionState_SelectingSong; }
@@ -122,8 +121,6 @@ protected:
 	BitmapText		m_textHighScore[NUM_PLAYERS];
 	MusicWheel		m_MusicWheel;
 	OptionsList		m_OptionsList[NUM_PLAYERS];
-	void OpenOptionsList( PlayerNumber pn );
-	void CloseOptionsList( PlayerNumber pn );
 
 	SelectionState		m_SelectionState;
 	bool			m_bStepsChosen[NUM_PLAYERS];	// only used in SelectionState_SelectingSteps

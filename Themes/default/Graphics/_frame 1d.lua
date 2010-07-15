@@ -36,9 +36,9 @@ for i = 1,#p do
 	t[i] = a .. {
 		Name = tostring(i);
 		InitCommand = function(self)
-			if i < math.ceil(#p/2) then self:horizalign("HorizAlign_Right");
-			elseif i == math.ceil(#p/2) then self:horizalign("HorizAlign_Center");
-			else self:horizalign("HorizAlign_Left");
+			if i < math.ceil(#p/2) then self:halign(1);
+			elseif i == math.ceil(#p/2) then self:halign(0.5);
+			else self:halign(0);
 			end
 
 			Widths[i] = self:GetWidth();

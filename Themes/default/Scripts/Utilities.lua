@@ -94,6 +94,14 @@ function tableslice( t, num )
 	return ret
 end
 
+function scale_clamp( val, l1, h1, l2, h2 )
+	val = scale(val, l1, h1, l2, h2);
+	if l2 > h2 then
+		return clamp(val, h2, l2);
+	else
+		return clamp(val, l2, h2);
+	end
+end
 
 function GetRandomSongBackground()
 	for i=0,50 do
@@ -114,6 +122,16 @@ function GetSongBackground()
 	end
 	return THEME:GetPathG("Common","fallback background")
 end
+
+function StepsOrTrailToCustomDifficulty( stepsOrTrail )
+	if lua.CheckType("Steps", stepsOrTrail) then
+		return StepsToCustomDifficulty( stepsOrTrail );
+	end
+	if lua.CheckType("Trail", stepsOrTrail) then
+		return TrailToCustomDifficulty( stepsOrTrail );
+	end
+end
+
 
 -- (c) 2005 Glenn Maynard, Chris Danford
 -- All rights reserved.

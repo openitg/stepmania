@@ -387,7 +387,7 @@ void EditMenu::OnRowValueChanged( EditMenuRow row )
 
 		// fall through
 	case ROW_STEPS_TYPE:
-		m_textValue[ROW_STEPS_TYPE].SetText( GameManager::GetStepsTypeInfo(GetSelectedStepsType()).GetLocalizedString() );
+		m_textValue[ROW_STEPS_TYPE].SetText( GAMEMAN->GetStepsTypeInfo(GetSelectedStepsType()).GetLocalizedString() );
 
 		{
 			Difficulty dcOld = Difficulty_Invalid;
@@ -476,19 +476,19 @@ void EditMenu::OnRowValueChanged( EditMenuRow row )
 		// fall through
 	case ROW_STEPS:
 		{
-			RString s = GetLocalizedCustomDifficulty( GetSelectedStepsType(), GetSelectedDifficulty() );
+			RString s = CustomDifficultyToLocalizedString( GetCustomDifficulty( GetSelectedStepsType(), GetSelectedDifficulty(), CourseType_Invalid ) );
 
 			m_textValue[ROW_STEPS].SetText( s );
 		}
 		if( GetSelectedSteps() )
 			m_StepsDisplay.SetFromSteps( GetSelectedSteps() );
 		else
-			m_StepsDisplay.SetFromStepsTypeAndMeterAndDifficulty( GetSelectedSourceStepsType(), 0, GetSelectedDifficulty() );
+			m_StepsDisplay.SetFromStepsTypeAndMeterAndDifficultyAndCourseType( GetSelectedSourceStepsType(), 0, GetSelectedDifficulty(), CourseType_Invalid );
 		// fall through
 	case ROW_SOURCE_STEPS_TYPE:
 		m_textLabel[ROW_SOURCE_STEPS_TYPE].SetVisible( GetSelectedSteps() ? false : true );
 		m_textValue[ROW_SOURCE_STEPS_TYPE].SetVisible( GetSelectedSteps() ? false : true );
-		m_textValue[ROW_SOURCE_STEPS_TYPE].SetText( GameManager::GetStepsTypeInfo(GetSelectedSourceStepsType()).GetLocalizedString() );
+		m_textValue[ROW_SOURCE_STEPS_TYPE].SetText( GAMEMAN->GetStepsTypeInfo(GetSelectedSourceStepsType()).GetLocalizedString() );
 
 		m_vpSourceSteps.clear();
 		m_vpSourceSteps.push_back( StepsAndDifficulty(NULL,Difficulty_Invalid) );	// "blank"
@@ -525,7 +525,7 @@ void EditMenu::OnRowValueChanged( EditMenuRow row )
 				}
 				else
 				{
-					s = GetLocalizedCustomDifficulty( GetSelectedSourceStepsType(), GetSelectedSourceDifficulty() );
+					s = CustomDifficultyToLocalizedString( GetCustomDifficulty( GetSelectedSourceStepsType(), GetSelectedSourceDifficulty(), CourseType_Invalid ) );
 				}
 				m_textValue[ROW_SOURCE_STEPS].SetText( s );
 			}
@@ -535,7 +535,7 @@ void EditMenu::OnRowValueChanged( EditMenuRow row )
 			else if( GetSelectedSourceSteps() )
 				m_StepsDisplaySource.SetFromSteps( GetSelectedSourceSteps() );
 			else
-				m_StepsDisplaySource.SetFromStepsTypeAndMeterAndDifficulty( GetSelectedSourceStepsType(), 0, GetSelectedSourceDifficulty() );
+				m_StepsDisplaySource.SetFromStepsTypeAndMeterAndDifficultyAndCourseType( GetSelectedSourceStepsType(), 0, GetSelectedSourceDifficulty(), CourseType_Invalid );
 			m_StepsDisplaySource.SetVisible( !(bHideMeter || GetSelectedSteps()) );
 
 			m_Actions.clear();

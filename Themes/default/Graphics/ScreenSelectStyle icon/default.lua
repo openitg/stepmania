@@ -13,7 +13,7 @@ local max_stages = PREFSMAN:GetPreference( "SongsPerPlay" );
 
 local t = Def.ActorFrame {
 	LoadActor( "preview " .. st ) .. {
-		InitCommand=cmd(x,SCREEN_CENTER_X-150;y,SCREEN_CENTER_Y+190;vertalign,bottom);
+		InitCommand=cmd(x,SCREEN_CENTER_X-150;y,SCREEN_CENTER_Y+190;valign,1);
 		OnCommand=cmd(cropbottom,1;fadebottom,1;linear,.2;cropbottom,0;fadebottom,0);
 		OffCommand=cmd(croptop,0;fadetop,0;linear,.2;croptop,1;fadetop,1);
 		GainFocusCommand=cmd(visible,true);
@@ -30,7 +30,7 @@ local t = Def.ActorFrame {
 			InitCommand=cmd(y,-51;settext,string.upper(gc:GetText());maxwidth,500;shadowlength,0;);
 		};
 		LoadFont( "_venacti bold 15px" ) .. {
-			InitCommand=cmd(horizalign,left;x,-12;y,-2;maxwidth,300;shadowlength,0;diffuse,color("#000000"););
+			InitCommand=cmd(halign,0;x,-12;y,-2;maxwidth,300;shadowlength,0;diffuse,color("#000000"););
 			BeginCommand=function(self)
 				if st == "StyleType_OnePlayerTwoSides" then
 					self:settext("ONE PLAYER USES\nTWO CONTROLLERS");
@@ -40,10 +40,10 @@ local t = Def.ActorFrame {
 			end;
 		};
 		LoadFont( "_venacti bold 15px" ) .. {
-			InitCommand=cmd(horizalign,right;x,98;y,42;settext,"MAX STAGE/";maxwidth,300;shadowlength,0;diffuse,color("#32d545"););
+			InitCommand=cmd(halign,1;x,98;y,42;settext,"MAX STAGE/";maxwidth,300;shadowlength,0;diffuse,color("#32d545"););
 		};
 		LoadFont( "_venacti bold 15px" ) .. {
-			InitCommand=cmd(horizalign,right;x,120;y,42;settext,max_stages;maxwidth,100;shadowlength,0;diffuse,color("#259c33"););
+			InitCommand=cmd(halign,1;x,120;y,42;settext,max_stages;maxwidth,100;shadowlength,0;diffuse,color("#259c33"););
 		};
 		LoadActor( "card " .. pad_file ) .. {
 			InitCommand=cmd(x,-82;y,8;);
