@@ -22,12 +22,19 @@
 #include <io.h>
 #endif
 
-
+/* Direct filesystem access: */
 static struct FileDriverEntry_DIR: public FileDriverEntry
 {
 	FileDriverEntry_DIR(): FileDriverEntry( "DIR" ) { }
 	RageFileDriver *Create( const RString &sRoot ) const { return new RageFileDriverDirect( sRoot ); }
 } const g_RegisterDriver;
+
+/* Direct read-only filesystem access: */
+static struct FileDriverEntry_DIRRO: public FileDriverEntry
+{
+	FileDriverEntry_DIRRO(): FileDriverEntry( "DIRRO" ) { }
+	RageFileDriver *Create( const RString &sRoot ) const { return new RageFileDriverDirectReadOnly( sRoot ); }
+} const g_RegisterDriver2;
 
 /* This driver handles direct file access. */
 
@@ -43,6 +50,7 @@ public:
 	virtual RageFileObjDirect *Copy() const;
 	virtual RString GetDisplayPath() const { return m_sPath; }
 	virtual int GetFileSize() const;
+	virtual int GetFD();
 
 private:
 	bool FinalFlush();
@@ -77,7 +85,7 @@ static RString MakeTempFilename( const RString &sPath )
 	return Dirname(sPath) + "new." + Basename(sPath) + ".new";
 }
 
-RageFileObjDirect *MakeFileObjDirect( RString sPath, int iMode, int &iError )
+static RageFileObjDirect *MakeFileObjDirect( RString sPath, int iMode, int &iError )
 {
 	int iFD;
 	if( iMode & RageFile::READ )
@@ -153,13 +161,16 @@ bool RageFileDriverDirect::Move( const RString &sOldPath_, const RString &sNewPa
 		const RString sDir = Dirname(sNewPath);
 		CreateDirectories( m_sRoot + sDir );
 	}
-
+	int size = FDB->GetFileSize( sOldPath );
+	int hash = FDB->GetFileHash( sOldPath );
 	TRACE( ssprintf("rename \"%s\" -> \"%s\"", (m_sRoot + sOldPath).c_str(), (m_sRoot + sNewPath).c_str()) );
 	if( DoRename(m_sRoot + sOldPath, m_sRoot + sNewPath) == -1 )
 	{
 		WARN( ssprintf("rename(%s,%s) failed: %s", (m_sRoot + sOldPath).c_str(), (m_sRoot + sNewPath).c_str(), strerror(errno)) );
 		return false;
 	}
+	FDB->DelFile( sOldPath );
+	FDB->AddFile( sNewPath, size, hash, NULL );
 
 	return true;
 }
@@ -218,6 +229,22 @@ bool RageFileDriverDirect::Remount( const RString &sPath )
 
 	return true;
 }
+
+/* The DIRRO driver is just like DIR, except writes are disallowed. */
+RageFileDriverDirectReadOnly::RageFileDriverDirectReadOnly( const RString &sRoot ):
+	RageFileDriverDirect( sRoot ) { }
+RageFileBasic *RageFileDriverDirectReadOnly::Open( const RString &sPath, int iMode, int &iError )
+{
+	if( iMode & RageFile::WRITE )
+	{
+		iError = EROFS;
+		return NULL;
+	}
+
+	return RageFileDriverDirect::Open( sPath, iMode, iError );
+}
+bool RageFileDriverDirectReadOnly::Move( const RString &sOldPath, const RString &sNewPath ) { return false; }
+bool RageFileDriverDirectReadOnly::Remove( const RString &sPath ) { return false; }
 
 static const unsigned int BUFSIZE = 1024*64;
 RageFileObjDirect::RageFileObjDirect( const RString &sPath, int iFD, int iMode )
@@ -350,7 +377,6 @@ RageFileObjDirect::~RageFileObjDirect()
 			SetError( strerror(errno) );
 			break;
 		}
-#endif
 
 		if( m_iMode & RageFile::SLOW_FLUSH )
 		{
@@ -364,6 +390,7 @@ RageFileObjDirect::~RageFileObjDirect()
 
 		/* Success. */
 		return;
+#endif
 	} while(0);
 
 	/* The write or the rename failed.  Delete the incomplete temporary file. */
@@ -440,6 +467,11 @@ int RageFileObjDirect::GetFileSize() const
 	ASSERT_M( iRet != -1, ssprintf("\"%s\": %s", m_sPath.c_str(), strerror(errno)) );
 	lseek( m_iFD, iOldPos, SEEK_SET );
 	return iRet;
+}
+
+int RageFileObjDirect::GetFD()
+{
+	return m_iFD;
 }
 
 /*

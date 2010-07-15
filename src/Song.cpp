@@ -135,7 +135,6 @@ void Song::AddLyricSegment( LyricSegment seg )
 	m_LyricSegments.push_back( seg );
 }
 
-// All Songs have a display BPM regardless of Step Timing Data.
 void Song::GetDisplayBpms( DisplayBpms &AddTo ) const
 {
 	if( m_DisplayBPMType == DISPLAY_SPECIFIED )
@@ -458,7 +457,6 @@ void Song::TidyUpData()
 		m_sArtist = "Unknown artist";
 	TranslateTitles();
 
-	// All songs should have a base BPM, even if Steps have their own.
 	if( m_Timing.m_BPMSegments.empty() )
 	{
 		LOG->UserLog( "Song file", m_sSongDir + m_sSongFileName, "has no BPM segments, default provided." );
@@ -739,9 +737,10 @@ void Song::ReCalculateRadarValuesAndLastBeat()
 		if( pSteps->IsAutogen() )
 			continue;
 
-		/* Don't calculate with edits.  Otherwise, edits installed on the machine could 
+		/* Don't calculate with edits unless the only chart available
+		 * is an edit. Otherwise, edits installed on the machine could 
 		 * extend the length of the song. */
-		if( pSteps->IsAnEdit() )
+		if( pSteps->IsAnEdit() && m_vpSteps.size() > 1 )
 			continue;
 		
 		// Don't set first/last beat based on lights.  They often start very 
@@ -798,6 +797,7 @@ void Song::Save()
 	 * files to avoid confusion. */
 	vector<RString> arrayOldFileNames;
 	GetDirListing( m_sSongDir + "*.bms", arrayOldFileNames );
+	GetDirListing( m_sSongDir + "*.pms", arrayOldFileNames );
 	GetDirListing( m_sSongDir + "*.ksf", arrayOldFileNames );
 	
 	for( unsigned i=0; i<arrayOldFileNames.size(); i++ )
@@ -919,11 +919,11 @@ void Song::AddAutoGenNotes()
 		/* If m_bAutogenSteps is disabled, only autogen lights. */
 		if( !PREFSMAN->m_bAutogenSteps && stMissing != StepsType_lights_cabinet )
 			continue;
-		if( !GameManager::GetStepsTypeInfo(stMissing).bAllowAutogen )
+		if( !GAMEMAN->GetStepsTypeInfo(stMissing).bAllowAutogen )
 			continue;
 
 		// missing Steps of this type
-		int iNumTracksOfMissing = GameManager::GetStepsTypeInfo(stMissing).iNumTracks;
+		int iNumTracksOfMissing = GAMEMAN->GetStepsTypeInfo(stMissing).iNumTracks;
 
 		// look for closest match
 		StepsType stBestMatch = StepsType_Invalid;
@@ -935,7 +935,7 @@ void Song::AddAutoGenNotes()
 				continue;
 
 			/* has (non-autogen) Steps of this type */
-			const int iNumTracks = GameManager::GetStepsTypeInfo(st).iNumTracks;
+			const int iNumTracks = GAMEMAN->GetStepsTypeInfo(st).iNumTracks;
 			const int iTrackDifference = abs(iNumTracks-iNumTracksOfMissing);
 			if( iTrackDifference < iBestTrackDifference )
 			{
@@ -951,7 +951,7 @@ void Song::AddAutoGenNotes()
 
 void Song::AutoGen( StepsType ntTo, StepsType ntFrom )
 {
-//	int iNumTracksOfTo = GameManager::StepsTypeToNumTracks(ntTo);
+//	int iNumTracksOfTo = GAMEMAN->StepsTypeToNumTracks(ntTo);
 
 	for( unsigned int j=0; j<m_vpSteps.size(); j++ )
 	{
@@ -1386,9 +1386,10 @@ public:
 		return 1;
 	}
 	static int GetSongDir( T* p, lua_State *L )		{ lua_pushstring(L, p->GetSongDir() ); return 1; }
-	static int GetSongFilePath(  T* p, lua_State *L )	{ lua_pushstring(L, p->GetSongFilePath() ); return 1; }
 	static int GetBannerPath( T* p, lua_State *L )		{ RString s = p->GetBannerPath(); if( s.empty() ) return 0; LuaHelpers::Push(L, s); return 1; }
 	static int GetBackgroundPath( T* p, lua_State *L )	{ RString s = p->GetBackgroundPath(); if( s.empty() ) return 0; lua_pushstring(L, s); return 1; }
+	static int GetFirstBeat( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_fFirstBeat); return 1; }
+	static int GetLastBeat( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_fLastBeat); return 1; }
 	static int IsTutorial( T* p, lua_State *L )		{ lua_pushboolean(L, p->IsTutorial()); return 1; }
 	static int GetGroupName( T* p, lua_State *L )		{ lua_pushstring(L, p->m_sGroupName); return 1; }
 	static int MusicLengthSeconds( T* p, lua_State *L )	{ lua_pushnumber(L, p->m_fMusicLengthSeconds); return 1; }
@@ -1433,9 +1434,10 @@ public:
 		ADD_METHOD( GetAllSteps );
 		ADD_METHOD( GetStepsByStepsType );
 		ADD_METHOD( GetSongDir );
-		ADD_METHOD( GetSongFilePath );
 		ADD_METHOD( GetBannerPath );
 		ADD_METHOD( GetBackgroundPath );
+		ADD_METHOD( GetFirstBeat );
+		ADD_METHOD( GetLastBeat );
 		ADD_METHOD( IsTutorial );
 		ADD_METHOD( GetGroupName );
 		ADD_METHOD( MusicLengthSeconds );

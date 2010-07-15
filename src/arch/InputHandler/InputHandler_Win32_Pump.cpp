@@ -13,22 +13,30 @@ REGISTER_INPUT_HANDLER_CLASS2( Pump, Win32_Pump );
 InputHandler_Win32_Pump::InputHandler_Win32_Pump()
 {
 	m_bShutdown = false;
-	const int pump_usb_vid = 0x0d2f, pump_usb_pid = 0x0001;
+	const int pump_usb_vid = 0x0d2f;
+	const int pump_usb_pids[2] = { 
+		0x0001 /* older model */, 
+		0x0003 /* shipped with Exceed */ 
+	};
 
 	m_pDevice = new USBDevice[NUM_PUMPS];
 
-	bool bFoundOnePad = false;
-	for( int i = 0; i < NUM_PUMPS; ++i )
+	int iNumFound = 0;
+	for( int p = 0; p < ARRAYSIZE(pump_usb_pids); ++p )
 	{
-		if( m_pDevice[i].Open(pump_usb_vid, pump_usb_pid, sizeof(long), i, NULL) )
+		const int pump_usb_pid = pump_usb_pids[p];
+		for( int i = 0; i < NUM_PUMPS; ++i )
 		{
-			bFoundOnePad = true;
-			LOG->Info( "Found Pump pad %i", i );
+			if( m_pDevice[i].Open(pump_usb_vid, pump_usb_pid, sizeof(long), i, NULL) )
+			{
+				iNumFound++;
+				LOG->Info( "Found Pump pad %i", iNumFound );
+			}
 		}
 	}
 
 	/* Don't start a thread if we have no pads. */
-	if( bFoundOnePad && PREFSMAN->m_bThreadedInput )
+	if( iNumFound > 0 && PREFSMAN->m_bThreadedInput )
 	{
 		InputThread.SetName( "Pump thread" );
 		InputThread.Create( InputThread_Start, this );

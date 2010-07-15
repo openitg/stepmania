@@ -11,7 +11,6 @@
 #include "NoteData.h"
 #include "ScreenMessage.h"
 #include "ThemeMetric.h"
-#include "InputEventPlus.h"
 
 class ScoreDisplay;
 class LifeMeter;
@@ -102,16 +101,17 @@ public:
 	void SetActorWithJudgmentPosition( Actor *pActor ) { m_pActorWithJudgmentPosition = pActor; }
 	void SetActorWithComboPosition( Actor *pActor ) { m_pActorWithComboPosition = pActor; }
 
+	void SetSendJudgmentAndComboMessages( bool b ) { m_bSendJudgmentAndComboMessages = b; }
+
 	//
 	// Lua
 	//
 	virtual void PushSelf( lua_State *L );
 
-	vector<AlternateMapping> m_vAlterMap;
 protected:
 	void UpdateTapNotesMissedOlderThan( float fMissIfOlderThanThisBeat );
 	void UpdateJudgedRows();
-	void FlashGhostRow( int iRow, PlayerNumber pn );
+	void FlashGhostRow( int iRow );
 	void HandleTapRowScore( unsigned row );
 	void HandleHoldScore( const TapNote &tn );
 	void HandleHoldCheckpoint( int iRow, int iNumHoldsHeldThisRow, int iNumHoldsMissedThisRow, const vector<int> &viColsWithHold );
@@ -206,6 +206,8 @@ protected:
 #define NUM_CENTERED 2
 	TweenState		m_tsJudgment[NUM_REVERSE][NUM_CENTERED];
 	TweenState		m_tsCombo[NUM_REVERSE][NUM_CENTERED];
+
+	bool m_bSendJudgmentAndComboMessages;
 };
 
 class PlayerPlus

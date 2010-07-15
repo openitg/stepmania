@@ -15,6 +15,7 @@
 #include "CourseUtil.h"	// for CourseID
 #include "TrailUtil.h"	// for TrailID
 #include "StyleUtil.h"	// for StyleID
+#include "LuaReference.h"
 
 class XNode;
 struct lua_State;
@@ -114,8 +115,8 @@ public:
 	StepsType m_LastStepsType;
 	SongID m_lastSong;
 	CourseID m_lastCourse;
-	int m_iTotalPlays;
-	int m_iTotalPlaySeconds;
+	int m_iTotalSessions;
+	int m_iTotalSessionSeconds;
 	int m_iTotalGameplaySeconds;
 	float m_fTotalCaloriesBurned;
 	GoalType m_GoalType;
@@ -144,6 +145,7 @@ public:
 	int m_iNumTotalSongsPlayed;
 	int m_iNumStagesPassedByPlayMode[NUM_PlayMode];
 	int m_iNumStagesPassedByGrade[NUM_Grade];
+	LuaReference m_UserData;
 
 	//
 	// Song high scores
@@ -235,45 +237,6 @@ public:
 	
 
 	//
-	// RecentSongScores
-	//
-	struct HighScoreForASongAndSteps
-	{
-		StepsID stepsID;
-		SongID songID;
-		HighScore hs;
-
-		HighScoreForASongAndSteps() { Unset(); }
-		void Unset() { stepsID.Unset(); songID.Unset(); hs.Unset(); }
-
-		XNode* CreateNode() const;
-		void LoadFromNode( const XNode* pNode );
-	};
-	deque<HighScoreForASongAndSteps> m_vRecentStepsScores;
-	void AddStepsRecentScore( const Song* pSong, const Steps* pSteps, HighScore hs );
-	
-	
-	StepsType GetLastPlayedStepsType() const;
-	
-	//
-	// RecentCourseScores
-	//
-	struct HighScoreForACourseAndTrail
-	{
-		CourseID courseID;
-		TrailID	trailID;
-		HighScore hs;
-
-		HighScoreForACourseAndTrail() { Unset(); }
-		void Unset() { courseID.Unset(); hs.Unset(); }
-
-		XNode* CreateNode() const;
-		void LoadFromNode( const XNode* pNode );
-	};
-	deque<HighScoreForACourseAndTrail> m_vRecentCourseScores;	// add to back, erase from front
-	void AddCourseRecentScore( const Course* pCourse, const Trail* pTrail, HighScore hs );
-
-	//
 	// Init'ing
 	//
 	void InitAll()
@@ -285,8 +248,6 @@ public:
 		InitCategoryScores(); 
 		InitScreenshotData(); 
 		InitCalorieData(); 
-		InitRecentSongScores(); 
-		InitRecentCourseScores(); 
 	}
 	void InitEditableData(); 
 	void InitGeneralData(); 
@@ -295,8 +256,6 @@ public:
 	void InitCategoryScores(); 
 	void InitScreenshotData(); 
 	void InitCalorieData(); 
-	void InitRecentSongScores(); 
-	void InitRecentCourseScores(); 
 	void ClearStats();
 
 	//
@@ -313,9 +272,7 @@ public:
 	void LoadCategoryScoresFromNode( const XNode* pNode );
 	void LoadScreenshotDataFromNode( const XNode* pNode );
 	void LoadCalorieDataFromNode( const XNode* pNode );
-	void LoadRecentSongScoresFromNode( const XNode* pNode );
-	void LoadRecentCourseScoresFromNode( const XNode* pNode );
-
+	
 	void SaveEditableDataToDir( RString sDir ) const;
 	bool SaveStatsXmlToDir( RString sDir, bool bSignData ) const;
 	XNode* SaveStatsXmlCreateNode() const;
@@ -325,8 +282,6 @@ public:
 	XNode* SaveCategoryScoresCreateNode() const;
 	XNode* SaveScreenshotDataCreateNode() const;
 	XNode* SaveCalorieDataCreateNode() const;
-	XNode* SaveRecentSongScoresCreateNode() const;
-	XNode* SaveRecentCourseScoresCreateNode() const;
 
 	XNode* SaveCoinDataCreateNode() const;
 
@@ -334,6 +289,9 @@ public:
 	void SaveMachinePublicKeyToDir( RString sDir ) const;
 
 	static void MoveBackupToDir( RString sFromDir, RString sToDir );
+	static RString MakeUniqueFileNameNoExtension( RString sDir, RString sFileNameBeginning );
+	static RString MakeFileNameNoExtension( RString sFileNameBeginning, int iIndex );
+
 
 	// Lua
 	void PushSelf( lua_State *L );

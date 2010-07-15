@@ -10,7 +10,7 @@
 #include "ScreenPrompt.h"
 #include "LocalizedString.h"
 #include "CourseUtil.h"
-#include "song.h"
+#include "Song.h"
 #include "Style.h"
 #include "Steps.h"
 
@@ -45,7 +45,7 @@ public:
 				if( (*steps)->GetDifficulty() == Difficulty_Edit )
 					s = (*steps)->GetDescription();
 				else
-					s = GetLocalizedCustomDifficulty( (*steps)->m_StepsType, (*steps)->GetDifficulty() );
+					s = CustomDifficultyToLocalizedString( StepsToCustomDifficulty(*steps) );
 				s += ssprintf( " %d", (*steps)->GetMeter() );
 				m_Def.m_vsChoices.push_back( s );
 			}
@@ -66,9 +66,12 @@ public:
 	{
 		Trail *pTrail = GAMESTATE->m_pCurTrail[PLAYER_1];
 		Steps *pSteps;
-		if( m_iEntryIndex < (int)pTrail->m_vEntries.size() )
-			pSteps = pTrail->m_vEntries[ m_iEntryIndex ].pSteps;
-		
+		if( pTrail )
+		{
+			if( m_iEntryIndex < (int)pTrail->m_vEntries.size() )
+				pSteps = pTrail->m_vEntries[ m_iEntryIndex ].pSteps;
+		}
+
 		vector<Steps*>::const_iterator iter = find( m_vpSteps.begin(), m_vpSteps.end(), pSteps );
 		if( iter == m_vpSteps.end() )
 		{
@@ -101,10 +104,10 @@ const int NUM_SONG_ROWS = 20;
 
 REGISTER_SCREEN_CLASS( ScreenOptionsEditCourse );
 
-enum WorkoutDetailsRow
+enum EditCourseRow
 {
-	WorkoutDetailsRow_Minutes,
-	NUM_WorkoutDetailsRow
+	EditCourseRow_Minutes,
+	NUM_EditCourseRow
 };
 
 enum RowType
@@ -116,32 +119,39 @@ enum RowType
 };
 static int RowToEntryIndex( int iRow )
 {
-	if( iRow < NUM_WorkoutDetailsRow )
+	if( iRow < NUM_EditCourseRow )
 		return -1;
 
-	return (iRow-NUM_WorkoutDetailsRow)/NUM_RowType;
+	return (iRow-NUM_EditCourseRow)/NUM_RowType;
 }
 static RowType RowToRowType( int iRow )
 {
-	if( iRow < NUM_WorkoutDetailsRow )
+	if( iRow < NUM_EditCourseRow )
 		return RowType_Invalid;
-	return (RowType)((iRow-NUM_WorkoutDetailsRow) % NUM_RowType);
+	return (RowType)((iRow-NUM_EditCourseRow) % NUM_RowType);
 }
 static int EntryIndexAndRowTypeToRow( int iEntryIndex, RowType rowType )
 {
-	return NUM_WorkoutDetailsRow + iEntryIndex*NUM_RowType + rowType;
+	return NUM_EditCourseRow + iEntryIndex*NUM_RowType + rowType;
 }
 
 void ScreenOptionsEditCourse::Init()
 {
 	ScreenOptions::Init();
-	SONGMAN->GetPreferredSortSongs( m_vpSongs );
+
+	SongCriteria sc;
+	sc.m_Selectable = SongCriteria::Selectable_Yes;
+	sc.m_Tutorial = SongCriteria::Tutorial_No;
+	sc.m_Locked = SongCriteria::Locked_Unlocked;
+
+	SongUtil::FilterSongs( sc, SONGMAN->GetAllSongs(), m_vpSongs );
+
 	SongUtil::SortSongPointerArrayByTitle( m_vpSongs );
 }
 
 const MenuRowDef g_MenuRows[] = 
 {
-	MenuRowDef( -1,	"Workout Minutes",	true, EditMode_Practice, true, false, 0, NULL ),
+	MenuRowDef( -1,	"Max Minutes",	true, EditMode_Practice, true, false, 0, NULL ),
 };
 
 static LocalizedString EMPTY	("ScreenOptionsEditCourse","-Empty-");
@@ -160,7 +170,7 @@ void ScreenOptionsEditCourse::BeginScreen()
 {
 	vector<OptionRowHandler*> vHands;
 
-	FOREACH_ENUM( WorkoutDetailsRow, rowIndex )
+	FOREACH_ENUM( EditCourseRow, rowIndex )
 	{
 		const MenuRowDef &mr = g_MenuRows[rowIndex];
 		OptionRowHandler *pHand = OptionRowHandlerUtil::MakeSimple( mr );
@@ -171,7 +181,7 @@ void ScreenOptionsEditCourse::BeginScreen()
 		switch( rowIndex )
 		{
 		DEFAULT_FAIL(rowIndex);
-		case WorkoutDetailsRow_Minutes:
+		case EditCourseRow_Minutes:
 			pHand->m_Def.m_vsChoices.push_back( MakeMinutesString(0) );
 			for( int i=EditCourseUtil::MIN_WORKOUT_MINUTES; i<=20; i+=2 )
 				pHand->m_Def.m_vsChoices.push_back( MakeMinutesString(i) );
@@ -249,7 +259,7 @@ void ScreenOptionsEditCourse::ImportOptions( int iRow, const vector<PlayerNumber
 
 	switch( iRow )
 	{
-	case WorkoutDetailsRow_Minutes:
+	case EditCourseRow_Minutes:
 		row.SetOneSharedSelection( 0 );
 		row.SetOneSharedSelectionIfPresent( MakeMinutesString(GAMESTATE->m_pCurCourse->m_fGoalSeconds/60) );
 		break;
@@ -285,7 +295,7 @@ void ScreenOptionsEditCourse::ImportOptions( int iRow, const vector<PlayerNumber
 
 void ScreenOptionsEditCourse::ExportOptions( int iRow, const vector<PlayerNumber> &vpns )
 {
-	FOREACH_ENUM( WorkoutDetailsRow, i )
+	FOREACH_ENUM( EditCourseRow, i )
 	{
 		OptionRow &row = *m_pRows[i];
 		int iIndex = row.GetOneSharedSelection( true );
@@ -296,7 +306,7 @@ void ScreenOptionsEditCourse::ExportOptions( int iRow, const vector<PlayerNumber
 		switch( i )
 		{
 		DEFAULT_FAIL(i);
-		case WorkoutDetailsRow_Minutes:
+		case EditCourseRow_Minutes:
 			GAMESTATE->m_pCurCourse->m_fGoalSeconds = 0;
 			int mins;
 			if( sscanf( sValue, "%d", &mins ) == 1 )
@@ -307,7 +317,7 @@ void ScreenOptionsEditCourse::ExportOptions( int iRow, const vector<PlayerNumber
 
 	GAMESTATE->m_pCurCourse->m_vEntries.clear();
 
-	for( int i=NUM_WorkoutDetailsRow; i<(int)m_pRows.size(); i++ )
+	for( int i=NUM_EditCourseRow; i<(int)m_pRows.size(); i++ )
 	{
 		OptionRow &row = *m_pRows[i];
 		if( row.GetRowType() == OptionRow::RowType_Exit )
@@ -435,6 +445,7 @@ void ScreenOptionsEditCourse::AfterChangeRow( PlayerNumber pn )
 	ScreenOptions::AfterChangeRow( pn );
 
 	SetCurrentSong();
+	SetCurrentSteps();
 }
 
 void ScreenOptionsEditCourse::AfterChangeValueInRow( int iRow, PlayerNumber pn )

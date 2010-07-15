@@ -10,7 +10,6 @@
 #include "Difficulty.h"
 #include "RageUtil_AutoPtr.h"
 #include "RageUtil_CachedObject.h"
-#include "TimingData.h"
 class Profile;
 class NoteData;
 struct lua_State;
@@ -55,23 +54,6 @@ public:
 	void SetMeter( int meter );
 	void SetCachedRadarValues( const RadarValues v[NUM_PLAYERS] );
 	float PredictMeter() const;
-	
-	// Split BPM: TimingData in steps.
-	TimingData m_Timing;
-	// below functions were previously just in Song
-	float GetBPMAtBeat( float fBeat ) const { return m_Timing.GetBPMAtBeat( fBeat ); }
-	void SetBPMAtBeat( float fBeat, float fBPM ) { m_Timing.SetBPMAtBeat( fBeat, fBPM ); }
-	BPMSegment& GetBPMSegmentAtBeat( float fBeat ) { return m_Timing.GetBPMSegmentAtBeat( fBeat ); }
-	float GetBeatFromElapsedTime( float fElapsedTime ) const { return m_Timing.GetBeatFromElapsedTime( fElapsedTime ); }
-	float GetElapsedTimeFromBeat( float fBeat ) const { return m_Timing.GetElapsedTimeFromBeat( fBeat ); }
-	
-	bool HasSignificantBpmChangesOrStops() const;
-	float GetStepsSeconds() const;
-	
-	void AddBPMSegment( const BPMSegment &seg ) { m_Timing.AddBPMSegment( seg ); }
-	void AddStopSegment( const StopSegment &seg ) { m_Timing.AddStopSegment( seg ); }
-	void AddTimeSignatureSegment( const TimeSignatureSegment &seg ) { m_Timing.AddTimeSignatureSegment( seg ); }
-	// end functions
 	
 	unsigned GetHash() const;
 	void GetNoteData( NoteData& noteDataOut ) const;

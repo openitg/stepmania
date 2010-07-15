@@ -240,25 +240,6 @@ static void FixLittleEndian()
 #endif
 }
 
-
-/* Making an OpenGL call doesn't also flush the error state; if we happen
- * to have an error from a previous call, then the assert below will fail. 
- * Flush it. */
-#define FlushGLErrors() do { } while( glGetError() != GL_NO_ERROR )
-#define AssertNoGLError() \
-{ \
-	GLenum error = glGetError(); \
-	ASSERT_M( error == GL_NO_ERROR, GLToString(error) ); \
-}
-
-#if defined(DEBUG) || !defined(GL_GET_ERROR_IS_SLOW)
-#define DebugFlushGLErrors() FlushGLErrors()
-#define DebugAssertNoGLError() AssertNoGLError()
-#else
-#define DebugFlushGLErrors()
-#define DebugAssertNoGLError()
-#endif
-
 static void TurnOffHardwareVBO()
 {
 	if( GLExt.glBindBufferARB )
@@ -1708,6 +1689,8 @@ void RageDisplay_OGL::SetBlendMode( BlendMode mode )
 	{
 		if( mode == BLEND_INVERT_DEST )
 			GLExt.glBlendEquation( GL_FUNC_SUBTRACT );
+		else if( mode == BLEND_SUBTRACT )
+			GLExt.glBlendEquation( GL_FUNC_REVERSE_SUBTRACT );
 		else
 			GLExt.glBlendEquation( GL_FUNC_ADD );
 	}
@@ -1721,6 +1704,9 @@ void RageDisplay_OGL::SetBlendMode( BlendMode mode )
 		break;
 	case BLEND_ADD:
 		iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE;
+		break;
+	case BLEND_SUBTRACT:
+		iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE_MINUS_SRC_ALPHA;
 		break;
 	case BLEND_COPY_SRC:
 		iSourceRGB = GL_ONE; iDestRGB = GL_ZERO;

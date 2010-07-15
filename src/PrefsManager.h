@@ -150,6 +150,7 @@ public:
 	Preference<bool>	m_bAllowMultitexture;
 	Preference<bool>	m_bShowStats;
 	Preference<bool>	m_bShowBanners;
+	Preference<bool>	m_bAcceptInputOnNoFocus;
 
 	Preference<bool>	m_bHiddenSongs;
 	Preference<bool>	m_bVsync;
@@ -195,7 +196,6 @@ public:
 	Preference<bool>	m_bDisqualification;
 	Preference<bool>	m_bAutogenSteps;
 	Preference<bool>	m_bAutogenGroupCourses;
-	Preference<bool>	m_bOnlyPreferredDifficulties;
 	Preference<bool>	m_bBreakComboToGetItem;
 	Preference<bool>	m_bLockCourseDifficulties;
 	Preference<ShowDancingCharacters>		m_ShowDancingCharacters;
@@ -215,11 +215,8 @@ public:
 	Preference<int>		m_fCenterImageAddHeight;
 	Preference<AttractSoundFrequency>	m_AttractSoundFrequency;
 	Preference<bool>	m_bAllowExtraStage;
-	Preference<bool>	m_bHideDefaultNoteSkin;
 	Preference<int>		m_iMaxHighScoresPerListForMachine;
 	Preference<int>		m_iMaxHighScoresPerListForPlayer;
-	Preference<int>		m_iMaxRecentScoresForMachine;
-	Preference<int>		m_iMaxRecentScoresForPlayer;
 	Preference<bool>	m_bAllowMultipleHighScoreWithSameName;
 	Preference<bool>	m_bCelShadeModels;
 	Preference<bool>	m_bPreferredSortUsesGroups;

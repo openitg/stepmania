@@ -55,6 +55,7 @@ ScreenNetSelectMusic.cpp ScreenNetSelectMusic.h ScreenNetSelectBase.cpp ScreenNe
 ScreenGameplay.cpp ScreenGameplay.h \
 ScreenGameplayLesson.cpp ScreenGameplayLesson.h \
 ScreenGameplayNormal.cpp ScreenGameplayNormal.h \
+ScreenGameplayShared.cpp ScreenGameplayShared.h \
 ScreenGameplaySyncMachine.cpp ScreenGameplaySyncMachine.h \
 ScreenHighScores.cpp ScreenHighScores.h \
 ScreenHowToPlay.cpp ScreenHowToPlay.h \
@@ -84,7 +85,7 @@ ScreenServiceAction.cpp ScreenServiceAction.h \
 ScreenStatsOverlay.cpp ScreenStatsOverlay.h \
 ScreenSelect.cpp ScreenSelect.h ScreenSelectCharacter.cpp ScreenSelectCharacter.h \
 ScreenSelectLanguage.cpp  ScreenSelectLanguage.h \
-ScreenSelectMaster.cpp ScreenSelectMaster.h ScreenSelectMode.cpp ScreenSelectMode.h \
+ScreenSelectMaster.cpp ScreenSelectMaster.h \
 ScreenSelectMusic.cpp ScreenSelectMusic.h \
 ScreenSelectProfile.cpp ScreenSelectProfile.h \
 ScreenSyncOverlay.cpp ScreenSyncOverlay.h \
@@ -107,7 +108,7 @@ DataStructures = \
 Attack.cpp Attack.h AutoKeysounds.cpp AutoKeysounds.h \
 AdjustSync.cpp AdjustSync.h \
 BackgroundUtil.cpp BackgroundUtil.h \
-BannerCache.cpp BannerCache.h CatalogXml.cpp CatalogXml.h \
+BannerCache.cpp BannerCache.h \
 Character.cpp Character.h \
 CodeDetector.cpp CodeDetector.h \
 CodeSet.cpp CodeSet.h \
@@ -139,7 +140,7 @@ LyricsLoader.cpp LyricsLoader.h \
 ModsGroup.cpp ModsGroup.h \
 NoteData.cpp NoteData.h NoteDataUtil.cpp NoteDataUtil.h NoteDataWithScoring.cpp NoteDataWithScoring.h \
 NoteTypes.cpp NoteTypes.h NotesLoader.cpp NotesLoader.h \
-NotesLoaderBMS.cpp NotesLoaderBMS.h NotesLoaderDWI.cpp NotesLoaderDWI.h NotesLoaderKSF.cpp NotesLoaderKSF.h \
+NotesLoaderBMS.cpp NotesLoaderBMS.h NotesLoaderDWI.cpp NotesLoaderDWI.h NotesLoaderKSF.cpp NotesLoaderKSF.h NotesLoaderPMS.cpp NotesLoaderPMS.h \
 NotesLoaderMidi.cpp NotesLoaderMidi.h NotesLoaderSM.cpp NotesLoaderSM.h NotesWriterDWI.cpp NotesWriterDWI.h NotesWriterSM.cpp NotesWriterSM.h \
 OptionRowHandler.cpp OptionRowHandler.h OptionsList.cpp OptionsList.h \
 PlayerAI.cpp PlayerAI.h PlayerNumber.cpp PlayerNumber.h PlayerOptions.cpp PlayerOptions.h \
@@ -152,6 +153,7 @@ ScoreKeeper.h ScoreKeeper.cpp \
 ScoreKeeperGuitar.cpp ScoreKeeperGuitar.h \
 ScoreKeeperNormal.cpp ScoreKeeperNormal.h \
 ScoreKeeperRave.cpp ScoreKeeperRave.h \
+ScoreKeeperShared.cpp ScoreKeeperShared.h \
 Song.cpp Song.h SongCacheIndex.cpp SongCacheIndex.h \
 SongOptions.cpp SongOptions.h SongUtil.cpp SongUtil.h StageStats.cpp StageStats.h Steps.cpp Steps.h \
 SoundEffectControl.cpp SoundEffectControl.h \
@@ -187,7 +189,6 @@ if HAVE_GTK
 LoadingWindow += arch/LoadingWindow/LoadingWindow_Gtk.cpp arch/LoadingWindow/LoadingWindow_Gtk.h \
 arch/LoadingWindow/LoadingWindow_GtkModule.h
 endif
-EXTRA_DIST += arch/LoadingWindow/loading.xpm
 
 Sound = arch/Sound/RageSoundDriver.h arch/Sound/RageSoundDriver.cpp \
 	arch/Sound/RageSoundDriver_Null.cpp arch/Sound/RageSoundDriver_Null.h \
@@ -196,6 +197,10 @@ Sound = arch/Sound/RageSoundDriver.h arch/Sound/RageSoundDriver.cpp \
 
 if HAVE_OSS
 Sound += arch/Sound/RageSoundDriver_OSS.cpp arch/Sound/RageSoundDriver_OSS.h
+endif
+
+if HAVE_PULSE
+Sound += arch/Sound/RageSoundDriver_PulseAudio.cpp arch/Sound/RageSoundDriver_PulseAudio.h
 endif
 
 if HAVE_ALSA
@@ -314,13 +319,13 @@ EditMenu.cpp EditMenu.h FadingBanner.cpp FadingBanner.h \
 GradeDisplay.cpp GradeDisplay.h GraphDisplay.cpp GraphDisplay.h \
 GrooveRadar.cpp GrooveRadar.h GroupList.cpp GroupList.h HelpDisplay.cpp HelpDisplay.h \
 MemoryCardDisplay.cpp MemoryCardDisplay.h \
-MenuTimer.cpp MenuTimer.h MusicBannerWheel.cpp MusicBannerWheel.h \
+MenuTimer.cpp MenuTimer.h \
 ModIcon.cpp ModIcon.h ModIconRow.cpp ModIconRow.h \
 MusicList.cpp MusicList.h MusicWheel.cpp MusicWheel.h \
 MusicWheelItem.cpp MusicWheelItem.h \
 OptionRow.cpp OptionRow.h OptionsCursor.cpp OptionsCursor.h \
 PaneDisplay.cpp PaneDisplay.h ScrollBar.cpp ScrollBar.h \
-ScrollingList.cpp ScrollingList.h SnapDisplay.cpp SnapDisplay.h \
+SnapDisplay.cpp SnapDisplay.h \
 TextBanner.cpp TextBanner.h WheelBase.cpp WheelBase.h WheelItemBase.cpp WheelItemBase.h \
 WheelNotifyIcon.cpp WheelNotifyIcon.h \
 WorkoutGraph.cpp WorkoutGraph.h 
@@ -365,9 +370,11 @@ lua-5.1/src/lundump.h lua-5.1/src/lvm.h lua-5.1/src/lzio.h
 RageFile = \
 RageFileBasic.cpp RageFileBasic.h \
 RageFile.cpp RageFile.h RageFileDriver.cpp RageFileDriver.h RageFileManager.cpp RageFileManager.h \
+RageFileManager_ReadAhead.cpp RageFileManager_ReadAhead.h \
 RageFileDriverDirect.cpp RageFileDriverDirect.h RageFileDriverDirectHelpers.cpp RageFileDriverDirectHelpers.h \
 RageFileDriverMemory.cpp RageFileDriverMemory.h RageFileDriverZip.cpp RageFileDriverZip.h \
 RageFileDriverDeflate.cpp RageFileDriverDeflate.h \
+RageFileDriverReadAhead.cpp RageFileDriverReadAhead.h \
 RageFileDriverSlice.cpp RageFileDriverSlice.h \
 RageFileDriverTimeout.cpp RageFileDriverTimeout.h
 

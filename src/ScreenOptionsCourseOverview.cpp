@@ -18,26 +18,48 @@
 #include "Style.h"
 #include "PrefsManager.h"
 
-enum ReviewWorkoutRow
+enum CourseOverviewRow
 {
-	ReviewWorkoutRow_Play,
-	ReviewWorkoutRow_Edit,
-	ReviewWorkoutRow_Shuffle,
-	ReviewWorkoutRow_Save,
-	NUM_ReviewWorkoutRow
+	CourseOverviewRow_Play,
+	CourseOverviewRow_Edit,
+	CourseOverviewRow_Shuffle,
+	CourseOverviewRow_Rename,
+	CourseOverviewRow_Delete,
+	CourseOverviewRow_Save,
+	NUM_CourseOverviewRow
 };
+
+static bool CurrentCourseIsSaved()
+{
+	Course *pCourse = GAMESTATE->m_pCurCourse;
+	if( pCourse == NULL )
+		return false;
+	return !pCourse->m_sPath.empty();
+}
 
 static const MenuRowDef g_MenuRows[] = 
 {
 	MenuRowDef( -1,	"Play",		true, EditMode_Practice, true, false, 0, NULL ),
-	MenuRowDef( -1,	"Edit Workout",	true, EditMode_Practice, true, false, 0, NULL ),
+	MenuRowDef( -1,	"Edit Course",	true, EditMode_Practice, true, false, 0, NULL ),
 	MenuRowDef( -1,	"Shuffle",	true, EditMode_Practice, true, false, 0, NULL ),
+	MenuRowDef( -1,	"Rename",	CurrentCourseIsSaved, EditMode_Practice, true, false, 0, NULL ),
+	MenuRowDef( -1,	"Delete",	CurrentCourseIsSaved, EditMode_Practice, true, false, 0, NULL ),
 	MenuRowDef( -1,	"Save",		true, EditMode_Practice, true, false, 0, NULL ),
 };
 
 REGISTER_SCREEN_CLASS( ScreenOptionsCourseOverview );
 
+static LocalizedString ENTER_COURSE_NAME        ("ScreenOptionsCourseOverview", "Enter a name for the course.");
+static LocalizedString ERROR_SAVING_COURSE	("ScreenOptionsCourseOverview", "Error saving course.");
+static LocalizedString COURSE_SAVED		("ScreenOptionsCourseOverview", "Course saved successfully.");
+static LocalizedString ERROR_RENAMING           ("ScreenOptionsCourseOverview", "Error renaming file.");
+static LocalizedString ERROR_DELETING_FILE      ("ScreenOptionsCourseOverview", "Error deleting the file '%s'.");
+static LocalizedString COURSE_WILL_BE_LOST      ("ScreenOptionsCourseOverview", "This course will be lost permanently.");
+static LocalizedString CONTINUE_WITH_DELETE     ("ScreenOptionsCourseOverview", "Continue with delete?");
+
 AutoScreenMessage( SM_BackFromEnterName )
+AutoScreenMessage( SM_BackFromRename )
+AutoScreenMessage( SM_BackFromDelete )
 
 void ScreenOptionsCourseOverview::Init()
 {
@@ -54,7 +76,7 @@ void ScreenOptionsCourseOverview::Init()
 void ScreenOptionsCourseOverview::BeginScreen()
 {
 	vector<OptionRowHandler*> vHands;
-	FOREACH_ENUM( ReviewWorkoutRow, rowIndex )
+	FOREACH_ENUM( CourseOverviewRow, rowIndex )
 	{
 		const MenuRowDef &mr = g_MenuRows[rowIndex];
 		OptionRowHandler *pHand = OptionRowHandlerUtil::MakeSimple( mr );
@@ -88,20 +110,23 @@ void ScreenOptionsCourseOverview::ExportOptions( int iRow, const vector<PlayerNu
 		sValue = row.GetRowDef().m_vsChoices[ iIndex ];
 }
 
-static LocalizedString ERROR_SAVING_WORKOUT	( "ScreenOptionsCourseOverview", "Error saving workout." );
-static LocalizedString WORKOUT_SAVED		( "ScreenOptionsCourseOverview", "Workout saved successfully." );
 void ScreenOptionsCourseOverview::HandleScreenMessage( const ScreenMessage SM )
 {
-	if( SM == SM_GoToNextScreen )
+	if( SM == SM_GoToPrevScreen )
+	{
+		// If we're pointing to an unsaved course, it will be inaccessible once we're back on ScreenOptionsManageCourses.
+		GAMESTATE->m_pCurCourse.Set( NULL );
+	}
+	else if( SM == SM_GoToNextScreen )
 	{
 		int iRow = m_iCurrentRow[GAMESTATE->m_MasterPlayerNumber];
 		switch( iRow )
 		{
-		case ReviewWorkoutRow_Play:
+		case CourseOverviewRow_Play:
 			EditCourseUtil::PrepareForPlay();
 			SCREENMAN->SetNewScreen( PLAY_SCREEN );
 			return;	// handled
-		case ReviewWorkoutRow_Edit:
+		case CourseOverviewRow_Edit:
 			SCREENMAN->SetNewScreen( EDIT_SCREEN );
 			return;	// handled
 		}
@@ -115,8 +140,40 @@ void ScreenOptionsCourseOverview::HandleScreenMessage( const ScreenMessage SM )
 			if( EditCourseUtil::RenameAndSave( GAMESTATE->m_pCurCourse, ScreenTextEntry::s_sLastAnswer ) )
 			{
 				m_soundSave.Play();
-				SCREENMAN->SystemMessage( WORKOUT_SAVED );
+				SCREENMAN->SystemMessage( COURSE_SAVED );
 			}
+		}
+	}
+        else if( SM == SM_BackFromRename )
+	{
+		if( !ScreenTextEntry::s_bCancelledLast )
+		{
+			ASSERT( ScreenTextEntry::s_sLastAnswer != "" ); // validate should have assured this
+
+			if( !EditCourseUtil::RenameAndSave(GAMESTATE->m_pCurCourse, ScreenTextEntry::s_sLastAnswer) )
+			{
+				ScreenPrompt::Prompt( SM_None, ERROR_RENAMING );
+				return;
+			}
+
+			SCREENMAN->SetNewScreen( this->m_sName ); // reload
+		}
+	}
+	else if( SM == SM_BackFromDelete )
+	{
+		if( ScreenPrompt::s_LastAnswer == ANSWER_YES )
+		{
+			if( !EditCourseUtil::RemoveAndDeleteFile(GAMESTATE->m_pCurCourse) )
+			{
+				ScreenPrompt::Prompt( SM_None, ssprintf(ERROR_DELETING_FILE.GetValue(), GAMESTATE->m_pCurCourse->m_sPath.c_str()) );
+				return;
+			}
+
+			GAMESTATE->m_pCurCourse.Set( NULL );
+			GAMESTATE->m_pCurTrail[PLAYER_1].Set( NULL );
+
+			/* Our course is gone, so back out. */
+			StartTransitioningScreen( SM_GoToPrevScreen );
 		}
 	}
 
@@ -129,7 +186,6 @@ void ScreenOptionsCourseOverview::AfterChangeValueInRow( int iRow, PlayerNumber 
 }
 
 
-static LocalizedString ENTER_WORKOUT_NAME	( "ScreenOptionsCourseOverview", "Enter a name for the workout." );
 void ScreenOptionsCourseOverview::ProcessMenuStart( const InputEventPlus &input )
 {
 	if( IsTransitioning() )
@@ -138,12 +194,12 @@ void ScreenOptionsCourseOverview::ProcessMenuStart( const InputEventPlus &input 
 	int iRow = m_iCurrentRow[GAMESTATE->m_MasterPlayerNumber];
 	switch( iRow )
 	{
-	case ReviewWorkoutRow_Play:
-	case ReviewWorkoutRow_Edit:
+	case CourseOverviewRow_Play:
+	case CourseOverviewRow_Edit:
 		SCREENMAN->PlayStartSound();
 		this->BeginFadingOut();
 		return;	// handled
-	case ReviewWorkoutRow_Shuffle:
+	case CourseOverviewRow_Shuffle:
 		{
 			Course *pCourse = GAMESTATE->m_pCurCourse;
 			random_shuffle( pCourse->m_vEntries.begin(), pCourse->m_vEntries.end() );
@@ -153,14 +209,25 @@ void ScreenOptionsCourseOverview::ProcessMenuStart( const InputEventPlus &input 
 			MESSAGEMAN->Broadcast("CurrentCourseChanged");
 		}
 		return;	// handled
-	case ReviewWorkoutRow_Save:
+	case CourseOverviewRow_Rename:
+		ScreenTextEntry::TextEntry(
+				SM_BackFromRename,
+				ENTER_COURSE_NAME,
+				GAMESTATE->m_pCurCourse->GetDisplayFullTitle(),
+				EditCourseUtil::MAX_NAME_LENGTH,
+				EditCourseUtil::ValidateEditCourseName );
+		break;
+	case CourseOverviewRow_Delete:
+		ScreenPrompt::Prompt( SM_BackFromDelete, COURSE_WILL_BE_LOST.GetValue()+"\n\n"+CONTINUE_WITH_DELETE.GetValue(), PROMPT_YES_NO, ANSWER_NO );
+		break;
+	case CourseOverviewRow_Save:
 		{
 			bool bPromptForName = EditCourseUtil::s_bNewCourseNeedsName;
 			if( bPromptForName )
 			{
 				ScreenTextEntry::TextEntry( 
 					SM_BackFromEnterName, 
-					ENTER_WORKOUT_NAME, 
+					ENTER_COURSE_NAME, 
 					GAMESTATE->m_pCurCourse->GetDisplayFullTitle(), 
 					EditCourseUtil::MAX_NAME_LENGTH, 
 					EditCourseUtil::ValidateEditCourseName );
@@ -170,12 +237,12 @@ void ScreenOptionsCourseOverview::ProcessMenuStart( const InputEventPlus &input 
 				if( EditCourseUtil::Save( GAMESTATE->m_pCurCourse ) )
 				{
 					m_soundSave.Play();
-					SCREENMAN->SystemMessage( WORKOUT_SAVED );
+					SCREENMAN->SystemMessage( COURSE_SAVED );
 				}
 				else
 				{
 					SCREENMAN->PlayInvalidSound();
-					SCREENMAN->SystemMessage( ERROR_SAVING_WORKOUT );
+					SCREENMAN->SystemMessage( ERROR_SAVING_COURSE );
 				}
 			}
 		}

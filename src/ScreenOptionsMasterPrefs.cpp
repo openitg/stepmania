@@ -156,7 +156,7 @@ static void MoveNop( int &iSel, bool bToSel, const ConfOption *pConfOption )
 static void GameChoices( vector<RString> &out )
 {
 	vector<const Game*> aGames;
-	GameManager::GetEnabledGames( aGames );
+	GAMEMAN->GetEnabledGames( aGames );
 	FOREACH( const Game*, aGames, g )
 	{
 		RString sGameName = (*g)->m_szName;
@@ -179,7 +179,7 @@ static void GameSel( int &sel, bool ToSel, const ConfOption *pConfOption )
 				sel = i;
 	} else {
 		vector<const Game*> aGames;
-		GameManager::GetEnabledGames( aGames );
+		GAMEMAN->GetEnabledGames( aGames );
 		StepMania::ChangeCurrentGame( aGames[sel] );
 	}
 }
@@ -633,7 +633,6 @@ static void InitializeConfOptions()
 
 	/* Misc options */
 	ADD( ConfOption( "AutogenSteps",		MovePref<bool>,		"Off","On" ) );
-	ADD( ConfOption( "OnlyPreferredDifficulties", MovePref<bool>, "Off","On" ) );
 	g_ConfOptions.back().m_iEffects = OPT_APPLY_SONG;
 
 	ADD( ConfOption( "AutogenGroupCourses",		MovePref<bool>,		"Off","On" ) );
@@ -729,6 +728,7 @@ static void InitializeConfOptions()
 	g_ConfOptions.back().m_iEffects = OPT_APPLY_GRAPHICS;
 	ADD( ConfOption( "ShowStats",			MovePref<bool>,		"Off","On" ) );
 	ADD( ConfOption( "ShowBanners",			MovePref<bool>,		"Off","On" ) );
+	ADD( ConfOption( "AcceptInputOnNoFocus",	MovePref<bool>,		"Off","On" ) );
 
 	/* Sound options */
 	ADD( ConfOption( "AttractSoundFrequency",	MovePref<AttractSoundFrequency>, "Never","Always","2 Times","3 Times","4 Times","5 Times" ) );

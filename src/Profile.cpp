@@ -21,14 +21,11 @@
 #include "XmlFile.h"
 #include "XmlFileUtil.h"
 #include "Foreach.h"
-#include "CatalogXml.h"
 #include "Bookkeeper.h"
 #include "Game.h"
 #include "CharacterManager.h"
 #include "Character.h"
 
-const RString STATS_XSL            = "Stats.xsl";
-const RString COMMON_XSL           = "Common.xsl";
 const RString STATS_XML            = "Stats.xml";
 const RString STATS_XML_GZ         = "Stats.xml.gz";
 const RString EDITABLE_INI         = "Editable.ini";
@@ -40,8 +37,6 @@ const RString EDIT_COURSES_SUBDIR  = "EditCourses/";
 
 ThemeMetric<bool> SHOW_COIN_DATA( "Profile", "ShowCoinData" );
 static Preference<bool> g_bProfileDataCompress( "ProfileDataCompress", false );
-static Preference<bool> g_bCopyCatalogToProfiles( "CopyCatalogToProfiles", true );
-extern Preference<bool> g_bWriteCatalog;
 static ThemeMetric<RString> UNLOCK_AUTH_STRING( "Profile", "UnlockAuthString" );
 #define GUID_SIZE_BYTES 8
 
@@ -117,8 +112,8 @@ void Profile::InitGeneralData()
 	m_LastStepsType = StepsType_Invalid;
 	m_lastSong.Unset();
 	m_lastCourse.Unset();
-	m_iTotalPlays = 0;
-	m_iTotalPlaySeconds = 0;
+	m_iTotalSessions = 0;
+	m_iTotalSessionSeconds = 0;
 	m_iTotalGameplaySeconds = 0;
 	m_fTotalCaloriesBurned = 0;
 	m_GoalType = (GoalType)0;
@@ -148,6 +143,8 @@ void Profile::InitGeneralData()
 	m_iNumTotalSongsPlayed = 0;
 	ZERO( m_iNumStagesPassedByPlayMode );
 	ZERO( m_iNumStagesPassedByGrade );
+
+	m_UserData.Unset();
 }
 
 void Profile::InitSongScores()
@@ -175,16 +172,6 @@ void Profile::InitScreenshotData()
 void Profile::InitCalorieData()
 {
 	m_mapDayToCaloriesBurned.clear();
-}
-
-void Profile::InitRecentSongScores()
-{
-	m_vRecentStepsScores.clear();
-}
-
-void Profile::InitRecentCourseScores()
-{
-	m_vRecentCourseScores.clear();
 }
 
 RString Profile::GetDisplayNameOrHighScoreName() const
@@ -919,9 +906,7 @@ ProfileLoadResult Profile::LoadStatsXmlFromNode( const XNode *xml, bool bIgnoreE
 	LOAD_NODE( CategoryScores );
 	LOAD_NODE( ScreenshotData );
 	LOAD_NODE( CalorieData );
-	LOAD_NODE( RecentSongScores );
-	LOAD_NODE( RecentCourseScores );
-		
+
 	if( bIgnoreEditable )
 	{
 		m_sDisplayName = sName;
@@ -952,8 +937,6 @@ bool Profile::SaveAllToDir( RString sDir, bool bSignData ) const
 		FILEMAN->CreateDir( sDir + EDIT_COURSES_SUBDIR );
 	FILEMAN->CreateDir( sDir + SCREENSHOTS_SUBDIR );
 
-	FILEMAN->FlushDirCache( sDir );
-
 	return bSaved;
 }
 
@@ -967,8 +950,6 @@ XNode *Profile::SaveStatsXmlCreateNode() const
 	xml->AppendChild( SaveCategoryScoresCreateNode() );
 	xml->AppendChild( SaveScreenshotDataCreateNode() );
 	xml->AppendChild( SaveCalorieDataCreateNode() );
-	xml->AppendChild( SaveRecentSongScoresCreateNode() );
-	xml->AppendChild( SaveRecentCourseScoresCreateNode() );
 	if( SHOW_COIN_DATA.GetValue() && IsMachine() )
 		xml->AppendChild( SaveCoinDataCreateNode() );
 
@@ -996,8 +977,9 @@ bool Profile::SaveStatsXmlToDir( RString sDir, bool bSignData ) const
 		{
 			RageFileObjGzip gzip( &f );
 			gzip.Start();
-			if( !XmlFileUtil::SaveToFile( xml.get(), gzip, STATS_XSL, false ) )
+			if( !XmlFileUtil::SaveToFile( xml.get(), gzip, "", false ) )
 				return false;
+
 			if( gzip.Finish() == -1 )
 				return false;
 
@@ -1007,7 +989,7 @@ bool Profile::SaveStatsXmlToDir( RString sDir, bool bSignData ) const
 		}
 		else
 		{
-			if( !XmlFileUtil::SaveToFile( xml.get(), f, STATS_XSL, false ) )
+			if( !XmlFileUtil::SaveToFile( xml.get(), f, "", false ) )
 				return false;
 
 			/* After successfully saving STATS_XML, remove any stray STATS_XML_GZ. */
@@ -1016,16 +998,10 @@ bool Profile::SaveStatsXmlToDir( RString sDir, bool bSignData ) const
 		}
 	}
 
-	// Update file cache, or else IsAFile in CryptManager won't see this new file.
-	FILEMAN->FlushDirCache( sDir );
-	
 	if( bSignData )
 	{
 		RString sStatsXmlSigFile = fn+SIGNATURE_APPEND;
 		CryptManager::SignFileToFile(fn, sStatsXmlSigFile);
-
-		// Update file cache, or else IsAFile in CryptManager won't see sStatsXmlSigFile.
-		FILEMAN->FlushDirCache( sDir );
 
 		// Save the "don't share" file
 		RString sDontShareFile = sDir + DONT_SHARE_SIG;
@@ -1066,11 +1042,11 @@ XNode* Profile::SaveGeneralDataCreateNode() const
 	pGeneralDataNode->AppendChild( "LastDifficulty",		DifficultyToString(m_LastDifficulty) );
 	pGeneralDataNode->AppendChild( "LastCourseDifficulty",		DifficultyToString(m_LastCourseDifficulty) );
 	if( m_LastStepsType != StepsType_Invalid )
-		pGeneralDataNode->AppendChild( "LastStepsType",			GameManager::GetStepsTypeInfo(m_LastStepsType).szName );
+		pGeneralDataNode->AppendChild( "LastStepsType",			GAMEMAN->GetStepsTypeInfo(m_LastStepsType).szName );
 	pGeneralDataNode->AppendChild( m_lastSong.CreateNode() );
 	pGeneralDataNode->AppendChild( m_lastCourse.CreateNode() );
-	pGeneralDataNode->AppendChild( "TotalPlays",			m_iTotalPlays );
-	pGeneralDataNode->AppendChild( "TotalPlaySeconds",		m_iTotalPlaySeconds );
+	pGeneralDataNode->AppendChild( "TotalSessions",			m_iTotalSessions );
+	pGeneralDataNode->AppendChild( "TotalSessionSeconds",		m_iTotalSessionSeconds );
 	pGeneralDataNode->AppendChild( "TotalGameplaySeconds",		m_iTotalGameplaySeconds );
 	pGeneralDataNode->AppendChild( "TotalCaloriesBurned",		m_fTotalCaloriesBurned );
 	pGeneralDataNode->AppendChild( "GoalType",			m_GoalType );
@@ -1182,6 +1158,18 @@ XNode* Profile::SaveGeneralDataCreateNode() const
 		}
 	}
 
+	if( !IsMachine() && m_UserData.IsSet() )
+	{
+		Lua *L = LUA->Get();
+		m_UserData.PushSelf( L );
+		XNode* pUserTable = XmlFileUtil::XNodeFromTable( L );
+		LUA->Release( L );
+
+		// XXX: XNodeFromTable returns a root node with the name "Layer".
+		pUserTable->m_sName = "UserData";
+		pGeneralDataNode->AppendChild( pUserTable );
+	}
+
 	return pGeneralDataNode;
 }
 
@@ -1237,11 +1225,11 @@ void Profile::LoadGeneralDataFromNode( const XNode* pNode )
 	pNode->GetChildValue( "SortOrder",				s );	m_SortOrder = StringToSortOrder( s );
 	pNode->GetChildValue( "LastDifficulty",				s );	m_LastDifficulty = StringToDifficulty( s );
 	pNode->GetChildValue( "LastCourseDifficulty",			s );	m_LastCourseDifficulty = StringToDifficulty( s );
-	pNode->GetChildValue( "LastStepsType",				s );	m_LastStepsType = GameManager::StringToStepsType( s );
+	pNode->GetChildValue( "LastStepsType",				s );	m_LastStepsType = GAMEMAN->StringToStepsType( s );
 	pTemp = pNode->GetChild( "Song" );				if( pTemp ) m_lastSong.LoadFromNode( pTemp );
 	pTemp = pNode->GetChild( "Course" );				if( pTemp ) m_lastCourse.LoadFromNode( pTemp );
-	pNode->GetChildValue( "TotalPlays",				m_iTotalPlays );
-	pNode->GetChildValue( "TotalPlaySeconds",			m_iTotalPlaySeconds );
+	pNode->GetChildValue( "TotalSessions",				m_iTotalSessions );
+	pNode->GetChildValue( "TotalSessionSeconds",			m_iTotalSessionSeconds );
 	pNode->GetChildValue( "TotalGameplaySeconds",			m_iTotalGameplaySeconds );
 	pNode->GetChildValue( "TotalCaloriesBurned",			m_fTotalCaloriesBurned );
 	pNode->GetChildValue( "GoalType",				*ConvertValue<int>(&m_GoalType) );
@@ -1355,6 +1343,22 @@ void Profile::LoadGeneralDataFromNode( const XNode* pNode )
 	
 	}
 
+	/* Build the custom data table from the existing XNode. */
+	if( !IsMachine() )
+	{
+		const XNode *pUserData = pNode->GetChild( "UserData" );
+
+		Lua *L = LUA->Get();
+
+		/* If we have custom data, load it. Otherwise, make a blank table. */
+		if( pUserData )
+			LuaHelpers::CreateTableFromXNode( L, pUserData );
+		else
+			lua_newtable( L );
+
+		m_UserData.SetFromStack( L );
+		LUA->Release( L );
+	}
 }
 
 void Profile::AddStepTotals( int iTotalTapsAndHolds, int iTotalJumps, int iTotalHolds, int iTotalRolls, int iTotalMines, int iTotalHands, float fCaloriesBurned )
@@ -1577,7 +1581,7 @@ XNode* Profile::SaveCategoryScoresCreateNode() const
 			continue;
 
 		XNode* pStepsTypeNode = pNode->AppendChild( "StepsType" );
-		pStepsTypeNode->AppendAttr( "Type", GameManager::GetStepsTypeInfo(st).szName );
+		pStepsTypeNode->AppendAttr( "Type", GAMEMAN->GetStepsTypeInfo(st).szName );
 
 		FOREACH_ENUM( RankingCategory,rc )
 		{
@@ -1611,7 +1615,7 @@ void Profile::LoadCategoryScoresFromNode( const XNode* pCategoryScores )
 		RString str;
 		if( !pStepsType->GetAttrValue( "Type", str ) )
 			WARN_AND_CONTINUE;
-		StepsType st = GameManager::StringToStepsType( str );
+		StepsType st = GAMEMAN->StringToStepsType( str );
 		if( st == StepsType_Invalid )
 			WARN_AND_CONTINUE_M( str );
 
@@ -1639,14 +1643,6 @@ void Profile::LoadCategoryScoresFromNode( const XNode* pCategoryScores )
 void Profile::SaveStatsWebPageToDir( RString sDir ) const
 {
 	ASSERT( PROFILEMAN );
-
-	FileCopy( THEME->GetPathO("Profile",STATS_XSL), sDir+STATS_XSL );
-	FileCopy( THEME->GetPathO("Profile",COMMON_XSL), sDir+COMMON_XSL );
-	if( g_bCopyCatalogToProfiles && g_bWriteCatalog )
-	{
-		FileCopy( CATALOG_XML_FILE, sDir+CATALOG_XML );
-		FileCopy( THEME->GetPathO("Profile",CATALOG_XSL), sDir+CATALOG_XSL );
-	}
 }
 
 void Profile::SaveMachinePublicKeyToDir( RString sDir ) const
@@ -1748,168 +1744,6 @@ float Profile::GetCaloriesBurnedForDay( DateTime day ) const
 		return i->second.fCals;
 }
 
-XNode* Profile::HighScoreForASongAndSteps::CreateNode() const
-{
-	XNode* pNode = new XNode( "HighScoreForASongAndSteps" );
-
-	pNode->AppendChild( songID.CreateNode() );
-	pNode->AppendChild( stepsID.CreateNode() );
-	pNode->AppendChild( hs.CreateNode() );
-
-	return pNode;
-}
-
-void Profile::HighScoreForASongAndSteps::LoadFromNode( const XNode* pNode )
-{
-	Unset();
-
-	ASSERT( pNode->GetName() == "HighScoreForASongAndSteps" );
-	const XNode* p;
-	if( (p = pNode->GetChild("Song")) )
-		songID.LoadFromNode( p );
-	if( (p = pNode->GetChild("Steps")) )
-		stepsID.LoadFromNode( p );
-	if( (p = pNode->GetChild("HighScore")) )
-		hs.LoadFromNode( p );
-}
-
-void Profile::LoadRecentSongScoresFromNode( const XNode* pRecentSongScores )
-{
-	CHECKPOINT;
-
-	ASSERT( pRecentSongScores->GetName() == "RecentSongScores" );
-	FOREACH_CONST_Child( pRecentSongScores, p )
-	{
-		if( p->GetName() == "HighScoreForASongAndSteps" )
-		{
-			HighScoreForASongAndSteps h;
-			h.LoadFromNode( p );
-
-			m_vRecentStepsScores.push_back( h );
-		}
-		else
-		{
-			WARN_AND_CONTINUE_M( p->GetName() );
-		}
-	}	
-}
-
-XNode* Profile::SaveRecentSongScoresCreateNode() const
-{
-	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode( "RecentSongScores" );
-
-	FOREACHD_CONST( HighScoreForASongAndSteps, m_vRecentStepsScores, i )
-		pNode->AppendChild( i->CreateNode() );
-
-	return pNode;
-}
-
-void Profile::AddStepsRecentScore( const Song* pSong, const Steps* pSteps, HighScore hs )
-{
-	ASSERT( pSong );
-	ASSERT( pSteps );
-	HighScoreForASongAndSteps h;
-	h.songID.FromSong( pSong );
-	ASSERT( h.songID.IsValid() );
-	h.stepsID.FromSteps( pSteps );
-	ASSERT( h.stepsID.IsValid() );
-	h.hs = hs;
-	m_vRecentStepsScores.push_back( h );
-
-	int iMaxRecentScoresToSave = IsMachine() ? PREFSMAN->m_iMaxRecentScoresForMachine : PREFSMAN->m_iMaxRecentScoresForPlayer;
-	int iNumToErase = m_vRecentStepsScores.size() - iMaxRecentScoresToSave;
-	if( iNumToErase > 0 )
-		m_vRecentStepsScores.erase( m_vRecentStepsScores.begin(), m_vRecentStepsScores.begin() +  iNumToErase );
-}
-
-
-XNode* Profile::HighScoreForACourseAndTrail::CreateNode() const
-{
-	XNode* pNode = new XNode( "HighScoreForACourseAndTrail" );
-
-	pNode->AppendChild( courseID.CreateNode() );
-	pNode->AppendChild( trailID.CreateNode() );
-	pNode->AppendChild( hs.CreateNode() );
-
-	return pNode;
-}
-
-void Profile::HighScoreForACourseAndTrail::LoadFromNode( const XNode* pNode )
-{
-	Unset();
-
-	ASSERT( pNode->GetName() == "HighScoreForACourseAndTrail" );
-	const XNode* p;
-	if( (p = pNode->GetChild("Course")) )
-		courseID.LoadFromNode( p );
-	if( (p = pNode->GetChild("Trail")) )
-		trailID.LoadFromNode( p );
-	if( (p = pNode->GetChild("HighScore")) )
-		hs.LoadFromNode( p );
-}
-
-void Profile::LoadRecentCourseScoresFromNode( const XNode* pRecentCourseScores )
-{
-	CHECKPOINT;
-
-	ASSERT( pRecentCourseScores->GetName() == "RecentCourseScores" );
-	FOREACH_CONST_Child( pRecentCourseScores, p )
-	{
-		if( p->GetName() == "HighScoreForACourseAndTrail" )
-		{
-			HighScoreForACourseAndTrail h;
-			h.LoadFromNode( p );
-
-			m_vRecentCourseScores.push_back( h );
-		}
-		else
-		{
-			WARN_AND_CONTINUE_M( p->GetName() );
-		}
-	}	
-}
-
-XNode* Profile::SaveRecentCourseScoresCreateNode() const
-{
-	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode( "RecentCourseScores" );
-
-	FOREACHD_CONST( HighScoreForACourseAndTrail, m_vRecentCourseScores, i )
-		pNode->AppendChild( i->CreateNode() );
-
-	return pNode;
-}
-
-void Profile::AddCourseRecentScore( const Course* pCourse, const Trail* pTrail, HighScore hs )
-{
-	HighScoreForACourseAndTrail h;
-	h.courseID.FromCourse( pCourse );
-	h.trailID.FromTrail( pTrail );
-	h.hs = hs;
-	m_vRecentCourseScores.push_back( h );
-	
-	int iMaxRecentScoresToSave = IsMachine() ? PREFSMAN->m_iMaxRecentScoresForMachine : PREFSMAN->m_iMaxRecentScoresForPlayer;
-	int iNumToErase = m_vRecentCourseScores.size() - iMaxRecentScoresToSave;
-	if( iNumToErase > 0 )
-		m_vRecentCourseScores.erase( m_vRecentCourseScores.begin(), m_vRecentCourseScores.begin() +  iNumToErase );
-}
-
-StepsType Profile::GetLastPlayedStepsType() const
-{
-	if( m_vRecentStepsScores.empty() )
-		return StepsType_Invalid;
-	const HighScoreForASongAndSteps &h = m_vRecentStepsScores.back();
-	return h.stepsID.GetStepsType();
-}
 
 const Profile::HighScoresForASong *Profile::GetHighScoresForASong( const SongID& songID ) const
 {
@@ -1998,6 +1832,38 @@ void Profile::MoveBackupToDir( RString sFromDir, RString sToDir )
 		FILEMAN->Move( sFromDir+DONT_SHARE_SIG,				sToDir+DONT_SHARE_SIG );
 }
 
+RString Profile::MakeUniqueFileNameNoExtension( RString sDir, RString sFileNameBeginning )
+{
+	//
+	// Find a file name for the screenshot
+	//
+
+	vector<RString> files;
+	GetDirListing( sDir + sFileNameBeginning+"*", files, false, false );
+	sort( files.begin(), files.end() );
+
+	int iIndex = 0;
+
+	for( int i = files.size()-1; i >= 0; --i )
+	{
+		static Regex re( "^" + sFileNameBeginning + "([0-9]{5})\\....$" );
+		vector<RString> matches;
+		if( !re.Compare( files[i], matches ) )
+			continue;
+
+		ASSERT( matches.size() == 1 );
+		iIndex = atoi( matches[0] )+1;
+		break;
+	}
+
+	return MakeFileNameNoExtension( sFileNameBeginning, iIndex );
+}
+
+RString Profile::MakeFileNameNoExtension( RString sFileNameBeginning, int iIndex )
+{
+	return sFileNameBeginning + ssprintf( "%05d", iIndex );
+}
+
 // lua start
 #include "LuaBinding.h"
 
@@ -2049,7 +1915,6 @@ public:
 	static int GetTotalStepsWithTopGrade( T* p, lua_State *L )	{ lua_pushnumber(L, p->GetTotalStepsWithTopGrade(Enum::Check<StepsType>(L, 1),Enum::Check<Difficulty>(L, 2),Enum::Check<Grade>(L, 3)) ); return 1; }
 	static int GetTotalTrailsWithTopGrade( T* p, lua_State *L )	{ lua_pushnumber(L, p->GetTotalTrailsWithTopGrade(Enum::Check<StepsType>(L, 1),Enum::Check<Difficulty>(L, 2),Enum::Check<Grade>(L, 3)) ); return 1; }
 	static int GetNumTotalSongsPlayed( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iNumTotalSongsPlayed ); return 1; }
-	static int GetLastPlayedStepsType( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetLastPlayedStepsType() ); return 1; }
 	static int GetSongsAndCoursesPercentCompleteAllDifficulties( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetSongsAndCoursesPercentCompleteAllDifficulties(Enum::Check<StepsType>(L, 1)) ); return 1; }
 	static int GetTotalCaloriesBurned( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_fTotalCaloriesBurned ); return 1; }
 	static int GetDisplayTotalCaloriesBurned( T* p, lua_State *L )	{ lua_pushstring(L, p->GetDisplayTotalCaloriesBurned() ); return 1; }
@@ -2092,6 +1957,7 @@ public:
 	static int GetTotalRolls( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iTotalRolls ); return 1; }
 	static int GetTotalMines( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iTotalMines ); return 1; }
 	static int GetTotalHands( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iTotalHands ); return 1; }
+	static int GetUserData( T* p, lua_State *L )		{ p->m_UserData.PushSelf(L); return 1; }
 
 	LunaProfile()
 	{
@@ -2118,7 +1984,6 @@ public:
 		ADD_METHOD( GetTotalStepsWithTopGrade );
 		ADD_METHOD( GetTotalTrailsWithTopGrade );
 		ADD_METHOD( GetNumTotalSongsPlayed );
-		ADD_METHOD( GetLastPlayedStepsType );
 		ADD_METHOD( GetSongsAndCoursesPercentCompleteAllDifficulties );
 		ADD_METHOD( GetTotalCaloriesBurned );
 		ADD_METHOD( GetDisplayTotalCaloriesBurned );
@@ -2133,6 +1998,7 @@ public:
 		ADD_METHOD( GetTotalRolls );
 		ADD_METHOD( GetTotalMines );
 		ADD_METHOD( GetTotalHands );
+		ADD_METHOD( GetUserData );
 	}
 };
 

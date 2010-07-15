@@ -51,6 +51,7 @@ public:
 	int Tell() const;
 	int Seek( int offset );
 	int GetFileSize() const;
+	int GetFD();
     
 	/* Raw I/O: */
 	int Read( void *buffer, size_t bytes );

@@ -6,6 +6,8 @@
 #include "LocalizedString.h"
 #include "GameConstantsAndTypes.h"
 #include "GameManager.h"
+#include "Steps.h"
+#include "Trail.h"
 
 static const char *DifficultyNames[] = {
 	"Beginner",
@@ -78,9 +80,23 @@ CourseDifficulty GetNextShownCourseDifficulty( CourseDifficulty cd )
 
 static ThemeMetric<RString> NAMES("CustomDifficulty","Names");
 
-RString GetCustomDifficulty( StepsType st, Difficulty dc )
+RString GetCustomDifficulty( StepsType st, Difficulty dc, CourseType ct )
 {
-	const StepsTypeInfo &sti = GameManager::GetStepsTypeInfo( st );
+	/* XXX GAMEMAN->GetStepsTypeInfo( StepsType_Invalid ) will crash. I'm not
+	 * sure what the correct behavior in this case should be. Should we still
+	 * allow custom difficulties? Why do we not allow custom difficulties for
+	 * Couple, Routine, or Edit? - Steve */
+	if( st == StepsType_Invalid )
+	{
+		/* This is not totally necessary since DifficultyToString() will
+		 * return "", but the comment there says that the caller should
+		 * really be checking for invalid values. */
+		if( dc == Difficulty_Invalid )
+			return RString();
+		return DifficultyToString( dc );
+	}
+
+	const StepsTypeInfo &sti = GAMEMAN->GetStepsTypeInfo( st );
 
 	switch( sti.m_StepsTypeCategory )
 	{
@@ -104,11 +120,18 @@ RString GetCustomDifficulty( StepsType st, Difficulty dc )
 					ThemeMetric<Difficulty> DIFFICULTY("CustomDifficulty",(*sName)+"Difficulty");
 					if( DIFFICULTY == Difficulty_Invalid  ||  dc == DIFFICULTY )	// match
 					{
-						ThemeMetric<RString> STRING("CustomDifficulty",(*sName)+"String");
-						return STRING.GetValue();
+						ThemeMetric<CourseType> COURSE_TYPE("CustomDifficulty",(*sName)+"CourseType");
+						if( COURSE_TYPE == CourseType_Invalid  ||  ct == COURSE_TYPE )	// match
+						{
+							ThemeMetric<RString> STRING("CustomDifficulty",(*sName)+"String");
+							return STRING.GetValue();
+						}
 					}
 				}
 			}
+			// no matching CustomDifficulty, so use a regular difficulty name
+			if( dc == Difficulty_Invalid )
+				return RString();
 			return DifficultyToString( dc );
 		}
 	case StepsTypeCategory_Couple:
@@ -118,14 +141,31 @@ RString GetCustomDifficulty( StepsType st, Difficulty dc )
 	}
 }
 
-LuaFunction( GetCustomDifficulty, GetCustomDifficulty(Enum::Check<StepsType>(L,1),Enum::Check<Difficulty>(L, 2)) );
+LuaFunction( GetCustomDifficulty, GetCustomDifficulty(Enum::Check<StepsType>(L,1), Enum::Check<Difficulty>(L, 2), Enum::Check<CourseType>(L, 3, true)) );
 
-RString GetLocalizedCustomDifficulty( const RString &sCustomDifficulty )
+RString CustomDifficultyToLocalizedString( const RString &sCustomDifficulty )
 {
 	return THEME->GetString( "CustomDifficulty", sCustomDifficulty );
 }
 
-LuaFunction( GetLocalizedCustomDifficulty, GetLocalizedCustomDifficulty(SArg(1)) );
+LuaFunction( CustomDifficultyToLocalizedString, CustomDifficultyToLocalizedString(SArg(1)) );
+
+
+RString StepsToCustomDifficulty( const Steps *pSteps )
+{
+	return GetCustomDifficulty( pSteps->m_StepsType, pSteps->GetDifficulty(), CourseType_Invalid );
+}
+
+RString TrailToCustomDifficulty( const Trail *pTrail )
+{
+	return GetCustomDifficulty( pTrail->m_StepsType, pTrail->m_CourseDifficulty, pTrail->m_CourseType );
+}
+
+
+#include "LuaBinding.h"
+
+LuaFunction( StepsToCustomDifficulty, StepsToCustomDifficulty(Luna<Steps>::check(L, 1)) );
+LuaFunction( TrailToCustomDifficulty, TrailToCustomDifficulty(Luna<Trail>::check(L, 1)) );
 
 
 /*

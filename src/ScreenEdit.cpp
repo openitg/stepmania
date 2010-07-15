@@ -40,7 +40,7 @@
 */
 
 static Preference<float> g_iDefaultRecordLength( "DefaultRecordLength", 4 );
-static Preference<bool> g_bEditorShowBGChangesPlay( "EditorShowBGChangesPlay", false );
+static Preference<bool> g_bEditorShowBGChangesPlay( "EditorShowBGChangesPlay", true );
 
 //
 // Defines specific to ScreenEdit
@@ -569,8 +569,8 @@ static MenuDef g_BackgroundChange(
 	MenuRowDef( ScreenEdit::rate,						"Rate",					true,						EditMode_Full, true, false, 10, "0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%","120%","140%","160%","180%","200%","220%","240%","260%","280%","300%","350%","400%" ),
 	MenuRowDef( ScreenEdit::transition,					"Force Transition",			true,						EditMode_Full, true, false, 0, NULL ),
 	MenuRowDef( ScreenEdit::effect,						"Force Effect",				true,						EditMode_Full, true, false, 0, NULL ),
-	MenuRowDef( ScreenEdit::color1,						"Force Color 1",			true,						EditMode_Full, true, false, 0, "-","1,1,1,1","0.5,0.5,0.5,1","1,1,1,0.5","0,0,0,1","1,0,0,1","0,1,0,1","0,0,1,1","1,1,0,1","0,1,1,1","1,0,1,1" ),
-	MenuRowDef( ScreenEdit::color2,						"Force Color 2",			true,						EditMode_Full, true, false, 0, "-","1,1,1,1","0.5,0.5,0.5,1","1,1,1,0.5","0,0,0,1","1,0,0,1","0,1,0,1","0,0,1,1","1,1,0,1","0,1,1,1","1,0,1,1" ),
+	MenuRowDef( ScreenEdit::color1,						"Force Color 1",			true,						EditMode_Full, true, false, 0, "-","#FFFFFF","#808080","#FFFFFF80","#000000","#FF0000","#00FF00","#0000FF","#FFFF00","#00FFFF","#FF00FF" ),
+	MenuRowDef( ScreenEdit::color2,						"Force Color 2",			true,						EditMode_Full, true, false, 0, "-","#FFFFFF","#808080","#FFFFFF80","#000000","#FF0000","#00FF00","#0000FF","#FFFF00","#00FFFF","#FF00FF" ),
 	MenuRowDef( ScreenEdit::file1_type,					"File1 Type",				true,						EditMode_Full, true, true, 0, "Song BGAnimation", "Song Movie", "Song Bitmap", "Global BGAnimation", "Global Movie", "Global Movie from Song Group", "Global Movie from Song Group and Genre", "Dynamic Random", "Baked Random", "None" ),
 	MenuRowDef( ScreenEdit::file1_song_bganimation,				"File1 Song BGAnimation",		EnabledIfSet1SongBGAnimation,			EditMode_Full, true, false, 0, NULL ),
 	MenuRowDef( ScreenEdit::file1_song_movie,				"File1 Song Movie",			EnabledIfSet1SongMovie,				EditMode_Full, true, false, 0, NULL ),
@@ -683,7 +683,7 @@ void ScreenEdit::Init()
 	CopyToLastSave();
 
 	m_CurrentAction = MAIN_MENU_CHOICE_INVALID;
-	if( GAMESTATE->m_pCurSteps[0]->m_StepsType == StepsType_dance_routine )
+	if( GAMESTATE->GetCurrentStyle()->m_StyleType == StyleType_TwoPlayersSharedSides )
 		m_InputPlayerNumber = PLAYER_1;
 	else
 		m_InputPlayerNumber = PLAYER_INVALID;
@@ -890,9 +890,7 @@ void ScreenEdit::Update( float fDeltaTime )
 	{
 		RageTimer tm;
 		const float fSeconds = m_pSoundMusic->GetPositionSeconds( NULL, &tm );
-		// TODO: Use the step's timing data instead of the song's.  Get the difficulty.
 		GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSong->m_Timing, tm );
-		//GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSteps[(m_pPlayerState->m_PlayerNumber)]->m_Timing, tm );
 	}
 
 	if( m_EditState == STATE_RECORDING  )	
@@ -1506,7 +1504,7 @@ void ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 
 			RString s = ssprintf(
 				SWITCHED_TO.GetValue() + " %s %s '%s' (%d of %d)",
-				GameManager::GetStepsTypeInfo( pSteps->m_StepsType ).szName,
+				GAMEMAN->GetStepsTypeInfo( pSteps->m_StepsType ).szName,
 				DifficultyToString( pSteps->GetDifficulty() ).c_str(),
 				pSteps->GetDescription().c_str(),
 				it - vSteps.begin() + 1,
@@ -1539,7 +1537,6 @@ void ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 			}
 			
 			float fNewBPM = fBPM + fDelta;
-			// TODO: Have this work with the Step's timing data.  Get the difficulty.
 			m_pSong->SetBPMAtBeat( GAMESTATE->m_fSongBeat, fNewBPM );
 			(fDelta>0 ? m_soundValueIncrease : m_soundValueDecrease).Play();
 			SetDirty( true );
@@ -2107,6 +2104,12 @@ void ScreenEdit::InputPlay( const InputEventPlus &input, EditButton EditB )
 		bool bRelease = input.type == IET_RELEASE;
 		switch( input.pn )
 		{
+		case PLAYER_2:
+			// ignore player 2 input unless this mode requires it
+			if( GAMESTATE->GetCurrentStyle()->m_StyleType != StyleType_TwoPlayersSharedSides )
+					break;
+
+			// fall through to input handling logic
 		case PLAYER_1:
 			{
 				switch( gbt )
@@ -2127,9 +2130,6 @@ void ScreenEdit::InputPlay( const InputEventPlus &input, EditButton EditB )
 				}
 			}
 			break;
-		case PLAYER_2:
-			if( GAMESTATE->GetCurrentStyle()->m_StyleType == StyleType_TwoPlayersSharedSides )
-				m_Player->Step( iCol, -1, input.DeviceI.ts, false, input.type == IET_RELEASE );
 		}
 	}
 
@@ -2522,7 +2522,6 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 	{
 		float fBPM = StringToFloat( ScreenTextEntry::s_sLastAnswer );
 		if( fBPM > 0 )
-			// TODO: Make this work with Steps-based timing data.  Get the difficulty.
 			m_pSong->SetBPMAtBeat( GAMESTATE->m_fSongBeat, fBPM );
 		SetDirty( true );
 	}
@@ -2907,7 +2906,7 @@ void ScreenEdit::HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAns
 				g_StepsInformation.rows[difficulty].choices.clear();
 				FOREACH_ENUM( Difficulty, dc )
 				{
-					g_StepsInformation.rows[difficulty].choices.push_back( "|" + GetLocalizedCustomDifficulty( pSteps->m_StepsType, dc ) );
+					g_StepsInformation.rows[difficulty].choices.push_back( "|" + CustomDifficultyToLocalizedString( GetCustomDifficulty(pSteps->m_StepsType, dc, CourseType_Invalid) ) );
 				}
 				g_StepsInformation.rows[difficulty].iDefaultChoice = pSteps->GetDifficulty();
 				g_StepsInformation.rows[difficulty].bEnabled = (EDIT_MODE.GetValue() >= EditMode_Full);

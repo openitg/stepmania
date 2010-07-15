@@ -14,6 +14,10 @@ public:
 	virtual MeterDisplay *Copy() const;
 
 	void SetPercent( float fPercent );
+	void SetStreamWidth( float fStreamWidth );
+
+	// Lua
+	void PushSelf( lua_State *L );
 
 private:
 	float	m_fStreamWidth;

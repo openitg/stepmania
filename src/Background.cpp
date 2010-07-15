@@ -35,7 +35,7 @@ static ThemeMetric<bool> DONT_USE_STATIC_BG		("Background","DontUseStaticBackgro
 
 static Preference<bool>	g_bShowDanger( "ShowDanger", true );
 static Preference<float> g_fBGBrightness( "BGBrightness", 0.7f );
-static Preference<RandomBackgroundMode> g_RandomBackgroundMode( "RandomBackgroundMode",	BGMODE_ANIMATIONS );
+static Preference<RandomBackgroundMode> g_RandomBackgroundMode( "RandomBackgroundMode",	BGMODE_RANDOMMOVIES );
 static Preference<int> g_iNumBackgrounds( "NumBackgrounds", 8 );
 static Preference<bool> g_bSongBackgrounds( "SongBackgrounds", true );
 
@@ -172,8 +172,8 @@ void BackgroundImpl::Init()
 	
 	if( DONT_USE_STATIC_BG )
 	{
-		m_StaticBackgroundDef.m_sColor1 = "0,0,0,0";
-		m_StaticBackgroundDef.m_sColor2 = "0,0,0,0";
+		m_StaticBackgroundDef.m_sColor1 = "#00000000";
+		m_StaticBackgroundDef.m_sColor2 = "#00000000";
 	}
 
 	// load transitions
@@ -348,8 +348,8 @@ bool BackgroundImpl::Layer::CreateBackground( const Song *pSong, const Backgroun
 
 
 	// Set Lua color globals
-	LuaThreadVariable sColor1( "Color1", bd.m_sColor1.empty() ? RString("1,1,1,1") : bd.m_sColor1 );
-	LuaThreadVariable sColor2( "Color2", bd.m_sColor2.empty() ? RString("1,1,1,1") : bd.m_sColor2 );
+	LuaThreadVariable sColor1( "Color1", bd.m_sColor1.empty() ? RString("#FFFFFFFF") : bd.m_sColor1 );
+	LuaThreadVariable sColor2( "Color2", bd.m_sColor2.empty() ? RString("#FFFFFFFF") : bd.m_sColor2 );
 
 
 	// Resolve the effect file.
@@ -569,7 +569,8 @@ void BackgroundImpl::LoadFromSong( const Song* pSong )
 						if( i == BACKGROUND_LAYER_1 )
 						{
 							// The background was not found.  Try to use a random one instead.
-							bd = layer.CreateRandomBGA( pSong, bd.m_sEffect, m_RandomBGAnimations, this );
+							// Don't use the BackgroundDef's effect, because it may be an effect that requires 2 files, and random BGA will only supply one file
+							bd = layer.CreateRandomBGA( pSong, "", m_RandomBGAnimations, this );
 							if( bd.IsEmpty() )
 								bd = m_StaticBackgroundDef;
 						}

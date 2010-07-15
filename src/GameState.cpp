@@ -8,6 +8,7 @@
 #include "CharacterManager.h"
 #include "CommonMetrics.h"
 #include "Course.h"
+#include "CryptManager.h"
 #include "Foreach.h"
 #include "Game.h"
 #include "GameCommand.h"
@@ -37,8 +38,6 @@
 #include "UnlockManager.h"
 #include "ScreenManager.h"
 #include "Screen.h"
-#include "arch/Dialog/Dialog.h"
-#include "GameConstantsAndTypes.h"
 
 #include <ctime>
 #include <set>
@@ -350,7 +349,7 @@ void GameState::JoinPlayer( PlayerNumber pn )
 	/* Count each player join as a play. */
 	{
 		Profile* pMachineProfile = PROFILEMAN->GetMachineProfile();
-		pMachineProfile->m_iTotalPlays++;
+		pMachineProfile->m_iTotalSessions++;
 	}
 
 	// Set the current style to something appropriate for the new number of joined players.
@@ -360,9 +359,9 @@ void GameState::JoinPlayer( PlayerNumber pn )
 		// only use one player for StyleType_OnePlayerTwoSides.
 		// XXX: still shows non master player's "Insert Card" -aj
 		if( m_pCurStyle->m_StyleType == StyleType_OnePlayerTwoSides )
-			pStyle = GameManager::GetFirstCompatibleStyle( m_pCurGame, 1, m_pCurStyle->m_StepsType );
+			pStyle = GAMEMAN->GetFirstCompatibleStyle( m_pCurGame, 1, m_pCurStyle->m_StepsType );
 		else
-			pStyle = GameManager::GetFirstCompatibleStyle( m_pCurGame, GetNumSidesJoined(), m_pCurStyle->m_StepsType );
+			pStyle = GAMEMAN->GetFirstCompatibleStyle( m_pCurGame, GetNumSidesJoined(), m_pCurStyle->m_StepsType );
 
 		// use SetCurrentStyle in case of StyleType_OnePlayerTwoSides
 		SetCurrentStyle( pStyle );
@@ -525,17 +524,17 @@ void GameState::LoadProfiles( bool bLoadEdits )
 
 		Profile* pPlayerProfile = PROFILEMAN->GetProfile( pn );
 		if( pPlayerProfile )
-			pPlayerProfile->m_iTotalPlays++;
+			pPlayerProfile->m_iTotalSessions++;
 	}
 }
 
-void GameState::SaveProfiles()
+void GameState::SavePlayerProfiles()
 {
 	FOREACH_HumanPlayer( pn )
-		SaveProfile( pn );
+		SavePlayerProfile( pn );
 }
 
-void GameState::SaveProfile( PlayerNumber pn )
+void GameState::SavePlayerProfile( PlayerNumber pn )
 {
 	if( !PROFILEMAN->IsPersistentProfile(pn) )
 		return;
@@ -622,22 +621,23 @@ int GameState::GetNumStagesForCurrentSongAndStepsOrCourse() const
 		const Style *pStyle = m_pCurStyle;
 		if( pStyle == NULL )
 		{
+			int numSidesJoined = GetNumSidesJoined();
 			const Steps *pSteps = NULL;
 			if( m_MasterPlayerNumber != PlayerNumber_Invalid )
 				pSteps = m_pCurSteps[m_MasterPlayerNumber];
-			if( pSteps )
+			if( pSteps && numSidesJoined > 0 )	// Don't call GetFirstCompatibleStyle if numSidesJoined == 0.  This happens  because on SContinue when players are unjoined, pCurSteps will still be set while no players are joined
 			{
 				/* If a style isn't set, use the style of the selected steps. */
 				StepsType st = pSteps->m_StepsType;
-				pStyle = GameManager::GetFirstCompatibleStyle( m_pCurGame, GetNumSidesJoined(), st );
+				pStyle = GAMEMAN->GetFirstCompatibleStyle( m_pCurGame, numSidesJoined, st );
 			}
 			else
 			{
 				/* If steps aren't set either, pick any style for the number of
-				 * joined players, or one player if no players are joined. */
+				* joined players, or one player if no players are joined. */
 				vector<const Style*> vpStyles;
-				int iJoined = max( GetNumSidesJoined(), 1 );
-				GameManager::GetCompatibleStyles( m_pCurGame, iJoined, vpStyles );
+				int iJoined = max( numSidesJoined, 1 );
+				GAMEMAN->GetCompatibleStyles( m_pCurGame, iJoined, vpStyles );
 				ASSERT( !vpStyles.empty() );
 				pStyle = vpStyles[0];
 			}
@@ -692,6 +692,7 @@ void GameState::BeginStage()
 		if( CurrentOptionsDisqualifyPlayer(pn) )
 			STATSMAN->m_CurStageStats.m_player[pn].m_bDisqualified = true;
 	m_bEarnedExtraStage = false;
+	m_sStageGUID = CryptManager::GenerateRandomUUID();
 }
 
 void GameState::CancelStage()
@@ -717,8 +718,6 @@ void GameState::CommitStageStats()
 {
 	if( m_bDemonstrationOrJukebox )
 		return;
-	if( m_bMultiplayer )
-		return;
 
 	STATSMAN->CommitStatsToProfiles( &STATSMAN->m_CurStageStats );
 
@@ -726,13 +725,13 @@ void GameState::CommitStageStats()
 	int iPlaySeconds = max( 0, (int) m_timeGameStarted.GetDeltaTime() );
 
 	Profile* pMachineProfile = PROFILEMAN->GetMachineProfile();
-	pMachineProfile->m_iTotalPlaySeconds += iPlaySeconds;
+	pMachineProfile->m_iTotalSessionSeconds += iPlaySeconds;
 
 	FOREACH_HumanPlayer( p )
 	{
 		Profile* pPlayerProfile = PROFILEMAN->GetProfile( p );
 		if( pPlayerProfile )
-			pPlayerProfile->m_iTotalPlaySeconds += iPlaySeconds;
+			pPlayerProfile->m_iTotalSessionSeconds += iPlaySeconds;
 	}
 }
 
@@ -742,7 +741,7 @@ void GameState::FinishStage()
 {
 	// Increment the stage counter.
 	const int iOldStageIndex = m_iCurrentStageIndex;
-
+	
 	++m_iCurrentStageIndex;
 
 	m_iNumStagesOfThisSong = 0;
@@ -773,7 +772,7 @@ void GameState::FinishStage()
 		{
 			LOG->Trace( "Played %i stages; saving profiles ...", iSaveProfileEvery );
 			PROFILEMAN->SaveMachineProfile();
-			this->SaveProfiles();
+			this->SavePlayerProfiles();
 		}
 	}
 }
@@ -2138,35 +2137,7 @@ public:
 	static int GetCurrentSteps( T* p, lua_State *L )
 	{
 		PlayerNumber pn = Enum::Check<PlayerNumber>(L, 1);
-		
-		Steps* pSteps;
-		if( p->m_pCurSong.Get() != NULL )
-		{
-			pSteps = SongUtil::GetOneSteps( p->m_pCurSong.Get(), GAMESTATE->GetCurrentStyle()->m_StepsType, GAMESTATE->m_PreferredDifficulty[pn] );
-
-			// nothing found with preferred difficulty? try with closest
-			// closest seems to return 'easy' when prefrred difficulty is 'medium'
-			// even if the song has medium steps?
-			if(	pSteps == NULL )
-				pSteps = SongUtil::GetOneSteps( p->m_pCurSong.Get(), GAMESTATE->GetCurrentStyle()->m_StepsType, GAMESTATE->GetClosestShownDifficulty(pn) );
-
-			if( pSteps == NULL )
-			{
-			//	Dialog::OK( ssprintf("GetCurrentSteps() -- No Steps (Difficulty = %s Preferred = %s)",DifficultyToString(GAMESTATE->m_PreferredDifficulty[pn]).c_str() ),"Error");
-				pSteps = p->m_pCurSteps[pn];
-			}
-		}
-		else
-		{
-		//	Dialog::OK("GetCurrentSteps() -- No Song","Error");
-			pSteps = p->m_pCurSteps[pn];
-		}
-
-		// if you're on the music select and change song, the current steps are not
-		// updated correctly/in time for CurrentSongChangedMessageCommand 
-		// (as such the returned steps are that of the previous song
-
-//		Steps *pSteps = p->m_pCurSteps[pn];  
+		Steps *pSteps = p->m_pCurSteps[pn];  
 		if( pSteps ) { pSteps->PushSelf(L); }
 		else		 { lua_pushnil(L); }
 		return 1;
@@ -2333,7 +2304,7 @@ public:
 		for( unsigned i=0; i<vpStepsToShow.size(); i++ )
 		{
 			const Steps* pSteps = vpStepsToShow[i];
-			RString sDifficulty = GetLocalizedCustomDifficulty( pSteps->m_StepsType, pSteps->GetDifficulty() );
+			RString sDifficulty = CustomDifficultyToLocalizedString( GetCustomDifficulty( pSteps->m_StepsType, pSteps->GetDifficulty(), CourseType_Invalid ) );
 			
 			lua_pushstring( L, sDifficulty );
 			lua_pushstring( L, pSteps->GetDescription() );

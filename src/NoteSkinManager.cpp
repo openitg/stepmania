@@ -189,18 +189,9 @@ void NoteSkinManager::GetNoteSkinNames( vector<RString> &AddTo )
 	GetNoteSkinNames( GAMESTATE->m_pCurGame, AddTo );
 }
 
-void NoteSkinManager::GetNoteSkinNames( const Game* pGame, vector<RString> &AddTo, bool bFilterDefault )
+void NoteSkinManager::GetNoteSkinNames( const Game* pGame, vector<RString> &AddTo )
 {
 	GetAllNoteSkinNamesForGame( pGame, AddTo );
-
-	/* Move "default" to the front if it exists. */
-	vector<RString>::iterator iter = find( AddTo.begin(), AddTo.end(), GAME_BASE_NOTESKIN_NAME );
-	if( iter != AddTo.end() )
-	{
-		AddTo.erase( iter );
-		if( !bFilterDefault || !PREFSMAN->m_bHideDefaultNoteSkin )
-			AddTo.insert( AddTo.begin(), GAME_BASE_NOTESKIN_NAME );
-	}
 }
 
 
@@ -242,21 +233,6 @@ void NoteSkinManager::GetAllNoteSkinNamesForGame( const Game *pGame, vector<RStr
 
 RString NoteSkinManager::GetMetric( const RString &sButtonName, const RString &sValue )
 {
-	// if no noteskin has loaded by now, something seriously went wrong!
-	if( m_sCurrentNoteSkin.empty() ) 
-	{
-		// try selecting the default noteskin
- 		if( DoesNoteSkinExist( "default" ) )
-		{
-			m_sCurrentNoteSkin = "default";
-			LOG->Warn("A noteskin was not loaded before NoteSkinManager::GetMetric() so the default noteskin was forced."); 
-		}
-		else
-		{
-			LOG->Warn("A noteskin was not loaded before NoteSkinManager::GetMetric() and none could be loaded."); 
-		}
-	}
-
 	ASSERT( !m_sCurrentNoteSkin.empty() );
 	RString sNoteSkinName = m_sCurrentNoteSkin;
 	sNoteSkinName.MakeLower();

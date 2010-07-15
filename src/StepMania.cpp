@@ -31,7 +31,6 @@
 #include "Game.h"
 #include "RageSurface.h"
 #include "RageSurface_Load.h"
-#include "CatalogXml.h"
 #include "CommandLineActions.h"
 
 #if !defined(SUPPORT_OPENGL) && !defined(SUPPORT_D3D)
@@ -70,6 +69,7 @@
 #include "StatsManager.h"
 #include "GameLoop.h"
 #include "SpecialFiles.h"
+#include "Profile.h"
 
 #if defined(XBOX)
 #include "Archutils/Xbox/VirtualMemory.h"
@@ -307,6 +307,7 @@ void ShutdownGame()
 	SAFE_DELETE( SOUND ); /* uses GAMESTATE, PREFSMAN */
 	SAFE_DELETE( PREFSMAN );
 	SAFE_DELETE( GAMESTATE );
+	SAFE_DELETE( GAMEMAN );
 	SAFE_DELETE( NOTESKIN );
 	SAFE_DELETE( THEME );
 	SAFE_DELETE( ANNOUNCER );
@@ -785,20 +786,20 @@ RageDisplay *CreateDisplay()
 
 static void SwitchToLastPlayedGame()
 {
-	const Game *pGame = GameManager::StringToGame( PREFSMAN->GetCurrentGame() );
+	const Game *pGame = GAMEMAN->StringToGame( PREFSMAN->GetCurrentGame() );
 
 	/* If the active game type isn't actually available, revert to the default. */
 	if( pGame == NULL )
-		pGame = GameManager::GetDefaultGame();
+		pGame = GAMEMAN->GetDefaultGame();
 	
-	if( !GameManager::IsGameEnabled( pGame ) && pGame != GameManager::GetDefaultGame() )
+	if( !GAMEMAN->IsGameEnabled( pGame ) && pGame != GAMEMAN->GetDefaultGame() )
 	{
-		pGame = GameManager::GetDefaultGame();
+		pGame = GAMEMAN->GetDefaultGame();
 		LOG->Warn( "Default NoteSkin for \"%s\" missing, reverting to \"%s\"",
-			pGame->m_szName, GameManager::GetDefaultGame()->m_szName );
+			pGame->m_szName, GAMEMAN->GetDefaultGame()->m_szName );
 	}
 
-	ASSERT( GameManager::IsGameEnabled(pGame) );
+	ASSERT( GAMEMAN->IsGameEnabled(pGame) );
 
 	StepMania::ChangeCurrentGame( pGame );
 }
@@ -1049,6 +1050,7 @@ int main(int argc, char* argv[])
 
 	AdjustForChangedSystemCapabilities();
 
+	GAMEMAN		= new GameManager;
 	THEME		= new ThemeManager;
 	ANNOUNCER	= new AnnouncerManager;
 	NOTESKIN	= new NoteSkinManager;
@@ -1126,10 +1128,6 @@ int main(int argc, char* argv[])
 	SONGMAN->UpdatePopular();
 	SONGMAN->UpdatePreferredSort();
 
-	/* This shouldn't need to be here; if it's taking long enough that this is
-	 * even visible, we should be fixing it, not showing a progress display. */
-	CatalogXml::Save( pLoadingWindow );
-	
 	NSMAN 		= new NetworkSyncManager( pLoadingWindow ); 
 	MESSAGEMAN	= new MessageManager;
 	STATSMAN	= new StatsManager;
@@ -1196,31 +1194,12 @@ RString StepMania::SaveScreenshot( RString sDir, bool bSaveCompressed, bool bMak
 	 * write the same screenshot number for different formats (screen00011.bmp,
 	 * screen00011.jpg), and we always increase from the end, so if screen00003.jpg
 	 * is deleted, we won't fill in the hole (which makes screenshots hard to find). */
+	RString sFileNameNoExtension;
 	if( iIndex == -1 ) 
-	{
-		//
-		// Find a file name for the screenshot
-		//
-		FILEMAN->FlushDirCache( sDir );
+		sFileNameNoExtension = Profile::MakeUniqueFileNameNoExtension( sDir, "screen" );
+	else
+		sFileNameNoExtension = Profile::MakeFileNameNoExtension( "screen", iIndex );
 
-		vector<RString> files;
-		GetDirListing( sDir + "screen*", files, false, false );
-		sort( files.begin(), files.end() );
-
-		iIndex = 0;
-
-		for( int i = files.size()-1; i >= 0; --i )
-		{
-			static Regex re( "^screen([0-9]{5})\\....$" );
-			vector<RString> matches;
-			if( !re.Compare( files[i], matches ) )
-				continue;
-
-			ASSERT( matches.size() == 1 );
-			iIndex = atoi( matches[0] )+1;
-			break;
-		}
-	}
 
 	//
 	// Save the screenshot.  If writing lossy to a memcard, use SAVE_LOSSY_LOW_QUAL, so we
@@ -1234,7 +1213,7 @@ RString StepMania::SaveScreenshot( RString sDir, bool bSaveCompressed, bool bMak
 	else
 		fmt = RageDisplay::SAVE_LOSSLESS;
 
-	RString sFileName = ssprintf( "screen%05d.%s",iIndex,bSaveCompressed ? "jpg" : "bmp" );
+	RString sFileName = sFileNameNoExtension + "." + (bSaveCompressed ? "jpg" : "bmp");
 	RString sPath = sDir+sFileName;
 	bool bResult = DISPLAY->SaveScreenshot( sPath, fmt );
 	if( !bResult )
@@ -1244,11 +1223,6 @@ RString StepMania::SaveScreenshot( RString sDir, bool bSaveCompressed, bool bMak
 	}
 
 	SCREENMAN->PlayScreenshotSound();
-
-	// We wrote a new file, and SignFile won't pick it up unless we invalidate
-	// the Dir cache.  There's got to be a better way of doing this than 
-	// thowing out all the cache. -Chris
-	FILEMAN->FlushDirCache( sDir );
 
 	if( PREFSMAN->m_bSignProfileData && bMakeSignature )
 		CryptManager::SignFileToFile( sPath );
@@ -1434,9 +1408,10 @@ void HandleInputEvents(float fDeltaTime)
 	vector<InputEvent> ieArray;
 	INPUTFILTER->GetInputEvents( ieArray );
 
-	/* If we don't have focus, discard input. */
+	/* If we don't have focus, discard input unless there's AcceptInputOnNoFocus option set. */
 	if( !HOOKS->AppHasFocus() )
-		return;
+		if ( !PREFSMAN->m_bAcceptInputOnNoFocus )
+			return;
 
 	for( unsigned i=0; i<ieArray.size(); i++ )
 	{

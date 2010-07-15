@@ -13,25 +13,23 @@ ScoreKeeper::ScoreKeeper( PlayerState *pPlayerState, PlayerStageStats *pPlayerSt
 void ScoreKeeper::GetScoreOfLastTapInRow( const NoteData &nd, int iRow,
 					  TapNoteScore &tnsOut, int &iNumTapsInRowOut )
 {
-	PlayerNumber pn = m_pPlayerState->m_PlayerNumber;
 	int iNum = 0;
 	
 	for( int track = 0; track < nd.GetNumTracks(); ++track )
 	{
 		const TapNote &tn = nd.GetTapNote( track, iRow );
 	
-		if( tn.pn != PLAYER_INVALID && tn.pn != pn )
-			continue;
 		if( tn.type != TapNote::tap && tn.type != TapNote::hold_head )
 			continue;
 		++iNum;
 	}
-	tnsOut = NoteDataWithScoring::LastTapNoteWithResult( nd, iRow, pn ).result.tns;
+	tnsOut = NoteDataWithScoring::LastTapNoteWithResult( nd, iRow ).result.tns;
 	iNumTapsInRowOut = iNum;
 }
 
 #include "ScoreKeeperNormal.h"
 #include "ScoreKeeperGuitar.h"
+#include "ScoreKeeperShared.h"
 
 ScoreKeeper* ScoreKeeper::MakeScoreKeeper( RString sClassName, PlayerState *pPlayerState, PlayerStageStats *pPlayerStageStats )
 {
@@ -39,6 +37,8 @@ ScoreKeeper* ScoreKeeper::MakeScoreKeeper( RString sClassName, PlayerState *pPla
 		return new ScoreKeeperNormal( pPlayerState, pPlayerStageStats );
 	else if( sClassName == "ScoreKeeperGuitar" )
 		return new ScoreKeeperGuitar( pPlayerState, pPlayerStageStats );
+	else if( sClassName == "ScoreKeeperShared" )
+		return new ScoreKeeperShared( pPlayerState, pPlayerStageStats );
 	FAIL_M( sClassName );
 }
 

@@ -94,11 +94,16 @@ void LifeMeterBar::Load( const PlayerState *pPlayerState, PlayerStageStats *pPla
 	PlayerNumber pn = pPlayerState->m_PlayerNumber;
 
 	// Change life difficulty to really easy if merciful beginner on
-	m_bMercifulBeginnerInEffect = 
+	bool bMercifulBeginnerInEffect = 
 		GAMESTATE->m_PlayMode == PLAY_MODE_REGULAR  &&  
 		GAMESTATE->IsPlayerEnabled( pPlayerState )  &&
 		GAMESTATE->m_pCurSteps[pn]->GetDifficulty() == Difficulty_Beginner  &&
 		PREFSMAN->m_bMercifulBeginner;
+	if( bMercifulBeginnerInEffect )
+	{
+		m_fBaseLifeDifficulty = 1.5f;
+		m_fLifeDifficulty = m_fBaseLifeDifficulty;
+	}
 
 	AfterLifeChanged();
 }
@@ -185,9 +190,8 @@ void LifeMeterBar::ChangeLife( HoldNoteScore score, TapNoteScore tscore )
 
 void LifeMeterBar::ChangeLife( float fDeltaLife )
 {
-	bool bUseMercifulDrain = m_bMercifulBeginnerInEffect || PREFSMAN->m_bMercifulDrain;
-	if( bUseMercifulDrain  &&  fDeltaLife < 0 )
-		fDeltaLife *= 0.4f;
+	if( PREFSMAN->m_bMercifulDrain  &&  fDeltaLife < 0 )
+		fDeltaLife *= SCALE( m_fLifePercentage, 0.f, 1.f, 0.5f, 1.f);
 
 	// handle progressiveness and ComboToRegainLife here
 	if( fDeltaLife >= 0 )

@@ -9,12 +9,12 @@
 class Song;
 class Steps;
 
-class DifficultyList: public ActorFrame
+class StepsDisplayList: public ActorFrame
 {
 public:
-	DifficultyList();
-	virtual ~DifficultyList();
-	virtual DifficultyList *Copy() const;
+	StepsDisplayList();
+	virtual ~StepsDisplayList();
+	virtual StepsDisplayList *Copy() const;
 	virtual void LoadFromNode( const XNode* pNode );
 
 	void HandleMessage( const Message &msg );
@@ -61,7 +61,7 @@ private:
 			m_bHidden = false;
 		}
 		
-		Steps *m_Steps;
+		const Steps *m_Steps;
 		Difficulty m_dc;
 		float m_fY;
 		bool m_bHidden; // currently off screen

@@ -775,14 +775,6 @@
 				>
 			</File>
 			<File
-				RelativePath="ScreenSelectMode.cpp"
-				>
-			</File>
-			<File
-				RelativePath="ScreenSelectMode.h"
-				>
-			</File>
-			<File
 				RelativePath="ScreenSelectMusic.cpp"
 				>
 			</File>
@@ -984,14 +976,6 @@
 			</File>
 			<File
 				RelativePath="BannerCache.h"
-				>
-			</File>
-			<File
-				RelativePath="CatalogXml.cpp"
-				>
-			</File>
-			<File
-				RelativePath="CatalogXml.h"
 				>
 			</File>
 			<File
@@ -1312,6 +1296,14 @@
 			</File>
 			<File
 				RelativePath=".\NotesLoaderMidi.h"
+				>
+			</File>
+			<File
+				RelativePath=".\NotesLoaderPMS.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\NotesLoaderPMS.h"
 				>
 			</File>
 			<File
@@ -2567,14 +2559,6 @@
 				>
 			</File>
 			<File
-				RelativePath="MusicBannerWheel.cpp"
-				>
-			</File>
-			<File
-				RelativePath="MusicBannerWheel.h"
-				>
-			</File>
-			<File
 				RelativePath="MusicList.cpp"
 				>
 			</File>
@@ -2644,14 +2628,6 @@
 			</File>
 			<File
 				RelativePath="ScrollBar.h"
-				>
-			</File>
-			<File
-				RelativePath="ScrollingList.cpp"
-				>
-			</File>
-			<File
-				RelativePath="ScrollingList.h"
 				>
 			</File>
 			<File

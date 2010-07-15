@@ -31,8 +31,8 @@ static RString BackgroundChangeToString( const BackgroundChange &bgc )
 		bgc.m_def.m_sEffect.c_str(), 
 		bgc.m_def.m_sFile2.c_str(), 
 		bgc.m_sTransition.c_str(),
-		SmEscape(bgc.m_def.m_sColor1).c_str(),
-		SmEscape(bgc.m_def.m_sColor2).c_str()
+		SmEscape(RageColor::NormalizeColorString(bgc.m_def.m_sColor1)).c_str(),
+		SmEscape(RageColor::NormalizeColorString(bgc.m_def.m_sColor2)).c_str()
 		);
 	return s;
 }
@@ -94,7 +94,7 @@ static void WriteGlobalTags( RageFile &f, const Song &out )
 		break;
 	}
 
-	// Main BPMs
+
 	f.Write( "#BPMS:" );
 	for( unsigned i=0; i<out.m_Timing.m_BPMSegments.size(); i++ )
 	{
@@ -106,7 +106,6 @@ static void WriteGlobalTags( RageFile &f, const Song &out )
 	}
 	f.PutLine( ";" );
 
-	// Main Stops
 	f.Write( "#STOPS:" );
 	for( unsigned i=0; i<out.m_Timing.m_StopSegments.size(); i++ )
 	{
@@ -119,7 +118,6 @@ static void WriteGlobalTags( RageFile &f, const Song &out )
 	f.PutLine( ";" );
 
 	ASSERT( !out.m_Timing.m_vTimeSignatureSegments.empty() );
-	// Main Time Signatures
 	f.Write( "#TIMESIGNATURES:" );
 	FOREACH_CONST( TimeSignatureSegment, out.m_Timing.m_vTimeSignatureSegments, iter )
 	{
@@ -196,7 +194,6 @@ static RString JoinLineList( vector<RString> &lines )
 	return join( "\r\n", lines.begin()+j, lines.end() );
 }
 
-// TODO: Fix for Timing Data for Steps.
 static RString GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCache )
 {
 	vector<RString> lines;
@@ -204,9 +201,9 @@ static RString GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCac
 	lines.push_back( "" );
 	// Escape to prevent some clown from making a comment of "\r\n;"
 	lines.push_back( ssprintf("//---------------%s - %s----------------",
-		GameManager::GetStepsTypeInfo(in.m_StepsType).szName, SmEscape(in.GetDescription()).c_str()) );
+		GAMEMAN->GetStepsTypeInfo(in.m_StepsType).szName, SmEscape(in.GetDescription()).c_str()) );
 	lines.push_back( song.m_vsKeysoundFile.empty() ? "#NOTES:" : "#NOTES2:" );
-	lines.push_back( ssprintf( "     %s:", GameManager::GetStepsTypeInfo(in.m_StepsType).szName ) );
+	lines.push_back( ssprintf( "     %s:", GAMEMAN->GetStepsTypeInfo(in.m_StepsType).szName ) );
 	lines.push_back( ssprintf( "     %s:", SmEscape(in.GetDescription()).c_str() ) );
 	lines.push_back( ssprintf( "     %s:", DifficultyToString(in.GetDifficulty()).c_str() ) );
 	lines.push_back( ssprintf( "     %d:", in.GetMeter() ) );
@@ -224,36 +221,6 @@ static RString GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCac
 	in.GetSMNoteData( sNoteData );
 
 	split( sNoteData, "\n", lines, true );
-	lines.push_back( ":" );
-	
-	// steps bpms
-	vector<RString> asBPMValues;
-	for( unsigned i=0; i<in.m_Timing.m_BPMSegments.size(); i++ )
-	{
-		const BPMSegment &bs = in.m_Timing.m_BPMSegments[i];
-		asBPMValues.push_back( ssprintf( "%.3f=%.3f", NoteRowToBeat(bs.m_iStartRow), bs.GetBPM() ) );
-	}
-	lines.push_back( ssprintf("%s:", join(",",asBPMValues).c_str() ) );
-	
-	// steps stops
-	vector<RString> asStopValues;
-	for( unsigned i=0; i<in.m_Timing.m_StopSegments.size(); i++ )
-	{
-		const StopSegment &fs = in.m_Timing.m_StopSegments[i];
-		asStopValues.push_back( ssprintf( "%.3f=%.3f", NoteRowToBeat(fs.m_iStartRow), fs.m_fStopSeconds ) );
-	}
-	lines.push_back( ssprintf("%s:", join(",",asStopValues).c_str() ) );
-	
-	// steps time signatures
-	vector<RString> asTimeSignatureValues;
-	for( unsigned i=0; i<in.m_Timing.m_vTimeSignatureSegments.size(); i++ )
-	{
-		const TimeSignatureSegment &ts = in.m_Timing.m_vTimeSignatureSegments[i];
-		asTimeSignatureValues.push_back( ssprintf( "%.03f=%i=%i", NoteRowToBeat(ts.m_iStartRow), ts.m_iNumerator, ts.m_iDenominator ) );
-	}
-	lines.push_back( ssprintf("%s", join(",",asTimeSignatureValues).c_str() ) );
-	// end bpms and stops and time signatures
-	
 	lines.push_back( ";" );
 
 	return JoinLineList( lines );
@@ -261,9 +228,6 @@ static RString GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCac
 
 bool NotesWriterSM::Write( RString sPath, const Song &out, const vector<Steps*>& vpStepsToSave, bool bSavingCache )
 {
-	/* Flush dir cache when writing steps, so the old size isn't cached. */
-	FILEMAN->FlushDirCache( Dirname(sPath) );
-
 	int flags = RageFile::WRITE;
 
 	/* If we're not saving cache, we're saving real data, so enable SLOW_FLUSH
@@ -346,9 +310,6 @@ bool NotesWriterSM::WriteEditFileToMachine( const Song *pSong, Steps *pSteps, RS
 
 	RString sPath = sDir + GetEditFileName(pSong,pSteps);
 
-	/* Flush dir cache when writing steps, so the old size isn't cached. */
-	FILEMAN->FlushDirCache( Dirname(sPath) );
-
 	// Check to make sure that we're not clobering an existing file before opening.
 	bool bFileNameChanging = 
 		pSteps->GetSavedToDisk()  && 
@@ -380,9 +341,6 @@ bool NotesWriterSM::WriteEditFileToMachine( const Song *pSong, Steps *pSteps, RS
 	if( bFileNameChanging )
 		FILEMAN->Remove( pSteps->GetFilename() );
 	pSteps->SetFilename( sPath );
-
-	/* Flush dir cache or else the new file won't be seen. */
-	FILEMAN->FlushDirCache( Dirname(sPath) );
 
 	return true;
 }

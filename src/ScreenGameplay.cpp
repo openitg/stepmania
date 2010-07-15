@@ -59,8 +59,6 @@
 #include "Song.h"
 #include "XmlFileUtil.h"
 
-#include "arch/Dialog/Dialog.h"
-
 //
 // Defines
 //
@@ -355,8 +353,6 @@ void ScreenGameplay::Init()
 	FAIL_ON_MISS_COMBO.Load(		m_sName, "FailOnMissCombo" );
 	ALLOW_CENTER_1_PLAYER.Load(		m_sName, "AllowCenter1Player" );
 	
-	USE_ALTERNATIVE_INPUT.Load( m_sName,"UseAlternativeInput");
-
 	if( UseSongBackgroundAndForeground() )
 	{
 		m_pSongBackground = new Background;
@@ -366,7 +362,17 @@ void ScreenGameplay::Init()
 	ScreenWithMenuElements::Init();
 
 	this->FillPlayerInfo( m_vPlayerInfo );
-	ASSERT_M( !m_vPlayerInfo.empty(), "m_vPlayerInfo must be filled by FillPlayerInfo" );
+
+	{
+		ASSERT_M( !m_vPlayerInfo.empty(), "m_vPlayerInfo must be filled by FillPlayerInfo" );
+		
+		int iNumEnabledPlayers = 0;
+		FOREACH_EnabledPlayerInfo( m_vPlayerInfo, pi )
+			++iNumEnabledPlayers;
+
+		/* If this is 0, we have no active players and havn't been initialized correctly. */
+		ASSERT( iNumEnabledPlayers > 0 );
+	}
 
 	/* Pause MEMCARDMAN.  If a memory card is removed, we don't want to interrupt the
 	 * player by making a noise until the game finishes. */
@@ -758,40 +764,6 @@ void ScreenGameplay::Init()
 	LoadNextSong();
 
 	m_GiveUpTimer.SetZero();
-
-	if( USE_ALTERNATIVE_INPUT ) // using alternative input
-	{
-		int iNumCols = GAMESTATE->GetCurrentStyle()->m_iColsPerPlayer;
-		FOREACH_EnabledPlayerInfo( m_vPlayerInfo, pi )
-		{
-			for( int col=0; col < iNumCols; ++col )
-			{
-				
-				// TODO: Remove use of PlayerNumber.
-				GameInput GameI = GAMESTATE->GetCurrentStyle()->StyleInputToGameInput( col, pi->m_pn );
-			//	Dialog::OK(GameI.ToString(INPUTMAPPER->GetInputScheme()),"DEBUG");
-
-				ThemeMetric<RString> tmpMetric;
-				tmpMetric.Load( m_sName,ssprintf("AltInp%s%s",GAMESTATE->GetCurrentStyle()->m_szName,GameI.ToString( INPUTMAPPER->GetInputScheme() ).c_str() ) );
-				
-				if(tmpMetric.GetValue() != "")
-				{
-					GameInput GameIAlt;
-					GameIAlt.FromString( INPUTMAPPER->GetInputScheme(),tmpMetric.GetValue() );
-
-					AlternateMapping tmpMap;
-					tmpMap.inpMain = GameI;
-					tmpMap.inpAlt = GameIAlt;
-					m_vAlterMap.push_back( tmpMap );
-
-					FOREACH( PlayerInfo, m_vPlayerInfo, pi )
-					{
-						pi->m_pPlayer->m_vAlterMap.push_back( tmpMap );
-					}
-				}
-			}
-		}
-	}
 }
 
 bool ScreenGameplay::Center1Player() const
@@ -1311,31 +1283,32 @@ void ScreenGameplay::LoadLights()
 	split( sDifficulty, ",", asDifficulties );
 
 	// Always use the steps from the primary steps type so that lights are consistent over single and double styles.
-	StepsType st = GameManager::GetHowToPlayStyleForGame( GAMESTATE->m_pCurGame )->m_StepsType;
+	StepsType st = GAMEMAN->GetHowToPlayStyleForGame( GAMESTATE->m_pCurGame )->m_StepsType;
 
 	Difficulty d1 = Difficulty_Invalid;
 	if( asDifficulties.size() > 0 )
 	{
-		// Make lights follow steps used by Human Player 1's selected difficulty
-		if (asDifficulties[0].CompareNoCase("selected") == 0)
+		if( asDifficulties[0].CompareNoCase("selected") == 0 )
 		{
 			PlayerInfo pi;
 
+			// Base lights off current difficulty of active player
+			// Can be either P1 or P2 if they're individual; or P1 if both are active
 			FOREACH_EnabledPlayerNumberInfo( m_vPlayerInfo, pi )
 			{
 				PlayerNumber pn = pi->GetStepsAndTrailIndex();
 
-				if(GAMESTATE->IsHumanPlayer(pn)) {
+				if( GAMESTATE->IsPlayerEnabled(pn) )
+				{
 					d1 = GAMESTATE->m_pCurSteps[pn]->GetDifficulty();
 					break;
 				}
 			}
 		}
 		else
-		{
 			d1 = StringToDifficulty( asDifficulties[0] );
-		}
 	}
+
 	pSteps = SongUtil::GetClosestNotes( GAMESTATE->m_pCurSong, st, d1 );
 
 	// If we can't find anything at all, stop.
@@ -1347,8 +1320,28 @@ void ScreenGameplay::LoadLights()
 
 	if( asDifficulties.size() > 1 )
 	{
-		Difficulty d2 = StringToDifficulty( asDifficulties[1] );
+		Difficulty d2 = Difficulty_Invalid;
+
+		// We've also specified for Player 2 to be based off current difficulty
+		if( asDifficulties[1].CompareNoCase("selected") == 0 && GAMESTATE->GetNumPlayersEnabled() > 1 )
+		{
+			PlayerInfo pi;
+
+			// Base lights off current difficulty of active player
+			// Only do this for P2 in a two-player situation, since P1 is taken care of above
+			FOREACH_EnabledPlayerNumberInfo( m_vPlayerInfo, pi )
+			{
+				PlayerNumber pn = pi->GetStepsAndTrailIndex();
+
+				if( pn == PLAYER_2 )
+					d2 = GAMESTATE->m_pCurSteps[pn]->GetDifficulty();
+			}
+		}
+		else
+			d2 = StringToDifficulty( asDifficulties[1] );
+
 		const Steps *pSteps2 = SongUtil::GetClosestNotes( GAMESTATE->m_pCurSong, st, d2 );
+
 		if( pSteps != NULL && pSteps2 != NULL && pSteps != pSteps2 )
 		{
 			NoteData TapNoteData2;
@@ -1360,7 +1353,7 @@ void ScreenGameplay::LoadLights()
 		/* fall through */
 	}
 
-	NoteDataUtil::LoadTransformedLights( TapNoteData1, m_CabinetLightsNoteData, GameManager::GetStepsTypeInfo(StepsType_lights_cabinet).iNumTracks );
+	NoteDataUtil::LoadTransformedLights( TapNoteData1, m_CabinetLightsNoteData, GAMEMAN->GetStepsTypeInfo(StepsType_lights_cabinet).iNumTracks );
 }
 
 void ScreenGameplay::StartPlayingSong( float fMinTimeToNotes, float fMinTimeToMusic )
@@ -1475,12 +1468,7 @@ void ScreenGameplay::UpdateSongPosition( float fDeltaTime )
 	RageTimer tm;
 	const float fSeconds = m_pSoundMusic->GetPositionSeconds( NULL, &tm );
 	const float fAdjust = SOUND->GetFrameTimingAdjustment( fDeltaTime );
-	// TODO: Use the Step's TimingData instead of the Song's.  (Possibly use PlayerNumber?)
-	FOREACH_EnabledPlayer( p )
-	{
-		GAMESTATE->UpdateSongPosition( fSeconds+fAdjust, GAMESTATE->m_pCurSteps[p]->m_Timing, tm+fAdjust );
-	}
-	//GAMESTATE->UpdateSongPosition( fSeconds+fAdjust, GAMESTATE->m_pCurSong->m_Timing, tm+fAdjust );
+	GAMESTATE->UpdateSongPosition( fSeconds+fAdjust, GAMESTATE->m_pCurSong->m_Timing, tm+fAdjust );
 }
 
 void ScreenGameplay::BeginScreen()
@@ -2274,19 +2262,7 @@ void ScreenGameplay::Input( const InputEventPlus &input )
 	if( !input.GameI.IsValid() )
 		return;
 	
-	int iCol = GAMESTATE->GetCurrentStyle()->GameInputToColumn( input.GameI );
-
-	if( USE_ALTERNATIVE_INPUT ) // using alternative input
-	{
-		for( unsigned int i=0; i < m_vAlterMap.size(); ++i )
-		{
-			if( m_vAlterMap[i].inpAlt == input.GameI )
-			{
-				iCol = GAMESTATE->GetCurrentStyle()->GameInputToColumn( m_vAlterMap[i].inpMain );
-			}
-		}
-	}
-
+	const int iCol = GAMESTATE->GetCurrentStyle()->GameInputToColumn( input.GameI );
 
 	// Don't pass on any inputs to Player that aren't a press or a release.
 	switch( input.type )
@@ -2430,7 +2406,7 @@ void ScreenGameplay::StageFinished( bool bBackedOut )
 
 	FOREACH_HumanPlayer( pn )
 		STATSMAN->m_CurStageStats.m_player[pn].CalcAwards( pn, STATSMAN->m_CurStageStats.m_bGaveUp, STATSMAN->m_CurStageStats.m_bUsedAutoplay );
-	STATSMAN->m_CurStageStats.CommitScores( false );
+	STATSMAN->m_CurStageStats.FinalizeScores( false );
 	
 	GAMESTATE->CommitStageStats();
 
@@ -2551,6 +2527,8 @@ void ScreenGameplay::HandleScreenMessage( const ScreenMessage SM )
 		TweenOffScreen();
 
 		m_Out.StartTransitioning( SM_DoNextScreen );
+
+		this->PlayCommand("GameplayCleared");
 
 		// do they deserve an extra stage?
 		if( GAMESTATE->HasEarnedExtraStage() )
@@ -2785,8 +2763,6 @@ void ScreenGameplay::SaveReplay()
 			//
 			// Find a file name for the screenshot
 			//
-			FILEMAN->FlushDirCache( "Save/" );
-
 			vector<RString> files;
 			GetDirListing( "Save/replay*", files, false, false );
 			sort( files.begin(), files.end() );

@@ -183,7 +183,7 @@ void ScreenEditMenu::MenuStart( const InputEventPlus &input )
 
 	GAMESTATE->m_pCurSong.Set( pSong );
 	GAMESTATE->m_pCurCourse.Set( NULL );
-	GAMESTATE->SetCurrentStyle( GameManager::GetEditorStyleForStepsType(st) );
+	GAMESTATE->SetCurrentStyle( GAMEMAN->GetEditorStyleForStepsType(st) );
 	GAMESTATE->m_pCurSteps[PLAYER_1].Set( pSteps );
 
 	//
@@ -210,7 +210,6 @@ void ScreenEditMenu::MenuStart( const InputEventPlus &input )
 		}
 
 		file.Close();
-		FILEMAN->FlushDirCache( sDir );
 		FILEMAN->Remove( sTempFile );
 		break;
 	}

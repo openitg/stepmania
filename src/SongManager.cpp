@@ -4,7 +4,6 @@
 #include "AnnouncerManager.h"
 #include "BackgroundUtil.h"
 #include "BannerCache.h"
-#include "CatalogXml.h"
 #include "CommonMetrics.h"
 #include "Course.h"
 #include "CourseLoaderCRS.h"
@@ -122,8 +121,7 @@ void SongManager::Reload( bool bAllowFastLoad, LoadingWindow *ld )
 	// reload scores and unlocks afterward
 	PROFILEMAN->LoadMachineProfile();
 	UNLOCKMAN->Reload();
-	CatalogXml::Save( NULL );
-
+	
 	if( !bAllowFastLoad )
 		PREFSMAN->m_bFastLoad.Set( OldVal );
 
@@ -533,20 +531,6 @@ const vector<Song*> &SongManager::GetSongs( const RString &sGroupName ) const
 	if ( iter != m_mapSongGroupIndex.end() )
 		return iter->second;
 	return vEmpty;
-}
-
-void SongManager::GetPopularSongs( vector<Song*> &AddTo, const RString &sGroupName ) const
-{
-	if( sGroupName == GROUP_ALL )
-	{
-		AddTo.insert( AddTo.end(), m_pPopularSongs.begin(), m_pPopularSongs.end() );
-		return;
-	}
-	FOREACH_CONST( Song*, m_pPopularSongs, song )
-	{
-		if( (*song)->m_sGroupName == sGroupName )
-			AddTo.push_back( *song );
-	}
 }
 
 void SongManager::GetPreferredSortSongs( vector<Song*> &AddTo ) const

@@ -28,7 +28,7 @@ int GetNumNWithScore( const NoteData &in, TapNoteScore tns, int MinTaps, int iSt
 	FOREACH_NONEMPTY_ROW_ALL_TRACKS_RANGE( in, r, iStartRow, iEndRow )
 	{
 		int iNumNotesInRow = in.GetNumTracksWithTapOrHoldHead( r );
-		TapNoteScore tnsRow = NoteDataWithScoring::LastTapNoteWithResult( in, r, PLAYER_INVALID ).result.tns;
+		TapNoteScore tnsRow = NoteDataWithScoring::LastTapNoteWithResult( in, r ).result.tns;
 
 		if( iNumNotesInRow >= MinTaps && tnsRow >= tns )
 			iNumSuccessfulDoubles++;
@@ -157,9 +157,9 @@ int LastTapNoteScoreTrack( const NoteData &in, unsigned iRow, PlayerNumber pn )
 
 }
 
-const TapNote &NoteDataWithScoring::LastTapNoteWithResult( const NoteData &in, unsigned iRow, PlayerNumber pn )
+const TapNote &NoteDataWithScoring::LastTapNoteWithResult( const NoteData &in, unsigned iRow )
 {
-	int iTrack = LastTapNoteScoreTrack( in, iRow, pn );
+	int iTrack = LastTapNoteScoreTrack( in, iRow, PLAYER_INVALID );
 	if( iTrack == -1 )
 		return TAP_EMPTY;
 	return in.GetTapNote( iTrack, iRow );
@@ -168,7 +168,7 @@ const TapNote &NoteDataWithScoring::LastTapNoteWithResult( const NoteData &in, u
 
 /* Return the minimum tap score of a row.  If the row isn't complete (not all
  * taps have been hit), return TNS_None or TNS_Miss. */
-TapNoteScore NoteDataWithScoring::MinTapNoteScore( const NoteData &in, unsigned row, PlayerNumber pn )
+TapNoteScore NoteDataWithScoring::MinTapNoteScore( const NoteData &in, unsigned row )
 {
 	TapNoteScore score = TNS_W1;
 	for( int t=0; t<in.GetNumTracks(); t++ )
@@ -177,17 +177,15 @@ TapNoteScore NoteDataWithScoring::MinTapNoteScore( const NoteData &in, unsigned 
 		const TapNote &tn = in.GetTapNote( t, row );
 		if( tn.type == TapNote::empty || tn.type == TapNote::mine || tn.type == TapNote::fake )
 			continue;
-		if( tn.pn != PLAYER_INVALID && tn.pn != pn )
-			continue;
 		score = min( score, tn.result.tns );
 	}
 
 	return score;
 }
 
-bool NoteDataWithScoring::IsRowCompletelyJudged( const NoteData &in, unsigned row, PlayerNumber pn )
+bool NoteDataWithScoring::IsRowCompletelyJudged( const NoteData &in, unsigned row )
 {
-	return MinTapNoteScore( in, row, pn ) >= TNS_Miss;
+	return MinTapNoteScore( in, row ) >= TNS_Miss;
 }
 
 namespace

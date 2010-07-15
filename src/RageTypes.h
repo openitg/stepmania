@@ -9,6 +9,7 @@ enum BlendMode
 {
 	BLEND_NORMAL,
 	BLEND_ADD,
+	BLEND_SUBTRACT,
 	BLEND_COPY_SRC,
 	BLEND_ALPHA_MASK,
 	BLEND_ALPHA_KNOCK_OUT,
@@ -227,6 +228,9 @@ public:
 		r=1; b=1; g=1; a=1;
 		return false;
 	}
+
+	RString ToString() const;
+	static RString NormalizeColorString( RString sColor );
 
 	void PushTable( lua_State *L ) const;
 	void FromStack( lua_State *L, int iPos );

@@ -144,7 +144,6 @@ static void StartMusic( MusicToPlay &ToPlay )
 		if( SMLoader::LoadFromSMFile(ToPlay.m_sTimingFile, song) )
 		{
 			ToPlay.HasTiming = true;
-			// TODO: Fix for timingdata in steps?  Fallback should be fine.
 			ToPlay.m_TimingData = song.m_Timing;
 			// get cabinet lights if any
 			Steps *pStepsCabinetLights = SongUtil::GetOneSteps( &song, StepsType_lights_cabinet );

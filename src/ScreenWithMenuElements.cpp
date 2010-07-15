@@ -80,9 +80,14 @@ void ScreenWithMenuElements::Init()
 	{
 		AutoActor decorations;
 		decorations.LoadB( m_sName, "decorations" );
-		ActorFrame *pFrame = dynamic_cast<ActorFrame*>((Actor*)decorations);
+		ActorFrame *pFrame = dynamic_cast<ActorFrame*>(static_cast<Actor*>(decorations));
 		if( pFrame )
-			pFrame->TransferChildren( this );
+		{
+			m_vDecorations = pFrame->GetChildren();
+			FOREACH( Actor*, m_vDecorations, child )
+				this->AddChild( *child );
+			pFrame->RemoveAllChildren();
+		}
 	}
 
 	m_In.SetName( "In" );
@@ -159,6 +164,8 @@ ScreenWithMenuElements::~ScreenWithMenuElements()
 		if( m_MemoryCardDisplay[p] != NULL )
 			SAFE_DELETE( m_MemoryCardDisplay[p] );
 	}
+	FOREACH( Actor*, m_vDecorations, actor )
+		delete *actor;
 }
 
 void ScreenWithMenuElements::SetHelpText( RString s )
@@ -248,6 +255,8 @@ void ScreenWithMenuElements::Cancel( ScreenMessage smSendWhenDone )
 		COMMAND( m_Out, "Cancel" );
 		return;
 	}
+
+	this->PlayCommand( "Cancel" );
 
 	if( m_Cancel.IsTransitioning() )
 		return;	// ignore

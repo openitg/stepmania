@@ -349,10 +349,7 @@ bool EditCourseUtil::RenameAndSave( Course *pCourse, RString sNewName )
 
 	// remove the old file if the name is changing
 	if( !pCourse->m_sPath.empty()  &&  sNewFilePath != pCourse->m_sPath )
-	{
 		FILEMAN->Remove( pCourse->m_sPath );	// not fatal if this fails		
-		FlushDirCache();
-	}
 
 	pCourse->m_sMainTitle = sNewName;
 	pCourse->m_sPath = sNewFilePath;
@@ -364,7 +361,6 @@ bool EditCourseUtil::RemoveAndDeleteFile( Course *pCourse )
 	if( !FILEMAN->Remove( pCourse->m_sPath ) )
 		return false;
 	FILEMAN->Remove( pCourse->GetCacheFilePath() );
-	FlushDirCache();
 	if( pCourse->IsAnEdit() )
 	{
 		PROFILEMAN->LoadMachineProfile();
@@ -377,9 +373,9 @@ bool EditCourseUtil::RemoveAndDeleteFile( Course *pCourse )
 	return true;
 }
 
-static LocalizedString YOU_MUST_SUPPLY_NAME	( "WorkoutManager", "You must supply a name for your workout." );
-static LocalizedString EDIT_NAME_CONFLICTS	( "WorkoutManager", "The name you chose conflicts with another workout. Please use a different name." );
-static LocalizedString EDIT_NAME_CANNOT_CONTAIN	( "WorkoutManager", "The workout name cannot contain any of the following characters: %s" );
+static LocalizedString YOU_MUST_SUPPLY_NAME	( "CourseUtil", "You must supply a name for your course." );
+static LocalizedString EDIT_NAME_CONFLICTS	( "CourseUtil", "The name you chose conflicts with another course. Please use a different name." );
+static LocalizedString EDIT_NAME_CANNOT_CONTAIN	( "CourseUtil", "The course name cannot contain any of the following characters: %s" );
 bool EditCourseUtil::ValidateEditCourseName( const RString &sAnswer, RString &sErrorOut )
 {
 	if( sAnswer.empty() )
@@ -415,9 +411,11 @@ bool EditCourseUtil::ValidateEditCourseName( const RString &sAnswer, RString &sE
 
 void EditCourseUtil::UpdateAndSetTrail()
 {
+	ASSERT( GAMESTATE->m_pCurStyle );
 	StepsType st = GAMESTATE->m_pCurStyle->m_StepsType;
-	Trail *pTrail = GAMESTATE->m_pCurCourse->GetTrailForceRegenCache( st );
-	ASSERT( pTrail );
+	Trail *pTrail = NULL;
+	if( GAMESTATE->m_pCurCourse )
+		pTrail = GAMESTATE->m_pCurCourse->GetTrailForceRegenCache( st );
 	GAMESTATE->m_pCurTrail[PLAYER_1].Set( pTrail );
 }
 

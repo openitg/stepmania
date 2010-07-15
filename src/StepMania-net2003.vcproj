@@ -347,6 +347,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath=".\ScreenGameplayNormal.h">
 			</File>
 			<File
+				RelativePath=".\ScreenGameplayShared.cpp">
+			</File>
+			<File
+				RelativePath=".\ScreenGameplayShared.h">
+			</File>
+			<File
 				RelativePath=".\ScreenHighScores.cpp">
 			</File>
 			<File
@@ -581,12 +587,6 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath="ScreenSelectMaster.h">
 			</File>
 			<File
-				RelativePath="ScreenSelectMode.cpp">
-			</File>
-			<File
-				RelativePath="ScreenSelectMode.h">
-			</File>
-			<File
 				RelativePath="ScreenSelectMusic.cpp">
 			</File>
 			<File
@@ -739,12 +739,6 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			</File>
 			<File
 				RelativePath="BannerCache.h">
-			</File>
-			<File
-				RelativePath="CatalogXml.cpp">
-			</File>
-			<File
-				RelativePath="CatalogXml.h">
 			</File>
 			<File
 				RelativePath="Character.cpp">
@@ -981,6 +975,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath=".\NotesLoaderMidi.h">
 			</File>
 			<File
+				RelativePath=".\NotesLoaderPMS.cpp">
+			</File>
+			<File
+				RelativePath=".\NotesLoaderPMS.h">
+			</File>
+			<File
 				RelativePath="NotesLoaderSM.cpp">
 			</File>
 			<File
@@ -1093,6 +1093,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			</File>
 			<File
 				RelativePath="ScoreKeeperRave.h">
+			</File>
+			<File
+				RelativePath=".\ScoreKeeperShared.cpp">
+			</File>
+			<File
+				RelativePath=".\ScoreKeeperShared.h">
 			</File>
 			<File
 				RelativePath="ScreenDimensions.cpp">
@@ -1377,12 +1383,6 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath=".\ModIconRow.h">
 			</File>
 			<File
-				RelativePath="MusicBannerWheel.cpp">
-			</File>
-			<File
-				RelativePath="MusicBannerWheel.h">
-			</File>
-			<File
 				RelativePath="MusicList.cpp">
 			</File>
 			<File
@@ -1441,12 +1441,6 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			</File>
 			<File
 				RelativePath="ScrollBar.h">
-			</File>
-			<File
-				RelativePath="ScrollingList.cpp">
-			</File>
-			<File
-				RelativePath="ScrollingList.h">
 			</File>
 			<File
 				RelativePath="SnapDisplay.cpp">
@@ -1766,6 +1760,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath="RageFileDriverMemory.h">
 			</File>
 			<File
+				RelativePath=".\RageFileDriverReadAhead.cpp">
+			</File>
+			<File
+				RelativePath=".\RageFileDriverReadAhead.h">
+			</File>
+			<File
 				RelativePath="RageFileDriverSlice.cpp">
 			</File>
 			<File
@@ -1788,6 +1788,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			</File>
 			<File
 				RelativePath="RageFileManager.h">
+			</File>
+			<File
+				RelativePath=".\RageFileManager_ReadAhead.cpp">
+			</File>
+			<File
+				RelativePath=".\RageFileManager_ReadAhead.h">
 			</File>
 			<File
 				RelativePath=".\RageInput.cpp">

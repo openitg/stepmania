@@ -191,7 +191,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 &quot;$(intdir)\verstub.obj&quot;"
 				AdditionalDependencies="shell32.lib gdi32.lib user32.lib ole32.lib advapi32.lib"
-				OutputFile="..\Program/StepMania.exe"
+				OutputFile="../Program/StepMania.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories=""
@@ -766,14 +766,6 @@
 				>
 			</File>
 			<File
-				RelativePath="ScreenSelectMode.cpp"
-				>
-			</File>
-			<File
-				RelativePath="ScreenSelectMode.h"
-				>
-			</File>
-			<File
 				RelativePath="ScreenSelectMusic.cpp"
 				>
 			</File>
@@ -975,14 +967,6 @@
 			</File>
 			<File
 				RelativePath="BannerCache.h"
-				>
-			</File>
-			<File
-				RelativePath="CatalogXml.cpp"
-				>
-			</File>
-			<File
-				RelativePath="CatalogXml.h"
 				>
 			</File>
 			<File
@@ -1311,6 +1295,14 @@
 			</File>
 			<File
 				RelativePath=".\NotesLoaderMidi.h"
+				>
+			</File>
+			<File
+				RelativePath=".\NotesLoaderPMS.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\NotesLoaderPMS.h"
 				>
 			</File>
 			<File
@@ -2574,14 +2566,6 @@
 				>
 			</File>
 			<File
-				RelativePath="MusicBannerWheel.cpp"
-				>
-			</File>
-			<File
-				RelativePath="MusicBannerWheel.h"
-				>
-			</File>
-			<File
 				RelativePath="MusicList.cpp"
 				>
 			</File>
@@ -2651,14 +2635,6 @@
 			</File>
 			<File
 				RelativePath="ScrollBar.h"
-				>
-			</File>
-			<File
-				RelativePath="ScrollingList.cpp"
-				>
-			</File>
-			<File
-				RelativePath="ScrollingList.h"
 				>
 			</File>
 			<File
@@ -3074,6 +3050,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\RageFileDriverReadAhead.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\RageFileDriverReadAhead.h"
+				>
+			</File>
+			<File
 				RelativePath="RageFileDriverSlice.cpp"
 				>
 			</File>
@@ -3103,6 +3087,14 @@
 			</File>
 			<File
 				RelativePath="RageFileManager.h"
+				>
+			</File>
+			<File
+				RelativePath=".\RageFileManager_ReadAhead.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\RageFileManager_ReadAhead.h"
 				>
 			</File>
 			<File

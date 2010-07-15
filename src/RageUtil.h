@@ -183,6 +183,14 @@ static inline T enum_add2( T val, int iAmt )
 	return static_cast<T>( val + iAmt );
 }
 
+template<typename T>
+static inline T enum_cycle( T val, int iMax, int iAmt = 1 )
+{
+	int iVal = val + iAmt;
+	iVal %= iMax;
+	return static_cast<T>( iVal );
+}
+
 
 /*
  * We only have unsigned swaps; byte swapping a signed value doesn't make sense. 
@@ -337,6 +345,7 @@ bool IsHexVal( const RString &s );
 RString BinaryToHex( const void *pData_, int iNumBytes );
 RString BinaryToHex( const RString &sString );
 bool HexToBinary( const RString &s, unsigned char *stringOut );
+bool HexToBinary( const RString &s, RString &sOut );
 float HHMMSSToSeconds( const RString &sHMS );
 RString SecondsToHHMMSS( float fSecs );
 RString SecondsToMSSMsMs( float fSecs );
@@ -583,8 +592,7 @@ bool DeleteRecursive( RageFileDriver *prfd, const RString &sDir );	/* delete the
 bool DoesFileExist( const RString &sPath );
 bool IsAFile( const RString &sPath );
 bool IsADirectory( const RString &sPath );
-unsigned GetFileSizeInBytes( const RString &sFilePath );
-void FlushDirCache();
+int GetFileSizeInBytes( const RString &sFilePath );
 
 // call FixSlashesInPlace on any path that came from the user
 void FixSlashesInPlace( RString &sPath );

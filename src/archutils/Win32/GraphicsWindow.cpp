@@ -5,6 +5,7 @@
 #include "RageUtil.h"
 #include "RageDisplay.h"
 #include "DisplayResolutions.h"
+#include "MessageManager.h"
 #include "arch/ArchHooks/ArchHooks.h"
 #include "archutils/Win32/AppInstance.h"
 #include "archutils/Win32/Crash.h"
@@ -117,6 +118,42 @@ static LRESULT CALLBACK GraphicsWindow_WndProc( HWND hWnd, UINT msg, WPARAM wPar
 		case SC_MONITORPOWER:
 		case SC_SCREENSAVE:
 			return 0;
+		}
+		break;
+
+	case WM_POWERBROADCAST:
+		if(wParam==PBT_APMPOWERSTATUSCHANGE) {
+			SYSTEM_POWER_STATUS powerstatus;
+			GetSystemPowerStatus(&powerstatus);
+			Message msg("PowerSupplyChange");
+			switch(powerstatus.ACLineStatus) {
+				case 0:
+					msg.SetParam( "Online",false);
+				break;
+
+				case 1:
+					msg.SetParam( "Online",true);
+				break;
+
+				default:
+				case 255:
+					msg.SetParam( "Online",false);
+				break;
+			}
+
+			if(powerstatus.BatteryFlag & 8) {
+				msg.SetParam( "Charging", true);
+			} else {
+				msg.SetParam( "Charging", false);
+			}
+
+			msg.SetParam( "BatteryExists", (powerstatus.BatteryFlag & 128) != 128);
+
+			msg.SetParam( "BatteryCharge", (int)powerstatus.BatteryLifePercent);
+			msg.SetParam( "BatteryLifetime", (int)powerstatus.BatteryLifeTime);
+			msg.SetParam( "BatteryFullLifetime", (int)powerstatus.BatteryFullLifeTime);
+
+			MESSAGEMAN->Broadcast( msg );
 		}
 		break;
 
