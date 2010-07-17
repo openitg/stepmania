@@ -3,6 +3,7 @@
 #include "RageLog.h"
 #include "RageUtil.h"
 #include "RageFile.h"
+#include "RageTimer.h"
 
 #include <cerrno>
 #include <fcntl.h>
@@ -135,17 +136,48 @@ void MemoryCardDriverThreaded_Linux::GetUSBStorageDevices( vector<UsbStorageDevi
 			if( atoi(sBuf) != 1 )
 				continue;
 
+			/*
+			 * The kernel isn't exposing all of /sys atomically, so we end up missing
+			 * the partition due to it not being shown yet.  It won't show up until the
+			 * kernel has scanned the partition table, which can take a variable amount
+			 * of time, sometimes over a second.  Watch for the "queue" sysfs directory,
+			 * which is created after this, to tell when partition directories are created.
+			 */
+			RageTimer WaitUntil;
+			WaitUntil += 5;
+			RString sQueueFilePath = usbd.sSysPath + "queue";
+			while(1)
+			{
+				if( WaitUntil.Ago() >= 0 )
+				{
+					LOG->Warn( "Timed out waiting for %s", sQueueFilePath.c_str() );
+					break;
+				}
 
-			/* HACK: The kernel isn't exposing all of /sys atomically, so we end up
-			 * missing the partition due to it not being shown yet.  The kernel should
-			 * be exposing all of this atomically. */
-			usleep(50000);
+				if( access(usbd.sSysPath, F_OK) == -1 )
+				{
+					LOG->Warn( "Block directory %s went away while we were waiting for %s",
+							usbd.sSysPath.c_str(), sQueueFilePath.c_str() );
+					break;
+				}
+
+				if( access(sQueueFilePath, F_OK) != -1 )
+					break;
+
+				usleep(10000);
+			}
 
 			/* If the first partition device exists, eg. /sys/block/uba/uba1, use it. */
 			if( access(usbd.sSysPath + sDevice + "1", F_OK) != -1 )
+			{
+				LOG->Trace("OK");
 				usbd.sDevice = "/dev/" + sDevice + "1";
+			}
 			else
+			{
+				LOG->Trace("error %s", strerror(errno));
 				usbd.sDevice = "/dev/" + sDevice;
+			}
 
 			/*
 			 * sPath/device should be a symlink to the actual device.  For USB
