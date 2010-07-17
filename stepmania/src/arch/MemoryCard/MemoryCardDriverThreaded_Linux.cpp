@@ -168,6 +168,10 @@ void MemoryCardDriverThreaded_Linux::GetUSBStorageDevices( vector<UsbStorageDevi
 				 *
 				 *   ../../devices/pci0000:00/0000:00:02.1/usb2/2-2/2-2.1/2-2.1:1.0
 				 *
+				 * In newer kernels, it looks like:
+				 *
+				 * ../../../3-2.1:1.0
+				 *
 				 * Each path element refers to a new hop in the chain.
 				 *  "usb2" = second USB host
 				 *  2-            second USB host,
@@ -182,9 +186,15 @@ void MemoryCardDriverThreaded_Linux::GetUSBStorageDevices( vector<UsbStorageDevi
 				vector<RString> asBits;
 				split( szLink, "/", asBits );
 
-				if( strstr( szLink, "usb" ) != NULL )
+				RString sHostPort = asBits[asBits.size()-1];
+				if( !sHostPort.empty() )
 				{
-					RString sHostPort = asBits[asBits.size()-2];
+					/* Strip off the endpoint information after the colon. */
+					size_t pos = sHostPort.find(':');
+					if( pos != string::npos )
+						sHostPort.erase( pos );
+					
+					/* sHostPort is eg. 2-2.1. */
 					sHostPort.Replace( "-", "." );
 					asBits.clear();
 					split( sHostPort, ".", asBits );
