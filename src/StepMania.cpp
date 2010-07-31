@@ -815,11 +815,28 @@ void StepMania::ChangeCurrentGame( const Game* g )
 
 	RString sAnnouncer = PREFSMAN->m_sAnnouncer;
 	RString sTheme = PREFSMAN->m_sTheme;
+	RString sLanguage = PREFSMAN->m_sLanguage;
 
 	if( sAnnouncer.empty() )
 		sAnnouncer = GAMESTATE->GetCurrentGame()->m_szName;
 	if( sTheme.empty() )
 		sTheme = GAMESTATE->GetCurrentGame()->m_szName;
+
+	// process theme and language command line arguments;
+	// these change the preferences as well, for consistency in the UI.
+	RString argTheme;
+	if( GetCommandlineArgument(	"theme",&argTheme) && argTheme != sTheme )
+	{
+		sTheme = argTheme;
+		PREFSMAN->m_sTheme.Set(sTheme);
+	}
+
+	RString argLanguage;
+	if( GetCommandlineArgument(	"language",&argLanguage) )
+	{
+		sLanguage = argLanguage;
+		PREFSMAN->m_sLanguage.Set(sLanguage);
+	}
 
 	// it's OK to call these functions with names that don't exist.
 	ANNOUNCER->SwitchAnnouncer( sAnnouncer );
