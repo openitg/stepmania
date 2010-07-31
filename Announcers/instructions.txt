@@ -1,1 +1,0 @@
-Place announcer folders in this directory.
