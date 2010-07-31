@@ -875,7 +875,8 @@ skip_track:
 		}
 
 		Steps *pSteps = new Steps;
-		pSteps->m_StepsType = StepsType_guitar_five;
+//		pSteps->m_StepsType = StepsType_guitar_five;
+		pSteps->m_StepsType = StepsType_pump_single; // using pump instead of guitar, this is probably bad.
 		pSteps->SetDifficulty( (Difficulty)(gd+1) );
 		pSteps->SetNoteData( noteData );
 		songOut.AddSteps( pSteps );

@@ -282,13 +282,6 @@ void Steps::Compress() const
 		return;
 	}
 
-	/* Always leave karaoke data uncompressed. */
-	if( this->m_StepsType == StepsType_karaoke_single && m_bNoteDataIsFilled )
-	{
-		m_sNoteDataCompressed = RString();
-		return;
-	}
-
 	if( !m_sFilename.empty() && m_LoadedFromProfile == ProfileSlot_Invalid )
 	{
 		/*
