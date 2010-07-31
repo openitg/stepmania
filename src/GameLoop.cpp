@@ -216,6 +216,8 @@ void GameLoop::RunGameLoop()
 		 * Render
 		 */
 		SCREENMAN->Draw();
+		
+		usleep(15000);
 	}
 
 	/* If we ended mid-game, finish up. */
