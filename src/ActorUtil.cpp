@@ -217,6 +217,17 @@ Actor* ActorUtil::MakeActor( const RString &sPath_, Actor *pParentActor )
 			Actor *pRet = ActorUtil::LoadFromNode( pNode.get(), pParentActor );
 			return pRet;
 		}
+	case FT_Xml:
+		{
+			XNode xml;
+			XmlFileUtil::LoadFromFileShowErrors( xml, sPath);
+			if( &xml == NULL )
+			{
+				return new Actor;
+			}
+			Actor *pRet = ActorUtil::LoadFromNode( &xml, pParentActor );
+			return pRet;
+		}
 	case FT_Directory:
 		{
 			if( sPath.Right(1) != "/" )
@@ -372,6 +383,7 @@ static const char *FileTypeNames[] = {
 	"Movie", 
 	"Directory", 
 	"Lua", 
+	"Xml",
 	"Model", 
 };
 XToString( FileType );
@@ -383,6 +395,7 @@ FileType ActorUtil::GetFileType( const RString &sPath )
 	sExt.MakeLower();
 	
 	if( sExt=="lua" )		return FT_Lua;
+	else if( sExt=="xml" )		return FT_Xml; //for some degree of StepMania 4 backwards compatibility
 	else if( 
 		sExt=="png" ||
 		sExt=="jpg" || 

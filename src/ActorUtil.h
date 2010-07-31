@@ -29,7 +29,8 @@ enum FileType
 	FT_Sound, 
 	FT_Movie, 
 	FT_Directory, 
-	FT_Lua, 
+	FT_Lua,
+	FT_Xml, 
 	FT_Model, 
 	NUM_FileType, 
 	FileType_Invalid
