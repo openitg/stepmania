@@ -254,7 +254,8 @@ LuaManager::LuaManager()
 	lua_pushcfunction( L, luaopen_string ); lua_call( L, 0, 0 );
 	lua_pushcfunction( L, luaopen_table ); lua_call( L, 0, 0 );
 	lua_pushcfunction( L, luaopen_debug ); lua_call( L, 0, 0 );
-
+	lua_pushcfunction( L, luaopen_package ); lua_call( L, 0, 0 );
+	
 	/* Store the thread pool in a table on the stack, in the main thread. */
 #define THREAD_POOL 1
 	lua_newtable( L );
@@ -1058,13 +1059,13 @@ namespace
 
 	const luaL_Reg luaTable[] =
 	{
-		LIST_METHOD( Trace ),
-		LIST_METHOD( Warn ),
-		LIST_METHOD( Flush ),
 		LIST_METHOD( CheckType ),
+		LIST_METHOD( Flush ),
+		LIST_METHOD( GetThreadVariable ),
 		LIST_METHOD( ReadFile ),
 		LIST_METHOD( RunWithThreadVariables ),
-		LIST_METHOD( GetThreadVariable ),
+		LIST_METHOD( Trace ),
+		LIST_METHOD( Warn ),
 		{ NULL, NULL }
 	};
 }

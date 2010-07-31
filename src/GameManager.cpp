@@ -2319,8 +2319,8 @@ public:
 
 	LunaGameManager()
 	{
-		ADD_METHOD( StepsTypeToLocalizedString );
 		ADD_METHOD( GetFirstStepsTypeForGame );
+		ADD_METHOD( StepsTypeToLocalizedString );
 	}
 };
 
