@@ -1,0 +1,7 @@
+<Layer
+	File="@NOTESKIN:GetPath('', '_Tap Explosion')"
+>
+	<Param Name="DimFile" Value="NOTESKIN:GetPath('', 'Common Tap Explosion Dim')" />
+	<Param Name="BrightFile" Value="NOTESKIN:GetPath('', 'Common Tap Explosion Bright')" />
+	<Param Name="HoldFile" Value="NOTESKIN:GetPath('', 'Common Hold Explosion')" />
+</Layer>

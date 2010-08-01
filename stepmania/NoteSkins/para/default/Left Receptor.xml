@@ -1,0 +1,5 @@
+<Layer
+	File="@NOTESKIN:GetPath('', '_Tap Receptor')"
+>
+	<Param Name="File" Value="NOTESKIN:GetPath('_Left', 'Receptor')" />
+</Layer>

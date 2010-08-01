@@ -1,0 +1,4 @@
+<Layer
+	File="@NOTESKIN:GetPath('DownLeft', 'Tap Explosion')"
+	BaseRotationZDegrees="270"
+/>

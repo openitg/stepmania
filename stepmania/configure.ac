@@ -49,14 +49,20 @@ esac
 # Define UNIX for all Unix-like systems.  Don't define it for cross-compiling to
 # non-Unix-like systems.  (-DUNIX selects the archutils and ArchHooks to use; if
 # your platform doesn't use the Unix ones, you probably don't want to define UNIX.)
-case $host in
-*-linux-*)
+case $host_os in
+*linux*)
 	AC_DEFINE(LINUX, 1, [Linux])
 	AC_DEFINE(UNIX, 1, [Unix])
 	linux=yes
 	unix=yes
 	;;
 
+*bsd*)
+	AC_DEFINE(BSD, 1, [BSD])
+	AC_DEFINE(UNIX, 1, [Unix])
+	bsd=yes
+	unix=yes
+	;;
 *)
 	AC_DEFINE(UNIX, 1, [Unix])
 	unix=yes
@@ -64,24 +70,26 @@ case $host in
 esac
 AM_CONDITIONAL(UNIX, test "$unix" = "yes" )
 AM_CONDITIONAL(LINUX, test "$linux" = "yes" )
+AM_CONDITIONAL(BSD, test "$bsd" = "yes" )
 
 # Define macros for individual CPU types, for a few bits of inline assembly.
 # This is for major, compatible CPU classes--"CPU_X86" includes P2, P3, P4,
 # AMD, etc.  If you need CPU-specific assembly, check at runtime--don't create
 # separate binaries for each CPU if the binaries themselves are otherwise
 # compatible.
-case $host in
-i?86-*)
+case $host_cpu in
+i?86*)
 	AC_DEFINE(CPU_X86, 1, [x86])
 	;;
-x86_64-*)
+x86_64*)
 	AC_DEFINE(CPU_X86_64, 1, [x86-64])
 	;;
-powerpc-*)
+powerpc*)
 	AC_DEFINE(CPU_PPC, 1, [PPC])
+	have_parallel_port=no
 	;;
 esac
-
+AM_CONDITIONAL(HAVE_PARALLEL_PORT, test "${have_parallel_port-yes}" = "yes")
 
 AC_C_BIGENDIAN( 
 	AC_DEFINE(ENDIAN_BIG, 1, [Big endian]),
@@ -96,21 +104,6 @@ if test "$with_prof" = "yes"; then
 fi
 
 SM_X_WITH_OPENGL
-
-AC_ARG_ENABLE(sdl, AC_HELP_STRING([--enable-sdl], [Enable SDL support]), enable_sdl=$enableval, enable_sdl=no)
-if test "$enable_sdl" = "yes"; then
-	AM_PATH_SDL(1.2.6,have_sdl=yes,have_sdl=no)
-fi
-AM_CONDITIONAL(HAVE_SDL, test "$have_sdl" = "yes")
-if test "$have_sdl" = "yes"; then
-	AC_DEFINE(HAVE_SDL, 1, [SDL is available])
-fi
-
-# sdl-config puts -L/usr/lib in the library search path, which reorders things
-# in a way that breaks some configurations.
-# Does this still need to be in?
-# not sure
-# SDL_LIBS="`echo $SDL_LIBS | sed 's_-L/usr/lib/\?[[ $]]__'`"
 
 have_libpng=yes
 AC_CHECK_LIB(png, png_create_read_struct, [x=y], have_libpng=no, [-lz -lm]) # x=y to stop autoconf from messing with LIBS
@@ -154,41 +147,8 @@ AM_CONDITIONAL(WITHOUT_NETWORKING, test "$with_network" = "no")
 SM_LUA
 SM_ZLIB
 SM_AUDIO
+SM_VIDEO
 SM_TLS
-
-AC_SEARCH_LIBS(avcodec_init, [avcodec], have_libavcodec=yes,  have_libavcodec=no)
-AC_SEARCH_LIBS(guess_format, [avformat], have_libavformat=yes,  have_libavformat=no)
-
-if test "$have_libavcodec" = "yes"; then
-  AC_MSG_CHECKING([for libavcodec >= 0.4.9])
-  AC_TRY_RUN([
-      #include <ffmpeg/avcodec.h>
-      int main()
-      {
-	      return ( LIBAVCODEC_VERSION_INT < 0x000409 )? 1:0;
-      }
-      ],,have_libavcodec=no,)
-  AC_MSG_RESULT($have_libavcodec)
-fi
-
-if test "$have_libavformat" = "yes"; then
-  AC_MSG_CHECKING([for libavformat >= 0.4.9])
-  AC_TRY_RUN([
-      #include <ffmpeg/avformat.h>
-      int main()
-      {
-	      return ( LIBAVFORMAT_VERSION_INT < 0x000409 )? 1:0;
-      }
-      ],,have_libavformat=no,)
-  AC_MSG_RESULT($have_libavformat)
-fi
-
-have_ffmpeg=no
-if test "$have_libavformat" = "yes" -a "$have_libavcodec" = "yes"; then
-	have_ffmpeg=yes
-	AC_DEFINE(HAVE_FFMPEG, 1, [FMPEG support available])
-fi
-AM_CONDITIONAL(HAVE_FFMPEG, test "$have_ffmpeg" = "yes")
 
 SM_CHECK_CRASH_HANDLER
 
@@ -206,17 +166,19 @@ AC_CHECK_HEADER(sys/soundcard.h, [AC_DEFINE(HAVE_OSS, 1, [OSS support available]
 AC_CHECK_DECL(OSS_GETVERSION, AC_DEFINE([HAVE_OSS_GETVERSION],1,[OSS_GETVERSION is defined]), , [#include <sys/soundcard.h>])
 AC_ARG_ENABLE(force-oss, AC_HELP_STRING([--enable-force-oss], [Force OSS]), force_oss=$enableval, force_oss=no)
 AC_CHECK_HEADER(stdint.h, , [AC_DEFINE(MISSING_STDINT_H, 1, [stdint.h is missing])])
-AC_CHECK_HEADERS([inttypes.h endian.h])
+AC_CHECK_HEADERS([inttypes.h endian.h machine/endian.h])
 
 AC_MSG_CHECKING(if cstdlib breaks llabs)
+AC_LANG_PUSH(C++)
 AC_TRY_COMPILE(	[#include <stdlib.h>
-		 #include <cstdlib> ],
-		[int foo() { return llabs(1); }],
+		 #include <cstdlib> 
+		 using namespace std;],
+		[llabs(1)],
 		[AC_MSG_RESULT(no)],
 		[AC_MSG_RESULT(yes)
 		 AC_DEFINE([NEED_CSTDLIB_WORKAROUND], 1, [cstdlib breaks llabs])]
 	      )
-
+AC_LANG_POP(C++)
 AC_CHECK_LIB( pthread, pthread_create, AC_DEFINE([HAVE_LIBPTHREAD],1,[libpthread is available]) )
 AC_CHECK_LIB( pthread, pthread_mutex_timedlock, AC_DEFINE([HAVE_PTHREAD_MUTEX_TIMEDLOCK],1,[pthreads has pthread_mutex_timedlock()]) )
 AC_CHECK_LIB( pthread, pthread_cond_timedwait, AC_DEFINE([HAVE_PTHREAD_COND_TIMEDWAIT],1,[pthreads has pthread_cond_timedwait()]) )
@@ -241,11 +203,12 @@ AC_CHECK_DECL(cosf, , AC_DEFINE([NEED_TANF],1,[Need cosf]), [#include <math.h>])
 AC_CHECK_DECL(acosf, , AC_DEFINE([NEED_ACOSF],1,[Need acosf]), [#include <math.h>])
 AC_CHECK_DECL(roundf, , AC_DEFINE([NEED_ROUNDF],1,[Need roundf]), [#include <math.h>])
 AC_CHECK_DECL(truncf, , AC_DEFINE([NEED_TRUNCF],1,[Need truncf]), [#include <math.h>])
+AC_CHECK_DECL(strtof, , AC_DEFINE([NEED_STRTOF],1,[Need strtof]), [#include <stdlib.h>])
 
 # This doesn't work on glibc math functions:
 # AC_CHECK_FUNCS([sqrtf sinf tanf cosf acosf roundf truncf])
 
-AC_CHECK_DECLS([SIGPWR],,,[#include <signal.h>])
+AC_CHECK_DECLS([SIGPWR, SIGUSR1],,,[#include <signal.h>])
 
 AC_ARG_ENABLE(tests, AC_HELP_STRING([--enable-tests], [Build test programs]), enable_tests=$enableval, enable_tests=no)
 AM_CONDITIONAL(BUILD_TESTS, test "$enable_tests" = "yes" )

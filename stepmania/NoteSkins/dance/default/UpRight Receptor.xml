@@ -1,0 +1,4 @@
+<AutoActor
+	File="@NOTESKIN:GetPath('UpLeft','Receptor')"
+	BaseZoomX="-1"
+/>

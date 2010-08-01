@@ -1,7 +1,7 @@
 
 PRELIMINARY - - - - - - - - 05/03/2004
-Protocol version not yet 2.  
-  But 0x02 will be its version for inter-prtocol purposes.
+Protocol version 4  
+  But 0x04 will be its version for inter-prtocol purposes.
 
 This protocol is only intended to replace current protocol.  Because current protocol
 not expanable
@@ -91,15 +91,28 @@ CLIENT to SERVER protocol:
  Payload:
     Size	Description
     MSN		Player #
+Protocol <= 2
     LSN		StepID 
 		1: Miss
-		2: Boo
-		3: Good
-		4: Great
-		5: Perfect
-		6: Marvelous
-		7: NG
-		8: OK
+		2: W5
+		3: W4
+		4: W3
+		5: W2
+		6: W1
+		7: LetGo
+		8: Held
+Protocol >= 3
+    LSN		StepID
+		1: HitMine
+		2: AvoidMine  
+		3: Miss
+		4: W5
+		5: W4
+		6: W3
+		7: W2
+		8: W1
+		9: LetGo
+		10: Held
 
     MSN		Projected Grade (StepMania enum int)
     LSN		Reserved
@@ -169,6 +182,9 @@ CLIENT to SERVER protocol:
  Size:
     1		SMOnline command	//This used to say 2, but it looks like 1 in all cases
  <VARIABLE>	SMOnline data
+
+
+013:	Reserved
 
 SERVER to CLIENT protocol: (begins at 128)
 
@@ -318,17 +334,20 @@ NOTE: Server responces always add 128, thus a server responce for no operation
  <VARIABLE>	SMOnline data
 
 
+013:(141)Formatted information packet
+ Desc:		Send formatted information regarding the server back to the player.
+		NOTE: The purpose of this function is alternatively to be a broadcast
+		packet.  (You can expect it via UDP broadcast)
+ Size:
+    NT		Server Name
+    2		Port the server is listening on
+    2		Number of players connected
 
-
-
-
-
-
-
-
-
-
-
+014:(142)Attack Client
+ Size:
+    1		Player Number
+    4		Time to Last (in MS)
+    NT		Text describing modifiers.
 
 ----------------------------------------------------------------
 Client SMOnline packets:
@@ -343,8 +362,6 @@ Client SMOnline packets:
 
   Note: The client is not permitted to use method (1) for authentication
 	if the salt it received from the server is 0
-
-
 
 001: User asks to enter room
  Size:
@@ -361,6 +378,10 @@ Client SMOnline packets:
 		1: Game room (no sub rooms)
     NT		Room Title
     NT		Room Description
+
+003: Requests Room Info
+ Size:
+    NT	Room Name
 
 
 Server SMOnline packets:
@@ -380,8 +401,11 @@ Server SMOnline packets:
     NT		Room Title
     NT		Room Description
     1		Type of room:
-		0: Chat room
+ 		0: Chat room
 		1: Game room
+    1		Allows creation of sub room.
+		0: Does not allow creation of subrooms
+		1: Allows creation of subrooms
 	
 	If Room List Update:
     1		Number of rooms
@@ -393,13 +417,28 @@ Server SMOnline packets:
     NT		RoomN Title
     NT		RoomN Description
 
-    Room Status appended for reverse compatibility
-    1		Room1 Status
+	    Room Status appended for reverse compatibility
+	    1		Room1 Status
 		0: Normal Room
 		1: Passworded Room
 		2: Room in game
 		3: First stage of song selection has been done
 		4: Second stage of song selection has been done
-    1		Room2 Status
+	    1		Room2 Status
+		...
+	    1		RoomN Status	
+
+002:  Request general information from server.
+    1		Format for stats
+	0: Normal unformatted stats
+
+003:  Room Info
+  Size:
+    NT	Last Song Title
+    NT  Last Song Subtitle
+    NT  Last Song Artist
+    1		Num Players
+    1		Max Players
+    NT	Player1 Name
 	...
-    1		RoomN Status	
+    NT  PlayerN Name

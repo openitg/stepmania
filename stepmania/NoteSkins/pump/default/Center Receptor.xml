@@ -1,0 +1,5 @@
+<Layer
+	File="@NOTESKIN:GetPath('', '_Tap Lead-in Receptor')"
+>
+	<Param Name="File" Value="NOTESKIN:GetPath('_Center', 'Receptor')" />
+</Layer>

@@ -1,0 +1,28 @@
+<ActorFrame><children>
+	<Layer
+		Type="Sprite"
+		Texture="@File"
+		Frame0000="2"
+		Delay0000="1"
+
+		InitCommand="effectclock,beat;playcommand,Set;
+			AddCommand,'Miss',NOTESKIN:GetMetricA('ReceptorArrow', 'MissCommand');
+			AddCommand,'None',NOTESKIN:GetMetricA('ReceptorArrow', 'NoneCommand');
+			AddCommand,'HitMine',NOTESKIN:GetMetricA('ReceptorArrow', 'HitMineCommand');
+			AddCommand,'W5',NOTESKIN:GetMetricA('ReceptorArrow', 'W5Command');
+			AddCommand,'W4',NOTESKIN:GetMetricA('ReceptorArrow', 'W4Command');
+			AddCommand,'W3',NOTESKIN:GetMetricA('ReceptorArrow', 'W3Command');
+			AddCommand,'W2',NOTESKIN:GetMetricA('ReceptorArrow', 'W2Command');
+			AddCommand,'W1',NOTESKIN:GetMetricA('ReceptorArrow', 'W1Command');
+		"
+		GameplayLeadInChangedMessageCommand="playcommand,Set"
+		SetCommand="hidden,(GAMESTATE:GetGameplayLeadIn() == 1) and 0 or 1"
+	>
+		<Input Name="File" />
+	</Layer>
+	<Layer
+		File="_Tap Receptor"
+		GameplayLeadInChangedMessageCommand="playcommand,Set"
+		SetCommand="hidden,(GAMESTATE:GetGameplayLeadIn() == 1) and 1 or 0"
+	/>
+</children></ActorFrame>

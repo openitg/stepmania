@@ -1,0 +1,48 @@
+<ActorFrame><children>
+	<Layer
+		File="@HoldFile"
+		InitCommand="
+			AddCommand,'HoldingOn',NOTESKIN:GetMetricA('HoldGhostArrow', 'HoldingOnCommand');
+			AddCommand,'HoldingOff',NOTESKIN:GetMetricA('HoldGhostArrow', 'HoldingOffCommand');
+			PlayCommand,HoldingOff;finishtweening"
+	>
+		<Input Name="HoldFile" />
+	</Layer>
+	<Layer
+		File="@DimFile"
+		InitCommand="diffusealpha,0;
+			AddCommand,'W5',NOTESKIN:GetMetricA('GhostArrowDim', 'W5Command');
+			AddCommand,'W4',NOTESKIN:GetMetricA('GhostArrowDim', 'W4Command');
+			AddCommand,'W3',NOTESKIN:GetMetricA('GhostArrowDim', 'W3Command');
+			AddCommand,'W2',NOTESKIN:GetMetricA('GhostArrowDim', 'W2Command');
+			AddCommand,'W1',NOTESKIN:GetMetricA('GhostArrowDim', 'W1Command');
+			AddCommand,'Held',NOTESKIN:GetMetricA('GhostArrowDim', 'HeldCommand');
+		"
+		JudgmentCommand="finishtweening"
+		BrightCommand="hidden,1"
+		DimCommand="hidden,0"
+	>
+		<Input Name="DimFile" />
+	</Layer>
+	<Layer
+		File="@BrightFile"
+		InitCommand="diffusealpha,0;
+			AddCommand,'W5',NOTESKIN:GetMetricA('GhostArrowBright', 'W5Command');
+			AddCommand,'W4',NOTESKIN:GetMetricA('GhostArrowBright', 'W4Command');
+			AddCommand,'W3',NOTESKIN:GetMetricA('GhostArrowBright', 'W3Command');
+			AddCommand,'W2',NOTESKIN:GetMetricA('GhostArrowBright', 'W2Command');
+			AddCommand,'W1',NOTESKIN:GetMetricA('GhostArrowBright', 'W1Command');
+			AddCommand,'Held',NOTESKIN:GetMetricA('GhostArrowBright', 'HeldCommand');
+		"
+		JudgmentCommand="finishtweening"
+		BrightCommand="hidden,0"
+		DimCommand="hidden,1"
+	>
+		<Input Name="BrightFile" />
+	</Layer>
+	<Layer
+		File="@NOTESKIN:GetPath('', '_Fallback Tap Explosion HitMine')"
+		InitCommand="blend,add;diffusealpha,0;
+			AddCommand,'HitMine',NOTESKIN:GetMetricA('GhostArrowBright', 'HitMineCommand')"
+	/>
+</children></ActorFrame>

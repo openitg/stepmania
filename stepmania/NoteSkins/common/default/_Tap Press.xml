@@ -1,0 +1,13 @@
+<Layer
+	File="@File"
+	InitCommand="
+		AddCommand,'ReverseOn',NOTESKIN:GetMetricA('Press', 'ReverseOnCommand');
+		AddCommand,'ReverseOff',NOTESKIN:GetMetricA('Press', 'ReverseOffCommand');
+		AddCommand,'Press',NOTESKIN:GetMetricA('Press', 'PressCommand');
+		AddCommand,'Lift',NOTESKIN:GetMetricA('Press', 'LiftCommand');
+		PlayCommand,Lift
+		"
+>
+	<Input Name="File" />
+</Layer>
+
