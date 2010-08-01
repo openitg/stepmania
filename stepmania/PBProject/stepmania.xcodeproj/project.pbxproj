@@ -211,6 +211,10 @@
 		AA275C5D12056B2A00E37368 /* lzio.c in Sources */ = {isa = PBXBuildFile; fileRef = AA275B9412056B2900E37368 /* lzio.c */; };
 		AA275C5E12056B2A00E37368 /* lzio.h in Headers */ = {isa = PBXBuildFile; fileRef = AA275B9512056B2900E37368 /* lzio.h */; };
 		AA275C6012056B2A00E37368 /* print.c in Sources */ = {isa = PBXBuildFile; fileRef = AA275B9712056B2900E37368 /* print.c */; };
+		AA275C9712057BE900E37368 /* LowLevelWindow_MacOSX.h in Headers */ = {isa = PBXBuildFile; fileRef = AA275C9512057BE900E37368 /* LowLevelWindow_MacOSX.h */; };
+		AA275C9812057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA275C9612057BE900E37368 /* LowLevelWindow_MacOSX.mm */; };
+		AA275C9912057BE900E37368 /* LowLevelWindow_MacOSX.h in Headers */ = {isa = PBXBuildFile; fileRef = AA275C9512057BE900E37368 /* LowLevelWindow_MacOSX.h */; };
+		AA275C9A12057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA275C9612057BE900E37368 /* LowLevelWindow_MacOSX.mm */; };
 		AA2828B2062FC0B7006F61EC /* SignalHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = AADB4E8C04D50FB900D02EE9 /* SignalHandler.h */; };
 		AA2828B3062FC0B8006F61EC /* SignalHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AADB4E8B04D50FB900D02EE9 /* SignalHandler.cpp */; };
 		AA28B47C058F2F5E0097C109 /* MemoryCardManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA28B47A058F2F5D0097C109 /* MemoryCardManager.cpp */; };
@@ -645,8 +649,6 @@
 		AA29CE400558741A00961A51 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA8DD84904A2E51400D02EE9 /* OpenGL.framework */; };
 		AA29CE420558741A00961A51 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AAF33F2A04FF213100F93C24 /* CoreFoundation.framework */; };
 		AA2FB639091212B0000FD574 /* LifeMeter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA2FB638091212AF000FD574 /* LifeMeter.cpp */; };
-		AA32F97E096A255500F45B24 /* LowLevelWindow_Cocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = AAEF7D21090DD45900A1CAFC /* LowLevelWindow_Cocoa.h */; };
-		AA32F97F096A255C00F45B24 /* LowLevelWindow_Cocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = AAEF7D22090DD45900A1CAFC /* LowLevelWindow_Cocoa.mm */; };
 		AA3A705F06AA144C006F755E /* CommonMetrics.h in Headers */ = {isa = PBXBuildFile; fileRef = AA3A705E06AA144C006F755E /* CommonMetrics.h */; };
 		AA3A706206AA1645006F755E /* StyleUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA3A706006AA1645006F755E /* StyleUtil.cpp */; };
 		AA3A706306AA1645006F755E /* StyleUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = AA3A706106AA1645006F755E /* StyleUtil.h */; };
@@ -1084,7 +1086,6 @@
 		AA40D36F09A08D650068C0D5 /* DisplayResolutions.h in Headers */ = {isa = PBXBuildFile; fileRef = AA07328B0954381800F396C5 /* DisplayResolutions.h */; };
 		AA40D37009A08D650068C0D5 /* XmlFileUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = AA07328D0954381800F396C5 /* XmlFileUtil.h */; };
 		AA40D37109A08D650068C0D5 /* LocalizedString.h in Headers */ = {isa = PBXBuildFile; fileRef = AADD1CC3095C233F0088C9DF /* LocalizedString.h */; };
-		AA40D37209A08D650068C0D5 /* LowLevelWindow_Cocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = AAEF7D21090DD45900A1CAFC /* LowLevelWindow_Cocoa.h */; };
 		AA40D37409A08D650068C0D5 /* SMMainThread.h in Headers */ = {isa = PBXBuildFile; fileRef = AAABB2D90979DB5B006C9F25 /* SMMainThread.h */; };
 		AA40D37509A08D650068C0D5 /* HIDDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = AA44705209846B0800983E82 /* HIDDevice.h */; };
 		AA40D37609A08D650068C0D5 /* JoystickDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = AA44708C0984720900983E82 /* JoystickDevice.h */; };
@@ -1470,7 +1471,6 @@
 		AA40D50609A08D650068C0D5 /* XmlFileUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA07328C0954381800F396C5 /* XmlFileUtil.cpp */; };
 		AA40D50709A08D650068C0D5 /* XmlFile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAC6889905D7F3C800964E6D /* XmlFile.cpp */; };
 		AA40D50809A08D650068C0D5 /* LocalizedString.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AADD1CC2095C233E0088C9DF /* LocalizedString.cpp */; };
-		AA40D50909A08D650068C0D5 /* LowLevelWindow_Cocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = AAEF7D22090DD45900A1CAFC /* LowLevelWindow_Cocoa.mm */; };
 		AA40D50B09A08D650068C0D5 /* MenuInput.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA8E4BC609787C9400765149 /* MenuInput.cpp */; };
 		AA40D50C09A08D650068C0D5 /* SMMainThread.m in Sources */ = {isa = PBXBuildFile; fileRef = AAABB2DA0979DB5B006C9F25 /* SMMainThread.m */; };
 		AA40D50D09A08D650068C0D5 /* SMMain.mm in Sources */ = {isa = PBXBuildFile; fileRef = AABBFCD209838C3A00F077E2 /* SMMain.mm */; };
@@ -2048,6 +2048,8 @@
 		AA275B9412056B2900E37368 /* lzio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lzio.c; sourceTree = "<group>"; };
 		AA275B9512056B2900E37368 /* lzio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lzio.h; sourceTree = "<group>"; };
 		AA275B9712056B2900E37368 /* print.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = print.c; sourceTree = "<group>"; };
+		AA275C9512057BE900E37368 /* LowLevelWindow_MacOSX.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LowLevelWindow_MacOSX.h; sourceTree = "<group>"; };
+		AA275C9612057BE900E37368 /* LowLevelWindow_MacOSX.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = LowLevelWindow_MacOSX.mm; sourceTree = "<group>"; };
 		AA28B47A058F2F5D0097C109 /* MemoryCardManager.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = MemoryCardManager.cpp; path = ../src/MemoryCardManager.cpp; sourceTree = "<group>"; };
 		AA28B47B058F2F5D0097C109 /* MemoryCardManager.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = MemoryCardManager.h; path = ../src/MemoryCardManager.h; sourceTree = "<group>"; };
 		AA29CE570558741A00961A51 /* Info-StepMania.plist */ = {isa = PBXFileReference; explicitFileType = text.plist; path = "Info-StepMania.plist"; sourceTree = SOURCE_ROOT; };
@@ -2789,8 +2791,6 @@
 		AAEF3D0C04B533CC00D02EE9 /* LoadingWindow_Cocoa.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = LoadingWindow_Cocoa.h; sourceTree = "<group>"; };
 		AAEF3D0D04B533CC00D02EE9 /* LoadingWindow_Cocoa.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; path = LoadingWindow_Cocoa.m; sourceTree = "<group>"; };
 		AAEF3D1004B53E2900D02EE9 /* LoadingWindow.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = LoadingWindow.h; sourceTree = "<group>"; };
-		AAEF7D21090DD45900A1CAFC /* LowLevelWindow_Cocoa.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = LowLevelWindow_Cocoa.h; sourceTree = "<group>"; };
-		AAEF7D22090DD45900A1CAFC /* LowLevelWindow_Cocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = LowLevelWindow_Cocoa.mm; sourceTree = "<group>"; };
 		AAF33F2A04FF213100F93C24 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		AAF3442908F1C36A0006EDB7 /* DynamicActorScroller.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = DynamicActorScroller.cpp; path = ../src/DynamicActorScroller.cpp; sourceTree = "<group>"; };
 		AAF3442A08F1C36A0006EDB7 /* DynamicActorScroller.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = DynamicActorScroller.h; path = ../src/DynamicActorScroller.h; sourceTree = "<group>"; };
@@ -3437,11 +3437,11 @@
 			isa = PBXGroup;
 			children = (
 				AA6E01630477136A005F316C /* LowLevelWindow.h */,
+				AA275C9512057BE900E37368 /* LowLevelWindow_MacOSX.h */,
+				AA275C9612057BE900E37368 /* LowLevelWindow_MacOSX.mm */,
 				AA6E01640477136A005F316C /* LowLevelWindow_SDL.cpp */,
 				AA6E01650477136A005F316C /* LowLevelWindow_SDL.h */,
 				AA80C72307F2076E00C99272 /* Selector_LowLevelWindow.h */,
-				AAEF7D21090DD45900A1CAFC /* LowLevelWindow_Cocoa.h */,
-				AAEF7D22090DD45900A1CAFC /* LowLevelWindow_Cocoa.mm */,
 			);
 			path = LowLevelWindow;
 			sourceTree = "<group>";
@@ -4608,7 +4608,6 @@
 				AA07328F0954381800F396C5 /* DisplayResolutions.h in Headers */,
 				AA0732910954381800F396C5 /* XmlFileUtil.h in Headers */,
 				AADD1CC6095C233F0088C9DF /* LocalizedString.h in Headers */,
-				AA32F97E096A255500F45B24 /* LowLevelWindow_Cocoa.h in Headers */,
 				AAABB2DB0979DB5B006C9F25 /* SMMainThread.h in Headers */,
 				AA44705409846B0800983E82 /* HIDDevice.h in Headers */,
 				AA44708E0984720900983E82 /* JoystickDevice.h in Headers */,
@@ -4649,6 +4648,7 @@
 				AA275BFA12056B2A00E37368 /* lzio.h in Headers */,
 				F44EE8CD1205597B008AE060 /* CommandLineActions.h in Headers */,
 				F44EE8D512055A30008AE060 /* FileDownload.h in Headers */,
+				AA275C9712057BE900E37368 /* LowLevelWindow_MacOSX.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5078,7 +5078,6 @@
 				AA40D36F09A08D650068C0D5 /* DisplayResolutions.h in Headers */,
 				AA40D37009A08D650068C0D5 /* XmlFileUtil.h in Headers */,
 				AA40D37109A08D650068C0D5 /* LocalizedString.h in Headers */,
-				AA40D37209A08D650068C0D5 /* LowLevelWindow_Cocoa.h in Headers */,
 				AA40D37409A08D650068C0D5 /* SMMainThread.h in Headers */,
 				AA40D37509A08D650068C0D5 /* HIDDevice.h in Headers */,
 				AA40D37609A08D650068C0D5 /* JoystickDevice.h in Headers */,
@@ -5117,6 +5116,7 @@
 				AA275C5A12056B2A00E37368 /* lundump.h in Headers */,
 				AA275C5C12056B2A00E37368 /* lvm.h in Headers */,
 				AA275C5E12056B2A00E37368 /* lzio.h in Headers */,
+				AA275C9912057BE900E37368 /* LowLevelWindow_MacOSX.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5649,7 +5649,6 @@
 				AA0732900954381800F396C5 /* XmlFileUtil.cpp in Sources */,
 				AAD5219C095513DA00073D86 /* XmlFile.cpp in Sources */,
 				AADD1CC5095C233F0088C9DF /* LocalizedString.cpp in Sources */,
-				AA32F97F096A255C00F45B24 /* LowLevelWindow_Cocoa.mm in Sources */,
 				AA8E4BC909787C9500765149 /* MenuInput.cpp in Sources */,
 				AAABB2DC0979DB5B006C9F25 /* SMMainThread.m in Sources */,
 				AABBFCD309838C3A00F077E2 /* SMMain.mm in Sources */,
@@ -5703,6 +5702,7 @@
 				AA275BFC12056B2A00E37368 /* print.c in Sources */,
 				F44EE8CC1205597B008AE060 /* CommandLineActions.cpp in Sources */,
 				F44EE8D412055A30008AE060 /* FileDownload.cpp in Sources */,
+				AA275C9812057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6086,7 +6086,6 @@
 				AA40D50609A08D650068C0D5 /* XmlFileUtil.cpp in Sources */,
 				AA40D50709A08D650068C0D5 /* XmlFile.cpp in Sources */,
 				AA40D50809A08D650068C0D5 /* LocalizedString.cpp in Sources */,
-				AA40D50909A08D650068C0D5 /* LowLevelWindow_Cocoa.mm in Sources */,
 				AA40D50B09A08D650068C0D5 /* MenuInput.cpp in Sources */,
 				AA40D50C09A08D650068C0D5 /* SMMainThread.m in Sources */,
 				AA40D50D09A08D650068C0D5 /* SMMain.mm in Sources */,
@@ -6137,6 +6136,7 @@
 				AA275C5B12056B2A00E37368 /* lvm.c in Sources */,
 				AA275C5D12056B2A00E37368 /* lzio.c in Sources */,
 				AA275C6012056B2A00E37368 /* print.c in Sources */,
+				AA275C9A12057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6220,8 +6220,6 @@
 				GCC_PREFIX_HEADER = "$(SRCROOT)/../src/archutils/Darwin/StepMania.pch";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_USE_GCC3_PFE_SUPPORT = NO;
-				GCC_VERSION_i386 = 4.0;
-				GCC_VERSION_ppc = 3.3;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = NO;
@@ -6256,21 +6254,13 @@
 				INFOPLIST_PREFIX_HEADER = "$(SRCROOT)/../src/ProductInfo.h";
 				INFOPLIST_PREPROCESS = YES;
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = "EXECUTABLE_NAME=\"$(PRODUCT_NAME)\"";
-				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SDKROOT)/usr/lib",
 					"$(SRCROOT)/Libraries",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../src/lua-5.0/lib\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/../src/lua-5.0/lib\"";
-				LIBRARY_STYLE = Bundle;
-				MACOSX_DEPLOYMENT_TARGET = 10.3;
-				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3.9;
 				OBJROOT = "$(SRCROOT)/build";
-				ONLY_LINK_ESSENTIAL_SYMBOLS = NO;
 				OTHER_CPLUSPLUSFLAGS = (
 					"-finline-limit=300",
 					"-fconstant-cfstrings",
@@ -6279,12 +6269,8 @@
 				);
 				OTHER_LDFLAGS = "-lz";
 				PREBINDING = "$(PREBINDING_$(CURRENT_ARCH))";
-				PREBINDING_i386 = NO;
-				PREBINDING_ppc = YES;
 				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
 				PRODUCT_NAME = "$(value)";
-				SDKROOT_i386 = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_ppc = /Developer/SDKs/MacOSX10.3.9.sdk;
 				STRIP_INSTALLED_PRODUCT = NO;
 				STRIP_STYLE = "non-global";
 				SYMROOT = "$(SRCROOT)/..";
@@ -6308,19 +6294,14 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1";
 				GCC_STRICT_ALIASING = YES;
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = 3.3;
-				GCC_VERSION_i386 = 4.0;
-				GCC_VERSION_ppc = 4.0;
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/../src/lua-5.0";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3.9;
-				SDKROOT_i386 = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_ppc = /Developer/SDKs/MacOSX10.3.9.sdk;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 				SHARED_PRECOMPS_DIR = "/Library/Caches/com.apple.Xcode.$(UID)/SharedPrecompiledHeaders/$(PRODUCT_NAME)/$(CONFIGURATION)";
 			};
 			name = Debug;
@@ -6635,8 +6616,6 @@
 				GCC_PREFIX_HEADER = "$(SRCROOT)/../src/archutils/Darwin/StepMania.pch";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_USE_GCC3_PFE_SUPPORT = NO;
-				GCC_VERSION_i386 = 4.0;
-				GCC_VERSION_ppc = 3.3;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = NO;
@@ -6671,21 +6650,13 @@
 				INFOPLIST_PREFIX_HEADER = "$(SRCROOT)/../src/ProductInfo.h";
 				INFOPLIST_PREPROCESS = YES;
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = "EXECUTABLE_NAME=\"$(PRODUCT_NAME)\"";
-				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SDKROOT)/usr/lib",
 					"$(SRCROOT)/Libraries",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../src/lua-5.0/lib\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/../src/lua-5.0/lib\"";
-				LIBRARY_STYLE = Bundle;
-				MACOSX_DEPLOYMENT_TARGET = 10.3;
-				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3.9;
 				OBJROOT = "$(SRCROOT)/build";
-				ONLY_LINK_ESSENTIAL_SYMBOLS = YES;
 				OTHER_CPLUSPLUSFLAGS = (
 					"-finline-limit=300",
 					"-fconstant-cfstrings",
@@ -6694,12 +6665,8 @@
 				);
 				OTHER_LDFLAGS = "-lz";
 				PREBINDING = "$(PREBINDING_$(CURRENT_ARCH))";
-				PREBINDING_i386 = NO;
-				PREBINDING_ppc = YES;
 				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
 				PRODUCT_NAME = "$(value)";
-				SDKROOT_i386 = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_ppc = /Developer/SDKs/MacOSX10.3.9.sdk;
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
 				SYMROOT = "$(SRCROOT)/..";
@@ -6722,19 +6689,14 @@
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_STRICT_ALIASING = YES;
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = 3.3;
-				GCC_VERSION_i386 = 4.0;
-				GCC_VERSION_ppc = 4.0;
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/../src/lua-5.0";
-				MACOSX_DEPLOYMENT_TARGET = 10.3;
-				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3.9;
-				SDKROOT_i386 = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_ppc = /Developer/SDKs/MacOSX10.3.9.sdk;
+				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 				SHARED_PRECOMPS_DIR = "/Library/Caches/com.apple.Xcode.$(UID)/SharedPrecompiledHeaders/$(PRODUCT_NAME)/$(CONFIGURATION)";
 			};
 			name = Native;
@@ -6787,8 +6749,6 @@
 				GCC_PREFIX_HEADER = "$(SRCROOT)/../src/archutils/Darwin/StepMania.pch";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_USE_GCC3_PFE_SUPPORT = NO;
-				GCC_VERSION_i386 = 4.0;
-				GCC_VERSION_ppc = 4.0;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = NO;
@@ -6823,21 +6783,13 @@
 				INFOPLIST_PREFIX_HEADER = "$(SRCROOT)/../src/ProductInfo.h";
 				INFOPLIST_PREPROCESS = YES;
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = "EXECUTABLE_NAME=\"$(PRODUCT_NAME)\"";
-				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SDKROOT)/usr/lib",
 					"$(SRCROOT)/Libraries",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../src/lua-5.0/lib\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/../src/lua-5.0/lib\"";
-				LIBRARY_STYLE = Bundle;
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_ppc = 10.4;
 				OBJROOT = "$(SRCROOT)/build";
-				ONLY_LINK_ESSENTIAL_SYMBOLS = YES;
 				OTHER_CPLUSPLUSFLAGS = (
 					"-finline-limit=300",
 					"-fconstant-cfstrings",
@@ -6846,12 +6798,8 @@
 				);
 				OTHER_LDFLAGS = "-lz";
 				PREBINDING = "$(PREBINDING_$(CURRENT_ARCH))";
-				PREBINDING_i386 = NO;
-				PREBINDING_ppc = YES;
 				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
 				PRODUCT_NAME = "$(value)";
-				SDKROOT_i386 = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_ppc = /Developer/SDKs/MacOSX10.4u.sdk;
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
 				SYMROOT = "$(SRCROOT)/..";
@@ -6879,18 +6827,13 @@
 				GCC_STRICT_ALIASING = YES;
 				GCC_UNROLL_LOOPS = YES;
 				GCC_VERSION = 4.0;
-				GCC_VERSION_i386 = 4.0;
-				GCC_VERSION_ppc = 4.0;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/../src/lua-5.0";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_i386 = 10.4;
-				MACOSX_DEPLOYMENT_TARGET_ppc = 10.4;
-				SDKROOT_i386 = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_ppc = /Developer/SDKs/MacOSX10.3.9.sdk;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 				SHARED_PRECOMPS_DIR = "/Library/Caches/com.apple.Xcode.$(UID)/SharedPrecompiledHeaders/$(PRODUCT_NAME)/$(CONFIGURATION)";
 			};
 			name = Universal;
