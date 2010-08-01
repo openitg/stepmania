@@ -2,7 +2,6 @@
 #include "InputHandler_DirectInputHelper.h"
 #include "RageUtil.h"
 #include "RageLog.h"
-#include "StepMania.h"
 #include "archutils/Win32/GraphicsWindow.h"
 
 #if defined(_MSC_VER)
@@ -11,7 +10,7 @@
 #pragma comment(lib, "dxguid.lib")
 #endif
 #endif
-LPDIRECTINPUT dinput = NULL;
+LPDIRECTINPUT g_dinput = NULL;
 
 static int ConvertScancodeToKey( int scancode );
 static BOOL CALLBACK DIJoystick_EnumDevObjectsProc(LPCDIDEVICEOBJECTINSTANCE dev, LPVOID data);
@@ -27,11 +26,13 @@ DIDevice::DIDevice()
 
 bool DIDevice::Open()
 {
-	LOG->Trace( "Opening device '%s'", JoystickInst.tszProductName );
+	m_sName = ConvertACPToUTF8( JoystickInst.tszProductName );
+
+	LOG->Trace( "Opening device '%s'", m_sName.c_str() );
 	buffered = true;
 	
 	LPDIRECTINPUTDEVICE tmpdevice;
-	HRESULT hr = dinput->CreateDevice( JoystickInst.guidInstance, &tmpdevice, NULL );
+	HRESULT hr = g_dinput->CreateDevice( JoystickInst.guidInstance, &tmpdevice, NULL );
 	if ( hr != DI_OK )
 	{
 		LOG->Info( hr_ssprintf(hr, "OpenDevice: IDirectInput_CreateDevice") );
@@ -42,25 +43,25 @@ bool DIDevice::Open()
 	tmpdevice->Release();
 	if ( hr != DI_OK )
 	{
-		LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice::QueryInterface", JoystickInst.tszProductName) );
+		LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice::QueryInterface", m_sName.c_str()) );
 		return false;
 	}
 
 	int coop = DISCL_NONEXCLUSIVE | DISCL_BACKGROUND;
 	if( type == KEYBOARD )
-		coop = DISCL_FOREGROUND|DISCL_NONEXCLUSIVE;
+		coop = DISCL_NONEXCLUSIVE | DISCL_FOREGROUND;
 
 	hr = Device->SetCooperativeLevel( GraphicsWindow::GetHwnd(), coop );
 	if ( hr != DI_OK )
 	{
-		LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice2::SetCooperativeLevel", JoystickInst.tszProductName) );
+		LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice2::SetCooperativeLevel", m_sName.c_str()) );
 		return false;
 	}
 
 	hr = Device->SetDataFormat( type == JOYSTICK? &c_dfDIJoystick: &c_dfDIKeyboard );
 	if ( hr != DI_OK )
 	{
-		LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice2::SetDataFormat", JoystickInst.tszProductName) );
+		LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice2::SetDataFormat", m_sName.c_str()) );
 		return false;
 	}
 
@@ -98,8 +99,10 @@ bool DIDevice::Open()
 			/* This device doesn't support buffering, so we're forced
 			 * to use less reliable polling. */
 			buffered = false;
-		} else if ( hr != DI_OK ) {
-			LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice2::SetProperty", JoystickInst.tszProductName) );
+		}
+		else if ( hr != DI_OK )
+		{
+			LOG->Info( hr_ssprintf(hr, "OpenDevice(%s): IDirectInputDevice2::SetProperty", m_sName.c_str()) );
 			return false;
 		}
 	}

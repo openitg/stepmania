@@ -11,7 +11,8 @@
 MessageManager*	MESSAGEMAN = NULL;	// global and accessable from anywhere in our program
 
 
-static const CString MessageNames[] = {
+static const char *MessageNames[] = {
+	"CurrentGameChanged",
 	"CurrentStyleChanged",
 	"PlayModeChanged",
 	"CurrentSongChanged",
@@ -20,7 +21,9 @@ static const CString MessageNames[] = {
 	"CurrentCourseChanged",
 	"CurrentTrailP1Changed",
 	"CurrentTrailP2Changed",
+	"GameplayLeadInChanged",
 	"EditStepsTypeChanged",
+	"EditCourseDifficultyChanged",
 	"EditSourceStepsChanged",
 	"EditSourceStepsTypeChanged",
 	"PreferredDifficutyP1Changed",
@@ -32,9 +35,9 @@ static const CString MessageNames[] = {
 	"GoalCompleteP1",
 	"GoalCompleteP2",
 	"NoteCrossed",
-	"NoteWillCrossIn500Ms",
-	"NoteWillCrossIn1000Ms",
-	"NoteWillCrossIn1500Ms",
+	"NoteWillCrossIn400Ms",
+	"NoteWillCrossIn800Ms",
+	"NoteWillCrossIn1200Ms",
 	"CardRemovedP1",
 	"CardRemovedP2",
 	"BeatCrossed",
@@ -46,8 +49,7 @@ static const CString MessageNames[] = {
 	"MenuLeftP2",
 	"MenuRightP1",
 	"MenuRightP2",
-	"MadeChoiceP1",
-	"MadeChoiceP2",
+	"MenuSelectionChanged",
 	"CoinInserted",
 	"SideJoinedP1",
 	"SideJoinedP2",
@@ -62,13 +64,80 @@ static const CString MessageNames[] = {
 	"LessonTry3",
 	"LessonCleared",
 	"LessonFailed",
+	"StorageDevicesChanged",
+	"AutoJoyMappingApplied",
+	"ScreenChanged",
+	"ShowJudgmentMuliPlayerP1",
+	"ShowJudgmentMuliPlayerP2",
+	"ShowJudgmentMuliPlayerP3",
+	"ShowJudgmentMuliPlayerP4",
+	"ShowJudgmentMuliPlayerP5",
+	"ShowJudgmentMuliPlayerP6",
+	"ShowJudgmentMuliPlayerP7",
+	"ShowJudgmentMuliPlayerP8",
+	"ShowJudgmentMuliPlayerP9",
+	"ShowJudgmentMuliPlayerP10",
+	"ShowJudgmentMuliPlayerP11",
+	"ShowJudgmentMuliPlayerP12",
+	"ShowJudgmentMuliPlayerP13",
+	"ShowJudgmentMuliPlayerP14",
+	"ShowJudgmentMuliPlayerP15",
+	"ShowJudgmentMuliPlayerP16",
+	"ShowJudgmentMuliPlayerP17",
+	"ShowJudgmentMuliPlayerP18",
+	"ShowJudgmentMuliPlayerP19",
+	"ShowJudgmentMuliPlayerP20",
+	"ShowJudgmentMuliPlayerP21",
+	"ShowJudgmentMuliPlayerP22",
+	"ShowJudgmentMuliPlayerP23",
+	"ShowJudgmentMuliPlayerP24",
+	"ShowJudgmentMuliPlayerP25",
+	"ShowJudgmentMuliPlayerP26",
+	"ShowJudgmentMuliPlayerP27",
+	"ShowJudgmentMuliPlayerP28",
+	"ShowJudgmentMuliPlayerP29",
+	"ShowJudgmentMuliPlayerP30",
+	"ShowJudgmentMuliPlayerP31",
+	"ShowJudgmentMuliPlayerP32",
+	"ShowHoldJudgmentMuliPlayerP1",
+	"ShowHoldJudgmentMuliPlayerP2",
+	"ShowHoldJudgmentMuliPlayerP3",
+	"ShowHoldJudgmentMuliPlayerP4",
+	"ShowHoldJudgmentMuliPlayerP5",
+	"ShowHoldJudgmentMuliPlayerP6",
+	"ShowHoldJudgmentMuliPlayerP7",
+	"ShowHoldJudgmentMuliPlayerP8",
+	"ShowHoldJudgmentMuliPlayerP9",
+	"ShowHoldJudgmentMuliPlayerP10",
+	"ShowHoldJudgmentMuliPlayerP11",
+	"ShowHoldJudgmentMuliPlayerP12",
+	"ShowHoldJudgmentMuliPlayerP13",
+	"ShowHoldJudgmentMuliPlayerP14",
+	"ShowHoldJudgmentMuliPlayerP15",
+	"ShowHoldJudgmentMuliPlayerP16",
+	"ShowHoldJudgmentMuliPlayerP17",
+	"ShowHoldJudgmentMuliPlayerP18",
+	"ShowHoldJudgmentMuliPlayerP19",
+	"ShowHoldJudgmentMuliPlayerP20",
+	"ShowHoldJudgmentMuliPlayerP21",
+	"ShowHoldJudgmentMuliPlayerP22",
+	"ShowHoldJudgmentMuliPlayerP23",
+	"ShowHoldJudgmentMuliPlayerP24",
+	"ShowHoldJudgmentMuliPlayerP25",
+	"ShowHoldJudgmentMuliPlayerP26",
+	"ShowHoldJudgmentMuliPlayerP27",
+	"ShowHoldJudgmentMuliPlayerP28",
+	"ShowHoldJudgmentMuliPlayerP29",
+	"ShowHoldJudgmentMuliPlayerP30",
+	"ShowHoldJudgmentMuliPlayerP31",
+	"ShowHoldJudgmentMuliPlayerP32",
 };
 XToString( Message, NUM_Message );
 
 static RageMutex g_Mutex( "MessageManager" );
 
 typedef set<IMessageSubscriber*> SubscribersSet;
-static map<CString,SubscribersSet> g_MessageToSubscribers;
+static map<RString,SubscribersSet> g_MessageToSubscribers;
 
 MessageManager::MessageManager()
 {
@@ -78,7 +147,7 @@ MessageManager::~MessageManager()
 {
 }
 
-void MessageManager::Subscribe( IMessageSubscriber* pSubscriber, const CString& sMessage )
+void MessageManager::Subscribe( IMessageSubscriber* pSubscriber, const RString& sMessage )
 {
 	LockMut(g_Mutex);
 
@@ -95,7 +164,7 @@ void MessageManager::Subscribe( IMessageSubscriber* pSubscriber, Message m )
 	Subscribe( pSubscriber, MessageToString(m) );
 }
 
-void MessageManager::Unsubscribe( IMessageSubscriber* pSubscriber, const CString& sMessage )
+void MessageManager::Unsubscribe( IMessageSubscriber* pSubscriber, const RString& sMessage )
 {
 	LockMut(g_Mutex);
 
@@ -110,13 +179,13 @@ void MessageManager::Unsubscribe( IMessageSubscriber* pSubscriber, Message m )
 	Unsubscribe( pSubscriber, MessageToString(m) );
 }
 
-void MessageManager::Broadcast( const CString& sMessage ) const
+void MessageManager::Broadcast( const RString& sMessage ) const
 {
 	ASSERT( !sMessage.empty() );
 
 	LockMut(g_Mutex);
 
-	map<CString,SubscribersSet>::const_iterator iter = g_MessageToSubscribers.find( sMessage );
+	map<RString,SubscribersSet>::const_iterator iter = g_MessageToSubscribers.find( sMessage );
 	if( iter == g_MessageToSubscribers.end() )
 		return;
 
@@ -132,7 +201,7 @@ void MessageManager::Broadcast( Message m ) const
 	Broadcast( MessageToString(m) );
 }
 
-void IMessageSubscriber::ClearMessages( const CString sMessage )
+void IMessageSubscriber::ClearMessages( const RString sMessage )
 {
 	LockMut(g_Mutex);
 
@@ -147,7 +216,7 @@ void IMessageSubscriber::ClearMessages( const CString sMessage )
 			m_aMessages.erase( m_aMessages.begin()+i ); 
 }
 
-void IMessageSubscriber::HandleMessageInternal( const CString& sMessage )
+void IMessageSubscriber::HandleMessageInternal( const RString& sMessage )
 {
 	QueuedMessage QM;
 	QM.sMessage = sMessage;
@@ -172,7 +241,7 @@ void IMessageSubscriber::ProcessMessages( float fDeltaTime )
 	for( unsigned i = 0; i < m_aMessages.size(); ++i )
 	{
 		/* Remove the message from the list. */
-		const CString sMessage = m_aMessages[i].sMessage;
+		const RString sMessage = m_aMessages[i].sMessage;
 		m_aMessages.erase( m_aMessages.begin()+i );
 		--i;
 
@@ -187,6 +256,31 @@ void IMessageSubscriber::ProcessMessages( float fDeltaTime )
 			i = 0;
 	}
 	g_Mutex.Unlock();
+}
+
+MessageSubscriber::MessageSubscriber( const MessageSubscriber &cpy ):
+	IMessageSubscriber(cpy)
+{
+	m_vsSubscribedTo = cpy.m_vsSubscribedTo;
+}
+
+void MessageSubscriber::SubscribeToMessage( const RString &sMessageName )
+{
+	MESSAGEMAN->Subscribe( this, sMessageName );
+	m_vsSubscribedTo.push_back( sMessageName );
+}
+
+void MessageSubscriber::SubscribeToMessage( Message message )
+{
+	MESSAGEMAN->Subscribe( this, message );
+	m_vsSubscribedTo.push_back( MessageToString(message) );
+}
+
+void MessageSubscriber::UnsubscribeAll()
+{
+	FOREACH_CONST( RString, m_vsSubscribedTo, s )
+		MESSAGEMAN->Unsubscribe( this, *s );
+	m_vsSubscribedTo.clear();
 }
 
 

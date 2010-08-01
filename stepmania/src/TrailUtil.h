@@ -7,7 +7,7 @@
 class Song;
 class Trail;
 class Course;
-struct XNode;
+class XNode;
 
 class TrailID
 {
@@ -24,7 +24,7 @@ public:
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
-	CString ToString() const;
+	RString ToString() const;
 	bool IsValid() const;
 	static void Invalidate( Song* pStaleSong );
 };

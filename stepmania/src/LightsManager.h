@@ -25,8 +25,8 @@ enum CabinetLight
 	LIGHT_INVALID
 };
 #define FOREACH_CabinetLight( i ) FOREACH_ENUM( CabinetLight, NUM_CABINET_LIGHTS, i )
-const CString& CabinetLightToString( CabinetLight cl );
-CabinetLight StringToCabinetLight( const CString& s);
+const RString& CabinetLightToString( CabinetLight cl );
+CabinetLight StringToCabinetLight( const RString& s);
 
 enum LightsMode
 {
@@ -41,7 +41,7 @@ enum LightsMode
 	LIGHTSMODE_TEST_MANUAL_CYCLE,
 	NUM_LIGHTS_MODES
 };
-const CString& LightsModeToString( LightsMode lm );
+const RString& LightsModeToString( LightsMode lm );
 
 struct LightsState
 {
@@ -54,7 +54,7 @@ class LightsDriver;
 class LightsManager
 {
 public:
-	LightsManager(CString sDriver);
+	LightsManager();
 	~LightsManager();
 	
 	void Update( float fDeltaTime );

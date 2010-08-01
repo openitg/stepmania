@@ -21,8 +21,8 @@ enum SelectType
 	NUM_SELECT_TYPES,
 	SELECT_INVALID
 };
-const CString& SelectTypeToString( SelectType pm );
-SelectType StringToSelectType( const CString& s );
+const RString& SelectTypeToString( SelectType pm );
+SelectType StringToSelectType( const RString& s );
 
 enum LayoutType
 {
@@ -31,21 +31,22 @@ enum LayoutType
 	NUM_LAYOUT_TYPES,
 	LAYOUT_INVALID
 };
-const CString& LayoutTypeToString( LayoutType pm );
-LayoutType StringToLayoutType( const CString& s );
+const RString& LayoutTypeToString( LayoutType pm );
+LayoutType StringToLayoutType( const RString& s );
 
 struct OptionRowDefinition
 {
-	CString m_sName;
+	RString m_sName;
+	RString m_sExplanationName;
 	bool m_bOneChoiceForAllPlayers;
 	SelectType m_selectType;
 	LayoutType m_layoutType;
-	vector<CString> m_vsChoices;
+	vector<RString> m_vsChoices;
 	set<PlayerNumber> m_vEnabledForPlayers;	// only players in this set may change focus to this row
 	bool	m_bExportOnChange;
-	bool	m_bAllowThemeItems;	// if false, ignores ScreenOptions::THEME_ITEMS
-	bool	m_bAllowThemeTitles;	// if false, ignores ScreenOptions::THEME_TITLES
-	bool	m_bAllowExplanation;	// if false, ignores ScreenOptions::SHOW_EXPLANATIONS
+	bool	m_bAllowThemeItems;	// Should be true for dynamic strings.
+	bool	m_bAllowThemeTitle;	// Should be true for dynamic strings.
+	bool	m_bAllowExplanation;	// if false, ignores ScreenOptions::SHOW_EXPLANATIONS.  Should be true for dynamic strings.
 	bool	m_bShowChoicesListOnSelect;
 
 	bool IsEnabledForPlayer( PlayerNumber pn ) const 
@@ -57,6 +58,7 @@ struct OptionRowDefinition
 	void Init()
 	{
 		m_sName = "";
+		m_sExplanationName = "";
 		m_bOneChoiceForAllPlayers = false;
 		m_selectType = SELECT_ONE;
 		m_layoutType = LAYOUT_SHOW_ALL_IN_ROW;
@@ -66,7 +68,7 @@ struct OptionRowDefinition
 			m_vEnabledForPlayers.insert( pn );
 		m_bExportOnChange = false;
 		m_bAllowThemeItems = true;
-		m_bAllowThemeTitles = true;
+		m_bAllowThemeTitle = true;
 		m_bAllowExplanation = true;
 		m_bShowChoicesListOnSelect = false;
 	}
@@ -76,8 +78,6 @@ struct OptionRowDefinition
 		Init();
 		m_sName=n;
 		m_bOneChoiceForAllPlayers=b;
-		m_selectType=SELECT_ONE;
-		m_layoutType=LAYOUT_SHOW_ALL_IN_ROW;
 #define PUSH( c )	if(c) m_vsChoices.push_back(c);
 		PUSH(c0);PUSH(c1);PUSH(c2);PUSH(c3);PUSH(c4);PUSH(c5);PUSH(c6);PUSH(c7);PUSH(c8);PUSH(c9);PUSH(c10);PUSH(c11);PUSH(c12);PUSH(c13);PUSH(c14);PUSH(c15);PUSH(c16);PUSH(c17);PUSH(c18);PUSH(c19);
 #undef PUSH
@@ -87,44 +87,43 @@ struct OptionRowDefinition
 class OptionRowType
 {
 public:
-	void Load( const CString &sType );
+	void Load( const RString &sType );
 
 private:
-	CString		m_sType;
+	RString				m_sType;
 
-	BitmapText				m_textItemParent;
+	BitmapText			m_textItemParent;
 	OptionsCursor			m_UnderlineParent;
-	Actor					*m_sprBullet;
-	BitmapText				m_textTitle;
-	OptionIcon				m_OptionIcon;
+	Actor				*m_sprBullet;
+	BitmapText			m_textTitle;
+	OptionIcon			m_OptionIcon;
 
 	// metrics
-	ThemeMetric<float>				BULLET_X;
+	ThemeMetric<float>		BULLET_X;
 	ThemeMetric<apActorCommands>	BULLET_ON_COMMAND;
-	ThemeMetric<float>				LABELS_X;
-	ThemeMetric<apActorCommands>	LABELS_ON_COMMAND;
-	ThemeMetric<apActorCommands>	LABEL_GAIN_FOCUS_COMMAND;
-	ThemeMetric<apActorCommands>	LABEL_LOSE_FOCUS_COMMAND;
-	ThemeMetric<float>				ITEMS_START_X;
-	ThemeMetric<float>				ITEMS_END_X;
-	ThemeMetric<float>				ITEMS_GAP_X;
-	ThemeMetric1D<float>			ITEMS_LONG_ROW_X;
-	ThemeMetric<float>				ITEMS_LONG_ROW_SHARED_X;
+	ThemeMetric<float>		TITLE_X;
+	ThemeMetric<apActorCommands>	TITLE_ON_COMMAND;
+	ThemeMetric<apActorCommands>	TITLE_GAIN_FOCUS_COMMAND;
+	ThemeMetric<apActorCommands>	TITLE_LOSE_FOCUS_COMMAND;
+	ThemeMetric<float>		ITEMS_START_X;
+	ThemeMetric<float>		ITEMS_END_X;
+	ThemeMetric<float>		ITEMS_GAP_X;
+	ThemeMetric<float>		ITEMS_MIN_BASE_ZOOM;
+	ThemeMetric1D<float>		ITEMS_LONG_ROW_X;
+	ThemeMetric<float>		ITEMS_LONG_ROW_SHARED_X;
 	ThemeMetric<apActorCommands>	ITEMS_ON_COMMAND;
 	ThemeMetric<apActorCommands>	ITEM_GAIN_FOCUS_COMMAND;
 	ThemeMetric<apActorCommands>	ITEM_LOSE_FOCUS_COMMAND;
-	ThemeMetric1D<float>			ICONS_X;
+	ThemeMetric1D<float>		ICONS_X;
 	ThemeMetric<apActorCommands>	ICONS_ON_COMMAND;
-	ThemeMetric<RageColor>			COLOR_SELECTED;
-	ThemeMetric<RageColor>			COLOR_NOT_SELECTED;
-	ThemeMetric<RageColor>			COLOR_DISABLED;
-	ThemeMetric<bool>				CAPITALIZE_ALL_OPTION_NAMES;
-	ThemeMetric<float>				TWEEN_SECONDS;
-	ThemeMetric<bool>				THEME_ITEMS;
-	ThemeMetric<bool>				THEME_TITLES;
-	ThemeMetric<bool>				SHOW_BPM_IN_SPEED_TITLE;
-	ThemeMetric<bool>				SHOW_OPTION_ICONS;
-	ThemeMetric<bool>				SHOW_UNDERLINES;
+	ThemeMetric<RageColor>		COLOR_SELECTED;
+	ThemeMetric<RageColor>		COLOR_NOT_SELECTED;
+	ThemeMetric<RageColor>		COLOR_DISABLED;
+	ThemeMetric<bool>		CAPITALIZE_ALL_OPTION_NAMES;
+	ThemeMetric<float>		TWEEN_SECONDS;
+	ThemeMetric<bool>		SHOW_BPM_IN_SPEED_TITLE;
+	ThemeMetric<bool>		SHOW_OPTION_ICONS;
+	ThemeMetric<bool>		SHOW_UNDERLINES;
 
 	friend class OptionRow;
 };
@@ -134,110 +133,96 @@ class OptionRow : public ActorFrame
 public:
 	OptionRow( const OptionRowType *pType );
 	~OptionRow();
+	void Update( float fDeltaTime );
 
 	void Clear();
-	void LoadNormal( const OptionRowDefinition &def, OptionRowHandler *pHand, bool bFirstItemGoesDown );
+	void LoadNormal( OptionRowHandler *pHand, bool bFirstItemGoesDown );
 	void LoadExit();
 
-	void SetOptionIcon( PlayerNumber pn, const CString &sText, GameCommand &gc );
+	void SetOptionIcon( PlayerNumber pn, const RString &sText, GameCommand &gc );
 
 	void ImportOptions( const vector<PlayerNumber> &vpns );
 	int ExportOptions( const vector<PlayerNumber> &vpns, bool bRowHasFocus[NUM_PLAYERS] );
 
 	void InitText();
-	void AfterImportOptions();
-	void DetachHandler();
+	void AfterImportOptions( PlayerNumber pn );
 
+	void ChoicesChanged();
 	void PositionUnderlines( PlayerNumber pn );
-	void PositionIcons();
-	void UpdateText();
-	void SetRowFocus( bool bRowHasFocus[NUM_PLAYERS] );
+	void PositionIcons( PlayerNumber pn );
+	void UpdateText( PlayerNumber pn );
+	void SetRowHasFocus( PlayerNumber pn, bool bRowHasFocus );
 	void UpdateEnabledDisabled();
 
 	int GetOneSelection( PlayerNumber pn, bool bAllowFail=false ) const;
 	int GetOneSharedSelection( bool bAllowFail=false ) const;
 	void SetOneSelection( PlayerNumber pn, int iChoice );
 	void SetOneSharedSelection( int iChoice );
-	void SetOneSharedSelectionIfPresent( const CString &sChoice );
+	void SetOneSharedSelectionIfPresent( const RString &sChoice );
 
 	int GetChoiceInRowWithFocus( PlayerNumber pn ) const;
 	int GetChoiceInRowWithFocusShared() const;
 	void SetChoiceInRowWithFocus( PlayerNumber pn, int iChoice );
-	void SetChoiceInRowWithFocusShared( int iChoice );
+	void ResetFocusFromSelection( PlayerNumber pn );
 
-	bool GetSelected( PlayerNumber pn, int iChoice ) const
-	{
-		if( m_RowDef.m_bOneChoiceForAllPlayers )
-			pn = PLAYER_1;
-		return m_vbSelected[pn][iChoice];
-	}
-	void SetSelected( PlayerNumber pn, int iChoice, bool b )
-	{
-		if( m_RowDef.m_bOneChoiceForAllPlayers )
-			pn = PLAYER_1;
-		m_vbSelected[pn][iChoice] = b;
-	}
+	bool GetSelected( PlayerNumber pn, int iChoice ) const;
+	void SetSelected( PlayerNumber pn, int iChoice, bool b );
 
 	enum RowType
 	{
-		ROW_NORMAL,
-		ROW_EXIT
+		RowType_Normal,
+		RowType_Exit
 	};
-	const OptionRowDefinition &GetRowDef() const { return m_RowDef; }
-	OptionRowDefinition &GetRowDef() { return m_RowDef; }
+	const OptionRowDefinition &GetRowDef() const;
+	OptionRowDefinition &GetRowDef();
 	RowType GetRowType() const { return m_RowType; }
-	OptionRowHandler *GetHandler() { return m_pHand; }
+	const OptionRowHandler *GetHandler() const { return m_pHand; }
 
-	BitmapText &GetTextItemForRow( PlayerNumber pn, int iChoiceOnRow );
-	void GetWidthXY( PlayerNumber pn, int iChoiceOnRow, int &iWidthOut, int &iXOut, int &iYOut );
+	const BitmapText &GetTextItemForRow( PlayerNumber pn, int iChoiceOnRow ) const;
+	void GetWidthXY( PlayerNumber pn, int iChoiceOnRow, int &iWidthOut, int &iXOut, int &iYOut ) const;
 
 	// ScreenOptions calls positions m_FrameDestination, then m_Frame tween to that same TweenState.
-	void SetRowHidden( bool bRowHidden )	{ m_bHidden = bRowHidden; }
-	bool GetRowHidden()						{ return m_bHidden; }
-	unsigned GetTextItemsSize() { return m_textItems.size(); }
-	bool GetFirstItemGoesDown() { return m_bFirstItemGoesDown; }
+	unsigned GetTextItemsSize() const { return m_textItems.size(); }
+	bool GetFirstItemGoesDown() const { return m_bFirstItemGoesDown; }
 
-	void PrepareItemText( CString &s ) const;
-	CString OptionTitle( CString s ) const;
+	void PrepareItemText( RString &s ) const;
+	RString OptionTitle( RString s ) const;
 
-	void SetExitText( CString sExitText );
+	void SetExitText( RString sExitText );
 
-	void Reload( const OptionRowDefinition &def );
-	void SetEnabledRowForAllPlayers( bool bEnabledForAllPlayers );
+	void Reload();
 
 	//
 	// Messages
 	//
-	virtual void HandleMessage( const CString& sMessage );
+	virtual void HandleMessage( const RString& sMessage );
 
 protected:
-	CString GetRowTitle() const;
+	RString GetRowTitle() const;
 
 	const OptionRowType		*m_pParentType;
-	OptionRowDefinition		m_RowDef;
-	RowType					m_RowType;
+	RowType				m_RowType;
 	OptionRowHandler*		m_pHand;
 
-	ActorFrame				m_Frame;
+	ActorFrame			m_Frame;
 
-	vector<BitmapText *>	m_textItems;				// size depends on m_bRowIsLong and which players are joined
-	vector<OptionsCursor *>	m_Underline[NUM_PLAYERS];	// size depends on m_bRowIsLong and which players are joined
+	vector<BitmapText *>		m_textItems;			// size depends on m_bRowIsLong and which players are joined
+	vector<OptionsCursor *>		m_Underline[NUM_PLAYERS];	// size depends on m_bRowIsLong and which players are joined
 
-	Actor					*m_sprBullet;
-	BitmapText				*m_textTitle;
-	OptionIcon				*m_OptionIcons[NUM_PLAYERS];
+	Actor				*m_sprBullet;
+	BitmapText			*m_textTitle;
+	OptionIcon			*m_OptionIcons[NUM_PLAYERS];
 
-	bool					m_bFirstItemGoesDown;
-	bool					m_bRowHasFocus[NUM_PLAYERS];
+	bool				m_bFirstItemGoesDown;
+	bool				m_bRowHasFocus[NUM_PLAYERS];
 
-	int m_iChoiceInRowWithFocus[NUM_PLAYERS];	// this choice has input focus
-	// Only one will true at a time if m_RowDef.bMultiSelect
-	vector<bool> m_vbSelected[NUM_PLAYERS];	// size = m_RowDef.choices.size()
+	int				m_iChoiceInRowWithFocus[NUM_PLAYERS];	// this choice has input focus
+	// Only one will true at a time if m_pHand->m_Def.bMultiSelect
+	vector<bool>			m_vbSelected[NUM_PLAYERS];	// size = m_pHand->m_Def.choices.size()
+	Actor::TweenState m_tsDestination;	// this should approach m_tsDestination.
 
 public:
-	Actor::TweenState m_tsDestination;	// this should approach m_tsDestination.
-protected:
-	bool m_bHidden; // currently off screen
+	void SetDestination( Actor::TweenState &ts, bool bTween );
 };
 
 #endif

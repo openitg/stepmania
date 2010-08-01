@@ -49,8 +49,11 @@ public:
 
 	void GetActualBPM( float &fMinBPMOut, float &fMaxBPMOut ) const;
 	float GetBPMAtBeat( float fBeat ) const;
-	void SetBPMAtBeat( float fBeat, float fBPM );
-	void SetStopAtBeat( float fBeat, float fSeconds );
+	void SetBPMAtRow( int iNoteRow, float fBPM );
+	void SetBPMAtBeat( float fBeat, float fBPM ) { SetBPMAtRow( BeatToNoteRow(fBeat), fBPM ); }
+	void SetStopAtRow( int iNoteRow, float fSeconds );
+	void SetStopAtBeat( float fBeat, float fSeconds ) { SetStopAtRow( BeatToNoteRow(fBeat), fSeconds ); }
+	float GetStopAtRow( int iNoteRow ) const;
 	void MultiplyBPMInBeatRange( int iStartIndex, int iEndIndex, float fFactor );
 	void AddBPMSegment( const BPMSegment &seg );
 	void AddStopSegment( const StopSegment &seg );
@@ -66,6 +69,17 @@ public:
 		return fBeat;
 	}
 	float GetElapsedTimeFromBeat( float fBeat ) const;
+
+	void GetBeatAndBPSFromElapsedTimeNoOffset( float fElapsedTime, float &fBeatOut, float &fBPSOut, bool &bFreezeOut ) const;
+	float GetBeatFromElapsedTimeNoOffset( float fElapsedTime ) const	// shortcut for places that care only about the beat
+	{
+		float fBeat, fThrowAway;
+		bool bThrowAway;
+		GetBeatAndBPSFromElapsedTimeNoOffset( fElapsedTime, fBeat, fThrowAway, bThrowAway );
+		return fBeat;
+	}
+	float GetElapsedTimeFromBeatNoOffset( float fBeat ) const;
+
 	bool HasBpmChanges() const;
 	bool HasStops() const;
 
@@ -82,20 +96,11 @@ public:
 	}
 	bool operator!=( const TimingData &other ) { return !operator==(other); }
 
-	// used for editor fix - expand/contract needs to move BPMSegments
-	// and StopSegments that land during/after the edited range.
-	// in addition, we need to be able to shift them otherwise as well
-	// (for example, adding/removing rows should move all following 
-	// segments as necessary)
-	// NOTE: How do we want to handle deleting rows that have a BPM change
-	// or a stop?  I'd like to think we should move them to the first row
-	// of the range that was deleted (say if rows 1680-1728 are deleted, and
-	// a BPM change or a stop occurs at row 1704, we'll move it to row
-	// 1680).
 	void ScaleRegion( float fScale = 1, int iStartRow = 0, int iEndRow = MAX_NOTE_ROW );
-	void ShiftRows( int iStartRow, int iRowsToShift );
+	void InsertRows( int iStartRow, int iRowsToAdd );
+	void DeleteRows( int iStartRow, int iRowsToDelete );
 
-	CString						m_sFile;		// informational only
+	RString						m_sFile;		// informational only
 	vector<BPMSegment>			m_BPMSegments;	// this must be sorted before gameplay
 	vector<StopSegment>			m_StopSegments;	// this must be sorted before gameplay
 	float	m_fBeat0OffsetInSeconds;

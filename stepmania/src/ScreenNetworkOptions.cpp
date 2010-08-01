@@ -11,11 +11,29 @@
 #include "ScreenTextEntry.h"
 #include "ScreenPrompt.h"
 #include "NetworkSyncServer.h"
+#include "LocalizedString.h"
+#include "OptionRowHandler.h"
+
+static LocalizedString CLIENT_CONNECT	( "ScreenNetworkOptions", "Connect" );
+static LocalizedString CLIENT_DISCONNECT	( "ScreenNetworkOptions", "Disconnect" );
+static LocalizedString SERVER_START	( "ScreenNetworkOptions", "Start" );
+static LocalizedString SERVER_STOP	( "ScreenNetworkOptions", "Stop" );
+static LocalizedString SCORE_ON	( "ScreenNetworkOptions", "ScoreOn" );
+static LocalizedString SCORE_OFF	( "ScreenNetworkOptions", "ScoreOff" );
+static LocalizedString SERVER_STARTED	( "ScreenNetworkOptions", "Server started." );
+static LocalizedString SERVER_FAILED	( "ScreenNetworkOptions", "Server failed: %s Code:%d" );
+
+static LocalizedString DISCONNECTED				( "ScreenNetworkOptions", "Disconnected from server." );
+static LocalizedString SERVER_STOPPED			( "ScreenNetworkOptions", "Server stopped." );
+static LocalizedString ENTER_NETWORK_ADDRESS	("ScreenNetworkOptions","Enter a network address.");
+static LocalizedString CONNECT_TO_YOURSELF		("ScreenNetworkOptions","Use 127.0.0.1 to connect to yourself.");
+static LocalizedString ENTER_A_SERVER_NAME		("ScreenNetworkOptions","Enter a server name.");
 
 enum {
 	PO_CONNECTION,
 	PO_SERVER,
 	PO_SCOREBOARD,
+	PO_SERVERS,
 	NUM_NETWORK_OPTIONS_LINES
 };
 
@@ -30,58 +48,65 @@ enum
 	NO_SCOREBOARD_ON
 };
 
-OptionRowDefinition g_NetworkOptionsLines[NUM_NETWORK_OPTIONS_LINES] = {
-	OptionRowDefinition( "Connection",	true, "PRESS START" ),
-	OptionRowDefinition( "Server",		true, "PRESS START" ),
-	OptionRowDefinition( "Scoreboard",		true, "PRESS START" )
-};
-
 AutoScreenMessage( SM_DoneConnecting )
 AutoScreenMessage( SM_ServerNameEnter )
 
-static Preference<CString> g_sLastServer( "LastConnectedServer",	"" );
+Preference<RString> g_sLastServer( "LastConnectedServer",	"" );
 
 REGISTER_SCREEN_CLASS( ScreenNetworkOptions );
-ScreenNetworkOptions::ScreenNetworkOptions( CString sClassName ) : ScreenOptions( sClassName )
-{
-	LOG->Trace( "ScreenNetworkOptions::ScreenNetworkOptions()" );
-
-	m_sClassName = sClassName;
-}
 
 void ScreenNetworkOptions::Init()
 {
 	ScreenOptions::Init();
 
-	g_NetworkOptionsLines[PO_CONNECTION].m_vsChoices.clear();
-	if ( NSMAN->useSMserver )
-		g_NetworkOptionsLines[PO_CONNECTION].m_vsChoices.push_back("Disconnect from "+NSMAN->GetServerName());
-	else
-		g_NetworkOptionsLines[PO_CONNECTION].m_vsChoices.push_back("Connect...");
+	vector<OptionRowHandler*> vHands;
+	{
+		OptionRowHandler *pHand = OptionRowHandlerUtil::MakeNull();
+		vHands.push_back( pHand );
+		pHand->m_Def.m_sName = "Connection";
+		pHand->m_Def.m_bOneChoiceForAllPlayers = true;
+		if ( NSMAN->useSMserver )
+			pHand->m_Def.m_vsChoices.push_back(CLIENT_DISCONNECT);
+		else
+			pHand->m_Def.m_vsChoices.push_back(CLIENT_CONNECT);
+	}
+	{
+		OptionRowHandler *pHand = OptionRowHandlerUtil::MakeNull();
+		vHands.push_back( pHand );
+		pHand->m_Def.m_bAllowThemeItems = false;
+		pHand->m_Def.m_bOneChoiceForAllPlayers = true;
+		pHand->m_Def.m_sName = "Server";
+		pHand->m_Def.m_vsChoices.push_back(SERVER_START);
+		pHand->m_Def.m_vsChoices.push_back(SERVER_STOP);
+	}
+	{
+		OptionRowHandler *pHand = OptionRowHandlerUtil::MakeNull();
+		vHands.push_back( pHand );
+		pHand->m_Def.m_sName = "Scoreboard";
+		pHand->m_Def.m_vsChoices.clear();
+		pHand->m_Def.m_bOneChoiceForAllPlayers = true;
+		pHand->m_Def.m_vsChoices.push_back(SCORE_OFF);
+		pHand->m_Def.m_vsChoices.push_back(SCORE_ON);
+	}
+	{
 
-	g_NetworkOptionsLines[PO_SERVER].m_vsChoices.clear();
-	g_NetworkOptionsLines[PO_SERVER].m_vsChoices.push_back("Stop");
-	g_NetworkOptionsLines[PO_SERVER].m_vsChoices.push_back("Start...");
+		// Get info on all received servers from NSMAN.
+		AllServers.clear();
+		NSMAN->GetListOfLANServers( AllServers );
+		if( !AllServers.empty() )
+		{
+			OptionRowHandler *pHand = OptionRowHandlerUtil::MakeNull();
+			pHand->m_Def.m_sName = "Servers";
+			for( unsigned int j = 0; j < AllServers.size(); j++ )
+				pHand->m_Def.m_vsChoices.push_back( AllServers[j].Name );
+			vHands.push_back( pHand );
+		}
+	}
 
-	g_NetworkOptionsLines[PO_SCOREBOARD].m_vsChoices.clear();
-	g_NetworkOptionsLines[PO_SCOREBOARD].m_vsChoices.push_back("Off");
-	g_NetworkOptionsLines[PO_SCOREBOARD].m_vsChoices.push_back("On");
-	
-	//Enable all lines for all players
-	for ( unsigned int i = 0; i < NUM_NETWORK_OPTIONS_LINES; i++ )
-		FOREACH_PlayerNumber( pn )
-			g_NetworkOptionsLines[i].m_vEnabledForPlayers.insert( pn );
-
-	vector<OptionRowDefinition> vDefs( &g_NetworkOptionsLines[0], &g_NetworkOptionsLines[ARRAYSIZE(g_NetworkOptionsLines)] );
-	vector<OptionRowHandler*> vHands( vDefs.size(), NULL );
-
-	InitMenu( vDefs, vHands );
+	InitMenu( vHands );
 
 	m_pRows[PO_SCOREBOARD]->SetOneSharedSelection(PREFSMAN->m_bEnableScoreboard);
-
-	SOUND->PlayMusic( THEME->GetPathS("ScreenMachineOptions","music") );
 }
-
 
 void ScreenNetworkOptions::HandleScreenMessage( const ScreenMessage SM )
 {
@@ -89,7 +114,7 @@ void ScreenNetworkOptions::HandleScreenMessage( const ScreenMessage SM )
 	{
 		if( !ScreenTextEntry::s_bCancelledLast )
 		{
-			CString sNewName = ScreenTextEntry::s_sLastAnswer;
+			RString sNewName = ScreenTextEntry::s_sLastAnswer;
 			NSMAN->PostStartUp(sNewName);
 			NSMAN->DisplayStartupStatus();
 			UpdateConnectStatus( );
@@ -106,18 +131,19 @@ void ScreenNetworkOptions::HandleScreenMessage( const ScreenMessage SM )
 			if (NSMAN->LANserver->ServerStart())
 			{
 				NSMAN->isLanServer = true;
-				SCREENMAN->SystemMessage( "Server Started." );
+				SCREENMAN->SystemMessage( SERVER_STARTED );
 			}
 			else
-				SCREENMAN->SystemMessage( "Server failed: " + NSMAN->LANserver->lastError + ssprintf(" Code:%d",NSMAN->LANserver->lastErrorCode) );
+			{
+				SCREENMAN->SystemMessage( ssprintf(SERVER_FAILED.GetValue(),NSMAN->LANserver->lastError.c_str(),NSMAN->LANserver->lastErrorCode) );
+			}
 		}
 	}
 
 	ScreenOptions::HandleScreenMessage( SM );
 }
 
-
-void ScreenNetworkOptions::MenuStart( PlayerNumber pn, const InputEventType type )
+void ScreenNetworkOptions::MenuStart( const InputEventPlus &input )
 {
 #if defined( WITHOUT_NETWORKING )
 #else
@@ -126,12 +152,12 @@ void ScreenNetworkOptions::MenuStart( PlayerNumber pn, const InputEventType type
 	case PO_CONNECTION:
 		if ( !NSMAN->useSMserver )
 		{
-			ScreenTextEntry::TextEntry( SM_DoneConnecting, "Enter a Network Address\n127.0.0.1 to connect to yourself", g_sLastServer, 128 );
+			ScreenTextEntry::TextEntry( SM_DoneConnecting, ENTER_NETWORK_ADDRESS.GetValue()+"\n\n"+CONNECT_TO_YOURSELF.GetValue(), g_sLastServer, 128 );
 		}
 		else
 		{
 			NSMAN->CloseConnection();
-			SCREENMAN->SystemMessage("Disconnected from server.");
+			SCREENMAN->SystemMessage( DISCONNECTED );
 			UpdateConnectStatus( );
 		}
 		break;
@@ -141,13 +167,13 @@ void ScreenNetworkOptions::MenuStart( PlayerNumber pn, const InputEventType type
 		case NO_START_SERVER:
 			if (!NSMAN->isLanServer)
 			{
-				ScreenTextEntry::TextEntry( SM_ServerNameEnter, "Enter a server name...", "", 0);
+				ScreenTextEntry::TextEntry( SM_ServerNameEnter, ENTER_A_SERVER_NAME, "", 128);
 			}
 			break;
 		case NO_STOP_SERVER:
 			if ( NSMAN->LANserver != NULL )
 				NSMAN->LANserver->ServerStop();
-			SCREENMAN->SystemMessage( "Server Stopped." );
+			SCREENMAN->SystemMessage( SERVER_STOPPED );
 			NSMAN->isLanServer = false;
 			break;
 		}
@@ -158,8 +184,22 @@ void ScreenNetworkOptions::MenuStart( PlayerNumber pn, const InputEventType type
 		else
 			PREFSMAN->m_bEnableScoreboard.Set(false);
 		break;
+	case PO_SERVERS:
+		if ( !AllServers.empty() )
+		{
+			string sNewName = AllServers[m_pRows[GetCurrentRow()]->GetOneSharedSelection()].Address;
+			NSMAN->PostStartUp(sNewName);
+			NSMAN->DisplayStartupStatus();
+			UpdateConnectStatus( );
+		}
+		else
+		{
+			//If the server list is empty, keep passing the message on so exit works
+			ScreenOptions::MenuStart( input );
+		}
+		break;
 	default:
-		ScreenOptions::MenuStart( pn, type );
+		ScreenOptions::MenuStart( input );
 	}
 #endif
 }
@@ -169,7 +209,7 @@ void ScreenNetworkOptions::ExportOptions( int iRow, const vector<PlayerNumber> &
 
 void ScreenNetworkOptions::UpdateConnectStatus( )
 {
-	SCREENMAN->SetNewScreen( m_sClassName );
+	SCREENMAN->SetNewScreen( m_sName );
 }
 #endif
 

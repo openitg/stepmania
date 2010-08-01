@@ -6,41 +6,62 @@
 #include "Grade.h"
 #include "Command.h"
 #include <set>
+#include "Difficulty.h"
 
 class Song;
+class Course;
+class Steps;
 class Profile;
 struct lua_State;
 
-enum UnlockType
+enum UnlockRequirement
 {
-	UNLOCK_ARCADE_POINTS,
-	UNLOCK_DANCE_POINTS,
-	UNLOCK_SONG_POINTS,
-	UNLOCK_EXTRA_CLEARED,
-	UNLOCK_EXTRA_FAILED,
-	UNLOCK_TOASTY,
-	UNLOCK_CLEARED,
-	NUM_UNLOCK_TYPES,
-	UNLOCK_INVALID,
+	UnlockRequirement_ArcadePoints,
+	UnlockRequirement_DancePoints,
+	UnlockRequirement_SongPoints,
+	UnlockRequirement_ExtraCleared,
+	UnlockRequirement_ExtraFailed,
+	UnlockRequirement_Toasties,
+	UnlockRequirement_StagesCleared,
+	NUM_UnlockRequirement,
+	UnlockRequirement_INVALID,
 };
-#define FOREACH_UnlockType( u ) FOREACH_ENUM( UnlockType, NUM_UNLOCK_TYPES, u )
 
-struct UnlockEntry
+
+enum UnlockRewardType {
+	UnlockRewardType_Song, 
+	UnlockRewardType_Steps, 
+	UnlockRewardType_Course, 
+	UnlockRewardType_Modifier, 
+	NUM_UnlockRewardType, 
+	UnlockRewardType_INVALID
+};
+const RString& UnlockRewardTypeToString( UnlockRewardType i );
+const RString& UnlockRewardTypeToLocalizedString( UnlockRewardType i );
+
+enum UnlockEntryStatus {
+	UnlockEntryStatus_RequrementsNotMet, 
+	UnlockEntryStatus_RequirementsMet, 
+	UnlockEntryStatus_Unlocked, 
+};
+
+class UnlockEntry
 {
+public:
 	UnlockEntry()
 	{
-		m_Type = TYPE_INVALID;
+		m_Type = UnlockRewardType_INVALID;
 
 		m_pSong = NULL;
 		m_dc = DIFFICULTY_INVALID;
 		m_pCourse = NULL;
 
-		ZERO( m_fRequired );
-		m_iCode = -1;
+		ZERO( m_fRequirement );
+		m_bRequirePassHardSteps = false;
+		m_sEntryID = "";	// "" means not yet filled.  This will be filled in automatically if not specified.
 	}
 
-	enum Type { TYPE_SONG, TYPE_STEPS, TYPE_COURSE, TYPE_MODIFIER, NUM_TYPES, TYPE_INVALID };
-	Type m_Type;
+	UnlockRewardType m_Type;
 	Command m_cmd;
 
 	/* A cached pointer to the song or course this entry refers to.  Only one of
@@ -49,52 +70,67 @@ struct UnlockEntry
 	Difficulty m_dc;
 	Course	*m_pCourse;
 
-	float	m_fRequired[NUM_UNLOCK_TYPES];
-	int		m_iCode;
+	float	m_fRequirement[NUM_UnlockRequirement];	// unlocked if any of of these are met
+	bool	m_bRequirePassHardSteps;
+	RString	m_sEntryID;
 
 	bool	IsValid() const;
-	bool	IsLocked() const;
+	bool	IsLocked() const	{ return GetUnlockEntryStatus() != UnlockEntryStatus_Unlocked; }
+	//bool	IsUnlocked() const { return !IsLocked(); }
+	UnlockEntryStatus GetUnlockEntryStatus() const;
+	RString	GetModifier() const { return m_cmd.GetArg(1).s; }
+	RString	GetDescription() const;
+	RString	GetBannerFile() const;
+	RString	GetBackgroundFile() const;
+
+	// Lua
+	void PushSelf( lua_State *L );
 };
 
 class UnlockManager
 {
-	friend struct UnlockEntry;
+	friend class UnlockEntry;
 
 public:
 	UnlockManager();
+	void Reload();
 
 	// returns # of points till next unlock - used for ScreenUnlock
-	float PointsUntilNextUnlock( UnlockType t ) const;
-	float ArcadePointsUntilNextUnlock() const { return PointsUntilNextUnlock(UNLOCK_ARCADE_POINTS); }
-	float DancePointsUntilNextUnlock() const { return PointsUntilNextUnlock(UNLOCK_DANCE_POINTS); }
-	float SongPointsUntilNextUnlock() const { return PointsUntilNextUnlock(UNLOCK_SONG_POINTS); }
+	float PointsUntilNextUnlock( UnlockRequirement t ) const;
+	float ArcadePointsUntilNextUnlock() const { return PointsUntilNextUnlock(UnlockRequirement_ArcadePoints); }
+	float DancePointsUntilNextUnlock() const { return PointsUntilNextUnlock(UnlockRequirement_DancePoints); }
+	float SongPointsUntilNextUnlock() const { return PointsUntilNextUnlock(UnlockRequirement_SongPoints); }
 
 	// Used on select screens:
 	bool SongIsLocked( const Song *song ) const;
 	bool SongIsRouletteOnly( const Song *song ) const;
 	bool StepsIsLocked( const Song *pSong, const Steps *pSteps ) const;
 	bool CourseIsLocked( const Course *course ) const;
-	bool ModifierIsLocked( const CString &sOneMod ) const;
+	bool ModifierIsLocked( const RString &sOneMod ) const;
 
 	// Gets number of unlocks for title screen
 	int GetNumUnlocks() const;
+	int GetNumUnlocked() const;
+	int GetUnlockEntryIndexToCelebrate() const;
+	bool AnyUnlocksToCelebrate() const;
 
-	void GetPoints( const Profile *pProfile, float fScores[NUM_UNLOCK_TYPES] ) const;
+	void GetPoints( const Profile *pProfile, float fScores[NUM_UnlockRequirement] ) const;
 
 	// Unlock an entry by code.
-	void UnlockCode( int num );
+	void UnlockEntryID( RString sEntryID );
+	void UnlockEntryIndex( int iEntryIndex );
 
 	/*
 	 * If a code is associated with at least one song or course, set the preferred song
 	 * and/or course in GAMESTATE to them.
 	 */
-	void PreferUnlockCode( int iCode );
+	void PreferUnlockEntryID( RString sEntryID );
 
 	// Unlocks a song.
-	void UnlockSong( const Song *song );
+	void UnlockSong( const Song *pSong );
 
-	// Return the associated code.
-	int FindCode( const CString &sName ) const;
+	// Return the associated EntryID.
+	RString FindEntryID( const RString &sName ) const;
 
 	// All locked songs are stored here
 	vector<UnlockEntry>	m_UnlockEntries;
@@ -102,9 +138,14 @@ public:
 	// If global song or course points change, call to update
 	void UpdateCachedPointers();
 
-	void GetUnlocksByType( UnlockEntry::Type t, vector<UnlockEntry *> &apEntries );
-	void GetSongsUnlockedByCode( vector<Song *> &apSongsOut, int iCode );
-	void GetStepsUnlockedByCode( vector<Song *> &apSongsOut, vector<Difficulty> &apStepsOut, int iCode );
+	void GetUnlocksByType( UnlockRewardType t, vector<UnlockEntry *> &apEntries );
+	void GetSongsUnlockedByEntryID( vector<Song *> &apSongsOut, RString sEntryID );
+	void GetStepsUnlockedByEntryID( vector<Song *> &apSongsOut, vector<Difficulty> &apStepsOut, RString sEntryID );
+
+	const UnlockEntry *FindSong( const Song *pSong ) const;
+	const UnlockEntry *FindSteps( const Song *pSong, const Steps *pSteps ) const;
+	const UnlockEntry *FindCourse( const Course *pCourse ) const;
+	const UnlockEntry *FindModifier( const RString &sOneMod ) const;
 
 	// Lua
 	void PushSelf( lua_State *L );
@@ -113,12 +154,7 @@ private:
 	// read unlocks
 	void Load();
 	
-	const UnlockEntry *FindSong( const Song *pSong ) const;
-	const UnlockEntry *FindSteps( const Song *pSong, const Steps *pSteps ) const;
-	const UnlockEntry *FindCourse( const Course *pCourse ) const;
-	const UnlockEntry *FindModifier( const CString &sOneMod ) const;
-
-	set<int> m_RouletteCodes; // "codes" which are available in roulette and which unlock if rouletted
+	set<RString> m_RouletteCodes; // "codes" which are available in roulette and which unlock if rouletted
 };
 
 extern UnlockManager*	UNLOCKMAN;  // global and accessable from anywhere in program

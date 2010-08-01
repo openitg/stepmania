@@ -9,62 +9,69 @@
 #include "arch.h"
 #include "arch_platform.h"
 #include "Foreach.h"
+#include "LocalizedString.h"
+#include "arch/arch_default.h"
 
 #include "InputHandler/Selector_InputHandler.h"
-void MakeInputHandlers(CString drivers, vector<InputHandler *> &Add)
+static LocalizedString INPUT_HANDLERS_EMPTY( "Arch", "Input Handlers cannot be empty." );
+void MakeInputHandlers( const RString &drivers, vector<InputHandler *> &Add )
 {
-	CStringArray DriversToTry;
-	split(drivers, ",", DriversToTry, true);
+	vector<RString> DriversToTry;
+	split( drivers, ",", DriversToTry, true );
 
-	ASSERT( DriversToTry.size() != 0 );
+	if( DriversToTry.empty() )
+		RageException::Throw( INPUT_HANDLERS_EMPTY.GetValue() );
 
-	CString Driver;
+	RString Driver;
 
-	FOREACH_CONST( CString, DriversToTry, s )
+	FOREACH_CONST( RString, DriversToTry, s )
 	{
 		InputHandler *ret = NULL;
 
 #ifdef USE_INPUT_HANDLER_DIRECTINPUT
-		if(!s->CompareNoCase("DirectInput") )	ret = new InputHandler_DInput;
+		if( !s->CompareNoCase("DirectInput") )	ret = new InputHandler_DInput;
 #endif
 #ifdef USE_INPUT_HANDLER_LINUX_JOYSTICK
-		if(!s->CompareNoCase("Joystick") )		ret = new InputHandler_Linux_Joystick;
+		if( !s->CompareNoCase("Joystick") )	ret = new InputHandler_Linux_Joystick;
 #endif
 #ifdef USE_INPUT_HANDLER_LINUX_TTY
-		if(!s->CompareNoCase("tty") )		ret = new InputHandler_Linux_tty;
+		if( !s->CompareNoCase("tty") )		ret = new InputHandler_Linux_tty;
 #endif
 #ifdef USE_INPUT_HANDLER_SDL
-		if(!s->CompareNoCase("SDL") )		ret = new InputHandler_SDL;
+		if( !s->CompareNoCase("SDL") )		ret = new InputHandler_SDL;
 #endif
 #ifdef USE_INPUT_HANDLER_WIN32_PARA
-		if(!s->CompareNoCase("Para") )		ret = new InputHandler_Win32_Para;
+		if( !s->CompareNoCase("Para") )		ret = new InputHandler_Win32_Para;
 #endif
 #ifdef USE_INPUT_HANDLER_WIN32_PUMP
-		if(!s->CompareNoCase("Pump") )		ret = new InputHandler_Win32_Pump;
+		if( !s->CompareNoCase("Pump") )		ret = new InputHandler_Win32_Pump;
 #endif
 #ifdef USE_INPUT_HANDLER_WIN32_MIDI
-		if(!s->CompareNoCase("MIDI") )	ret = new InputHandler_Win32_MIDI;
+		if( !s->CompareNoCase("MIDI") )		ret = new InputHandler_Win32_MIDI;
 #endif
 #ifdef USE_INPUT_HANDLER_X11
-		if(!s->CompareNoCase("X11") )		ret = new InputHandler_X11;
+		if( !s->CompareNoCase("X11") )		ret = new InputHandler_X11;
 #endif
 #ifdef USE_INPUT_HANDLER_XBOX
-		if(!s->CompareNoCase("Xbox") )		ret = new InputHandler_Xbox;
+		if( !s->CompareNoCase("Xbox") )		ret = new InputHandler_Xbox;
+#endif
+#ifdef USE_INPUT_HANDLER_CARBON
+		if( !s->CompareNoCase("Carbon") )	ret = new InputHandler_Carbon;
 #endif
 
 		if( ret == NULL )
-			LOG->Warn( "Unknown lights driver name: %s", s->c_str() );
+			LOG->Trace( "Unknown Input Handler name: %s", s->c_str() );
 		else
 			Add.push_back( ret );
 	}
 
 	// Always add
-	Add.push_back(new InputHandler_MonkeyKeyboard);
+	Add.push_back( new InputHandler_MonkeyKeyboard );
 
 }
 
 #include "Lights/Selector_LightsDriver.h"
-void MakeLightsDrivers(CString driver, vector<LightsDriver *> &Add)
+void MakeLightsDrivers( const RString &driver, vector<LightsDriver *> &Add )
 {
 	LOG->Trace( "Initializing lights driver: %s", driver.c_str() );
 
@@ -74,14 +81,14 @@ void MakeLightsDrivers(CString driver, vector<LightsDriver *> &Add)
 	if( !driver.CompareNoCase("LinuxParallel") )	ret = new LightsDriver_LinuxParallel;
 #endif
 #ifdef USE_LIGHTS_DRIVER_LINUX_WEEDTECH
-	if( !driver.CompareNoCase("WeedTech") )			ret = new LightsDriver_LinuxWeedTech;
+	if( !driver.CompareNoCase("WeedTech") )		ret = new LightsDriver_LinuxWeedTech;
 #endif
 #ifdef USE_LIGHTS_DRIVER_WIN32_PARALLEL
-	if( !driver.CompareNoCase("Parallel") )			ret = new LightsDriver_Win32Parallel;
+	if( !driver.CompareNoCase("Parallel") )		ret = new LightsDriver_Win32Parallel;
 #endif
 
 	if( ret == NULL && driver.CompareNoCase("Null") )
-		LOG->Warn( "Unknown lights driver name: %s", driver.c_str() );
+		LOG->Trace( "Unknown lights driver name: %s", driver.c_str() );
 	else if( ret != NULL )
 		Add.push_back( ret );
 
@@ -93,55 +100,53 @@ LoadingWindow *MakeLoadingWindow()
 {
 	if( !PREFSMAN->m_bShowLoadingWindow )
 		return new LoadingWindow_Null;
-
-	/* Don't load NULL by default.  On most systems, if we can't load the SDL
-	 * loading window, we won't be able to init OpenGL, either, so don't bother. */
-	CString drivers = "xbox,win32,cocoa,gtk,sdl";
-	CStringArray DriversToTry;
-	split(drivers, ",", DriversToTry, true);
+#if defined(LINUX) && !defined(HAVE_GTK)
+	return new LoadingWindow_Null;
+#endif
+	/* Don't load NULL by default. */
+	const RString drivers = "xbox,win32,cocoa,gtk";
+	vector<RString> DriversToTry;
+	split( drivers, ",", DriversToTry, true );
 
 	ASSERT( DriversToTry.size() != 0 );
 
-	CString Driver;
+	RString Driver;
 	LoadingWindow *ret = NULL;
 
-	for(unsigned i = 0; ret == NULL && i < DriversToTry.size(); ++i)
+	for( unsigned i = 0; ret == NULL && i < DriversToTry.size(); ++i )
 	{
 		Driver = DriversToTry[i];
 
 #ifdef USE_LOADING_WINDOW_COCOA
-		if(!DriversToTry[i].CompareNoCase("Cocoa") )	ret = new LoadingWindow_Cocoa;
+		if( !DriversToTry[i].CompareNoCase("Cocoa") )	ret = new LoadingWindow_Cocoa;
 #endif
 #ifdef USE_LOADING_WINDOW_GTK
-		if(!DriversToTry[i].CompareNoCase("Gtk") )	ret = new LoadingWindow_Gtk;
+		if( !DriversToTry[i].CompareNoCase("Gtk") )	ret = new LoadingWindow_Gtk;
 #endif
 #ifdef USE_LOADING_WINDOW_NULL
-		if(!DriversToTry[i].CompareNoCase("Null") )	ret = new LoadingWindow_Null;
-#endif
-#ifdef USE_LOADING_WINDOW_SDL
-		if(!DriversToTry[i].CompareNoCase("SDL") )	ret = new LoadingWindow_SDL;
+		if( !DriversToTry[i].CompareNoCase("Null") )	ret = new LoadingWindow_Null;
 #endif
 #ifdef USE_LOADING_WINDOW_WIN32
-		if(!DriversToTry[i].CompareNoCase("Win32") )	ret = new LoadingWindow_Win32;
+		if( !DriversToTry[i].CompareNoCase("Win32") )	ret = new LoadingWindow_Win32;
 #endif
 #ifdef USE_LOADING_WINDOW_XBOX
-		if(!DriversToTry[i].CompareNoCase("Xbox") )	ret = new LoadingWindow_Xbox;
+		if( !DriversToTry[i].CompareNoCase("Xbox") )	ret = new LoadingWindow_Xbox;
 #endif
 
 			
 		if( ret == NULL )
 			continue;
 
-		CString sError = ret->Init();
+		RString sError = ret->Init();
 		if( sError != "" )
 		{
-			LOG->Info("Couldn't load driver %s: %s", DriversToTry[i].c_str(), sError.c_str());
+			LOG->Info( "Couldn't load driver %s: %s", DriversToTry[i].c_str(), sError.c_str() );
 			SAFE_DELETE( ret );
 		}
 	}
 	
 	if(ret)
-		LOG->Info("Loading window: %s", Driver.c_str());
+		LOG->Info( "Loading window: %s", Driver.c_str() );
 	
 	return ret;
 }
@@ -158,9 +163,6 @@ LowLevelWindow *MakeLowLevelWindow()
 #include "MemoryCard/Selector_MemoryCardDriver.h"
 MemoryCardDriver *MakeMemoryCardDriver()
 {
-	if( !PREFSMAN->m_bMemoryCards )
-		return new MemoryCardDriver_Null;
-
 	MemoryCardDriver *ret = NULL;
 
 #ifdef ARCH_MEMORY_CARD_DRIVER
@@ -173,24 +175,36 @@ MemoryCardDriver *MakeMemoryCardDriver()
 	return ret;
 }
 
+static Preference<RString> g_sMovieDrivers( "MovieDrivers", "" ); // "" == default
 #include "MovieTexture/Selector_MovieTexture.h"
-static void DumpAVIDebugInfo(CString);
+static void DumpAVIDebugInfo( const RString& fn );
 /* Try drivers in order of preference until we find one that works. */
-RageMovieTexture *MakeRageMovieTexture(RageTextureID ID)
+static LocalizedString MOVIE_DRIVERS_EMPTY		( "Arch", "Movie Drivers cannot be empty." );
+static LocalizedString COULDNT_CREATE_MOVIE_DRIVER	( "Arch", "Couldn't create a movie driver." );
+RageMovieTexture *MakeRageMovieTexture( RageTextureID ID )
 {
 	DumpAVIDebugInfo( ID.filename );
 
-	CStringArray DriversToTry;
-	split(PREFSMAN->GetMovieDrivers(), ",", DriversToTry, true);
-	ASSERT(DriversToTry.size() != 0);
+	RString sDrivers = g_sMovieDrivers;
+	if( sDrivers.empty() )
+		sDrivers = DEFAULT_MOVIE_DRIVER_LIST;
 
-	CString Driver;
+	vector<RString> DriversToTry;
+	split( sDrivers, ",", DriversToTry, true );
+	
+	if( DriversToTry.empty() )
+		RageException::Throw( MOVIE_DRIVERS_EMPTY.GetValue() );
+
+	RString Driver;
 	RageMovieTexture *ret = NULL;
 
 	for( unsigned i=0; ret==NULL && i<DriversToTry.size(); ++i )
 	{
 		Driver = DriversToTry[i];
-		LOG->Trace("Initializing driver: %s", Driver.c_str());
+		LOG->Trace( "Initializing driver: %s", Driver.c_str() );
+#ifdef USE_MOVIE_TEXTURE_THEORA
+		if( !Driver.CompareNoCase("Theora") ) ret = new MovieTexture_Theora(ID);
+#endif
 #ifdef USE_MOVIE_TEXTURE_DSHOW
 		if( !Driver.CompareNoCase("DShow") ) ret = new MovieTexture_DShow(ID);
 #endif
@@ -202,76 +216,78 @@ RageMovieTexture *MakeRageMovieTexture(RageTextureID ID)
 #endif
 		if( ret == NULL )
 		{
-			LOG->Warn( "Unknown movie driver name: %s", Driver.c_str() );
+			LOG->Trace( "Unknown movie driver name: %s", Driver.c_str() );
 			continue;
 		}
 
-		CString sError = ret->Init();
+		RString sError = ret->Init();
 		if( sError != "" )
 		{
 			LOG->Info( "Couldn't load driver %s: %s", Driver.c_str(), sError.c_str() );
 			SAFE_DELETE( ret );
 		}
 	}
-	if (!ret)
-		RageException::Throw("Couldn't create a movie texture");
+	if ( !ret )
+		RageException::Throw( COULDNT_CREATE_MOVIE_DRIVER.GetValue() );
 
-	LOG->Trace("Created movie texture \"%s\" with driver \"%s\"",
-		ID.filename.c_str(), Driver.c_str() );
+	LOG->Trace( "Created movie texture \"%s\" with driver \"%s\"",
+		    ID.filename.c_str(), Driver.c_str() );
 	return ret;
 }
 
 #include "Sound/Selector_RageSoundDriver.h"
-RageSoundDriver *MakeRageSoundDriver(CString drivers)
+static LocalizedString SOUND_DRIVERS_CANNOT_EMPTY( "Arch", "Sound Drivers cannot be empty." );
+RageSoundDriver *MakeRageSoundDriver( const RString &drivers )
 {
-	CStringArray DriversToTry;
-	split(drivers, ",", DriversToTry, true);
+	vector<RString> DriversToTry;
+	split( drivers, ",", DriversToTry, true );
 
-	ASSERT( DriversToTry.size() != 0 );
+	if( DriversToTry.empty() )
+		RageException::Throw( SOUND_DRIVERS_CANNOT_EMPTY.GetValue() );
 
-	CString Driver;
+	RString Driver;
 	RageSoundDriver *ret = NULL;
 
-	for(unsigned i = 0; ret == NULL && i < DriversToTry.size(); ++i)
+	for( unsigned i = 0; ret == NULL && i < DriversToTry.size(); ++i )
 	{
 		Driver = DriversToTry[i];
-		LOG->Trace("Initializing driver: %s", DriversToTry[i].c_str());
+		LOG->Trace( "Initializing driver: %s", DriversToTry[i].c_str() );
 
 #ifdef USE_RAGE_SOUND_ALSA9
-		if(!DriversToTry[i].CompareNoCase("ALSA"))		ret = new RageSound_ALSA9;
+		if( !DriversToTry[i].CompareNoCase("ALSA") )		ret = new RageSound_ALSA9;
 #endif
 #ifdef USE_RAGE_SOUND_ALSA9_SOFTWARE
-		if(!DriversToTry[i].CompareNoCase("ALSA-sw"))		ret = new RageSound_ALSA9_Software;
+		if( !DriversToTry[i].CompareNoCase("ALSA-sw") )		ret = new RageSound_ALSA9_Software;
 #endif
 #ifdef USE_RAGE_SOUND_CA
-		if(!DriversToTry[i].CompareNoCase("CoreAudio"))		ret = new RageSound_CA;
+		if( !DriversToTry[i].CompareNoCase("CoreAudio") )	ret = new RageSound_CA;
+#endif
+#ifdef USE_RAGE_SOUND_AU
+		if( !DriversToTry[i].CompareNoCase("AudioUnit") )	ret = new RageSound_AU;
 #endif
 #ifdef USE_RAGE_SOUND_DSOUND
-		if(!DriversToTry[i].CompareNoCase("DirectSound"))	ret = new RageSound_DSound;
+		if( !DriversToTry[i].CompareNoCase("DirectSound") )	ret = new RageSound_DSound;
 #endif
 #ifdef USE_RAGE_SOUND_DSOUND_SOFTWARE
-		if(!DriversToTry[i].CompareNoCase("DirectSound-sw"))	ret = new RageSound_DSound_Software;
+		if( !DriversToTry[i].CompareNoCase("DirectSound-sw") )	ret = new RageSound_DSound_Software;
 #endif
 #ifdef USE_RAGE_SOUND_NULL
-		if(!DriversToTry[i].CompareNoCase("Null"))		ret = new RageSound_Null;
+		if( !DriversToTry[i].CompareNoCase("Null") )		ret = new RageSound_Null;
 #endif
 #ifdef USE_RAGE_SOUND_OSS
-		if(!DriversToTry[i].CompareNoCase("OSS"))		ret = new RageSound_OSS;
-#endif
-#ifdef USE_RAGE_SOUND_QT1
-		if(!DriversToTry[i].CompareNoCase("QT1"))		ret = new RageSound_QT1;
+		if( !DriversToTry[i].CompareNoCase("OSS") )		ret = new RageSound_OSS;
 #endif
 #ifdef USE_RAGE_SOUND_WAVE_OUT
-		if(!DriversToTry[i].CompareNoCase("WaveOut"))		ret = new RageSound_WaveOut;
+		if( !DriversToTry[i].CompareNoCase("WaveOut") )		ret = new RageSound_WaveOut;
 #endif
 
 		if( ret == NULL )
 		{
-			LOG->Warn( "Unknown sound driver name: %s", DriversToTry[i].c_str() );
+			LOG->Trace( "Unknown sound driver name: %s", DriversToTry[i].c_str() );
 			continue;
 		}
 
-		CString sError = ret->Init();
+		RString sError = ret->Init();
 		if( sError != "" )
 		{
 			LOG->Info( "Couldn't load driver %s: %s", DriversToTry[i].c_str(), sError.c_str() );
@@ -279,20 +295,20 @@ RageSoundDriver *MakeRageSoundDriver(CString drivers)
 		}
 	}
 	
-	if(ret)
-		LOG->Info("Sound driver: %s", Driver.c_str());
+	if( ret )
+		LOG->Info( "Sound driver: %s", Driver.c_str() );
 	
 	return ret;
 }
 
 // Helper for MakeRageMovieTexture()
-static void DumpAVIDebugInfo( CString fn )
+static void DumpAVIDebugInfo( const RString& fn )
 {
-	CString type, handler;
+	RString type, handler;
 	if( !RageMovieTexture::GetFourCC( fn, handler, type ) )
 		return;
 
-	LOG->Trace("Movie %s has handler '%s', type '%s'", fn.c_str(), handler.c_str(), type.c_str());
+	LOG->Trace( "Movie %s has handler '%s', type '%s'", fn.c_str(), handler.c_str(), type.c_str() );
 }
 
 /*

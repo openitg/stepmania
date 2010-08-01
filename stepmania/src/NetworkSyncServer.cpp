@@ -47,6 +47,8 @@ bool StepManiaLanServer::ServerStart()
 		if (server.bind(8765))
 			if (server.listen())
 			{
+				broadcast.create( IPPROTO_UDP );
+				broadcast.connect( "255.255.255.255", 8765 );
 				stop = false;
 				statsTime = time(NULL);
 				return true;
@@ -84,6 +86,7 @@ void StepManiaLanServer::ServerUpdate()
 		UpdateClients();
 		if (time(NULL) > statsTime)
 		{
+			BroadcastInfo();
 			SendStatsToClients();
 			statsTime = time(NULL);
 		}
@@ -207,7 +210,7 @@ void StepManiaLanServer::ParseData(PacketFunctions& Packet, const unsigned int c
 void StepManiaLanServer::Hello(PacketFunctions& Packet, const unsigned int clientNum)
 {
 	int ClientVersion = Packet.Read1();
-	CString build = Packet.ReadNT();
+	RString build = Packet.ReadNT();
 
 	Client[clientNum]->SetClientVersion(ClientVersion, build);
 
@@ -235,7 +238,7 @@ void GameClient::StyleUpdate(PacketFunctions& Packet)
 	}
 }
 
-void GameClient::SetClientVersion(int ver, const CString& b)
+void GameClient::SetClientVersion(int ver, const RString& b)
 {
 	version = ver;
 	build = b;
@@ -599,10 +602,10 @@ void StepManiaLanServer::SendValue(uint8_t value, const unsigned int clientNum)
 
 void StepManiaLanServer::AnalizeChat(PacketFunctions &Packet, const unsigned int clientNum)
 {
-	CString message = Packet.ReadNT();
+	RString message = Packet.ReadNT();
 	if (message.at(0) == '/')
 	{
-		CString command = message.substr(1, message.find(" ")-1);
+		RString command = message.substr(1, message.find(" ")-1);
 		if ((command.compare("list") == 0)||(command.compare("have") == 0))
 		{
 			if (command.compare("list") == 0)
@@ -632,12 +635,12 @@ void StepManiaLanServer::AnalizeChat(PacketFunctions &Packet, const unsigned int
 					ForceStart();
 				if (command.compare("kick") == 0)
 				{
-					CString name = message.substr(message.find(" ")+1);
+					RString name = message.substr(message.find(" ")+1);
 					Kick(name);
 				}
 				if (command.compare("ban") == 0)
 				{
-					CString name = message.substr(message.find(" ")+1);
+					RString name = message.substr(message.find(" ")+1);
 					Ban(name);
 				}
 			}
@@ -654,10 +657,10 @@ void StepManiaLanServer::AnalizeChat(PacketFunctions &Packet, const unsigned int
 		RelayChat(message, clientNum);
 }
 
-void StepManiaLanServer::RelayChat(CString &passedmessage, const unsigned int clientNum)
+void StepManiaLanServer::RelayChat(RString &passedmessage, const unsigned int clientNum)
 {
 	Reply.ClearPacket();
-	CString message = "";
+	RString message = "";
 
 	message += Client[clientNum]->Player[0].name;
 
@@ -677,7 +680,7 @@ void StepManiaLanServer::RelayChat(CString &passedmessage, const unsigned int cl
 void StepManiaLanServer::SelectSong(PacketFunctions& Packet, unsigned int clientNum)
 {
 	int use = Packet.Read1();
-	CString message;
+	RString message;
 
 	if (use == 2)
 	{
@@ -804,9 +807,9 @@ void StepManiaLanServer::SendToAllClients(PacketFunctions& Packet)
 		SendNetPacket(x, Packet);
 
 }
-void StepManiaLanServer::ServerChat(const CString& message)
+void StepManiaLanServer::ServerChat(const RString& message)
 {
-	CString x = servername + ": " + message;
+	RString x = servername + ": " + message;
 	Reply.ClearPacket();
 	Reply.Write1(NSCCM + NSServerOffset);
 	Reply.WriteNT(x);
@@ -850,7 +853,7 @@ void StepManiaLanServer::SendUserList()
 
 void StepManiaLanServer::ScreenNetMusicSelectStatus(PacketFunctions& Packet, unsigned int clientNum)
 {
-	CString message = "";
+	RString message = "";
 	int EntExitCode = Packet.Read1();
 
 	message += Client[clientNum]->Player[0].name;
@@ -894,9 +897,9 @@ void StepManiaLanServer::ScreenNetMusicSelectStatus(PacketFunctions& Packet, uns
 	SendUserList ();
 }
 
-CString StepManiaLanServer::ListPlayers()
+RString StepManiaLanServer::ListPlayers()
 {
-	CString list= "Player List:\n";
+	RString list= "Player List:\n";
 	for (unsigned int x = 0; x < Client.size(); ++x)
 		if (Client[x]->inNetMusicSelect)
 			for (int y = 0; y < 2; ++y)
@@ -905,7 +908,7 @@ CString StepManiaLanServer::ListPlayers()
 	return list;
 }
 
-void StepManiaLanServer::Kick(CString &name)
+void StepManiaLanServer::Kick(RString &name)
 {
 	bool kicked = false;
 	for (unsigned int x = 0; x < Client.size(); ++x)
@@ -918,7 +921,7 @@ void StepManiaLanServer::Kick(CString &name)
 			}
 }
 
-void StepManiaLanServer::Ban(CString &name)
+void StepManiaLanServer::Ban(RString &name)
 {
 	bool kicked = false;
 	for (unsigned int x = 0; x < Client.size(); ++x)
@@ -932,7 +935,7 @@ void StepManiaLanServer::Ban(CString &name)
 			}
 }
 
-bool StepManiaLanServer::IsBanned(CString &ip)
+bool StepManiaLanServer::IsBanned(RString &ip)
 {
 	for (unsigned int x = 0; x < bannedIPs.size(); ++x)
 		if (ip == bannedIPs[x])
@@ -977,26 +980,39 @@ void StepManiaLanServer::CheckLowerJudge(const unsigned int clientNum)
 		if (Client[clientNum]->IsPlaying(x))
 		{
 			if ((Client[clientNum]->Player[x].currstep == 2)&&
-				(PREFSMAN->m_fJudgeWindowSecondsBoo < Client[clientNum]->Player[x].offset))
+				(PREFSMAN->m_fTimingWindowSeconds[SE_W5] < Client[clientNum]->Player[x].offset))
 				Client[clientNum]->lowerJudge = true;
 			if ((Client[clientNum]->Player[x].currstep == 3)&&
-				(PREFSMAN->m_fJudgeWindowSecondsGood < Client[clientNum]->Player[x].offset))
+				(PREFSMAN->m_fTimingWindowSeconds[SE_W4] < Client[clientNum]->Player[x].offset))
 				Client[clientNum]->lowerJudge = true;
 			if ((Client[clientNum]->Player[x].currstep == 4)&&
-				(PREFSMAN->m_fJudgeWindowSecondsGreat < Client[clientNum]->Player[x].offset))
+				(PREFSMAN->m_fTimingWindowSeconds[SE_W3] < Client[clientNum]->Player[x].offset))
 				Client[clientNum]->lowerJudge = true;
 			if ((Client[clientNum]->Player[x].currstep == 5)&&
-				(PREFSMAN->m_fJudgeWindowSecondsPerfect < Client[clientNum]->Player[x].offset))
+				(PREFSMAN->m_fTimingWindowSeconds[SE_W2] < Client[clientNum]->Player[x].offset))
 				Client[clientNum]->lowerJudge = true;
 			if ((Client[clientNum]->Player[x].currstep == 6)&&
-				(PREFSMAN->m_fJudgeWindowSecondsMarvelous < Client[clientNum]->Player[x].offset))
+				(PREFSMAN->m_fTimingWindowSeconds[SE_W1] < Client[clientNum]->Player[x].offset))
 				Client[clientNum]->lowerJudge = true;
 		}
 }
+
+void StepManiaLanServer::BroadcastInfo()
+{
+	PacketFunctions Binfo;
+	Binfo.ClearPacket();
+	Binfo.Write1( 141 );	//Code 13 + 128
+	Binfo.WriteNT( servername );
+	Binfo.Write2( 8765 );
+	Binfo.Write2( (uint16_t) Client.size() );
+	
+	broadcast.SendPack( (char*)&Binfo.Data, Binfo.Position );
+}
+
 #endif
 
 /*
- * (c) 2003-2004 Joshua Allen
+ * (c) 2003-2005 Joshua Allen, Charles Lohr
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

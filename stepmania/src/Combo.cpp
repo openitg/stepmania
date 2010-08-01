@@ -24,21 +24,21 @@ void Combo::Load( PlayerState *pPlayerState, PlayerStageStats *pPlayerStageStats
 	m_pPlayerStageStats = pPlayerStageStats;
 
 	SHOW_COMBO_AT		.Load(m_sName,"ShowComboAt");
-	LABEL_X				.Load(m_sName,"LabelX");
-	LABEL_Y				.Load(m_sName,"LabelY");
+	LABEL_X			.Load(m_sName,"LabelX");
+	LABEL_Y			.Load(m_sName,"LabelY");
 	LABEL_ON_COMMAND	.Load(m_sName,"LabelOnCommand");
-	NUMBER_X			.Load(m_sName,"NumberX");
-	NUMBER_Y			.Load(m_sName,"NumberY");
+	NUMBER_X		.Load(m_sName,"NumberX");
+	NUMBER_Y		.Load(m_sName,"NumberY");
 	NUMBER_ON_COMMAND	.Load(m_sName,"NumberOnCommand");
 	NUMBER_MIN_ZOOM		.Load(m_sName,"NumberMinZoom");
 	NUMBER_MAX_ZOOM		.Load(m_sName,"NumberMaxZoom");
 	NUMBER_MAX_ZOOM_AT	.Load(m_sName,"NumberMaxZoomAt");
 	PULSE_COMMAND		.Load(m_sName,"PulseCommand");
-	FULL_COMBO_GREATS_COMMAND		.Load(m_sName,"FullComboGreatsCommand");
-	FULL_COMBO_PERFECTS_COMMAND		.Load(m_sName,"FullComboPerfectsCommand");
-	FULL_COMBO_MARVELOUSES_COMMAND	.Load(m_sName,"FullComboMarvelousesCommand");
-	FULL_COMBO_BROKEN_COMMAND		.Load(m_sName,"FullComboBrokenCommand");
-	SHOW_MISS_COMBO					.Load(m_sName,"ShowMissCombo");
+	FULL_COMBO_W3_COMMAND	.Load(m_sName,"FullComboW3Command");
+	FULL_COMBO_W2_COMMAND	.Load(m_sName,"FullComboW2Command");
+	FULL_COMBO_W1_COMMAND	.Load(m_sName,"FullComboW1Command");
+	FULL_COMBO_BROKEN_COMMAND	.Load(m_sName,"FullComboBrokenCommand");
+	MISS_COMBO_COMMAND	.Load(m_sName,"MissComboCommand");
 	
 	m_spr100Milestone.Load( THEME->GetPathG(m_sName,"100milestone") );
 	this->AddChild( m_spr100Milestone );
@@ -69,11 +69,11 @@ void Combo::Load( PlayerState *pPlayerState, PlayerStageStats *pPlayerStageStats
 
 void Combo::SetCombo( int iCombo, int iMisses )
 {
-	bool bMisses = iMisses > 0;
-	int iNum = bMisses ? iMisses : iCombo;
+	bool bComboOfMisses = iMisses > 0;
+	int iNum = bComboOfMisses ? iMisses : iCombo;
+	bool bShowCombo = iNum >= (int)SHOW_COMBO_AT;
 
-	if( (iNum < (int)SHOW_COMBO_AT)  || 
-		(bMisses && !(bool)SHOW_MISS_COMBO) )
+	if( !bShowCombo )
 	{
 		m_sprComboLabel->SetHidden( true );
 		m_sprMissesLabel->SetHidden( true );
@@ -95,11 +95,11 @@ void Combo::SetCombo( int iCombo, int iMisses )
 	}
 	m_iLastSeenCombo = iCombo;
 
-	m_sprComboLabel->SetHidden( bMisses );
-	m_sprMissesLabel->SetHidden( !bMisses );
+	m_sprComboLabel->SetHidden( bComboOfMisses );
+	m_sprMissesLabel->SetHidden( !bComboOfMisses );
 	m_textNumber.SetHidden( false );
 
-	CString txt = ssprintf("%d", iNum);
+	RString txt = ssprintf("%d", iNum);
 	
 	// Do pulse even if the number isn't changing.
 
@@ -110,7 +110,7 @@ void Combo::SetCombo( int iCombo, int iMisses )
 	m_textNumber.SetZoom( fNumberZoom );
 	m_textNumber.RunCommands( PULSE_COMMAND ); 
 
-	AutoActor &sprLabel = bMisses ? m_sprMissesLabel : m_sprComboLabel;
+	AutoActor &sprLabel = bComboOfMisses ? m_sprMissesLabel : m_sprComboLabel;
 
 	sprLabel->FinishTweening();
 	sprLabel->RunCommands( PULSE_COMMAND );
@@ -124,22 +124,27 @@ void Combo::SetCombo( int iCombo, int iMisses )
 	bool bPastMidpoint = GAMESTATE->GetCourseSongIndex()>0 ||
 		GAMESTATE->m_fMusicSeconds > GAMESTATE->m_pCurSong->m_fMusicLengthSeconds/4;
 
-	if( bPastMidpoint )
+	if( bComboOfMisses )
 	{
-		if( m_pPlayerStageStats->FullComboOfScore(TNS_MARVELOUS) )
+		sprLabel->RunCommands( MISS_COMBO_COMMAND );
+		m_textNumber.RunCommands( MISS_COMBO_COMMAND );
+	}
+	else if( bPastMidpoint )
+	{
+		if( m_pPlayerStageStats->FullComboOfScore(TNS_W1) )
 		{
-			sprLabel->RunCommands( FULL_COMBO_MARVELOUSES_COMMAND );
-			m_textNumber.RunCommands( FULL_COMBO_MARVELOUSES_COMMAND );
+			sprLabel->RunCommands( FULL_COMBO_W1_COMMAND );
+			m_textNumber.RunCommands( FULL_COMBO_W1_COMMAND );
 		}
-		else if( bPastMidpoint && m_pPlayerStageStats->FullComboOfScore(TNS_PERFECT) )
+		else if( bPastMidpoint && m_pPlayerStageStats->FullComboOfScore(TNS_W2) )
 		{
-			sprLabel->RunCommands( FULL_COMBO_PERFECTS_COMMAND );
-			m_textNumber.RunCommands( FULL_COMBO_PERFECTS_COMMAND );
+			sprLabel->RunCommands( FULL_COMBO_W2_COMMAND );
+			m_textNumber.RunCommands( FULL_COMBO_W2_COMMAND );
 		}
-		else if( bPastMidpoint && m_pPlayerStageStats->FullComboOfScore(TNS_GREAT) )
+		else if( bPastMidpoint && m_pPlayerStageStats->FullComboOfScore(TNS_W3) )
 		{
-			sprLabel->RunCommands( FULL_COMBO_GREATS_COMMAND );
-			m_textNumber.RunCommands( FULL_COMBO_GREATS_COMMAND );
+			sprLabel->RunCommands( FULL_COMBO_W3_COMMAND );
+			m_textNumber.RunCommands( FULL_COMBO_W3_COMMAND );
 		}
 		else
 		{

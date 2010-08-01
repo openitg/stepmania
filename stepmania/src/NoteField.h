@@ -6,8 +6,6 @@
 #include "Sprite.h"
 #include "ActorFrame.h"
 #include "BitmapText.h"
-#include "PrefsManager.h"
-#include "BitmapText.h"
 #include "Quad.h"
 #include "NoteData.h"
 #include "NoteDisplay.h"
@@ -20,6 +18,7 @@ public:
 	NoteField();
 	~NoteField();
 	virtual void Update( float fDeltaTime );
+	virtual void ProcessMessages( float fDeltaTime );
 	virtual void DrawPrimitives();
 	
 	virtual void Init( const PlayerState* pPlayerState, float fYReverseOffsetPixels );
@@ -29,10 +28,10 @@ public:
 		int iEndDrawingPixel );
 	virtual void Unload();
 
-	int	m_iBeginMarker, m_iEndMarker;	// only used with MODE_EDIT
-
+	// This is done automatically by Init(), but can be re-called explicitly if the
+	// note skin changes.
+	void CacheAllUsedNoteSkins();
 	void FadeToFail();
-	void CacheNoteSkin( const CString &sNoteSkin );
 
 	void Step( int iCol, TapNoteScore score );
 	void SetPressed( int iCol );
@@ -40,12 +39,14 @@ public:
 	void DidHoldNote( int iCol, HoldNoteScore score, bool bBright );
 
 	const PlayerState *GetPlayerState() const { return m_pPlayerState; }
-	void RefreshBeatToNoteSkin();
+
+	int				m_iBeginMarker, m_iEndMarker;	// only used with MODE_EDIT
 
 protected:
-	void CacheAllUsedNoteSkins();
+	void CacheNoteSkin( const RString &sNoteSkin );
+	void UncacheNoteSkin( const RString &sNoteSkin );
 
-	bool IsOnScreen( float fBeat, int iFirstPixelToDraw, int iLastPixelToDraw );
+	bool IsOnScreen( float fBeat, int iFirstPixelToDraw, int iLastPixelToDraw ) const;
 
 	void DrawBeatBar( const float fBeat );
 	void DrawMarkerBar( int fBeat );
@@ -53,48 +54,38 @@ protected:
 	void DrawBPMText( const float fBeat, const float fBPM );
 	void DrawFreezeText( const float fBeat, const float fBPM );
 	void DrawAttackText( const float fBeat, const Attack &attack );
-	void DrawBGChangeText( const float fBeat, const CString sNewBGName );
-	float GetWidth();
+	void DrawBGChangeText( const float fBeat, const RString sNewBGName );
+	float GetWidth() const;
 
 	const NoteData *m_pNoteData;
 
-	float	m_fPercentFadeToFail;	// -1 of not fading to fail
+	float				m_fPercentFadeToFail;	// -1 if not fading to fail
 
-	const PlayerState*	m_pPlayerState;
+	const PlayerState*		m_pPlayerState;
 	int				m_iStartDrawingPixel;	// this should be a negative number
 	int				m_iEndDrawingPixel;	// this should be a positive number
-	float			m_fYReverseOffsetPixels;
+	float				m_fYReverseOffsetPixels;
 
 	// color arrows
 	struct NoteDisplayCols
 	{
 		NoteDisplay		*display;
 		ReceptorArrowRow	m_ReceptorArrowRow;
-		GhostArrowRow	m_GhostArrowRow;
+		GhostArrowRow		m_GhostArrowRow;
 		NoteDisplayCols( int iNumCols ) { display = new NoteDisplay[iNumCols]; }
 		~NoteDisplayCols() { delete [] display; }
 	};
 
 	/* All loaded note displays, mapped by their name. */
-	map<CString, NoteDisplayCols *> m_NoteDisplays;
-
-	int m_LastSeenBeatToNoteSkinRev;
-
-	/* Map of beat->NoteDisplayCols.  This is updated whenever GAMESTATE-> changes. */
-	typedef map<float, NoteDisplayCols *> NDMap;
-	void SearchForBeat( NDMap::iterator &cur, NDMap::iterator &next, float Beat );
-	NoteDisplayCols *SearchForBeat( float Beat );
-	NoteDisplayCols *SearchForSongBeat();
-
-	NDMap m_BeatToNoteDisplays;
-
-	NoteDisplayCols *LastDisplay;
+	map<RString, NoteDisplayCols *> m_NoteDisplays;
+	NoteDisplayCols			*m_pCurDisplay;
+	NoteDisplayCols			*m_pDisplays[NUM_PlayerNumber];
 
 	// used in MODE_EDIT
-	Sprite			m_sprBars;	// 4 frames: Measure, 4th, 8th, 16th
-	BitmapText		m_textMeasureNumber;
-	Quad			m_rectMarkerBar;
-	Quad			m_rectAreaHighlight;
+	Sprite				m_sprBars;	// 4 frames: Measure, 4th, 8th, 16th
+	BitmapText			m_textMeasureNumber;
+	Quad				m_rectMarkerBar;
+	Quad				m_rectAreaHighlight;
 };
 
 #endif

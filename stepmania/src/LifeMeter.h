@@ -4,6 +4,7 @@
 #include "PlayerNumber.h"
 #include "GameConstantsAndTypes.h"
 #include "ActorFrame.h"
+#include "SongOptions.h"
 
 class PlayerState;
 class PlayerStageStats;
@@ -26,7 +27,7 @@ public:
 	virtual void ChangeLife( TapNoteScore score ) = 0;
 	/* Change life after receiving a hold note grade.  tscore is the score
 	 * received for the initial tap note. */
-	virtual void ChangeLife( HoldNoteScore score, TapNoteScore tscore ) = 0;
+	virtual void ChangeLife( HoldNoteScore hns, TapNoteScore tns ) = 0;
 	virtual void OnDancePointsChange() = 0;	// look in GAMESTATE and update the display
 	virtual bool IsInDanger() const = 0;
 	virtual bool IsHot() const = 0;
@@ -34,6 +35,8 @@ public:
 	virtual float GetLife() const { return 0; } // for cosmetic use only
 	virtual void UpdateNonstopLifebar(int cleared, int total, int ProgressiveLifebarDifficulty) = 0;
 	virtual void ForceFail() = 0;
+
+	static LifeMeter *MakeLifeMeter( SongOptions::LifeType t );
 
 protected:
 	const PlayerState *m_pPlayerState;

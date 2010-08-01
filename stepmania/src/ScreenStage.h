@@ -11,7 +11,6 @@
 class ScreenStage : public Screen
 {
 public:
-	ScreenStage( CString sName );
 	virtual void Init();
 
 	virtual void HandleScreenMessage( const ScreenMessage SM );
@@ -23,8 +22,6 @@ private:
 
 	Transition		m_In, m_Out, m_Cancel;
 	AutoActor		m_sprOverlay;
-
-	bool			m_bZeroDeltaOnNextUpdate;
 };
 
 #endif

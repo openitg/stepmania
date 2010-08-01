@@ -12,6 +12,7 @@
 #include "arch/ArchHooks/ArchHooks.h"
 #include "LuaManager.h"
 #include "AutoActor.h"
+#include "ThemeManager.h"
 
 
 const float PARTICLE_SPEED = 300;
@@ -26,27 +27,6 @@ const float SPIRAL_MIN_ZOOM = 0.3f;
 
 BGAnimationLayer::BGAnimationLayer()
 {
-	Init();
-}
-
-BGAnimationLayer::~BGAnimationLayer()
-{
-	Unload();
-}
-
-void BGAnimationLayer::Unload()
-{
-	ActorFrame::DeleteAllChildren();
-}
-
-void BGAnimationLayer::Init()
-{
-	Unload();
-
-	m_fUpdateRate = 1;
-	m_fFOV = -1;	// no change
-	m_bLighting = false;
-
 	m_vParticleVelocity.clear();
 
 	m_Type = TYPE_SPRITE;
@@ -64,18 +44,22 @@ void BGAnimationLayer::Init()
 	m_fTileVelocityY = 0;
 }
 
-void BGAnimationLayer::LoadFromAniLayerFile( const CString& sPath )
+BGAnimationLayer::~BGAnimationLayer()
+{
+	ActorFrame::DeleteAllChildren();
+}
+
+void BGAnimationLayer::LoadFromAniLayerFile( const RString& sPath )
 {
 	/* Generic BGAs are new.  Animation directories with no INI are old and obsolete. 
 	 * Don't combine them. */
-	Init();
-	CString lcPath = sPath;
+	RString lcPath = sPath;
 	lcPath.MakeLower();
 
-	if( lcPath.find("usesongbg") != CString::npos )
+	if( lcPath.find("usesongbg") != RString::npos )
 	{
 		const Song* pSong = GAMESTATE->m_pCurSong;
-		CString sSongBGPath;
+		RString sSongBGPath;
 		if( pSong && pSong->HasBackground() )
 			sSongBGPath = pSong->GetBackgroundPath();
 		else
@@ -119,7 +103,7 @@ void BGAnimationLayer::LoadFromAniLayerFile( const CString& sPath )
 		EFFECT_INVALID
 	};
 
-	const CString EFFECT_STRING[NUM_EFFECTS] = {
+	const RString EFFECT_STRING[NUM_EFFECTS] = {
 		"center",
 		"stretchstill",
 		"stretchscrollleft",
@@ -150,7 +134,7 @@ void BGAnimationLayer::LoadFromAniLayerFile( const CString& sPath )
 	Effect effect = EFFECT_CENTER;
 
 	for( int i=0; i<NUM_EFFECTS; i++ )
-		if( lcPath.Find(EFFECT_STRING[i]) != -1 )
+		if( lcPath.find(EFFECT_STRING[i]) != string::npos )
 			effect = (Effect)i;
 
 	switch( effect )
@@ -329,35 +313,34 @@ void BGAnimationLayer::LoadFromAniLayerFile( const CString& sPath )
 	}
 
 
-	CString sHint = sPath;
+	RString sHint = sPath;
 	sHint.MakeLower();
 
-	if( sHint.Find("cyclecolor") != -1 )
+	if( sHint.find("cyclecolor") != RString::npos )
 		for( unsigned i=0; i<m_SubActors.size(); i++ )
 			m_SubActors[i]->SetEffectRainbow( 5 );
 
-	if( sHint.Find("cyclealpha") != -1 )
+	if( sHint.find("cyclealpha") != RString::npos )
 		for( unsigned i=0; i<m_SubActors.size(); i++ )
 			m_SubActors[i]->SetEffectDiffuseShift( 2, RageColor(1,1,1,1), RageColor(1,1,1,0) );
 
-	if( sHint.Find("startonrandomframe") != -1 )
+	if( sHint.find("startonrandomframe") != RString::npos )
 		for( unsigned i=0; i<m_SubActors.size(); i++ )
-			m_SubActors[i]->SetState( rand()%m_SubActors[i]->GetNumStates() );
+			m_SubActors[i]->SetState( RandomInt(m_SubActors[i]->GetNumStates()) );
 
-	if( sHint.Find("dontanimate") != -1 )
+	if( sHint.find("dontanimate") != RString::npos )
 		for( unsigned i=0; i<m_SubActors.size(); i++ )
 			m_SubActors[i]->StopAnimating();
 
-	if( sHint.Find("add") != -1 )
+	if( sHint.find("add") != RString::npos )
 		for( unsigned i=0; i<m_SubActors.size(); i++ )
 			m_SubActors[i]->SetBlendMode( BLEND_ADD );
 }
 
-void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
+void BGAnimationLayer::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
-	CString sAniDir = sDir;
+	RString sAniDir = sDir;
 
-	Init();
 	if( sAniDir.Right(1) != "/" )
 		sAniDir += "/";
 
@@ -366,7 +349,7 @@ void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
 	CHECKPOINT_M( ssprintf( "BGAnimationLayer::LoadFromIni \"%s\"", sAniDir.c_str() ) );
 
 	{
-		CString expr;
+		RString expr;
 		if( pNode->GetAttrValue("Condition", expr) )
 		{
 			if( !LuaHelpers::RunExpressionB(expr) )
@@ -376,7 +359,7 @@ void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
 
 	bool bStretch = false;
 	{
-		CString type = "sprite";
+		RString type = "sprite";
 		pNode->GetAttrValue( "Type", type );
 		type.MakeLower();
 
@@ -420,6 +403,7 @@ void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
 
 	pNode->GetAttrValue( "FOV", m_fFOV );
 	pNode->GetAttrValue( "Lighting", m_bLighting );
+
 	pNode->GetAttrValue( "TexCoordVelocityX", m_fTexCoordVelocityX );
 	pNode->GetAttrValue( "TexCoordVelocityY", m_fTexCoordVelocityY );
 	pNode->GetAttrValue( "DrawCond", m_sDrawCond );
@@ -462,7 +446,7 @@ void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
 	{
 	case TYPE_SPRITE:
 		{
-			Actor* pActor = ActorUtil::LoadFromActorFile( sAniDir, pNode );
+			Actor* pActor = ActorUtil::LoadFromNode( sAniDir, pNode );
 			this->AddChild( pActor );
 			if( bStretch )
 				pActor->StretchTo( FullScreenRectF );
@@ -470,11 +454,11 @@ void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
 		break;
 	case TYPE_PARTICLES:
 		{
-			CString sFile;
+			RString sFile;
 			pNode->GetAttrValue( "File", sFile );
 			FixSlashesInPlace( sFile );
 			
-			CString sPath = sAniDir+sFile;
+			RString sPath = sAniDir+sFile;
 			CollapsePath( sPath );
 
 
@@ -501,11 +485,11 @@ void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
 		break;
 	case TYPE_TILES:
 		{
-			CString sFile;
+			RString sFile;
 			pNode->GetAttrValue( "File", sFile );
 			FixSlashesInPlace( sFile );
 			
-			CString sPath = sAniDir+sFile;
+			RString sPath = sAniDir+sFile;
 			CollapsePath( sPath );
 
 			AutoActor s;
@@ -535,7 +519,7 @@ void BGAnimationLayer::LoadFromNode( const CString& sDir, const XNode* pNode )
 	if( bStartOnRandomFrame )
 	{
 		for( unsigned i=0; i<m_SubActors.size(); i++ )
-			m_SubActors[i]->SetState( rand()%m_SubActors[i]->GetNumStates() );
+			m_SubActors[i]->SetState( RandomInt(m_SubActors[i]->GetNumStates()) );
 	}
 }
 

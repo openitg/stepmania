@@ -22,21 +22,25 @@
 #include <limits.h>
 #include "CourseLoaderCRS.h"
 #include "LuaFunctions.h"
+#include "LocalizedString.h"
+#include "StepsUtil.h"
+#include "Preference.h"
 
+static Preference<int> MAX_SONGS_IN_EDIT_COURSE( "MaxSongsInEditCourse", -1 );
 
-static const CString CourseTypeNames[] = {
+static const char *CourseTypeNames[] = {
 	"Nonstop",
 	"Oni",
 	"Endless",
 	"Survival",
 };
 XToString( CourseType, NUM_CourseType );
-XToThemedString( CourseType, NUM_CourseType );
+XToLocalizedString( CourseType );
 
-LuaFunction( CourseTypeToThemedString, CourseTypeToThemedString((CourseType) IArg(1)) );
+LuaFunction( CourseTypeToLocalizedString, CourseTypeToLocalizedString((CourseType) IArg(1)) );
 
 
-static const CString SongSortNames[] = {
+static const char *SongSortNames[] = {
 	"Randomize",
 	"MostPlays",
 	"FewestPlays",
@@ -44,36 +48,39 @@ static const CString SongSortNames[] = {
 	"LowestGrades",
 };
 XToString( SongSort, NUM_SongSort );
-XToThemedString( SongSort, NUM_SongSort );
+XToLocalizedString( SongSort );
 
 
 /* Maximum lower value of ranges when difficult: */
 const int MAX_BOTTOM_RANGE = 10;
 
-#define SORT_LEVEL1_COLOR		THEME->GetMetricC("Course","SortLevel1Color")
-#define SORT_LEVEL2_COLOR		THEME->GetMetricC("Course","SortLevel2Color")
-#define SORT_LEVEL3_COLOR		THEME->GetMetricC("Course","SortLevel3Color")
-#define SORT_LEVEL4_COLOR		THEME->GetMetricC("Course","SortLevel4Color")
-#define SORT_LEVEL5_COLOR		THEME->GetMetricC("Course","SortLevel5Color")
+#define SORT_PREFERRED_COLOR	THEME->GetMetricC("Course","SortPreferredColor")
+#define SORT_LEVEL1_COLOR	THEME->GetMetricC("Course","SortLevel1Color")
+#define SORT_LEVEL2_COLOR	THEME->GetMetricC("Course","SortLevel2Color")
+#define SORT_LEVEL3_COLOR	THEME->GetMetricC("Course","SortLevel3Color")
+#define SORT_LEVEL4_COLOR	THEME->GetMetricC("Course","SortLevel4Color")
+#define SORT_LEVEL5_COLOR	THEME->GetMetricC("Course","SortLevel5Color")
 
 
-CString CourseEntry::GetTextDescription() const
+RString CourseEntry::GetTextDescription() const
 {
-	vector<CString> vsEntryDescription;
+	vector<RString> vsEntryDescription;
 	if( pSong )
 		vsEntryDescription.push_back( pSong->GetTranslitFullTitle() ); 
 	else
 		vsEntryDescription.push_back( "Random" );
-	if( !sSongGroup.empty() )
-		vsEntryDescription.push_back( sSongGroup );
-	if( baseDifficulty != DIFFICULTY_INVALID && baseDifficulty != DIFFICULTY_MEDIUM )
-		vsEntryDescription.push_back( DifficultyToThemedString(baseDifficulty) );
-	if( iLowMeter != -1 )
-		vsEntryDescription.push_back( ssprintf("Low meter: %d", iLowMeter) );
-	if( iHighMeter != -1 )
-		vsEntryDescription.push_back( ssprintf("High meter: %d", iHighMeter) );
+	if( !songCriteria.m_sGroupName.empty() )
+		vsEntryDescription.push_back( songCriteria.m_sGroupName );
+	if( songCriteria.m_bUseSongGenreAllowedList )
+		vsEntryDescription.push_back( join(",",songCriteria.m_vsSongGenreAllowedList) );
+	if( stepsCriteria.m_difficulty != DIFFICULTY_INVALID  &&  stepsCriteria.m_difficulty != DIFFICULTY_MEDIUM )
+		vsEntryDescription.push_back( DifficultyToLocalizedString(stepsCriteria.m_difficulty) );
+	if( stepsCriteria.m_iLowMeter != -1 )
+		vsEntryDescription.push_back( ssprintf("Low meter: %d", stepsCriteria.m_iLowMeter) );
+	if( stepsCriteria.m_iHighMeter != -1 )
+		vsEntryDescription.push_back( ssprintf("High meter: %d", stepsCriteria.m_iHighMeter) );
 	if( songSort != SongSort_Randomize )
-		vsEntryDescription.push_back( "Sort: %d" + SongSortToThemedString(songSort) );
+		vsEntryDescription.push_back( "Sort: %d" + SongSortToLocalizedString(songSort) );
 	if( songSort != SongSort_Randomize && iChooseIndex != 0 )
 		vsEntryDescription.push_back( "Choose " + FormatNumberAndSuffix(iChooseIndex) + " match" );
 	int iNumModChanges = GetNumModChanges();
@@ -82,7 +89,7 @@ CString CourseEntry::GetTextDescription() const
 	if( fGainSeconds != 0 )
 		vsEntryDescription.push_back( ssprintf("Low meter: %.0f", fGainSeconds) );
 
-	CString s = join( ",", vsEntryDescription );
+	RString s = join( ",", vsEntryDescription );
 	return s;
 }
 
@@ -190,7 +197,7 @@ void Course::RevertFromDisk()
 	CourseLoaderCRS::LoadFromCRSFile( m_sPath, *this );
 }
 
-CString Course::GetCacheFilePath() const
+RString Course::GetCacheFilePath() const
 {
 	return SongCacheIndex::GetCacheFilePath( "Courses", m_sPath );
 }
@@ -214,101 +221,8 @@ void Course::Init()
 	m_sSubTitleTranslit = "";
 	m_sBannerPath = "";
 	m_sCDTitlePath = "";
-	m_LoadedFromProfile = PROFILE_SLOT_INVALID;
+	m_LoadedFromProfile = ProfileSlot_INVALID;
 	m_iTrailCacheSeed = 0;
-}
-
-void Course::AutogenEndlessFromGroup( CString sGroupName, Difficulty diff )
-{
-	m_bIsAutogen = true;
-	m_bRepeat = true;
-	m_bShuffle = true;
-	m_iLives = -1;
-	FOREACH_Difficulty(dc)
-		m_iCustomMeter[dc] = -1;
-
-	if( sGroupName == "" )
-	{
-		m_sMainTitle = "All Songs";
-		// m_sBannerPath = ""; // XXX
-	}
-	else
-	{
-		m_sMainTitle = SONGMAN->ShortenGroupName( sGroupName );
-		m_sBannerPath = SONGMAN->GetSongGroupBannerPath( sGroupName );
-	}
-
-	// We want multiple songs, so we can try to prevent repeats during
-	// gameplay. (We might still get a repeat at the repeat boundary,
-	// but that'd be rare.) -glenn
-	CourseEntry e;
-	e.sSongGroup = sGroupName;
-	e.baseDifficulty = diff;
-	e.bSecret = true;
-
-	vector<Song*> vSongs;
-	SONGMAN->GetSongs( vSongs, e.sSongGroup );
-	for( unsigned i = 0; i < vSongs.size(); ++i)
-		m_vEntries.push_back( e );
-}
-
-void Course::AutogenNonstopFromGroup( CString sGroupName, Difficulty diff )
-{
-	AutogenEndlessFromGroup( sGroupName, diff );
-
-	m_bRepeat = false;
-
-	m_sMainTitle += " Random";	
-
-	// resize to 4
-	while( m_vEntries.size() < 4 )
-		m_vEntries.push_back( m_vEntries[0] );
-	while( m_vEntries.size() > 4 )
-		m_vEntries.pop_back();
-}
-
-void Course::AutogenOniFromArtist( CString sArtistName, CString sArtistNameTranslit, vector<Song*> aSongs, Difficulty dc )
-{
-	m_bIsAutogen = true;
-	m_bRepeat = false;
-	m_bShuffle = true;
-	m_bSortByMeter = true;
-
-	m_iLives = 4;
-	FOREACH_Difficulty(cd)
-		m_iCustomMeter[cd] = -1;
-
-	ASSERT( sArtistName != "" );
-	ASSERT( aSongs.size() > 0 );
-
-	/* "Artist Oni" is a little repetitive; "by Artist" stands out less, and lowercasing
-	 * "by" puts more emphasis on the artist's name.  It also sorts them together. */
-	m_sMainTitle = "by " + sArtistName;
-	if( sArtistNameTranslit != sArtistName )
-		m_sMainTitleTranslit = "by " + sArtistNameTranslit;
-
-
-	// m_sBannerPath = ""; // XXX
-
-	/* Shuffle the list to determine which songs we'll use.  Shuffle it deterministically,
-	 * so we always get the same set of songs unless the song set changes. */
-	{
-		RandomGen rng( GetHashForString( sArtistName ) + aSongs.size() );
-		random_shuffle( aSongs.begin(), aSongs.end(), rng );
-	}
-
-	/* Only use up to four songs. */
-	if( aSongs.size() > 4 )
-		aSongs.erase( aSongs.begin()+4, aSongs.end() );
-
-	CourseEntry e;
-	e.baseDifficulty = dc;
-
-	for( unsigned i = 0; i < aSongs.size(); ++i )
-	{
-		e.pSong = aSongs[i];
-		m_vEntries.push_back( e );
-	}
 }
 
 bool Course::IsPlayableIn( StepsType st ) const
@@ -324,33 +238,33 @@ struct SortTrailEntry
 	bool operator< ( const SortTrailEntry &rhs ) const { return SortMeter < rhs.SortMeter; }
 };
 
-CString Course::GetDisplayMainTitle() const
+RString Course::GetDisplayMainTitle() const
 {
 	if( !PREFSMAN->m_bShowNativeLanguage )
 		return GetTranslitMainTitle();
 	return m_sMainTitle;
 }
 
-CString Course::GetDisplaySubTitle() const
+RString Course::GetDisplaySubTitle() const
 {
 	if( !PREFSMAN->m_bShowNativeLanguage )
 		return GetTranslitSubTitle();
 	return m_sSubTitle;
 }
 
-CString Course::GetDisplayFullTitle() const
+RString Course::GetDisplayFullTitle() const
 {
-	CString Title = GetDisplayMainTitle();
-	CString SubTitle = GetDisplaySubTitle();
+	RString Title = GetDisplayMainTitle();
+	RString SubTitle = GetDisplaySubTitle();
 
 	if(!SubTitle.empty()) Title += " " + SubTitle;
 	return Title;
 }
 
-CString Course::GetTranslitFullTitle() const
+RString Course::GetTranslitFullTitle() const
 {
-	CString Title = GetTranslitMainTitle();
-	CString SubTitle = GetTranslitSubTitle();
+	RString Title = GetTranslitMainTitle();
+	RString SubTitle = GetTranslitSubTitle();
 
 	if(!SubTitle.empty()) Title += " " + SubTitle;
 	return Title;
@@ -369,20 +283,7 @@ Trail* Course::GetTrail( StepsType st, CourseDifficulty cd ) const
 	//
 	if( m_iTrailCacheSeed != GAMESTATE->m_iStageSeed )
 	{
-		/* If we have any random entries (so that the seed matters), invalidate the cache. */
-		bool bHaveRandom = false;
-		FOREACH_CONST( CourseEntry, m_vEntries, e )
-		{
-			if( e->IsRandomSong() )
-			{
-				bHaveRandom = true;
-				break;
-			}
-		}
-		
-		if( bHaveRandom )
-			m_TrailCache.clear();
-
+		RegenerateNonFixedTrails();
 		m_iTrailCacheSeed = GAMESTATE->m_iStageSeed;
 	}
 
@@ -454,7 +355,7 @@ bool Course::GetTrailSorted( StepsType st, CourseDifficulty cd, Trail &trail ) c
 			ASSERT( bOK );
 		}
 		ASSERT_M( trail.m_vEntries.size() == SortTrail.m_vEntries.size(),
-                  ssprintf("%i %i", int(trail.m_vEntries.size()), int(SortTrail.m_vEntries.size())) );
+			ssprintf("%i %i", int(trail.m_vEntries.size()), int(SortTrail.m_vEntries.size())) );
 
 		vector<SortTrailEntry> entries;
 		for( unsigned i = 0; i < trail.m_vEntries.size(); ++i )
@@ -471,6 +372,32 @@ bool Course::GetTrailSorted( StepsType st, CourseDifficulty cd, Trail &trail ) c
 	}
 
 	return true;
+}
+
+// TODO: Move Course initialization after PROFILEMAN is created
+static void CourseSortSongs( SongSort sort, vector<Song*> &vpPossibleSongs, RandomGen &rnd )
+{
+	switch( sort )
+	{
+	DEFAULT_FAIL(sort);
+	case SongSort_Randomize:
+		random_shuffle( vpPossibleSongs.begin(), vpPossibleSongs.end(), rnd );
+		break;
+	case SongSort_MostPlays:
+		if( PROFILEMAN )
+			SongUtil::SortSongPointerArrayByNumPlays( vpPossibleSongs, PROFILEMAN->GetMachineProfile(), true );	// descending
+		break;
+	case SongSort_FewestPlays:
+		if( PROFILEMAN )
+			SongUtil::SortSongPointerArrayByNumPlays( vpPossibleSongs, PROFILEMAN->GetMachineProfile(), false );	// ascending
+		break;
+	case SongSort_TopGrades:
+		SongUtil::SortSongPointerArrayByGrades( vpPossibleSongs, true );	// descending
+		break;
+	case SongSort_LowestGrades:
+		SongUtil::SortSongPointerArrayByGrades( vpPossibleSongs, false );	// ascending
+		break;
+	}
 }
 
 bool Course::GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail ) const
@@ -512,134 +439,89 @@ bool Course::GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail )
 	/* Set to true if CourseDifficulty is able to change something. */
 	bool bCourseDifficultyIsSignificant = (cd == DIFFICULTY_MEDIUM);
 
+	vector<Song*> vpAllPossibleSongs;
+
 	// Resolve each entry to a Song and Steps.
 	FOREACH_CONST( CourseEntry, entries, e )
 	{
-		Song* pResolvedSong = NULL;	// fill this in
-		Steps* pResolvedSteps = NULL;	// fill this in
+		SongAndSteps resolved = { NULL, NULL };	// fill this in
 
-		//
-		// Create a list of matching songs.
-		//
 
-		// Start with all songs
-		vector<Song*> vpPossibleSongs;
-		
+		SongCriteria soc = e->songCriteria;
 		if( e->pSong )
 		{
-			// Choose an exact song
-			vpPossibleSongs.push_back( e->pSong );
+			soc.m_bUseSongAllowedList = true;
+			soc.m_vpSongAllowedList.push_back( e->pSong );
+		}
+		soc.m_Tutorial = SongCriteria::Tutorial_No;
+		soc.m_Locked = SongCriteria::Locked_Unlocked;
+		soc.m_Locked = SongCriteria::Locked_Unlocked;
+		if( !soc.m_bUseSongAllowedList )
+			soc.m_iStagesForSong = 1;
+
+		StepsCriteria stc = e->stepsCriteria;
+		stc.m_st = st;
+		stc.m_Locked = StepsCriteria::Locked_Unlocked;
+
+		vector<SongAndSteps> vSongAndSteps;
+		StepsUtil::GetAllMatching( soc, stc, vSongAndSteps );
+
+		// It looks bad to have the same song 2x in a row in a randomly generated course.
+		// Don't allow the same song to be played 2x in a row, unless there's only
+		// one song in vpPossibleSongs.
+		if( trail.m_vEntries.size() > 0  &&  vSongAndSteps.size() > 1 )
+		{
+			const TrailEntry &teLast = trail.m_vEntries[trail.m_vEntries.size()-1];
+			bool bExistsDifferentSongThanLast = false;
+			FOREACH_CONST( SongAndSteps, vSongAndSteps, sas )
+			{
+				if( sas->pSong != teLast.pSong )
+				{
+					bExistsDifferentSongThanLast = true;
+					break;
+				}
+			}
+
+			for( int i=vSongAndSteps.size()-1; i>=0; i-- )
+			{
+				if( vSongAndSteps[i].pSong == teLast.pSong )
+					vSongAndSteps.erase( vSongAndSteps.begin()+i );
+			}
+		}
+
+		// if there are no songs to choose from, abort this CourseEntry
+		if( vSongAndSteps.empty() )
+			continue;
+
+		vector<Song*> vpSongs;
+		typedef vector<Steps*> StepsVector;
+		map<Song*,StepsVector> mapSongToSteps;
+		FOREACH_CONST( SongAndSteps, vSongAndSteps, sas )
+		{
+			mapSongToSteps[sas->pSong].push_back(sas->pSteps);
+			vpSongs.push_back( sas->pSong );
+		}
+
+		CourseSortSongs( e->songSort, vpSongs, rnd );
+		
+		ASSERT( e->iChooseIndex >= 0 );
+		if( e->iChooseIndex < int(vSongAndSteps.size()) )
+		{
+			resolved.pSong = vpSongs[e->iChooseIndex];
+			const vector<Steps*> &vpSongs = mapSongToSteps[resolved.pSong];
+			resolved.pSteps = vpSongs[ rand()%vpSongs.size() ];
 		}
 		else
 		{
-			vpPossibleSongs = SONGMAN->GetAllSongs();
-
-			FOREACH( Song*, vpPossibleSongs, song )
-			{
-				// Ignore locked songs when choosing randomly
-				// TODO: Move Course initialization after UNLOCKMAN is created
-				if( UNLOCKMAN  &&  UNLOCKMAN->SongIsLocked(*song) )
-				{
-					vector<Song*>::iterator eraseme = song;
-					song--;
-					vpPossibleSongs.erase( eraseme );
-					continue;
-				}
-
-				// Ignore boring tutorial songs
-				if( (*song)->IsTutorial() )
-				{
-					vector<Song*>::iterator eraseme = song;
-					song--;
-					vpPossibleSongs.erase( eraseme );
-					continue;
-				}
-
-				// Don't allow long songs
-				if( SONGMAN->GetNumStagesForSong(*song) > 1 )
-				{
-					vector<Song*>::iterator eraseme = song;
-					song--;
-					vpPossibleSongs.erase( eraseme );
-					continue;
-				}
-			}
+			continue;
 		}
-
-
-		// Filter out all songs that don't have matching steps
-		// At the same time, create a list of matching song/steps.
-		typedef vector<Steps*> StepsVector;
-		map<Song*,StepsVector> mapSongToSteps;
-		FOREACH( Song*, vpPossibleSongs, song )
-		{
-			// Apply song group filter
-			if( !e->sSongGroup.empty()  &&  (*song)->m_sGroupName != e->sSongGroup )
-			{
-				vector<Song*>::iterator eraseme = song;
-				song--;
-				vpPossibleSongs.erase( eraseme );
-				continue;
-			}
-
-			vector<Steps*> vpMatchingSteps;
-			(*song)->GetSteps( vpMatchingSteps, st, e->baseDifficulty, e->iLowMeter, e->iHighMeter );
-			if( vpMatchingSteps.empty() )
-			{
-				vector<Song*>::iterator eraseme = song;
-				song--;
-				vpPossibleSongs.erase( eraseme );
-				continue;
-			}
-
-			mapSongToSteps[*song] = vpMatchingSteps;
-		}
-
-
-		// TODO: Move Course initialization after PROFILEMAN is created
-		switch( e->songSort )
-		{
-		default:
-			ASSERT(0);
-		case SongSort_Randomize:
-			random_shuffle( vpPossibleSongs.begin(), vpPossibleSongs.end(), rnd );
-			break;
-		case SongSort_MostPlays:
-			if( PROFILEMAN )
-				SongUtil::SortSongPointerArrayByNumPlays( vpPossibleSongs, PROFILEMAN->GetMachineProfile(), true );	// descending
-			break;
-		case SongSort_FewestPlays:
-			if( PROFILEMAN )
-				SongUtil::SortSongPointerArrayByNumPlays( vpPossibleSongs, PROFILEMAN->GetMachineProfile(), false );	// ascending
-			break;
-		case SongSort_TopGrades:
-			SongUtil::SortSongPointerArrayByGrades( vpPossibleSongs, true );	// descending
-			break;
-		case SongSort_LowestGrades:
-			SongUtil::SortSongPointerArrayByGrades( vpPossibleSongs, false );	// ascending
-			break;
-		}
-
-		if( e->iChooseIndex < int(vpPossibleSongs.size()) )
-		{
-			pResolvedSong = vpPossibleSongs[e->iChooseIndex];
-			vector<Steps*> &vpPossibleSteps = mapSongToSteps[pResolvedSong];
-			ASSERT( !vpPossibleSteps.empty() );	// if no steps are playable, this shouldn't be a possible song
-			random_shuffle( vpPossibleSteps.begin(), vpPossibleSteps.end(), rnd );
-			pResolvedSteps = vpPossibleSteps[0];
-		}
-
-
-		if( pResolvedSong == NULL || pResolvedSteps == NULL )
-			continue;	// this song entry isn't playable.  Skip.
-
 
 		/* If we're not COURSE_DIFFICULTY_REGULAR, then we should be choosing steps that are 
 		 * either easier or harder than the base difficulty.  If no such steps exist, then 
 		 * just use the one we already have. */
-		Difficulty dc = pResolvedSteps->GetDifficulty();
-		int iLowMeter = e->iLowMeter;
-		int iHighMeter = e->iHighMeter;
+		Difficulty dc = resolved.pSteps->GetDifficulty();
+		int iLowMeter = e->stepsCriteria.m_iLowMeter;
+		int iHighMeter = e->stepsCriteria.m_iHighMeter;
 		if( cd != DIFFICULTY_MEDIUM  &&  !e->bNoDifficult )
 		{
 			Difficulty new_dc = (Difficulty)(dc + cd - DIFFICULTY_MEDIUM);
@@ -648,11 +530,11 @@ bool Course::GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail )
 			bool bChangedDifficulty = false;
 			if( new_dc != dc )
 			{
-				Steps* pNewSteps = pResolvedSong->GetStepsByDifficulty( st, new_dc );
+				Steps* pNewSteps = SongUtil::GetStepsByDifficulty( resolved.pSong, st, new_dc );
 				if( pNewSteps )
 				{
 					dc = new_dc;
-					pResolvedSteps = pNewSteps;
+					resolved.pSteps = pNewSteps;
 					bChangedDifficulty = true;
 					bCourseDifficultyIsSignificant = true;
 				}
@@ -665,12 +547,12 @@ bool Course::GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail )
 			 * on the original range, bump the steps based on course difficulty, and
 			 * then retroactively tweak the low_meter/high_meter so course displays
 			 * line up. */
-			if( e->baseDifficulty == DIFFICULTY_INVALID && bChangedDifficulty )
+			if( e->stepsCriteria.m_difficulty == DIFFICULTY_INVALID && bChangedDifficulty )
 			{
 				/* Minimum and maximum to add to make the meter range contain the actual
 				 * meter: */
-				int iMinDist = pResolvedSteps->GetMeter() - iHighMeter;
-				int iMaxDist = pResolvedSteps->GetMeter() - iLowMeter;
+				int iMinDist = resolved.pSteps->GetMeter() - iHighMeter;
+				int iMaxDist = resolved.pSteps->GetMeter() - iLowMeter;
 
 				/* Clamp the possible adjustments to try to avoid going under 1 or over
 				 * MAX_BOTTOM_RANGE. */
@@ -688,8 +570,8 @@ bool Course::GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail )
 		}
 
 		TrailEntry te;
-		te.pSong = pResolvedSong;
-		te.pSteps = pResolvedSteps;
+		te.pSong = resolved.pSong;
+		te.pSteps = resolved.pSteps;
 		te.Modifiers = e->sModifiers;
 		te.Attacks = e->attacks;
 		te.bSecret = e->bSecret;
@@ -698,7 +580,7 @@ bool Course::GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail )
 
 		/* If we chose based on meter (not difficulty), then store DIFFICULTY_INVALID, so
 		 * other classes can tell that we used meter. */
-		if( e->baseDifficulty == DIFFICULTY_INVALID )
+		if( e->stepsCriteria.m_difficulty == DIFFICULTY_INVALID )
 		{
 			te.dc = DIFFICULTY_INVALID;
 		}
@@ -708,7 +590,13 @@ bool Course::GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail )
 			 * This may or may not be the same as e.difficulty. */
 			te.dc = dc;
 		}
-		trail.m_vEntries.push_back( te ); 
+		trail.m_vEntries.push_back( te );
+		
+		if( IsAnEdit() && MAX_SONGS_IN_EDIT_COURSE > 0 &&
+		    int(trail.m_vEntries.size()) >= MAX_SONGS_IN_EDIT_COURSE )
+		{
+			break;
+		}
 	}
 
 	/* Hack: If any entry was non-FIXED, or m_bShuffle is set, then radar values
@@ -754,7 +642,7 @@ void Course::GetAllTrails( vector<Trail*> &AddTo ) const
 
 int Course::GetMeter( StepsType st, CourseDifficulty cd ) const
 {
-    if( m_iCustomMeter[cd] != -1 )
+	if( m_iCustomMeter[cd] != -1 )
 		return m_iCustomMeter[cd];
 	const Trail* pTrail = GetTrail( st );
 	if( pTrail != NULL )
@@ -777,7 +665,7 @@ bool Course::AllSongsAreFixed() const
 {
 	FOREACH_CONST( CourseEntry, m_vEntries, e )
 	{
-		if( e->pSong == NULL )
+		if( !e->IsFixedSong() )
 			return false;
 	}
 	return true;
@@ -813,13 +701,13 @@ void Course::Invalidate( Song *pStaleSong )
 	}
 }
 
-void Course::RegenerateNonFixedTrails()
+void Course::RegenerateNonFixedTrails() const
 {
 	// Only need to regen Trails if the Course has a random entry.
 	// We can create these Trails on demand because we don't 
 	// calculate RadarValues for Trails with one or more non-fixed 
 	// entry.
-	if( !IsFixed() )
+	if( !AllSongsAreFixed() )
 		m_TrailCache.clear();
 }
 
@@ -830,51 +718,42 @@ RageColor Course::GetColor() const
 	
 	switch( PREFSMAN->m_CourseSortOrder )
 	{
+	case PrefsManager::COURSE_SORT_PREFERRED:
+		return SORT_PREFERRED_COLOR;		//This will also be used for autogen'd courses in some cases.	
+
 	case PrefsManager::COURSE_SORT_SONGS:	
-		if( m_vEntries.size() >= 7 )				return SORT_LEVEL2_COLOR;
-		else if( m_vEntries.size() >= 4 )		return SORT_LEVEL4_COLOR;
-		else									return SORT_LEVEL5_COLOR;
+		if( m_vEntries.size() >= 7 )		return SORT_LEVEL2_COLOR;
+		else if( m_vEntries.size() >= 4 )	return SORT_LEVEL4_COLOR;
+		else					return SORT_LEVEL5_COLOR;
 
 	case PrefsManager::COURSE_SORT_METER:
-		if( !IsFixed() )						return SORT_LEVEL1_COLOR;
-		else if( iMeter > 9 )					return SORT_LEVEL2_COLOR;
-		else if( iMeter >= 7 )					return SORT_LEVEL3_COLOR;
-		else if( iMeter >= 5 )					return SORT_LEVEL4_COLOR;
-		else 									return SORT_LEVEL5_COLOR;
+		if( !AllSongsAreFixed() )		return SORT_LEVEL1_COLOR;
+		else if( iMeter > 9 )			return SORT_LEVEL2_COLOR;
+		else if( iMeter >= 7 )			return SORT_LEVEL3_COLOR;
+		else if( iMeter >= 5 )			return SORT_LEVEL4_COLOR;
+		else 					return SORT_LEVEL5_COLOR;
 
 	case PrefsManager::COURSE_SORT_METER_SUM:
-		if( !IsFixed() )						return SORT_LEVEL1_COLOR;
+		if( !AllSongsAreFixed() )		return SORT_LEVEL1_COLOR;
 		if( m_SortOrder_TotalDifficulty >= 40 )	return SORT_LEVEL2_COLOR;
 		if( m_SortOrder_TotalDifficulty >= 30 )	return SORT_LEVEL3_COLOR;
 		if( m_SortOrder_TotalDifficulty >= 20 )	return SORT_LEVEL4_COLOR;
-		else									return SORT_LEVEL5_COLOR;
+		else					return SORT_LEVEL5_COLOR;
 
 	case PrefsManager::COURSE_SORT_RANK:
-		if( m_SortOrder_Ranking == 3 )			return SORT_LEVEL1_COLOR;
-		else if( m_SortOrder_Ranking == 2 )		return SORT_LEVEL3_COLOR;
-		else if( m_SortOrder_Ranking == 1 )		return SORT_LEVEL5_COLOR;
-		else									return SORT_LEVEL4_COLOR;
+		if( m_SortOrder_Ranking == 3 )		return SORT_LEVEL1_COLOR;
+		else if( m_SortOrder_Ranking == 2 )	return SORT_LEVEL3_COLOR;
+		else if( m_SortOrder_Ranking == 1 )	return SORT_LEVEL5_COLOR;
+		else					return SORT_LEVEL4_COLOR;
 	default:
-		ASSERT(0);
+		FAIL_M( ssprintf("Invalid course sort %d.", int(PREFSMAN->m_CourseSortOrder)) );
 		return RageColor(1,1,1,1);  // white, never should reach here
 	}
 }
 
-bool Course::IsFixed() const
-{
-	for(unsigned i = 0; i < m_vEntries.size(); i++)
-	{
-		if( m_vEntries[i].pSong == NULL )
-			return false;
-	}
-
-	return true;
-}
-
-
 bool Course::GetTotalSeconds( StepsType st, float& fSecondsOut ) const
 {
-	if( !IsFixed() )
+	if( !AllSongsAreFixed() )
 		return false;
 
 	Trail* pTrail = GetTrail( st, DIFFICULTY_MEDIUM );
@@ -932,7 +811,7 @@ void Course::UpdateCourseStats( StepsType st )
 
 bool Course::IsRanking() const
 {
-	CStringArray rankingsongs;
+	vector<RString> rankingsongs;
 	
 	split(THEME->GetMetric("ScreenRanking", "CoursesToShow"), ",", rankingsongs);
 
@@ -982,7 +861,7 @@ void Course::CalculateRadarValues()
 		{
 			// For courses that aren't fixed, the radar values are meaningless.
 			// Makes non-fixed courses have unknown radar values.
-			if( IsFixed() )
+			if( AllSongsAreFixed() )
 			{
 				Trail *pTrail = GetTrail( st, cd );
 				if( pTrail == NULL )
@@ -998,6 +877,29 @@ void Course::CalculateRadarValues()
 	}
 }
 
+bool Course::Matches( RString sGroup, RString sCourse ) const
+{
+	if( sGroup.size() && sGroup.CompareNoCase(this->m_sGroupName) != 0)
+		return false;
+
+	RString sFile = m_sPath;
+	if( !sFile.empty() )
+	{
+		sFile.Replace("\\","/");
+		vector<RString> bits;
+		split( sFile, "/", bits );
+		const RString &sLastBit = bits[bits.size()-1];
+		if( sCourse.EqualsNoCase(sLastBit) )
+			return true;
+	}
+
+	if( sCourse.EqualsNoCase(this->GetTranslitFullTitle()) )
+		return true;
+
+	return false;
+}
+
+
 // lua start
 #include "LuaBinding.h"
 
@@ -1006,12 +908,20 @@ class LunaCourse: public Luna<Course>
 public:
 	LunaCourse() { LUA->Register( Register ); }
 
-	static int GetPlayMode( T* p, lua_State *L )			{ lua_pushnumber(L, p->GetPlayMode() ); return 1; }
+	static int GetPlayMode( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetPlayMode() ); return 1; }
 	static int GetDisplayFullTitle( T* p, lua_State *L )	{ lua_pushstring(L, p->GetDisplayFullTitle() ); return 1; }
 	static int GetTranslitFullTitle( T* p, lua_State *L )	{ lua_pushstring(L, p->GetTranslitFullTitle() ); return 1; }
-	static int HasMods( T* p, lua_State *L )				{ lua_pushboolean(L, p->HasMods() ); return 1; }
-	static int GetCourseType( T* p, lua_State *L )			{ lua_pushnumber(L, p->GetCourseType() ); return 1; }
-	static int GetCourseEntry( T* p, lua_State *L )			{ CourseEntry &ce = p->m_vEntries[IArg(1)]; ce.PushSelf(L); return 1; }
+	static int HasMods( T* p, lua_State *L )		{ lua_pushboolean(L, p->HasMods() ); return 1; }
+	static int GetCourseType( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetCourseType() ); return 1; }
+	static int GetCourseEntry( T* p, lua_State *L )		{ CourseEntry &ce = p->m_vEntries[IArg(1)]; ce.PushSelf(L); return 1; }
+	static int GetAllTrails( T* p, lua_State *L )
+	{
+		vector<Trail*> v;
+		p->GetAllTrails( v );
+		LuaHelpers::CreateTableFromArray<Trail*>( v, L );
+		return 1;
+	}
+	static int GetGroupName( T* p, lua_State *L )		{ lua_pushstring(L, p->m_sGroupName ); return 1; }
 
 	static void Register(lua_State *L)
 	{
@@ -1021,6 +931,8 @@ public:
 		ADD_METHOD( HasMods );
 		ADD_METHOD( GetCourseType );
 		ADD_METHOD( GetCourseEntry );
+		ADD_METHOD( GetAllTrails );
+		ADD_METHOD( GetGroupName );
 
 		Luna<T>::Register( L );
 	}

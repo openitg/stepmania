@@ -2,7 +2,6 @@
 #include "DifficultyIcon.h"
 #include "RageUtil.h"
 #include "GameConstantsAndTypes.h"
-#include "PrefsManager.h"
 #include "RageLog.h"
 #include "Steps.h"
 #include "GameState.h"
@@ -11,6 +10,7 @@
 #include "Trail.h"
 #include "ActorUtil.h"
 #include "XmlFile.h"
+#include "LuaManager.h"
 
 REGISTER_ACTOR_CLASS(DifficultyIcon)
 
@@ -19,20 +19,20 @@ DifficultyIcon::DifficultyIcon()
 	m_bBlank = false;
 }
 
-bool DifficultyIcon::Load( CString sPath )
+bool DifficultyIcon::Load( RString sPath )
 {
 	Sprite::Load( sPath );
 	int iStates = GetNumStates();
-	bool bWarn = iStates != NUM_DIFFICULTIES  &&  iStates != NUM_DIFFICULTIES*2;
-	if( sPath.Find("_blank") != -1 )
+	bool bWarn = iStates != NUM_Difficulty  &&  iStates != NUM_Difficulty*2;
+	if( sPath.find("_blank") != string::npos )
 		bWarn = false;
 	if( bWarn )
 	{
-		CString sError = ssprintf(
+		RString sError = ssprintf(
 			"The difficulty icon graphic '%s' must have %d or %d frames.  It has %d states.", 
 			sPath.c_str(), 
-			NUM_DIFFICULTIES,
-			NUM_DIFFICULTIES*2,
+			NUM_Difficulty,
+			NUM_Difficulty*2,
 			iStates );
 		Dialog::OK( sError );
 	}
@@ -40,14 +40,18 @@ bool DifficultyIcon::Load( CString sPath )
 	return true;
 }
 
-void DifficultyIcon::LoadFromNode( const CString& sDir, const XNode* pNode )
+void DifficultyIcon::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
-	CString sFile;
+	RString sFile;
 	if( !pNode->GetAttrValue( "File", sFile ) )
 		RageException::Throw( "MeterDisplay in " + sDir + " missing File attribute" );
 
-	sFile = sDir + sFile;
-	ActorUtil::ResolvePath( sFile, sDir );
+	LuaHelpers::RunAtExpressionS( sFile );
+	if( !sFile.empty() && sFile[0] != '/' )
+	{
+		sFile = sDir + sFile;
+		ActorUtil::ResolvePath( sFile, sDir );
+	}
 
 	Load( sFile );
 
@@ -76,11 +80,60 @@ void DifficultyIcon::SetFromDifficulty( PlayerNumber pn, Difficulty dc )
 	m_bBlank = false;
 	switch( GetNumStates() )
 	{
-	case NUM_DIFFICULTIES:		SetState( dc );			break;
-	case NUM_DIFFICULTIES*2:	SetState( dc*2+pn );	break;
+	case NUM_Difficulty:		SetState( dc );			break;
+	case NUM_Difficulty*2:	SetState( dc*2+pn );	break;
 	default:					m_bBlank = true;		break;
 	}	
 }
+
+// lua start
+#include "LuaBinding.h"
+
+class LunaDifficultyIcon: public Luna<DifficultyIcon>
+{
+public:
+	LunaDifficultyIcon() { LUA->Register( Register ); }
+
+	static int SetFromSteps( T* p, lua_State *L )
+	{ 
+		if( lua_isnil(L,1) )
+		{
+			p->SetFromSteps( PLAYER_1, NULL );
+		}
+		else
+		{
+			Steps *pS = Luna<Steps>::check(L,1);
+			p->SetFromSteps( PLAYER_1, pS );
+		}
+		return 0;
+	}
+	static int SetFromTrail( T* p, lua_State *L )
+	{ 
+		if( lua_isnil(L,1) )
+		{
+			p->SetFromTrail( PLAYER_1, NULL );
+		}
+		else
+		{
+			Trail *pT = Luna<Trail>::check(L,1);
+			p->SetFromTrail( PLAYER_1, pT );
+		}
+		return 0;
+	}
+	static int SetFromDifficulty( T* p, lua_State *L )		{ p->SetFromDifficulty( PLAYER_1, (Difficulty)IArg(1) ); return 0; }
+
+	static void Register(lua_State *L) 
+	{
+		ADD_METHOD( SetFromSteps );
+		ADD_METHOD( SetFromTrail );
+		ADD_METHOD( SetFromDifficulty );
+
+		Luna<T>::Register( L );
+	}
+};
+
+LUA_REGISTER_DERIVED_CLASS( DifficultyIcon, Sprite )
+// lua end
 
 /*
  * (c) 2001-2004 Chris Danford

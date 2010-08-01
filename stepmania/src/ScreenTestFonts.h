@@ -3,6 +3,10 @@
 #ifndef SCREEN_TEST_FONTS_H
 #define SCREEN_TEST_FONTS_H
 
+#if defined(_XBOX)
+#undef TEXT
+#endif
+
 #include "Screen.h"
 #include "BitmapText.h"
 #include "Quad.h"
@@ -10,7 +14,6 @@
 class ScreenTestFonts: public Screen
 {
 public:
-	ScreenTestFonts( CString sName );
 	virtual void Init();
 
 	void Input( const InputEventPlus &input );
@@ -18,10 +21,10 @@ public:
 	void HandleScreenMessage( const ScreenMessage SM );
 
 private:
-	void SetText( CString sText );
-	void SetFont( CString sFont );
+	void SetText( RString sText );
+	void SetFont( RString sFont );
 
-	CString m_sCurText, m_sFont;
+	RString m_sCurText, m_sFont;
 	BitmapText txt, font;
 	Quad Vline, Hline;
 };

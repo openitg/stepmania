@@ -7,12 +7,69 @@
 #include "Difficulty.h"
 
 class Song;
+class Steps;
 class Profile;
-struct XNode;
+class XNode;
+
+class SongCriteria
+{
+public:
+	RString m_sGroupName;	// "" means don't match
+	bool m_bUseSongGenreAllowedList;
+	vector<RString> m_vsSongGenreAllowedList;
+	enum Selectable { Selectable_Yes, Selectable_No, Selectable_DontCare } m_Selectable;
+	bool m_bUseSongAllowedList;
+	vector<Song*> m_vpSongAllowedList;
+	int m_iStagesForSong;		// don't filter if -1
+	enum Tutorial { Tutorial_Yes, Tutorial_No, Tutorial_DontCare } m_Tutorial;
+	enum Locked { Locked_Locked, Locked_Unlocked, Locked_DontCare } m_Locked;
+
+	SongCriteria()
+	{
+		m_bUseSongGenreAllowedList = false;
+		m_Selectable = Selectable_DontCare;
+		m_bUseSongAllowedList = false;
+		m_iStagesForSong = -1;
+		m_Tutorial = Tutorial_DontCare;
+		m_Locked = Locked_DontCare;
+	}
+
+	bool Matches( const Song *p ) const;
+};
 
 namespace SongUtil
 {
-	CString MakeSortString( CString s );
+	void GetSteps( 
+		const Song *pSong,
+		vector<Steps*>& arrayAddTo, 
+		StepsType st = STEPS_TYPE_INVALID, 
+		Difficulty dc = DIFFICULTY_INVALID, 
+		int iMeterLow = -1, 
+		int iMeterHigh = -1, 
+		const RString &sDescription = "", 
+		bool bIncludeAutoGen = true, 
+		unsigned uHash = 0,
+		int iMaxToGet = -1 
+		);
+	Steps* GetOneSteps( 
+		const Song *pSong,
+		StepsType st = STEPS_TYPE_INVALID, 
+		Difficulty dc = DIFFICULTY_INVALID, 
+		int iMeterLow = -1, 
+		int iMeterHigh = -1, 
+		const RString &sDescription = "", 
+		unsigned uHash = 0,
+		bool bIncludeAutoGen = true
+		);
+	Steps* GetStepsByDifficulty(	const Song *pSong, StepsType st, Difficulty dc, bool bIncludeAutoGen = true );
+	Steps* GetStepsByMeter(		const Song *pSong, StepsType st, int iMeterLow, int iMeterHigh );
+	Steps* GetStepsByDescription(	const Song *pSong, StepsType st, RString sDescription );
+	Steps* GetClosestNotes(		const Song *pSong, StepsType st, Difficulty dc, bool bIgnoreLocked=false );
+
+	void AdjustDuplicateSteps( Song *pSong ); // part of TidyUpData
+	void DeleteDuplicateSteps( Song *pSong, vector<Steps*> &vSteps );
+
+	RString MakeSortString( RString s );
 	void SortSongPointerArrayByTitle( vector<Song*> &vpSongsInOut );
 	void SortSongPointerArrayByBPM( vector<Song*> &vpSongsInOut );
 	void SortSongPointerArrayByGrades( vector<Song*> &vpSongsInOut, bool bDescending );
@@ -23,16 +80,24 @@ namespace SongUtil
 	void SortSongPointerArrayByNumPlays( vector<Song*> &vpSongsInOut, ProfileSlot slot, bool bDescending );
 	void SortSongPointerArrayByNumPlays( vector<Song*> &vpSongsInOut, const Profile* pProfile, bool bDescending );
 	void SortSongPointerArrayByMeter( vector<Song*> &vpSongsInOut, Difficulty dc );
-	CString GetSectionNameFromSongAndSort( const Song* pSong, SortOrder so );
+	RString GetSectionNameFromSongAndSort( const Song *pSong, SortOrder so );
 	void SortSongPointerArrayBySectionName( vector<Song*> &vpSongsInOut, SortOrder so );
 	void SortByMostRecentlyPlayedForMachine( vector<Song*> &vpSongsInOut );
 
 	int CompareSongPointersByGroup(const Song *pSong1, const Song *pSong2);
+
+	bool IsEditDescriptionUnique( const Song* pSong, StepsType st, const RString &sPreferredDescription, const Steps *pExclude );
+	RString MakeUniqueEditDescription( const Song* pSong, StepsType st, const RString &sPreferredDescription );
+	bool ValidateCurrentEditStepsDescription( const RString &sAnswer, RString &sErrorOut );
+	bool ValidateCurrentStepsDescription( const RString &sAnswer, RString &sErrorOut );
+
+	void GetAllSongGenres( vector<RString> &vsOut );
+	void FilterSongs( const SongCriteria &sc, const vector<Song*> &in, vector<Song*> &out );
 }
 
 class SongID
 {
-	CString sDir;
+	RString sDir;
 
 public:
 	SongID() { Unset(); }
@@ -43,11 +108,15 @@ public:
 	{
 		return sDir < other.sDir;
 	}
+	bool operator==( const SongID &other ) const
+	{
+		return sDir == other.sDir;
+	}
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
-	void LoadFromDir( CString _sDir ) { sDir = _sDir; }
-	CString ToString() const;
+	void LoadFromDir( RString _sDir ) { sDir = _sDir; }
+	RString ToString() const;
 	bool IsValid() const;
 };
 

@@ -4,23 +4,28 @@
 #define NOTE_TYPES_H
 
 #include "GameConstantsAndTypes.h"
+class XNode;
 
 struct TapNoteResult
 {
 	TapNoteResult()
 	{
-		tns = TNS_NONE;
+		tns = TNS_None;
 		fTapNoteOffset = 0;
 	}
 	TapNoteScore tns;
 
 	/* Offset, in seconds, for a tap grade.  Negative numbers mean the note
 	 * was hit early; positive numbers mean it was hit late.  These values are
-	 * only meaningful for graded taps (tns >= TNS_BOO). */
+	 * only meaningful for graded taps (tns >= TNS_W5). */
 	float fTapNoteOffset;
 
 	/* If the whole row has been judged, all taps on the row will be set to hidden. */
 	bool bHidden;
+
+	// XML
+	XNode* CreateNode() const;
+	void LoadFromNode( const XNode* pNode );
 };
 
 struct HoldNoteResult
@@ -39,7 +44,7 @@ struct HoldNoteResult
 
 	HoldNoteResult()
 	{
-		hns = HNS_NONE;
+		hns = HNS_None;
 		fLife = 1.0f;
 		iLastHeldRow = 0;
 		bHeld = bActive = false;
@@ -49,12 +54,17 @@ struct HoldNoteResult
 
 	bool bHeld;
 	bool bActive;
+
+	// XML
+	XNode* CreateNode() const;
+	void LoadFromNode( const XNode* pNode );
 };
 
 
 struct TapNote
 {
-	enum Type { 
+	enum Type
+	{ 
 		empty, 		// no note here
 		tap, 
 		hold_head,	// graded like a TAP_TAP if
@@ -69,30 +79,31 @@ struct TapNote
 		hold_head_roll,
 		SubType_invalid
 	} subType;	// only used if type == hold_head
-	enum Source {
+	enum Source
+	{
 		original,	// part of the original NoteData
 		addition,	// additional note added by a transform
 		removed,	// Removed taps, e.g. in Little - play keysounds here as if
-					// judged Perfect, but don't bother rendering or judging this
-					// step.  Also used for when we implement auto-scratch in BM,
-					// and for if/when we do a "reduce" modifier that cancels out
-					// all but N keys on a line [useful for BM->DDR autogen, too].
-					// Removed hold body (...why?) - acts as follows:
-					// 1 - if we're using a sustained-sound gametype [Keyboardmania], and
-					//     we've already hit the start of the sound (?? we put Holds Off on?)
-					//     then this is triggered automatically to keep the sound going
-					// 2 - if we're NOT [anything else], we ignore this.
-					// Equivalent to all 4s aside from the first one.
+				// judged W2, but don't bother rendering or judging this
+				// step.  Also used for when we implement auto-scratch,
+				// and for if/when we do a "reduce" modifier that cancels out
+				// all but N keys on a line [useful for beat->dance autogen, too].
+				// Removed hold body (...why?) - acts as follows:
+				// 1 - if we're using a sustained-sound gametype [Keyboardmania], and
+				//     we've already hit the start of the sound (?? we put Holds Off on?)
+				//     then this is triggered automatically to keep the sound going
+				// 2 - if we're NOT [anything else], we ignore this.
+				// Equivalent to all 4s aside from the first one.
 	} source;
 
 	// Only valid if type == attack.
-	CString sAttackModifiers;
+	RString sAttackModifiers;
 	float fAttackDurationSeconds;
 
-	bool bKeysound;	// true if this note plays a keysound when hit
+	bool bKeysound;		// true if this note plays a keysound when hit
 
 	int iKeysoundIndex;	// index into Song's vector of keysound files.  
-							// Only valid if bKeysound.
+				// Only valid if bKeysound.
 
 	/* hold_head only: */
 	int iDuration;
@@ -101,6 +112,12 @@ struct TapNote
 
 	/* hold_head only: */
 	HoldNoteResult HoldResult;
+	
+	PlayerNumber pn;
+
+	// XML
+	XNode* CreateNode() const;
+	void LoadFromNode( const XNode* pNode );
 
 	
 	TapNote() {}
@@ -108,7 +125,7 @@ struct TapNote
 		Type type_,
 		SubType subType_,
 		Source source_, 
-		CString sAttackModifiers_,
+		RString sAttackModifiers_,
 		float fAttackDurationSeconds_,
 		bool bKeysound_,
 		int iKeysoundIndex_ )
@@ -121,6 +138,7 @@ struct TapNote
 		bKeysound = bKeysound_;
 		iKeysoundIndex = iKeysoundIndex_;
 		iDuration = 0;
+		pn = PLAYER_INVALID;
 	}
 	bool operator==( const TapNote &other ) const
 	{
@@ -133,17 +151,18 @@ struct TapNote
 		COMPARE(bKeysound);
 		COMPARE(iKeysoundIndex);
 		COMPARE(iDuration);
+		COMPARE(pn);
 #undef COMPARE
 		return true;
 	}
 };
 
-extern TapNote TAP_EMPTY;					// '0'
-extern TapNote TAP_ORIGINAL_TAP;			// '1'
+extern TapNote TAP_EMPTY;			// '0'
+extern TapNote TAP_ORIGINAL_TAP;		// '1'
 extern TapNote TAP_ORIGINAL_HOLD_HEAD;		// '2'
 extern TapNote TAP_ORIGINAL_ROLL_HEAD;		// '4'
-extern TapNote TAP_ORIGINAL_MINE;			// 'M'
-extern TapNote TAP_ORIGINAL_ATTACK;			// 'A'
+extern TapNote TAP_ORIGINAL_MINE;		// 'M'
+extern TapNote TAP_ORIGINAL_ATTACK;		// 'A'
 extern TapNote TAP_ORIGINAL_AUTO_KEYSOUND;	// 'K'
 extern TapNote TAP_ADDITION_TAP;
 extern TapNote TAP_ADDITION_MINE;
@@ -178,12 +197,12 @@ enum NoteType
 	// MD 11/02/03 - added finer divisions
 	NOTE_TYPE_48TH, // forty-eighth note
 	NOTE_TYPE_64TH,	// sixty-fourth note
-	// Not having this triggers asserts all over the place.  Go figure.
 	NOTE_TYPE_192ND,
-	NUM_NOTE_TYPES,
+	NUM_NoteType,
 	NOTE_TYPE_INVALID
 };
-const CString& NoteTypeToString( NoteType nt );
+const RString& NoteTypeToString( NoteType nt );
+const RString& NoteTypeToLocalizedString( NoteType nt );
 float NoteTypeToBeat( NoteType nt );
 NoteType GetNoteType( int row );
 NoteType BeatToNoteType( float fBeat );
@@ -200,9 +219,9 @@ inline int   BeatToNoteRow( float fBeatNum )
 	return integer + lrintf(fraction * ROWS_PER_BEAT);
 }
 */
-inline int   BeatToNoteRow( float fBeatNum )			{ return lrintf( fBeatNum * ROWS_PER_BEAT ); }	// round
+inline int   BeatToNoteRow( float fBeatNum )		{ return lrintf( fBeatNum * ROWS_PER_BEAT ); }	// round
 inline int   BeatToNoteRowNotRounded( float fBeatNum )	{ return (int)( fBeatNum * ROWS_PER_BEAT ); }
-inline float NoteRowToBeat( int iRow )					{ return iRow / (float)ROWS_PER_BEAT; }
+inline float NoteRowToBeat( int iRow )			{ return iRow / (float)ROWS_PER_BEAT; }
 
 #endif
 

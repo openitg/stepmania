@@ -3,7 +3,6 @@
 #ifndef NOTES_LOADER_H
 #define NOTES_LOADER_H
 
-#include "RageUtil.h"
 #include <set>
 
 class Song;
@@ -11,17 +10,19 @@ class Song;
 class NotesLoader
 {
 protected:
-	virtual void GetApplicableFiles( CString sPath, CStringArray &out )=0;
+	virtual void GetApplicableFiles( const RString &sPath, vector<RString> &out )=0;
 
-	set<istring> BlacklistedImages;
+	set<RString> BlacklistedImages;
 
 public:
 	virtual ~NotesLoader() { }
-	const set<istring> &GetBlacklistedImages() const { return BlacklistedImages; }
-	static void GetMainAndSubTitlesFromFullTitle( const CString sFullTitle, CString &sMainTitleOut, CString &sSubTitleOut );
-	virtual bool LoadFromDir( CString sPath, Song &out ) = 0;
+	const set<RString> &GetBlacklistedImages() const { return BlacklistedImages; }
+	static void GetMainAndSubTitlesFromFullTitle( const RString &sFullTitle, RString &sMainTitleOut, RString &sSubTitleOut );
+	virtual bool LoadFromDir( const RString &sPath, Song &out ) = 0;
 	virtual void TidyUpData( Song &song, bool cache ) { }
-	bool Loadable( CString sPath );
+	bool Loadable( const RString &sPath );
+
+	static NotesLoader *MakeLoader( const RString& sDir );
 };
 
 #endif

@@ -5,26 +5,14 @@
 #include "RageLog.h"
 #include "GameState.h"
 #include "Style.h"
+#include "PlayerState.h"
 
-void NoteFieldMode::BeginDrawTrack( PlayerNumber pn, int iTrack )
+void NoteFieldMode::BeginDrawTrack( const PlayerState* pPlayerState, int iTrack )
 {
-	DISPLAY->CameraPushMatrix();
-
-	ASSERT( iTrack != -1 );
-
-	DISPLAY->PushMatrix();
-
-	const Style *s = GAMESTATE->GetCurrentStyle();
-	const float fPixelXOffsetFromCenter = s->m_ColumnInfo[pn][iTrack].fXOffset;
-	DISPLAY->Translate( fPixelXOffsetFromCenter, 0, 0 );
 }
 
 void NoteFieldMode::EndDrawTrack( int iTrack )
 {
-	ASSERT( iTrack != -1 );
-
-	DISPLAY->PopMatrix();
-	DISPLAY->CameraPopMatrix();
 }
 
 

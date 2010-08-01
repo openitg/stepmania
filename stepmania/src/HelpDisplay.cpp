@@ -1,7 +1,6 @@
 #include "global.h"
 #include "HelpDisplay.h"
 #include "RageUtil.h"
-#include "PrefsManager.h"
 #include "RageLog.h"
 #include "ThemeManager.h"
 #include "ActorUtil.h"
@@ -14,7 +13,7 @@ HelpDisplay::HelpDisplay()
 	m_fSecsUntilSwitch = 0;
 }
 
-void HelpDisplay::Load( const CString &sType )
+void HelpDisplay::Load( const RString &sType )
 {
 	TIP_SHOW_TIME.Load( sType, "TipShowTime" );
 
@@ -25,17 +24,17 @@ void HelpDisplay::Load( const CString &sType )
 	m_fSecsUntilSwitch = TIP_SHOW_TIME;
 }
 
-void HelpDisplay::LoadFromNode( const CString& sDir, const XNode* pNode )
+void HelpDisplay::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	BitmapText::LoadFromNode( sDir, pNode );
 }
 
-void HelpDisplay::SetName( const CString &sName )
+void HelpDisplay::SetName( const RString &sName )
 {
 	BitmapText::SetName( sName );
 }
 
-void HelpDisplay::SetTips( const CStringArray &arrayTips, const CStringArray &arrayTipsAlt )
+void HelpDisplay::SetTips( const vector<RString> &arrayTips, const vector<RString> &arrayTipsAlt )
 { 
 	ASSERT( arrayTips.size() == arrayTipsAlt.size() );
 
@@ -85,27 +84,20 @@ public:
 	{
 		luaL_checktype( L, 1, LUA_TTABLE );
 		lua_pushvalue( L, 1 );
-		vector<CString> arrayTips;
+		vector<RString> arrayTips;
 		LuaHelpers::ReadArrayFromTable( arrayTips, L );
 		lua_pop( L, 1 );
 		for( unsigned i = 0; i < arrayTips.size(); ++i )
-		{
-			// XXX: see BitmapText settext
-			arrayTips[i].Replace("::","\n");
 			FontCharAliases::ReplaceMarkers( arrayTips[i] );
-		}
 		if( lua_gettop(L) > 1 && !lua_isnil( L, 2 ) )
 		{
-			vector<CString> arrayTipsAlt;
+			vector<RString> arrayTipsAlt;
 			luaL_checktype( L, 2, LUA_TTABLE );
 			lua_pushvalue( L, 2 );
 			LuaHelpers::ReadArrayFromTable( arrayTipsAlt, L );
 			lua_pop( L, 1 );
 			for( unsigned i = 0; i < arrayTipsAlt.size(); ++i )
-			{
-				arrayTipsAlt[i].Replace("::","\n");
 				FontCharAliases::ReplaceMarkers( arrayTipsAlt[i] );
-			}
 
 			p->SetTips( arrayTips, arrayTipsAlt );
 		}
@@ -117,7 +109,7 @@ public:
 
 	static int gettips( T* p, lua_State *L )
 	{
-		CStringArray arrayTips, arrayTipsAlt;
+		vector<RString> arrayTips, arrayTipsAlt;
 		p->GetTips( arrayTips, arrayTipsAlt );
 
 		LuaHelpers::CreateTableFromArray( arrayTips, L );
@@ -156,11 +148,11 @@ GenreDisplay::~GenreDisplay()
 {
 }
 
-void GenreDisplay::PlayCommand( const CString &sCommandName, Actor* pParent )
+void GenreDisplay::PlayCommand( const RString &sCommandName, Actor* pParent )
 {
 	if( sCommandName == MessageToString(Message_CurrentSongChanged) )
 	{
-		vector<CString> m_Artists, m_AltArtists;
+		vector<RString> m_Artists, m_AltArtists;
 
 		Song* pSong = GAMESTATE->m_pCurSong;
 		ASSERT( pSong );
@@ -172,7 +164,7 @@ void GenreDisplay::PlayCommand( const CString &sCommandName, Actor* pParent )
 	}
 	else if( sCommandName == MessageToString(Message_CurrentCourseChanged) )
 	{
-		vector<CString> m_Artists, m_AltArtists;
+		vector<RString> m_Artists, m_AltArtists;
 
 		Course* pCourse = GAMESTATE->m_pCurCourse;
 		StepsType st = GAMESTATE->GetCurrentStyle()->m_StepsType;

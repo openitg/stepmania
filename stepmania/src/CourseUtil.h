@@ -4,11 +4,13 @@
 #define COURSEUTIL_H
 
 #include "GameConstantsAndTypes.h"
+#include "Difficulty.h"
 
 class Course;
 class Profile;
-struct XNode;
+class XNode;
 class CourseEntry;
+class Song;
 
 namespace CourseUtil
 {
@@ -25,13 +27,19 @@ namespace CourseUtil
 	void MoveRandomToEnd( vector<Course*> &vpCoursesInOut );
 
 	void MakeDefaultEditCourseEntry( CourseEntry &out );
+
+	void AutogenEndlessFromGroup( const RString &sGroupName, Difficulty dc, Course &out );
+	void AutogenNonstopFromGroup( const RString &sGroupName, Difficulty dc, Course &out );
+	void AutogenOniFromArtist( const RString &sArtistName, RString sArtistNameTranslit, vector<Song*> aSongs, Difficulty dc, Course &out );
+
+	bool ValidateEditCourseName( const RString &sAnswer, RString &sErrorOut );
 };
 
 class CourseID
 {
 public:
-	CString sPath;
-	CString sFullTitle;
+	RString sPath;
+	RString sFullTitle;
 
 public:
 	CourseID() { Unset(); }
@@ -45,7 +53,7 @@ public:
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
-	CString ToString() const;
+	RString ToString() const;
 	bool IsValid() const;
 };
 

@@ -13,6 +13,7 @@
 #include "GameCommand.h"
 #include "BitmapText.h"
 #include "Character.h"
+#include "RageSound.h"
 
 /* Class Definition */
 
@@ -21,7 +22,6 @@
 class ScreenSelectMode : public ScreenSelect
 {
 public:
-	ScreenSelectMode( CString sName ); // Constructor
 	virtual void Init();
 	virtual ~ScreenSelectMode(); // Destructor
 	virtual void MenuLeft( PlayerNumber pn );
@@ -43,7 +43,7 @@ protected:
 	RageSound			m_soundModeChange;
 	RageSound			m_soundConfirm;
 	RageSound			m_soundStart;
-	CStringArray arrayLocations;
+	vector<RString> arrayLocations;
 	ScrollingList m_ScrollingList;
 	Sprite m_ChoiceListFrame;
 	Sprite m_ChoiceListHighlight;

@@ -1,19 +1,30 @@
 #include "global.h"
 #include "DialogDriver_Win32.h"
 #include "RageUtil.h"
-#include "CommonMetrics.h"	// for WINDOW_TITLE
+#if !defined(SMPACKAGE)
+#include "CommonMetrics.h"
+#endif
 #include "ThemeManager.h"
+#include "ProductInfo.h"
 
 #include "archutils/win32/AppInstance.h"
 #include "archutils/win32/GotoURL.h"
 #include "archutils/win32/RestartProgram.h"
+#if !defined(SMPACKAGE)
 #include "archutils/win32/WindowsResources.h"
 #include "archutils/win32/GraphicsWindow.h"
+#endif
+#include "archutils/win32/DialogUtil.h"
+
+#if defined(SMPACKAGE)
+int __stdcall AfxMessageBox(LPCTSTR lpszText, UINT nType, UINT nIDHelp);
+#endif
 
 static bool g_bHush;
-static CString g_sMessage;
+static RString g_sMessage;
 static bool g_bAllowHush;
 
+#if !defined(SMPACKAGE)
 static BOOL CALLBACK OKWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
 	switch( msg )
@@ -23,22 +34,24 @@ static BOOL CALLBACK OKWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			// Disable the parent window, like a modal MessageBox does.
 			EnableWindow( GetParent(hWnd), FALSE );
 
+			DialogUtil::LocalizeDialogAndContents( hWnd );
+
 			// Hide or display "Don't show this message."
 			g_bHush = false;
 			HWND hHushButton = GetDlgItem( hWnd, IDC_HUSH );
-	        int iStyle = GetWindowLong( hHushButton, GWL_STYLE );
+			int iStyle = GetWindowLong( hHushButton, GWL_STYLE );
 
 			if( g_bAllowHush )
 				iStyle |= WS_VISIBLE;
 			else
 				iStyle &= ~WS_VISIBLE;
-	        SetWindowLong( hHushButton, GWL_STYLE, iStyle );
+			SetWindowLong( hHushButton, GWL_STYLE, iStyle );
 
 			// Set static text.
-			CString sMessage = g_sMessage;
+			RString sMessage = g_sMessage;
 			sMessage.Replace( "\n", "\r\n" );
 			SetWindowText( GetDlgItem(hWnd, IDC_MESSAGE), sMessage );
-			
+
 			// Focus is on any of the controls in the dialog by default.
 			// I'm not sure why.  Set focus to the button manually. -Chris
 			SetFocus( GetDlgItem(hWnd, IDOK) );
@@ -63,19 +76,64 @@ static BOOL CALLBACK OKWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	}
 	return FALSE;
 }
+#endif
 
+#if !defined(SMPACKAGE)
+static HWND GetHwnd()
+{
+	return GraphicsWindow::GetHwnd();
+}
+#endif
 
-void DialogDriver_Win32::OK( CString sMessage, CString sID )
+#if !defined(SMPACKAGE)
+static RString GetWindowTitle()
+{
+	RString s = CommonMetrics::WINDOW_TITLE.GetValue();
+	return s;
+}
+#endif
+
+void DialogDriver_Win32::OK( RString sMessage, RString sID )
 {
 	g_bAllowHush = sID != "";
 	g_sMessage = sMessage;
 	AppInstance handle;
-	DialogBox( handle.Get(), MAKEINTRESOURCE(IDD_OK), GraphicsWindow::GetHwnd(), OKWndProc );
+#if !defined(SMPACKAGE)
+	//DialogBox( handle.Get(), MAKEINTRESOURCE(IDD_OK), ::GetHwnd(), OKWndProc );
+	::MessageBox( NULL, sMessage, GetWindowTitle(), MB_OK );
+#else
+	::AfxMessageBox( ConvertUTF8ToACP(sMessage).c_str(), MB_OK, 0 );
+#endif
 	if( g_bAllowHush && g_bHush )
 		Dialog::IgnoreMessage( sID );
 }
 
-static CString g_sErrorString;
+Dialog::Result DialogDriver_Win32::OKCancel( RString sMessage, RString sID )
+{
+	g_bAllowHush = sID != "";
+	g_sMessage = sMessage;
+	AppInstance handle;
+
+#if !defined(SMPACKAGE)
+	//DialogBox( handle.Get(), MAKEINTRESOURCE(IDD_OK), ::GetHwnd(), OKWndProc );
+	int result = ::MessageBox( NULL, sMessage, GetWindowTitle(), MB_OKCANCEL );
+#else
+	int result = ::AfxMessageBox( ConvertUTF8ToACP(sMessage).c_str(), MB_OKCANCEL, 0 );
+#endif
+	if( g_bAllowHush && g_bHush )
+		Dialog::IgnoreMessage( sID );
+
+	switch( result )
+	{
+	case IDOK:
+		return Dialog::ok;
+	default:
+		return Dialog::cancel;
+	}
+}
+
+#if !defined(SMPACKAGE)
+static RString g_sErrorString;
 
 static BOOL CALLBACK ErrorWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
@@ -83,8 +141,10 @@ static BOOL CALLBACK ErrorWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 	{
 	case WM_INITDIALOG:
 		{
+			DialogUtil::SetHeaderFont( hWnd, IDC_STATIC_HEADER_TEXT );
+		
 			// Set static text
-			CString sMessage = g_sErrorString;
+			RString sMessage = g_sErrorString;
 			sMessage.Replace( "\n", "\r\n" );
 			SetWindowText( GetDlgItem(hWnd, IDC_EDIT_ERROR), sMessage );
 		}
@@ -113,38 +173,66 @@ static BOOL CALLBACK ErrorWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 			}
 			break;
 		case IDC_BUTTON_REPORT:
-			GotoURL( "http://sourceforge.net/tracker/?func=add&group_id=37892&atid=421366" );
+			GotoURL( REPORT_BUG_URL );
 			break;
 		case IDC_BUTTON_RESTART:
 			Win32RestartProgram();
 			/* not reached */
 			ASSERT( 0 );
-
 			EndDialog( hWnd, 0 );
 			break;
-
 		case IDOK:
 			EndDialog( hWnd, 0 );
 			break;
 		}
+		break;
+	case WM_CTLCOLORSTATIC:
+		{
+			HDC hdc = (HDC)wParam;
+			HWND hwndStatic = (HWND)lParam;
+			HBRUSH hbr = NULL;
+
+			// TODO:  Change any attributes of the DC here
+			switch( GetDlgCtrlID(hwndStatic) )
+			{
+			case IDC_STATIC_HEADER_TEXT:
+			case IDC_STATIC_ICON:
+				hbr = (HBRUSH)::GetStockObject(WHITE_BRUSH); 
+				SetBkMode( hdc, OPAQUE );
+				SetBkColor( hdc, RGB(255,255,255) );
+				break;
+			}
+
+			// TODO:  Return a different brush if the default is not desired
+			return (BOOL)hbr;
+		}
 	}
 	return FALSE;
 }
+#endif
 
-void DialogDriver_Win32::Error( CString sError, CString sID )
+void DialogDriver_Win32::Error( RString sError, RString sID )
 {
+#if !defined(SMPACKAGE)
 	g_sErrorString = sError;
 
 	// throw up a pretty error dialog
 	AppInstance handle;
 	DialogBox( handle.Get(), MAKEINTRESOURCE(IDD_ERROR_DIALOG), NULL, ErrorWndProc );
+#else
+	::AfxMessageBox( ConvertUTF8ToACP(sError).c_str(), MB_OK, 0 );
+#endif
 }
 
-Dialog::Result DialogDriver_Win32::AbortRetryIgnore( CString sMessage, CString ID )
+Dialog::Result DialogDriver_Win32::AbortRetryIgnore( RString sMessage, RString ID )
 {
-	CString sWindowTitle = WINDOW_TITLE.IsLoaded() ? WINDOW_TITLE.GetValue() : "";
-
-	switch( MessageBox(GraphicsWindow::GetHwnd(), sMessage, sWindowTitle, MB_ABORTRETRYIGNORE|MB_DEFBUTTON3 ) )
+	int iRet = 0;
+#if !defined(SMPACKAGE)
+	iRet = ::MessageBox(::GetHwnd(), ConvertUTF8ToACP(sMessage).c_str(), ConvertUTF8ToACP(::GetWindowTitle()).c_str(), MB_ABORTRETRYIGNORE|MB_DEFBUTTON3 );
+#else
+	iRet = ::AfxMessageBox( ConvertUTF8ToACP(sMessage).c_str(), MB_ABORTRETRYIGNORE|MB_DEFBUTTON3, 0 );
+#endif
+	switch( iRet )
 	{
 	case IDABORT:	return Dialog::abort;
 	case IDRETRY:	return Dialog::retry;
@@ -153,11 +241,15 @@ Dialog::Result DialogDriver_Win32::AbortRetryIgnore( CString sMessage, CString I
 	}
 } 
 
-Dialog::Result DialogDriver_Win32::AbortRetry( CString sMessage, CString sID )
+Dialog::Result DialogDriver_Win32::AbortRetry( RString sMessage, RString sID )
 {
-	CString sWindowTitle = WINDOW_TITLE.IsLoaded() ? WINDOW_TITLE.GetValue() : "";
-
-	switch( MessageBox(GraphicsWindow::GetHwnd(), sMessage, sWindowTitle, MB_RETRYCANCEL) )
+	int iRet = 0;
+#if !defined(SMPACKAGE)
+	iRet = ::MessageBox(::GetHwnd(), ConvertUTF8ToACP(sMessage).c_str(), ConvertUTF8ToACP(::GetWindowTitle()).c_str(), MB_RETRYCANCEL);
+#else
+	iRet = ::AfxMessageBox( ConvertUTF8ToACP(sMessage).c_str(), MB_RETRYCANCEL, 0 );
+#endif
+	switch( iRet )
 	{
 	case IDRETRY:	return Dialog::retry;
 	default:	ASSERT(0);

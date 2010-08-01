@@ -9,6 +9,7 @@ struct lua_State;
 
 #include "GameConstantsAndTypes.h"
 #include "GameInput.h"
+#include "MenuInput.h"
 
 class GameManager
 {
@@ -29,13 +30,13 @@ public:
 	const Game* GetGameFromIndex( int index ) const;
 
 	static int StepsTypeToNumTracks( StepsType st );
-	static StepsType StringToStepsType( CString sStepsType );
-	static CString StepsTypeToString( StepsType st );
-	static CString StepsTypeToThemedString( StepsType st );
-	static const Game* StringToGameType( CString sGameType );
-	const Style* GameAndStringToStyle( const Game* pGame, CString sStyle );
-	static CString StyleToThemedString( const Style* s );
-	CString GetMenuButtonSecondaryFunction( const Game *pGame, GameButton gb ) const;
+	static StepsType StringToStepsType( RString sStepsType );
+	static RString StepsTypeToString( StepsType st );
+	static RString StepsTypeToLocalizedString( StepsType st );
+	static const Game* StringToGameType( RString sGameType );
+	const Style* GameAndStringToStyle( const Game* pGame, RString sStyle );
+	static RString StyleToLocalizedString( const Style* s );
+	MenuButton GetMenuButtonSecondaryFunction( const Game *pGame, GameButton gb ) const;
 
 	// Lua
 	void PushSelf( lua_State *L );

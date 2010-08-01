@@ -6,6 +6,8 @@
 |   UDP/NON-TCP Support by Adam Lowman.                             |
 \*******************************************************************/
 
+#include "global.h"
+
 #include "ezsockets.h"
 
 #if defined(_MSC_VER) && !defined(_XBOX) // We need the WinSock32 Library on Windows
@@ -263,6 +265,15 @@ void EzSockets::update()
 	
 	if (CanWrite() && (outBuffer.length()>0))
 		pUpdateWrite();
+}
+
+unsigned long EzSockets::LongFromAddrIn( const sockaddr_in & s )
+{
+#if defined(_XBOX) || defined(_WINDOWS)
+	return ntohl(s.sin_addr.S_un.S_addr);
+#else
+	return ntohl(s.sin_addr.s_addr);
+#endif
 }
 
 

@@ -4,7 +4,6 @@
 #include "RageLog.h"
 #include "InputMapper.h"
 #include "GameState.h"
-#include "GameSoundManager.h"
 #include "ThemeManager.h"
 #include "Game.h"
 #include "ScreenDimensions.h"
@@ -12,123 +11,97 @@
 #include "PrefsManager.h"
 #include "RageInput.h"
 #include "InputEventPlus.h"
+#include "LocalizedString.h"
 
 
-REGISTER_SCREEN_CLASS( ScreenTestInput );
-ScreenTestInput::ScreenTestInput( CString sClassName ) : ScreenWithMenuElements( sClassName )
+class DeviceList: public BitmapText
 {
-	LOG->Trace( "ScreenTestInput::ScreenTestInput()" );
-}
-
-void ScreenTestInput::Init()
-{
-	ScreenWithMenuElements::Init();
-
-	m_textDevices.LoadFromFont( THEME->GetPathF("Common","normal") );
-	m_textDevices.SetXY( SCREEN_LEFT+20, SCREEN_TOP+80 );
-	m_textDevices.SetDiffuse( RageColor(1,1,1,1) );
-	m_textDevices.SetZoom( 0.7f );
-	m_textDevices.SetHorizAlign( Actor::align_left );
+public:
+	void Update( float fDeltaTime )
 	{
-		vector<InputDevice> vDevices;
-		vector<CString> vDescriptions;
-		INPUTMAN->GetDevicesAndDescriptions( vDevices, vDescriptions );
-		FOREACH( CString, vDescriptions, s )
-		{
-			if( *s == "MonkeyKeyboard" )
-			{
-				vDescriptions.erase( s );
-				break;
-			}
-		}
-		m_textDevices.SetText( join("\n",vDescriptions) );
+		//
+		// Update devices text
+		//
+		this->SetText( INPUTMAN->GetDisplayDevicesString() );
+
+		BitmapText::Update( fDeltaTime );
 	}
-	this->AddChild( &m_textDevices );
 
-	m_textInputs.LoadFromFont( THEME->GetPathF("Common","normal") );
-	m_textInputs.SetXY( SCREEN_CENTER_X-250, SCREEN_CENTER_Y );
-	m_textInputs.SetDiffuse( RageColor(1,1,1,1) );
-	m_textInputs.SetZoom( 0.7f );
-	m_textInputs.SetHorizAlign( Actor::align_left );
-	this->AddChild( &m_textInputs );
+	virtual Actor *Copy() const;
+};
 
-	this->SortByDrawOrder();
-}
+REGISTER_ACTOR_CLASS( DeviceList );
 
-
-
-ScreenTestInput::~ScreenTestInput()
+static LocalizedString CONTROLLER	( "ScreenTestInput", "Controller" );
+static LocalizedString SECONDARY	( "ScreenTestInput", "secondary" );
+static LocalizedString NOT_MAPPED	( "ScreenTestInput", "not mapped" );
+class InputList: public BitmapText
 {
-	LOG->Trace( "ScreenTestInput::~ScreenTestInput()" );
-}
+	virtual Actor *Copy() const;
 
-
-void ScreenTestInput::Update( float fDeltaTime )
-{
-	Screen::Update( fDeltaTime );
-
-	CStringArray asInputs;
-
-	DeviceInput di;
-
-	FOREACH_InputDevice( d )
+	void Update( float fDeltaTime )
 	{
-		for( int b=0; b<GetNumDeviceButtons(d); b++ )
+		//
+		// Update input texts
+		//
+		vector<RString> asInputs;
+
+		DeviceInput di;
+		vector<DeviceInput> DeviceInputs;
+		INPUTFILTER->GetPressedButtons( DeviceInputs );
+		FOREACH( DeviceInput, DeviceInputs, di )
 		{
-			di.device = d;
-			di.button = b;
-
-			if( !INPUTFILTER->IsBeingPressed(di) )
-				continue;
-
-			CString sTemp;
-			sTemp += INPUTMAN->GetDeviceSpecificInputString(di);
+			RString sTemp;
+			sTemp += INPUTMAN->GetDeviceSpecificInputString(*di);
 			
 			GameInput gi;
-			if( INPUTMAPPER->DeviceToGame(di,gi) )
+			if( INPUTMAPPER->DeviceToGame(*di,gi) )
 			{
-				CString sName = GAMESTATE->GetCurrentGame()->m_szButtonNames[gi.button];
-				sTemp += ssprintf(" - Controller %d %s", gi.controller+1, sName.c_str() );
+				RString sName = GameButtonToLocalizedString( GAMESTATE->GetCurrentGame(), gi.button );
+				sTemp += ssprintf(" - "+CONTROLLER.GetValue()+" %d %s", gi.controller+1, sName.c_str() );
 
 				if( !PREFSMAN->m_bOnlyDedicatedMenuButtons )
 				{
-					CString sSecondary = GAMEMAN->GetMenuButtonSecondaryFunction( GAMESTATE->GetCurrentGame(), gi.button );
-					if( !sSecondary.empty() )
-						sTemp += ssprintf(" - (%s secondary)", sSecondary.c_str() );
+					MenuButton mb = GAMEMAN->GetMenuButtonSecondaryFunction( GAMESTATE->GetCurrentGame(), gi.button );
+					if( mb != MenuButton_INVALID )
+						sTemp += ssprintf( " - (%s %s)", MenuButtonToLocalizedString(mb).c_str(), SECONDARY.GetValue().c_str() );
 				}
 			}
 			else
 			{
-				sTemp += " - not mapped";
+				sTemp += " - "+NOT_MAPPED.GetValue();
 			}
 
-			CString sComment = INPUTFILTER->GetButtonComment( di );
+			RString sComment = INPUTFILTER->GetButtonComment( *di );
 			if( sComment != "" )
 				sTemp += " - " + sComment;
 
 			asInputs.push_back( sTemp );
 		}
+
+		this->SetText( join( "\n", asInputs ) );
+
+		BitmapText::Update( fDeltaTime );
 	}
+};
 
-	m_textInputs.SetText( join( "\n", asInputs ) );
-}
+REGISTER_ACTOR_CLASS( InputList );
 
+REGISTER_SCREEN_CLASS( ScreenTestInput );
 
 void ScreenTestInput::Input( const InputEventPlus &input )
 {
-	CString sMessage = input.DeviceI.toString();
+	RString sMessage = input.DeviceI.ToString();
 	switch( input.type )
 	{
 	case IET_FIRST_PRESS:
 	case IET_RELEASE:
+		switch( input.type )
 		{
-			switch( input.type )
-			{
-			case IET_FIRST_PRESS:	sMessage += "Pressed";	break;
-			case IET_RELEASE:		sMessage += "Released";	break;
-			}
-			MESSAGEMAN->Broadcast( sMessage );
+		case IET_FIRST_PRESS:	sMessage += "Pressed";	break;
+		case IET_RELEASE:		sMessage += "Released";	break;
 		}
+		MESSAGEMAN->Broadcast( sMessage );
 	}
 
 	if( input.type != IET_FIRST_PRESS && input.type != IET_SLOW_REPEAT )
@@ -144,10 +117,10 @@ void ScreenTestInput::MenuStart( PlayerNumber pn )
 
 void ScreenTestInput::MenuBack( PlayerNumber pn )
 {
-	if(!IsTransitioning())
+	if( !IsTransitioning() )
 	{
 		SCREENMAN->PlayStartSound();
-		StartTransitioning( SM_GoToPrevScreen );		
+		StartTransitioningScreen( SM_GoToPrevScreen );		
 	}
 }
 

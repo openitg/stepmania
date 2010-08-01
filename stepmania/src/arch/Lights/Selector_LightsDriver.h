@@ -4,11 +4,13 @@
 #include "arch/arch_platform.h"
 
 /* LightsDriver selector. */
-#ifdef HAVE_WIN32
+#if defined(WINDOWS)
 #include "LightsDriver_Win32Parallel.h"
 #endif
-#ifdef HAVE_LINUXKERNEL
+#if defined(LINUX)
+#ifndef __PPC__
 #include "LightsDriver_LinuxParallel.h"
+#endif
 #include "LightsDriver_LinuxWeedTech.h"
 #endif
 #include "LightsDriver_SystemMessage.h"

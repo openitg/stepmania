@@ -3,20 +3,22 @@
 #ifndef PlayerNumber_H
 #define PlayerNumber_H
 
-#include "RageTypes.h"	// for RageColor
 #include "EnumHelper.h"
 
 
 //
 // Player number stuff
 //
-enum PlayerNumber {
+enum PlayerNumber
+{
 	PLAYER_1 = 0,
 	PLAYER_2,
-	NUM_PLAYERS,	// leave this at the end
+	NUM_PlayerNumber,	// leave this at the end
 	PLAYER_INVALID
 };
-const CString& PlayerNumberToString( PlayerNumber pn );
+const int NUM_PLAYERS = NUM_PlayerNumber;
+const RString& PlayerNumberToString( PlayerNumber pn );
+const RString& PlayerNumberToLocalizedString( PlayerNumber pn );
 
 #define FOREACH_PlayerNumber( pn ) FOREACH_ENUM( PlayerNumber, NUM_PLAYERS, pn )
 #define FOREACH_HumanPlayer( pn ) for( PlayerNumber pn=GetNextHumanPlayer((PlayerNumber)-1); pn!=PLAYER_INVALID; pn=GetNextHumanPlayer(pn) )
@@ -32,7 +34,8 @@ PlayerNumber GetNextPotentialCpuPlayer( PlayerNumber pn );
 const PlayerNumber	OPPOSITE_PLAYER[NUM_PLAYERS] = { PLAYER_2, PLAYER_1 };
 
 
-enum MultiPlayer {
+enum MultiPlayer
+{
 	MultiPlayer_1 = 0,
 	MultiPlayer_2,
 	MultiPlayer_3,
@@ -41,10 +44,35 @@ enum MultiPlayer {
 	MultiPlayer_6,
 	MultiPlayer_7,
 	MultiPlayer_8,
+	MultiPlayer_9,
+	MultiPlayer_10,
+	MultiPlayer_11,
+	MultiPlayer_12,
+	MultiPlayer_13,
+	MultiPlayer_14,
+	MultiPlayer_15,
+	MultiPlayer_16,
+	MultiPlayer_17,
+	MultiPlayer_18,
+	MultiPlayer_19,
+	MultiPlayer_20,
+	MultiPlayer_21,
+	MultiPlayer_22,
+	MultiPlayer_23,
+	MultiPlayer_24,
+	MultiPlayer_25,
+	MultiPlayer_26,
+	MultiPlayer_27,
+	MultiPlayer_28,
+	MultiPlayer_29,
+	MultiPlayer_30,
+	MultiPlayer_31,
+	MultiPlayer_32,
 	NUM_MultiPlayer,	// leave this at the end
 	MultiPlayer_INVALID
 };
-const CString& MultiPlayerToString( MultiPlayer mp );
+const RString& MultiPlayerToString( MultiPlayer mp );
+const RString& MultiPlayerToLocalizedString( MultiPlayer mp );
 
 #define FOREACH_MultiPlayer( pn ) FOREACH_ENUM( MultiPlayer, NUM_MultiPlayer, pn )
 

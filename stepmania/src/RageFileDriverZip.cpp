@@ -15,7 +15,7 @@
 static struct FileDriverEntry_ZIP: public FileDriverEntry
 {
 	FileDriverEntry_ZIP(): FileDriverEntry( "ZIP" ) { }
-	RageFileDriver *Create( CString Root ) const { return new RageFileDriverZip( Root ); }
+	RageFileDriver *Create( const RString &sRoot ) const { return new RageFileDriverZip( sRoot ); }
 } const g_RegisterDriver;
 
 
@@ -27,7 +27,7 @@ RageFileDriverZip::RageFileDriverZip():
 	m_pZip = NULL;
 }
 
-RageFileDriverZip::RageFileDriverZip( CString sPath ):
+RageFileDriverZip::RageFileDriverZip( const RString &sPath ):
 	RageFileDriver( new NullFilenameDB ),
 	m_Mutex( "RageFileDriverZip" )
 {
@@ -36,17 +36,7 @@ RageFileDriverZip::RageFileDriverZip( CString sPath ):
 	Load( sPath );
 }
 
-/* deprecated */
-RageFileDriverZip::RageFileDriverZip( RageFileBasic *pFile ):
-	RageFileDriver( new NullFilenameDB ),
-	m_Mutex( "RageFileDriverZip" )
-{
-	m_bFileOwned = false;
-	m_pZip = NULL;
-	Load( pFile );
-}
-
-bool RageFileDriverZip::Load( const CString &sPath )
+bool RageFileDriverZip::Load( const RString &sPath )
 {
 	ASSERT( m_pZip == NULL ); /* don't load twice */
 
@@ -82,15 +72,16 @@ bool RageFileDriverZip::Load( RageFileBasic *pFile )
 
 bool RageFileDriverZip::ReadEndCentralRecord( int &iTotalEntries, int &iCentralDirectoryOffset )
 {
-	CString sError;
-	CString sSig = FileReading::ReadString( *m_pZip, 4, sError );
+	RString sError;
+	RString sSig = FileReading::ReadString( *m_pZip, 4, sError );
 	FileReading::read_16_le( *m_pZip, sError ); /* skip number of this disk */
 	FileReading::read_16_le( *m_pZip, sError ); /* skip disk with central directory */
 	FileReading::read_16_le( *m_pZip, sError ); /* skip number of entries on this disk */
 	iTotalEntries = FileReading::read_16_le( *m_pZip, sError );
 	FileReading::read_32_le( *m_pZip, sError ); /* skip size of the central directory */
 	iCentralDirectoryOffset = FileReading::read_32_le( *m_pZip, sError );
-	FileReading::read_16_le( *m_pZip, sError ); /* skip zipfile comment length */
+	int iCommentLength = FileReading::read_16_le( *m_pZip, sError );
+	m_sComment = FileReading::ReadString( *m_pZip, iCommentLength, sError );
 
 	if( sError != "" )
 	{
@@ -176,8 +167,8 @@ bool RageFileDriverZip::ParseZipfile()
 
 int RageFileDriverZip::ProcessCdirFileHdr( FileInfo &info )
 {
-	CString sError;
-	CString sSig = FileReading::ReadString( *m_pZip, 4, sError );
+	RString sError;
+	RString sSig = FileReading::ReadString( *m_pZip, 4, sError );
 	if( sSig != "\x50\x4B\x01\x02" )
 	{
 		LOG->Warn( "%s: central directory record signature not found", m_sPath.c_str() );
@@ -256,8 +247,8 @@ bool RageFileDriverZip::ReadLocalFileHeader( FileInfo &info )
 	/* Seek to and read the local file header. */
 	m_pZip->Seek( info.m_iOffset );
 
-	CString sError;
-	CString sSig = FileReading::ReadString( *m_pZip, 4, sError );
+	RString sError;
+	RString sSig = FileReading::ReadString( *m_pZip, 4, sError );
 
 	if( sError != "" )
 	{
@@ -295,12 +286,12 @@ RageFileDriverZip::~RageFileDriverZip()
 		delete m_pZip;
 }
 
-const RageFileDriverZip::FileInfo *RageFileDriverZip::GetFileInfo( const CString &sPath ) const
+const RageFileDriverZip::FileInfo *RageFileDriverZip::GetFileInfo( const RString &sPath ) const
 {
 	return (const FileInfo *) FDB->GetFilePriv( sPath );
 }
 
-RageFileBasic *RageFileDriverZip::Open( const CString &sPath, int iMode, int &iErr )
+RageFileBasic *RageFileDriverZip::Open( const RString &sPath, int iMode, int &iErr )
 {
 	if( iMode & RageFile::WRITE )
 	{
@@ -352,7 +343,7 @@ RageFileBasic *RageFileDriverZip::Open( const CString &sPath, int iMode, int &iE
 }
 
 /* NOP for now.  This could check to see if the ZIP's mtime has changed, and reload. */
-void RageFileDriverZip::FlushDirCache( const CString &sPath )
+void RageFileDriverZip::FlushDirCache( const RString &sPath )
 {
 
 }

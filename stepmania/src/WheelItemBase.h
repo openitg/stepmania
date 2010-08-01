@@ -26,16 +26,16 @@ enum WheelItemType
 class WheelItemBase : public ActorFrame
 {
 public:
-	WheelItemBase( CString sType = "WheelItemBase" );
+	WheelItemBase( RString sType = "WheelItemBase" );
 	WheelItemBase( const WheelItemBase &cpy );
 	virtual void DrawPrimitives();
 	
-	void Load( CString sType );
+	void Load( RString sType );
 	void DrawGrayBar( Actor& bar );
 
 	virtual void LoadFromWheelItemBaseData( WheelItemBaseData* pWID );
 
-	float				m_fPercentGray;
+	RageColor	m_colorLocked;
 
 protected:
 	void SetGrayBar( Actor *pBar ) { m_pBar = pBar; }
@@ -57,10 +57,10 @@ protected:
 struct WheelItemBaseData
 {
 	WheelItemBaseData() {}
-	WheelItemBaseData( WheelItemType wit, CString sText, RageColor color );
+	WheelItemBaseData( WheelItemType wit, RString sText, RageColor color );
 
 	WheelItemType	m_Type;
-	CString			m_sText;
+	RString			m_sText;
 	RageColor		m_color;	// either text color or section background color
 	WheelNotifyIcon::Flags  m_Flags;
 };

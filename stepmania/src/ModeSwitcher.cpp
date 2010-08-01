@@ -2,7 +2,6 @@
 #include "ModeSwitcher.h"
 #include "RageUtil.h"
 #include "GameState.h"
-#include "PrefsManager.h"
 #include "SongManager.h"
 #include "ThemeManager.h"
 #include "Style.h"
@@ -59,10 +58,10 @@ ModeSwitcher::~ModeSwitcher()
 	
 }
 
-CString ModeSwitcher::GetStyleName()
+RString ModeSwitcher::GetStyleName()
 {
-	CString sStyleName;
-	CString sDiff[NUM_PLAYERS];
+	RString sStyleName;
+	RString sDiff[NUM_PLAYERS];
 
 	sStyleName = GAMESTATE->m_pCurStyle->m_szName;
 	sStyleName.MakeUpper();
@@ -76,7 +75,7 @@ CString ModeSwitcher::GetStyleName()
 				case DIFFICULTY_BEGINNER: sDiff[i] = "Beginner\n"; break;
 				case DIFFICULTY_EASY:
 				{
-					if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+					if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 					{
 						sDiff[i] = "Normal\n"; break;
 					}
@@ -87,7 +86,7 @@ CString ModeSwitcher::GetStyleName()
 				} 
 				case DIFFICULTY_MEDIUM:
 				{
-					if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+					if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 					{
 						sDiff[i] = "Hard\n"; break;
 					}
@@ -98,7 +97,7 @@ CString ModeSwitcher::GetStyleName()
 				} 				
 				case DIFFICULTY_HARD:
 				{
-					if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+					if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 					{
 						sDiff[i] = "Crazy\n"; break;
 					}
@@ -116,15 +115,15 @@ CString ModeSwitcher::GetStyleName()
 			sDiff[i] = "";
 		}
 	}
-	CString returnval;
+	RString returnval;
 	returnval = sStyleName + sDiff[0] + sDiff[1];
 	return returnval;
 }
 
-CString ModeSwitcher::GetNextStyleName()
+RString ModeSwitcher::GetNextStyleName()
 {
-	CString sStyleName[NUM_PLAYERS];
-	CString sDiff[NUM_PLAYERS];
+	RString sStyleName[NUM_PLAYERS];
+	RString sDiff[NUM_PLAYERS];
 	
 	FOREACH_PlayerNumber(i)
 	{
@@ -139,7 +138,7 @@ CString ModeSwitcher::GetNextStyleName()
 				{
 					case DIFFICULTY_BEGINNER:
 					{
-						if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+						if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 						{
 							sDiff[i] = "Normal\n"; break;
 						}
@@ -150,7 +149,7 @@ CString ModeSwitcher::GetNextStyleName()
 					} 				
 					case DIFFICULTY_EASY:
 					{
-						if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+						if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 						{
 							sDiff[i] = "Hard\n"; break;
 						}
@@ -161,7 +160,7 @@ CString ModeSwitcher::GetNextStyleName()
 					} 	
 					case DIFFICULTY_MEDIUM:
 					{
-						if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+						if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 						{
 							sDiff[i] = "Crazy\n"; break;
 						}
@@ -189,15 +188,15 @@ CString ModeSwitcher::GetNextStyleName()
 			sDiff[i] = "";
 		}
 	}
-	CString returnval;
+	RString returnval;
 	returnval = sStyleName[0] + sDiff[0] + sStyleName[1] + sDiff[1];
 	return returnval;
 }
 
-CString ModeSwitcher::GetPrevStyleName()
+RString ModeSwitcher::GetPrevStyleName()
 {
-	CString sStyleName[NUM_PLAYERS];
-	CString sDiff[NUM_PLAYERS];
+	RString sStyleName[NUM_PLAYERS];
+	RString sDiff[NUM_PLAYERS];
 	
 	FOREACH_PlayerNumber(i)
 	{
@@ -212,7 +211,7 @@ CString ModeSwitcher::GetPrevStyleName()
 				{
 					case DIFFICULTY_CHALLENGE:
 					{
-						if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+						if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 						{
 							sDiff[i] = "Crazy\n"; break;
 						}
@@ -224,7 +223,7 @@ CString ModeSwitcher::GetPrevStyleName()
 					case DIFFICULTY_EASY: sDiff[i] = "Beginner\n"; break;
 					case DIFFICULTY_MEDIUM:
 					{
-						if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+						if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 						{
 							sDiff[i] = "Normal\n"; break;
 						}
@@ -235,7 +234,7 @@ CString ModeSwitcher::GetPrevStyleName()
 					} 					
 					case DIFFICULTY_HARD:
 					{
-						if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+						if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 						{
 							sDiff[i] = "Hard\n"; break;
 						}
@@ -262,14 +261,14 @@ CString ModeSwitcher::GetPrevStyleName()
 			sDiff[i] = "";
 		}
 	}
-	CString returnval;
+	RString returnval;
 	returnval = sStyleName[0] + sDiff[0] + sStyleName[1] + sDiff[1];
 	return returnval;
 }
 
 void ModeSwitcher::ChangeMode(PlayerNumber pn, int dir)
 {
-	if(GAMESTATE->m_pCurGame->m_szName == CString("pump"))
+	if(GAMESTATE->m_pCurGame->m_szName == RString("pump"))
 	{
 		if(GAMESTATE->IsPlayerEnabled(pn))
 		{

@@ -10,19 +10,10 @@
 class ScreenTestInput : public ScreenWithMenuElements
 {
 public:
-	ScreenTestInput( CString sName );
-	virtual void Init();
-	virtual ~ScreenTestInput();
-
-	virtual void Update( float fDelta );
 	virtual void Input( const InputEventPlus &input );
 
 	virtual void MenuStart( PlayerNumber pn );
 	virtual void MenuBack( PlayerNumber pn );
-
-private:
-	BitmapText	m_textDevices;
-	BitmapText	m_textInputs;
 };
 
 #endif

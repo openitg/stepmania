@@ -59,7 +59,7 @@ void KSFLoader::RemoveHoles( NoteData &out, const Song &song )
 }
 #endif
 
-bool KSFLoader::LoadFromKSFFile( const CString &sPath, Steps &out, const Song &song )
+bool KSFLoader::LoadFromKSFFile( const RString &sPath, Steps &out, const Song &song )
 {
 	LOG->Trace( "Steps::LoadFromKSFFile( '%s' )", sPath.c_str() );
 
@@ -68,25 +68,34 @@ bool KSFLoader::LoadFromKSFFile( const CString &sPath, Steps &out, const Song &s
 		RageException::Throw( "Error opening file '%s'.", sPath.c_str() );
 
 	int iTickCount = -1;	// this is the value we read for TICKCOUNT
-	CStringArray asRows;
+	vector<RString> asRows;
 
 	for( unsigned i=0; i<msd.GetNumValues(); i++ )
 	{
-		const MsdFile::value_t &sParams = msd.GetValue(i);
-		CString sValueName = sParams[0];
+		const MsdFile::value_t &sParams = msd.GetValue( i );
+		RString sValueName = sParams[0];
 
 		// handle the data
 		if( 0==stricmp(sValueName,"TICKCOUNT") )
-			iTickCount = atoi(sParams[1]);
-
+		{
+			iTickCount = atoi( sParams[1] );
+			if( iTickCount <= 0 )
+			{
+				// XXX need a place for user warnings.
+				LOG->Warn( "Invalid tick count: %d", iTickCount );
+				return false;
+			}
+		}
 		else if( 0==stricmp(sValueName,"STEP") )
 		{
-			CString step = sParams[1];
-			TrimLeft(step);
+			RString step = sParams[1];
+			TrimLeft( step );
 			split( step, "\n", asRows, true );
 		}
 		else if( 0==stricmp(sValueName,"DIFFICULTY") )
-			out.SetMeter(atoi(sParams[1]));
+		{
+			out.SetMeter( max(atoi(sParams[1]), 0) );
+		}
 	}
 
 	if( iTickCount == -1 )
@@ -98,42 +107,42 @@ bool KSFLoader::LoadFromKSFFile( const CString &sPath, Steps &out, const Song &s
 	NoteData notedata;	// read it into here
 
 	{
-		CString sDir, sFName, sExt;
+		RString sDir, sFName, sExt;
 		splitpath( sPath, sDir, sFName, sExt );
 		sFName.MakeLower();
 
 		out.SetDescription(sFName);
-		if( sFName.Find("crazy")!=-1 )
+		if( sFName.find("crazy") != string::npos )
 		{
-			out.SetDifficulty(DIFFICULTY_HARD);
-			if(!out.GetMeter()) out.SetMeter(8);
+			out.SetDifficulty( DIFFICULTY_HARD );
+			if( !out.GetMeter() ) out.SetMeter( 8 );
 		}
-		else if( sFName.Find("hard")!=-1 )
+		else if( sFName.find("hard") != string::npos )
 		{
-			out.SetDifficulty(DIFFICULTY_MEDIUM);
-			if(!out.GetMeter()) out.SetMeter(5);
+			out.SetDifficulty( DIFFICULTY_MEDIUM );
+			if( !out.GetMeter() ) out.SetMeter( 5 );
 		}
-		else if( sFName.Find("easy")!=-1 )
+		else if( sFName.find("easy") != string::npos || sFName.find("normal") != string::npos )
 		{
-			out.SetDifficulty(DIFFICULTY_EASY);
-			if(!out.GetMeter()) out.SetMeter(2);
+			out.SetDifficulty( DIFFICULTY_EASY );
+			if( !out.GetMeter() ) out.SetMeter( 2 );
 		}
 		else
 		{
-			out.SetDifficulty(DIFFICULTY_MEDIUM);
-			if(!out.GetMeter()) out.SetMeter(5);
+			out.SetDifficulty( DIFFICULTY_MEDIUM );
+			if( !out.GetMeter() ) out.SetMeter( 5 );
 		}
 
 		out.m_StepsType = STEPS_TYPE_PUMP_SINGLE;
 
 		/* Check for "halfdouble" before "double". */
-		if( sFName.Find("halfdouble") != -1 || sFName.Find("h_double") != -1 )
+		if( sFName.find("halfdouble") != string::npos || sFName.find("h_double") != string::npos )
 			out.m_StepsType = STEPS_TYPE_PUMP_HALFDOUBLE;
-		else if( sFName.Find("double") != -1 )
+		else if( sFName.find("double") != string::npos || sFName.find("nightmare") != string::npos )
 			out.m_StepsType = STEPS_TYPE_PUMP_DOUBLE;
-		else if( sFName.Find("_1") != -1 )
+		else if( sFName.find("_1") != string::npos )
 			out.m_StepsType = STEPS_TYPE_PUMP_SINGLE;
-		else if( sFName.Find("_2") != -1 )
+		else if( sFName.find("_2") != string::npos )
 			out.m_StepsType = STEPS_TYPE_PUMP_COUPLE;
 	}
 
@@ -152,7 +161,7 @@ bool KSFLoader::LoadFromKSFFile( const CString &sPath, Steps &out, const Song &s
 
 	for( unsigned r=0; r<asRows.size(); r++ )
 	{
-		CString& sRowString = asRows[r];
+		RString& sRowString = asRows[r];
 		StripCrnl( sRowString );
 		
 		if( sRowString == "" )
@@ -162,10 +171,10 @@ bool KSFLoader::LoadFromKSFFile( const CString &sPath, Steps &out, const Song &s
 		if( sRowString == "2222222222222" )
 			break;
 
-		if(sRowString.size() != 13)
+		if( sRowString.size() != 13 )
 		{
 			LOG->Warn("File %s had a RowString with an improper length (\"%s\"); corrupt notes ignored",
-				sPath.c_str(), sRowString.c_str());
+				  sPath.c_str(), sRowString.c_str());
 			return false;
 		}
 
@@ -190,14 +199,17 @@ bool KSFLoader::LoadFromKSFFile( const CString &sPath, Steps &out, const Song &s
 			{
 				int iEndKSFRow = r-1;
 				int iEndRow = (iEndKSFRow * ROWS_PER_BEAT) / iTickCount;
-				notedata.AddHoldNote( t, iHoldStartRow[t], iEndRow , TAP_ORIGINAL_HOLD_HEAD );
+				if( iHoldStartRow[t] == iEndRow )
+					notedata.SetTapNote( t, iHoldStartRow[t], TAP_ORIGINAL_TAP );
+				else
+					notedata.AddHoldNote( t, iHoldStartRow[t], iEndRow , TAP_ORIGINAL_HOLD_HEAD );
 				iHoldStartRow[t] = -1;
 			}
 
 			TapNote tap;
-			switch(sRowString[t])
+			switch( sRowString[t] )
 			{
-			case '0':	tap = TAP_EMPTY;			break;
+			case '0':	tap = TAP_EMPTY;		break;
 			case '1':	tap = TAP_ORIGINAL_TAP;		break;
 			default:
 				LOG->Warn( "File %s had an invalid row (\"%s\"); corrupt notes ignored",
@@ -220,35 +232,35 @@ bool KSFLoader::LoadFromKSFFile( const CString &sPath, Steps &out, const Song &s
 	return true;
 }
 
-void KSFLoader::GetApplicableFiles( CString sPath, CStringArray &out )
+void KSFLoader::GetApplicableFiles( const RString &sPath, vector<RString> &out )
 {
-	GetDirListing( sPath + CString("*.ksf"), out );
+	GetDirListing( sPath + RString("*.ksf"), out );
 }
 
-void KSFLoader::LoadTags( const CString &str, Song &out )
+void KSFLoader::LoadTags( const RString &str, Song &out )
 {
 	/* str is either a #TITLE or a directory component.  Fill in missing information.
 	 * str is either "title", "artist - title", or "artist - title - difficulty". */
-	CStringArray asBits;
+	vector<RString> asBits;
 	split( str, " - ", asBits, false );
 	/* Ignore the difficulty, since we get that elsewhere. */
 	if( asBits.size() == 3 &&
-		(!stricmp(asBits[2], "double") ||
-		 !stricmp(asBits[2], "easy") ||
-		 !stricmp(asBits[2], "normal") ||
-		 !stricmp(asBits[2], "hard") ||
-		 !stricmp(asBits[2], "crazy")) )
+	    (!stricmp(asBits[2], "double") ||
+	     !stricmp(asBits[2], "easy") ||
+	     !stricmp(asBits[2], "normal") ||
+	     !stricmp(asBits[2], "hard") ||
+	     !stricmp(asBits[2], "crazy")) )
 	{
-		asBits.erase(asBits.begin()+2, asBits.begin()+3);
+		asBits.erase( asBits.begin()+2, asBits.begin()+3 );
 	}
 
-	CString title, artist;
+	RString title, artist;
 	if( asBits.size() == 2 )
 	{
 		artist = asBits[0];
 		title = asBits[1];
 	}
-	else
+	else if( asBits.size() == 1 )
 	{
 		title = asBits[0];
 	}
@@ -265,76 +277,93 @@ void KSFLoader::LoadTags( const CString &str, Song &out )
 		out.m_sArtist = artist;
 }
 
-bool KSFLoader::LoadGlobalData( const CString &sPath, Song &out )
+bool KSFLoader::LoadGlobalData( const RString &sPath, Song &out )
 {
 	MsdFile msd;
 	if( !msd.ReadFile( sPath ) )
 		RageException::Throw( "Error opening file \"%s\": %s", sPath.c_str(), msd.GetError().c_str() );
 
-	float BPMPos2 = -1, BPM2 = -1, BPMPos3 = -1, BPM3 = -1;;
+	float SMGap1 = 0, SMGap2 = 0, BPM1 = -1, BPMPos2 = -1, BPM2 = -1, BPMPos3 = -1, BPM3 = -1;
 
 	for( unsigned i=0; i < msd.GetNumValues(); i++ )
 	{
 		const MsdFile::value_t &sParams = msd.GetValue(i);
-		CString sValueName = sParams[0];
+		RString sValueName = sParams[0];
 
 		// handle the data
 		if( 0==stricmp(sValueName,"TITLE") )
 			LoadTags(sParams[1], out);
 		else if( 0==stricmp(sValueName,"BPM") )
-			out.AddBPMSegment( BPMSegment(0, strtof(sParams[1], NULL)) );
+		{
+			BPM1 = StringToFloat(sParams[1]);
+			out.AddBPMSegment( BPMSegment(0, BPM1) );
+		}
 		else if( 0==stricmp(sValueName,"BPM2") )
-			BPM2 = strtof( sParams[1], NULL );
+			BPM2 = StringToFloat( sParams[1] );
 		else if( 0==stricmp(sValueName,"BPM3") )
-			BPM3 = strtof( sParams[1], NULL );
+			BPM3 = StringToFloat( sParams[1] );
 		else if( 0==stricmp(sValueName,"BUNKI") )
-			BPMPos2 = strtof( sParams[1], NULL ) / 100.0f;
+			BPMPos2 = StringToFloat( sParams[1] ) / 100.0f;
 		else if( 0==stricmp(sValueName,"BUNKI2") )
-			BPMPos3 = strtof( sParams[1], NULL ) / 100.0f;
+			BPMPos3 = StringToFloat( sParams[1] ) / 100.0f;
 		else if( 0==stricmp(sValueName,"STARTTIME") )
-			out.m_Timing.m_fBeat0OffsetInSeconds = -strtof( sParams[1], NULL )/100;		
+		{
+			SMGap1 = -StringToFloat( sParams[1] )/100;
+			out.m_Timing.m_fBeat0OffsetInSeconds = SMGap1;
+		}
+		// This is currently required for more accurate BPM changes.  
+		else if( 0==stricmp(sValueName,"STARTTIME2") )
+			SMGap2 = -StringToFloat( sParams[1] )/100;
 		else if( 0==stricmp(sValueName,"TICKCOUNT") ||
-				 0==stricmp(sValueName,"STEP") ||
-				 0==stricmp(sValueName,"DIFFICULTY"))
-			; /* Handled in LoadFromKSFFile; don't warn. */
+			 0==stricmp(sValueName,"STEP") ||
+			 0==stricmp(sValueName,"DIFFICULTY") ||
+			 0==stricmp(sValueName,"STARTTIME3") )
+		{
+			/* TICKCOUNT, STEP, and DIFFICULTY are handled in LoadFromKSFFile.
+			 * STARTTIME3 is expected but unnecessary. Do not warn. */
+			continue;
+		}
 		else
 			LOG->Trace( "Unexpected value named '%s'", sValueName.c_str() );
 	}
 
-	/* This doesn't work yet: we also need to move the data around, I think, and
-	 * we should handle more than one BPM change. */
+	/* At this time, only KSF files that use the traditional syntax can be 
+	 * converted, and even then, not all of them will work smoothly.  The 
+	 * formulas are more accurate at this point, however.  As soon as support 
+	 * for the other Pump simulators is supported (mostly Direct Move), this 
+	 * section will be expanded. */
 	if( BPM2 > 0 && BPMPos2 > 0 )
 	{
-		const float BeatsPerSecond = out.GetBPMAtBeat(0) / 60.0f;
-		const float beat = BPMPos2 * BeatsPerSecond;
-		LOG->Trace("BPM %f, BPS %f, BPMPos2 %f, beat %f",
-			out.GetBPMAtBeat(0), BeatsPerSecond, BPMPos2, beat);
+		const float BeatsPerSecond = BPM1 / 60.0f;
+		const float beat = (BPMPos2 + SMGap1) * BeatsPerSecond;
+		LOG->Trace( "BPM %f, BPS %f, BPMPos2 %f, beat %f",
+			    BPM1, BeatsPerSecond, BPMPos2, beat );
 		out.AddBPMSegment( BPMSegment(BeatToNoteRow(beat), BPM2) );
 	}
 
 	if( BPM3 > 0 && BPMPos3 > 0 )
 	{
-		const float BeatsPerSecond = out.GetBPMAtBeat(0) / 60.0f;
-		const float beat = BPMPos3 * BeatsPerSecond;
-		LOG->Trace("BPM %f, BPS %f, BPMPos3 %f, beat %f",
-			out.GetBPMAtBeat(0), BeatsPerSecond, BPMPos3, beat);
+		const float BeatsPerSecond = BPM2 / 60.0f;
+		const float beat = (BPMPos3 + SMGap2) * BeatsPerSecond;
+		LOG->Trace( "BPM %f, BPS %f, BPMPos3 %f, beat %f",
+			    BPM2, BeatsPerSecond, BPMPos3, beat );
 		out.AddBPMSegment( BPMSegment(BeatToNoteRow(beat), BPM3) );
 	}
 
 	/* Try to fill in missing bits of information from the pathname. */
 	{
-		CStringArray asBits;
+		vector<RString> asBits;
 		split( sPath, "/", asBits, true);
 
-		ASSERT(asBits.size() > 1);
-		LoadTags(asBits[asBits.size()-2], out);
+		ASSERT( asBits.size() > 1 );
+		LoadTags( asBits[asBits.size()-2], out );
 	}
 
 	// search for music with song in the file name
-	CStringArray arrayPossibleMusic;
-	GetDirListing( out.GetSongDir() + CString("song.mp3"), arrayPossibleMusic );
-	GetDirListing( out.GetSongDir() + CString("song.ogg"), arrayPossibleMusic );
-	GetDirListing( out.GetSongDir() + CString("song.wav"), arrayPossibleMusic );
+	vector<RString> arrayPossibleMusic;
+	GetDirListing( out.GetSongDir() + RString("song.mp3"), arrayPossibleMusic );
+	GetDirListing( out.GetSongDir() + RString("song.ogg"), arrayPossibleMusic );
+	GetDirListing( out.GetSongDir() + RString("song.wav"), arrayPossibleMusic );
 
 	if( !arrayPossibleMusic.empty() )		// we found a match
 		out.m_sMusicFile = arrayPossibleMusic[0];
@@ -342,25 +371,25 @@ bool KSFLoader::LoadGlobalData( const CString &sPath, Song &out )
 	return true;
 }
 
-bool KSFLoader::LoadFromDir( CString sDir, Song &out )
+bool KSFLoader::LoadFromDir( const RString &sDir, Song &out )
 {
 	LOG->Trace( "Song::LoadFromKSFDir(%s)", sDir.c_str() );
 
-	CStringArray arrayKSFFileNames;
-	GetDirListing( sDir + CString("*.ksf"), arrayKSFFileNames );
+	vector<RString> arrayKSFFileNames;
+	GetDirListing( sDir + RString("*.ksf"), arrayKSFFileNames );
 
 	/* We shouldn't have been called to begin with if there were no KSFs. */
 	if( arrayKSFFileNames.empty() )
 		RageException::Throw( "Couldn't find any KSF files in '%s'", sDir.c_str() );
 
-	if(!LoadGlobalData(out.GetSongDir() + arrayKSFFileNames[0], out))
+	if( !LoadGlobalData(out.GetSongDir() + arrayKSFFileNames[0], out) )
 		return false;
 
 	// load the Steps from the rest of the KSF files
 	for( unsigned i=0; i<arrayKSFFileNames.size(); i++ ) 
 	{
 		Steps* pNewNotes = new Steps;
-		if(!LoadFromKSFFile( out.GetSongDir() + arrayKSFFileNames[i], *pNewNotes, out ))
+		if( !LoadFromKSFFile(out.GetSongDir() + arrayKSFFileNames[i], *pNewNotes, out) )
 		{
 			delete pNewNotes;
 			continue;
@@ -373,7 +402,7 @@ bool KSFLoader::LoadFromDir( CString sDir, Song &out )
 }
 
 /*
- * (c) 2001-2004 Chris Danford, Glenn Maynard
+ * (c) 2001-2006 Chris Danford, Glenn Maynard, Jason Felds
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

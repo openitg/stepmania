@@ -10,33 +10,33 @@
 #include "ScreenManager.h"
 #include "GameSoundManager.h"
 #include "AnnouncerManager.h"
+#include "MemoryCardDisplay.h"
 
-#define TIMER_STEALTH			THEME->GetMetricB(m_sName,"TimerStealth")
+#define TIMER_STEALTH				THEME->GetMetricB(m_sName,"TimerStealth")
 #define STYLE_ICON				THEME->GetMetricB(m_sName,"StyleIcon")
 #define SHOW_STAGE				THEME->GetMetricB(m_sName,"ShowStage")
-#define MEMORY_CARD_ICONS		THEME->GetMetricB(m_sName,"MemoryCardIcons")
+#define MEMORY_CARD_ICONS			THEME->GetMetricB(m_sName,"MemoryCardIcons")
 #define FORCE_TIMER				THEME->GetMetricB(m_sName,"ForceTimer")
-#define STOP_MUSIC_ON_BACK		THEME->GetMetricB(m_sName,"StopMusicOnBack")
-#define WAIT_FOR_CHILDREN_BEFORE_TWEENING_OUT		THEME->GetMetricB(m_sName,"WaitForChildrenBeforeTweeningOut")
+#define STOP_MUSIC_ON_BACK			THEME->GetMetricB(m_sName,"StopMusicOnBack")
+#define WAIT_FOR_CHILDREN_BEFORE_TWEENING_OUT	THEME->GetMetricB(m_sName,"WaitForChildrenBeforeTweeningOut")
 
 //REGISTER_SCREEN_CLASS( ScreenWithMenuElements );
-ScreenWithMenuElements::ScreenWithMenuElements( CString sClassName ) : Screen( sClassName )
+ScreenWithMenuElements::ScreenWithMenuElements()
 {
 	m_MenuTimer = NULL;
 	m_textHelp = new HelpDisplay;
 	FOREACH_PlayerNumber( p )
 		m_MemoryCardDisplay[p] = NULL;
 	m_MenuTimer = NULL;
-
-	// Needs to be in the constructor in case a derivitive decides to skip 
-	// itself and sends SM_GoToNextScreen to ScreenAttract.
-	PLAY_MUSIC		.Load( m_sName, "PlayMusic" );
-	TIMER_SECONDS	.Load( m_sName, "TimerSeconds" );
 }
 
 void ScreenWithMenuElements::Init()
 {
 	LOG->Trace( "ScreenWithMenuElements::Init()" );
+
+	PLAY_MUSIC.Load( m_sName, "PlayMusic" );
+	CANCEL_TRANSITIONS_OUT.Load( m_sName, "CancelTransitionsOut" );
+	TIMER_SECONDS.Load( m_sName, "TimerSeconds" );
 
 	Screen::Init();
 
@@ -50,7 +50,7 @@ void ScreenWithMenuElements::Init()
 	if( STYLE_ICON && GAMESTATE->m_pCurStyle )
 	{
 		m_sprStyleIcon.SetName( "StyleIcon" );
-		m_sprStyleIcon.Load( THEME->GetPathG("MenuElements",CString("icon ")+GAMESTATE->GetCurrentStyle()->m_szName) );
+		m_sprStyleIcon.Load( THEME->GetPathG(m_sName, RString("StyleIcon ")+GAMESTATE->GetCurrentStyle()->m_szName) );
 		m_sprStyleIcon.StopAnimating();
 		m_sprStyleIcon.SetState( GAMESTATE->m_MasterPlayerNumber );
 		SET_XY( m_sprStyleIcon );
@@ -128,18 +128,26 @@ void ScreenWithMenuElements::Init()
 	m_Cancel.Load( THEME->GetPathB(m_sName,"cancel") );
 	m_Cancel.SetDrawOrder( DRAW_ORDER_TRANSITIONS );
 	this->AddChild( &m_Cancel );
+
+	/* Grab the music path here; don't GetPath during BeginScreen. */
+	if( PLAY_MUSIC )
+		m_sPathToMusic = THEME->GetPathS( m_sName, "music" );
 }
 
 void ScreenWithMenuElements::BeginScreen()
 {
+	Screen::BeginScreen();
+
 	m_In.Reset();
 	m_Out.Reset();
 	m_Cancel.Reset();
 
-	TweenOnScreen();
+	if( GenericTweenOn() )
+		this->PlayCommand( "On" );
+	else
+		TweenOnScreen(); // deprecated
+	this->SortByDrawOrder();
 	m_In.StartTransitioning( SM_DoneFadingIn );
-
-	Screen::BeginScreen();
 
 	SOUND->PlayOnceFromDir( ANNOUNCER->GetPathTo(m_sName+" intro") );
 	StartPlayingMusic();
@@ -151,10 +159,11 @@ void ScreenWithMenuElements::BeginScreen()
 void ScreenWithMenuElements::TweenOnScreen()
 {
 	ON_COMMAND( m_autoHeader );
-	if( STYLE_ICON && GAMESTATE->m_pCurStyle )
+
+	if( STYLE_ICON && !m_sprStyleIcon.GetName().empty() )
 		ON_COMMAND( m_sprStyleIcon );
 
-	if( SHOW_STAGE && GAMESTATE->m_pCurStyle )
+	if( SHOW_STAGE && !m_sprStage->GetName().empty() )
 		ON_COMMAND( m_sprStage );
 
 	if( MEMORY_CARD_ICONS )
@@ -170,25 +179,24 @@ void ScreenWithMenuElements::TweenOnScreen()
 	ON_COMMAND( m_textHelp );
 	ON_COMMAND( m_sprUnderlay );
 	ON_COMMAND( m_sprOverlay );
-
-	this->SortByDrawOrder();
 }
 
 ScreenWithMenuElements::~ScreenWithMenuElements()
 {
 	SAFE_DELETE( m_MenuTimer );
 	SAFE_DELETE( m_textHelp );
+	FOREACH_PlayerNumber( p )
+	{
+		if( m_MemoryCardDisplay[p] != NULL )
+			SAFE_DELETE( m_MemoryCardDisplay[p] );
+	}
 }
 
 void ScreenWithMenuElements::LoadHelpText()
 {
-	CStringArray vs;
-	CString s = THEME->GetMetric(m_sName,"HelpText");
-	split( s, "\n", vs );
-
-	// hack to get newlines in a tip
-	FOREACH( CString, vs, s )
-		s->Replace( "\\n", "\n" );
+	vector<RString> vs;
+	RString s = THEME->GetString(m_sName,"HelpText");
+	split( s, "::", vs );
 
 	m_textHelp->SetTips( vs );
 	m_textHelp->PlayCommand( "Changed" );
@@ -199,7 +207,7 @@ void ScreenWithMenuElements::StartPlayingMusic()
 	/* Some screens should leave the music alone (eg. ScreenPlayerOptions music 
 	 * sample left over from ScreenSelectMusic). */
 	if( PLAY_MUSIC )
-		SOUND->PlayMusic( THEME->GetPathS(m_sName,"music") );
+		SOUND->PlayMusic( m_sPathToMusic );
 }
 
 void ScreenWithMenuElements::Update( float fDeltaTime )
@@ -223,19 +231,31 @@ void ScreenWithMenuElements::ResetTimer()
 	}
 }
 
-void ScreenWithMenuElements::StartTransitioning( ScreenMessage smSendWhenDone )
+void ScreenWithMenuElements::StartTransitioningScreen( ScreenMessage smSendWhenDone )
 {
-	TweenOffScreen();
+	if( GenericTweenOff() )
+	{
+		this->PlayCommand( "Off" );
 
+		// If we're a stacked screen, then there's someone else between us and the
+		// background, so don't tween it off.
+		if( !SCREENMAN->IsStackedScreen(this) )
+			SCREENMAN->PlaySharedBackgroundOffCommand();
+	}
+	else
+	{
+		TweenOffScreen();
+	}
+
+	m_Out.StartTransitioning( smSendWhenDone );
 	if( WAIT_FOR_CHILDREN_BEFORE_TWEENING_OUT )
 	{
 		// Time the transition so that it finishes exactly when all actors have 
 		// finished tweening.
 		float fSecondsUntilFinished = GetTweenTimeLeft();
-		float fSecondsUntilBeginOff = max( fSecondsUntilFinished - m_Out.GetLengthSeconds(), 0 );
+		float fSecondsUntilBeginOff = max( fSecondsUntilFinished - m_Out.GetTweenTimeLeft(), 0 );
 		m_Out.SetHibernate( fSecondsUntilBeginOff );
 	}
-	m_Out.StartTransitioning( smSendWhenDone );
 }
 
 void ScreenWithMenuElements::TweenOffScreen()
@@ -244,26 +264,37 @@ void ScreenWithMenuElements::TweenOffScreen()
 	{
 		m_MenuTimer->SetSeconds( 0 );
 		m_MenuTimer->Stop();
-		ActorUtil::OffCommand( m_MenuTimer, m_sName );
+		OFF_COMMAND( m_MenuTimer );
 	}
 
-	ActorUtil::OffCommand( m_autoHeader, m_sName );
-	ActorUtil::OffCommand( m_sprStyleIcon, m_sName );
+	OFF_COMMAND( m_autoHeader );
+	OFF_COMMAND( m_sprStyleIcon );
 	OFF_COMMAND( m_sprStage );
 	FOREACH_PlayerNumber( p )
 		if( m_MemoryCardDisplay[p] )
-			ActorUtil::OffCommand( m_MemoryCardDisplay[p], m_sName );
-	ActorUtil::OffCommand( m_autoFooter, m_sName );
-	ActorUtil::OffCommand( m_textHelp, m_sName );
+			OFF_COMMAND( m_MemoryCardDisplay[p] );
+	OFF_COMMAND( m_autoFooter );
+	OFF_COMMAND( m_textHelp );
 	OFF_COMMAND( m_sprUnderlay );
 	OFF_COMMAND( m_sprOverlay );
 
-	SCREENMAN->PlaySharedBackgroundOffCommand();
-
+	// If we're a stacked screen, then there's someone else between us and the
+	// background, so don't tween it off.
+	if( !SCREENMAN->IsStackedScreen(this) )
+		SCREENMAN->PlaySharedBackgroundOffCommand();
 }
 
 void ScreenWithMenuElements::Cancel( ScreenMessage smSendWhenDone )
 {
+	m_sNextScreen = GetPrevScreen();
+
+	if( CANCEL_TRANSITIONS_OUT )
+	{
+		StartTransitioningScreen( smSendWhenDone );
+		COMMAND( m_Out, "Cancel" );
+		return;
+	}
+
 	if( m_Cancel.IsTransitioning() )
 		return;	// ignore
 
@@ -273,6 +304,7 @@ void ScreenWithMenuElements::Cancel( ScreenMessage smSendWhenDone )
 	if( m_MenuTimer )
 		m_MenuTimer->Stop();
 	m_Cancel.StartTransitioning( smSendWhenDone );
+	COMMAND( m_Cancel, "Cancel" );
 }
 
 bool ScreenWithMenuElements::IsTransitioning()
@@ -284,6 +316,32 @@ void ScreenWithMenuElements::StopTimer()
 {
 	if( m_MenuTimer )
 		m_MenuTimer->Stop();
+}
+
+REGISTER_SCREEN_CLASS( ScreenWithMenuElementsSimple );
+
+void ScreenWithMenuElementsSimple::MenuStart( PlayerNumber pn )
+{
+	if( IsTransitioning() )
+		return;
+	if( m_fLockInputSecs > 0 )
+		return;
+
+	StartTransitioningScreen( SM_GoToNextScreen );
+
+	SCREENMAN->ConcurrentlyPrepareScreen( GetNextScreen() );
+}
+
+void ScreenWithMenuElementsSimple::MenuBack( PlayerNumber pn )
+{
+	if( IsTransitioning() )
+		return;
+	if( m_fLockInputSecs > 0 )
+		return;
+
+	Cancel( SM_GoToPrevScreen );
+
+	SCREENMAN->ConcurrentlyPrepareScreen( GetNextScreen() );
 }
 
 // lua start
@@ -301,6 +359,20 @@ public:
 };
 
 LUA_REGISTER_DERIVED_CLASS( ScreenWithMenuElements, Screen )
+
+class LunaScreenWithMenuElementsSimple: public Luna<ScreenWithMenuElementsSimple>
+{
+public:
+	LunaScreenWithMenuElementsSimple() { LUA->Register( Register ); }
+
+	static void Register( Lua *L )
+	{
+		Luna<T>::Register( L );
+	}
+};
+
+LUA_REGISTER_DERIVED_CLASS( ScreenWithMenuElementsSimple, ScreenWithMenuElements )
+
 // lua end
 
 /*

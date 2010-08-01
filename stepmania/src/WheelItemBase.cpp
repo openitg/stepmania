@@ -1,7 +1,7 @@
 #include "global.h"
 #include "WheelItemBase.h"
 
-WheelItemBaseData::WheelItemBaseData( WheelItemType wit, CString sText, RageColor color )
+WheelItemBaseData::WheelItemBaseData( WheelItemType wit, RString sText, RageColor color )
 {
 	m_Type = wit;
 	m_sText = sText;
@@ -26,20 +26,20 @@ WheelItemBase::WheelItemBase( const WheelItemBase &cpy ):
 	}
 }
 
-WheelItemBase::WheelItemBase(CString sType)
+WheelItemBase::WheelItemBase(RString sType)
 {
 	SetName( sType );
 	m_pBar = NULL;
 	Load(sType);
 }
 
-void WheelItemBase::Load( CString sType )
+void WheelItemBase::Load( RString sType )
 {
 	TEXT_X			.Load(sType,"TextX");
 	TEXT_Y			.Load(sType,"TextY");
 	TEXT_ON_COMMAND	.Load(sType,"TextOnCommand");
 
-	m_fPercentGray = 0;
+	m_colorLocked = RageColor(0,0,0,0);
 
 	m_sprBar.Load( THEME->GetPathG(sType,"bar") );
 	m_sprBar.SetXY( 0, 0 );
@@ -77,14 +77,19 @@ void WheelItemBase::LoadFromWheelItemBaseData( WheelItemBaseData* pWID )
 
 void WheelItemBase::DrawGrayBar( Actor& bar )
 {
-	if( m_fPercentGray == 0 )
+	if( m_colorLocked.a == 0 )
 		return;
 
-	bar.SetGlow( RageColor(0,0,0,m_fPercentGray) );
+	RageColor glow = bar.GetGlow();
+	RageColor diffuse = bar.GetDiffuse();
+
+	bar.SetGlow( m_colorLocked );
 	bar.SetDiffuse( RageColor(0,0,0,0) );
+	
 	bar.Draw();
-	bar.SetDiffuse( RageColor(0,0,0,1) );
-	bar.SetGlow( RageColor(0,0,0,0) );
+	
+	bar.SetGlow( glow );
+	bar.SetDiffuse( diffuse );
 }
 
 void WheelItemBase::DrawPrimitives()

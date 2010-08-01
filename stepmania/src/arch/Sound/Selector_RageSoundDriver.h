@@ -9,8 +9,9 @@
 #include "RageSoundDriver_ALSA9_Software.h"
 #endif
 
-#ifdef HAVE_COREAUDIO
+#if defined(MACOSX)
 #include "RageSoundDriver_CA.h"
+#include "RageSoundDriver_AU.h"
 #endif
 
 #ifdef HAVE_DIRECTX
@@ -24,7 +25,7 @@
 #include "RageSoundDriver_OSS.h"
 #endif
 
-#ifdef HAVE_WIN32
+#if defined(WIN32) && !defined(_XBOX)
 #include "RageSoundDriver_WaveOut.h"
 #endif
 

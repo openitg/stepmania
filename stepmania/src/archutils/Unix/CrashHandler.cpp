@@ -19,42 +19,22 @@
 #include "CrashHandler.h"
 #include "CrashHandlerInternal.h"
 
-#if defined(__MACOSX__)
-# include "../Darwin/DarwinThreadHelpers.h"
-#endif
-
 extern uint64_t GetInvalidThreadId();
 extern const char *g_pCrashHandlerArgv0;
 
-static void safe_print(int fd, ...)
+static void safe_print( int fd, ... )
 {
 	va_list ap;
-	va_start(ap, fd);
+	va_start( ap, fd );
 
-	while(1)
+	while( true )
 	{
-		const char *p = va_arg(ap, const char *);
-		if(p == NULL)
+		const char *p = va_arg( ap, const char * );
+		if( p == NULL )
 			break;
-		write(fd, p, strlen(p));
+		write( fd, p, strlen(p) );
 	}
-	va_end(ap);
-}
-
-static const char *itoa(unsigned n)
-{
-	static char ret[32];
-	char *p = ret;
-	for( int div = 1000000000; div > 0; div /= 10 )
-	{
-		*p++ = (n / div) + '0';
-		n %= div;
-	}
-	*p = 0;
-	p = ret;
-	while( p[0] == '0' && p[1] )
-		++p;
-	return p;
+	va_end( ap );
 }
 
 #if defined(LINUX)
@@ -89,13 +69,13 @@ static void NORETURN spawn_child_process( int from_parent )
 {
 	/* We need to re-exec ourself, to get a clean process.  Close all
 	 * FDs except for 0-2 and to_child, and then assign to_child to 3. */
-	for(int fd = 3; fd < 1024; ++fd)
-		if(fd != from_parent) close(fd);
-       
-	if(from_parent != 3)
+	for( int fd = 3; fd < 1024; ++fd )
+		if( fd != from_parent ) close(fd);
+
+	if( from_parent != 3 )
 	{
-		dup2(from_parent, 3);
-		close(from_parent);
+		dup2( from_parent, 3 );
+		close( from_parent );
 	}
 
 	char path[1024];
@@ -108,7 +88,7 @@ static void NORETURN spawn_child_process( int from_parent )
 
 	/* If we got here, the exec failed.  We can't call strerror. */
 	// safe_print(fileno(stderr), "Crash handler execl(", path, ") failed: ", strerror(errno), "\n", NULL);
-	safe_print(fileno(stderr), "Crash handler execl(", path, ") failed: ", itoa( errno ), "\n", NULL);
+	safe_print( fileno(stderr), "Crash handler execl(", path, ") failed: ", itoa( errno ), "\n", NULL );
 	_exit(1);
 }
 
@@ -125,18 +105,18 @@ static int retried_write( int fd, const void *buf, size_t count )
 	return ret;
 }
 
-static bool parent_write(int to_child, const void *p, size_t size)
+static bool parent_write( int to_child, const void *p, size_t size )
 {
-	int ret = retried_write(to_child, p, size);
+	int ret = retried_write( to_child, p, size );
 	if( ret == -1 )
 	{
-		safe_print(fileno(stderr), "Unexpected write() result (", strerror(errno), ")\n", NULL);
+		safe_print( fileno(stderr), "Unexpected write() result (", strerror(errno), ")\n", NULL );
 		return false;
 	}
 
-	if(size_t(ret) != size)
+	if( size_t(ret) != size )
 	{
-		safe_print(fileno(stderr), "Unexpected write() result (", itoa(ret), ")\n", NULL);
+		safe_print( fileno(stderr), "Unexpected write() result (", itoa(ret), ")\n", NULL );
 		return false;
 	}
 
@@ -151,7 +131,7 @@ static void parent_process( int to_child, const CrashData *crash )
 	
 	/* 2. Write info. */
 	const char *p = RageLog::GetInfo();
-	int size = strlen(p)+1;
+	int size = strlen( p )+1;
 	if( !parent_write(to_child, &size, sizeof(size)) )
 		return;
 	if( !parent_write(to_child, p, size) )
@@ -159,7 +139,7 @@ static void parent_process( int to_child, const CrashData *crash )
 
 	/* 3. Write AdditionalLog. */
 	p = RageLog::GetAdditionalLog();
-	size = strlen(p)+1;
+	size = strlen( p )+1;
 	if( !parent_write(to_child, &size, sizeof(size)) )
 		return;
 	if( !parent_write(to_child, p, size) )
@@ -181,22 +161,22 @@ static void parent_process( int to_child, const CrashData *crash )
 			return;
 	}
 
-    /* 5. Write CHECKPOINTs. */
-    static char buf[1024*32];
-    Checkpoints::GetLogs( buf, sizeof(buf), "\n" );
-    size = strlen(buf)+1;
-    if( !parent_write(to_child, &size, sizeof(size)) )
-	return;
-    if( !parent_write(to_child, buf, size) )
-	return;
+	/* 5. Write CHECKPOINTs. */
+	static char buf[1024*32];
+	Checkpoints::GetLogs( buf, sizeof(buf), "\n" );
+	size = strlen( buf )+1;
+	if( !parent_write(to_child, &size, sizeof(size)) )
+		return;
+	if( !parent_write(to_child, buf, size) )
+		return;
 	
-    /* 6. Write the crashed thread's name. */
-    p = RageThread::GetCurThreadName();
-    size = strlen(p)+1;
-    if( !parent_write(to_child, &size, sizeof(size)) )
-	return;
-    if( !parent_write(to_child, p, size) )
-	return;
+	/* 6. Write the crashed thread's name. */
+	p = RageThread::GetCurThreadName();
+	size = strlen( p )+1;
+	if( !parent_write(to_child, &size, sizeof(size)) )
+		return;
+	if( !parent_write(to_child, p, size) )
+		return;
 }
 
 
@@ -222,42 +202,13 @@ static void parent_process( int to_child, const CrashData *crash )
  * signal trampolines.  The result is that it doesn't properly show the
  * function that actually caused the signal--which is the most important
  * one!  So, we have to do it all ourself. */
-const char *SignalName( int signo )
-{
-#define X(a) case a: return #a;
-	switch( signo )
-	{
-	case SIGALRM: return "Alarm";
-	case SIGBUS: return "Bus error";
-	case SIGFPE: return "Floating point exception";
-	X(SIGHUP)
-	case SIGILL: return "Illegal instruction";
-	X(SIGINT)
-	case SIGPIPE: return "Broken pipe";
-	case SIGABRT: return "Aborted";
-	X(SIGQUIT)
-	case SIGSEGV: return "Segmentation fault";
-	X(SIGTRAP) X(SIGTERM) X(SIGVTALRM) X(SIGXCPU) X(SIGXFSZ)
-#if defined(HAVE_DECL_SIGPWR) && HAVE_DECL_SIGPWR
-	X(SIGPWR)
-#endif
-	default:
-	{
-		static char buf[128];
-		strcpy( buf, "Unknown signal " );
-		strcat( buf, itoa(signo) );
-		return buf;
-	}
-	}
-#undef X
-}
 
 static void RunCrashHandler( const CrashData *crash )
 {
 	if( g_pCrashHandlerArgv0 == NULL )
 	{
-		safe_print(fileno(stderr), "Crash handler failed: CrashHandlerHandleArgs was not called\n", NULL);
-		_exit(1);
+		safe_print( fileno(stderr), "Crash handler failed: CrashHandlerHandleArgs was not called\n", NULL );
+		_exit( 1 );
 	}
 	
 	/* Block SIGPIPE, so we get EPIPE. */
@@ -266,10 +217,10 @@ static void RunCrashHandler( const CrashData *crash )
 	sa.sa_handler = SIG_IGN;
 	if( sigaction( SIGPIPE, &sa, NULL ) != 0 )
 	{
-		safe_print(fileno(stderr), "sigaction() failed: %s", strerror(errno), NULL);
+		safe_print( fileno(stderr), "sigaction() failed: %s", strerror(errno), NULL );
 		/* non-fatal */
 	}
-	       
+
 	static int received = 0;
 	static int active = 0;
 
@@ -298,7 +249,7 @@ static void RunCrashHandler( const CrashData *crash )
 		else if( active == 2 )
 			safe_print( fileno(stderr), " while in the crash handler child\n", NULL);
 
-		_exit(1);
+		_exit( 1 );
 	}
 	active = 1;
 	received = getpid();
@@ -310,33 +261,35 @@ static void RunCrashHandler( const CrashData *crash )
 	/* We need to be very careful, since we're under crash conditions.  Let's fork
 	 * a process and exec ourself to get a clean environment to work in. */
 	int fds[2];
-	if(pipe(fds) != 0)
+	if( pipe(fds) != 0 )
 	{
-		safe_print(fileno(stderr), "Crash handler pipe() failed: ", strerror(errno), "\n", NULL);
-		exit(1);
+		safe_print( fileno(stderr), "Crash handler pipe() failed: ", strerror(errno), "\n", NULL );
+		exit( 1 );
 	}
 
 	pid_t childpid = fork();
 	if( childpid == -1 )
 	{
-		safe_print(fileno(stderr), "Crash handler fork() failed: ", strerror(errno), "\n", NULL);
-		_exit(1);
+		safe_print( fileno(stderr), "Crash handler fork() failed: ", strerror(errno), "\n", NULL );
+		_exit( 1 );
 	}
 
 	if( childpid == 0 )
 	{
 		active = 2;
-		close(fds[1]);
-		spawn_child_process(fds[0]);
+		close( fds[1] );
+		spawn_child_process( fds[0] );
 	}
 	else
 	{
-		close(fds[0]);
+		close( fds[0] );
 		parent_process( fds[1], crash );
 		close( fds[1] );
 
 		int status = 0;
+#if !defined(MACOSX)
 		waitpid( childpid, &status, 0 );
+#endif
 
 		/* We need to resume threads before continuing, or we may deadlock on _exit(). */
 		/* XXX: race condition:  If two threads are deadlocked on a pair of mutexes, there's
@@ -348,11 +301,33 @@ static void RunCrashHandler( const CrashData *crash )
 		RageThread::ResumeAllThreads();
 
 		if( WIFSIGNALED(status) )
-			safe_print( fileno(stderr), "Crash handler child exited with signal ", itoa(WTERMSIG(status)), "\n", NULL);
+			safe_print( fileno(stderr), "Crash handler child exited with signal ", itoa(WTERMSIG(status)), "\n", NULL );
 	}
 }
 
-void ForceCrashHandler( const char *reason )
+static void BacktraceAllThreads( CrashData& crash )
+{
+	int iCnt = 1;
+	uint64_t iID;
+	
+	for( int i = 0; RageThread::EnumThreadIDs(i, iID); ++i )
+	{
+		if( iID == GetInvalidThreadId() || iID == RageThread::GetCurrentThreadID() )
+			continue;
+		
+		BacktraceContext ctx;
+		if( GetThreadBacktraceContext( iID, &ctx ) )
+			GetBacktrace( crash.BacktracePointers[iCnt], BACKTRACE_MAX_SIZE, &ctx );
+		strncpy( crash.m_ThreadName[iCnt], RageThread::GetThreadNameByID(iID), sizeof(crash.m_ThreadName[0])-1 );
+		
+		++iCnt;
+		
+		if( iCnt == CrashData::MAX_BACKTRACE_THREADS )
+			break;
+	}
+}
+
+void CrashHandler::ForceCrash( const char *reason )
 {
 	CrashData crash;
 	memset( &crash, 0, sizeof(crash) );
@@ -366,7 +341,7 @@ void ForceCrashHandler( const char *reason )
 	RunCrashHandler( &crash );
 }
 
-void ForceCrashHandlerDeadlock( CString reason, uint64_t iID )
+void CrashHandler::ForceDeadlock( RString reason, uint64_t iID )
 {
 	CrashData crash;
 	memset( &crash, 0, sizeof(crash) );
@@ -378,22 +353,7 @@ void ForceCrashHandlerDeadlock( CString reason, uint64_t iID )
 	if( iID == GetInvalidThreadId() )
 	{
 		/* Backtrace all threads. */
-		int iCnt = 1;
-		for( int i = 0; RageThread::EnumThreadIDs(i, iID); ++i )
-		{
-			if( iID == GetInvalidThreadId() || iID == RageThread::GetCurrentThreadID() )
-				continue;
-
-			BacktraceContext ctx;
-			if( GetThreadBacktraceContext( iID, &ctx ) )
-				GetBacktrace( crash.BacktracePointers[iCnt], BACKTRACE_MAX_SIZE, &ctx );
-			strncpy( crash.m_ThreadName[iCnt], RageThread::GetThreadNameByID(iID), sizeof(crash.m_ThreadName[0])-1 );
-
-			++iCnt;
-
-			if( iCnt == CrashData::MAX_BACKTRACE_THREADS )
-				break;
-		}
+		BacktraceAllThreads( crash );
 	}
 	else
 	{
@@ -412,12 +372,12 @@ void ForceCrashHandlerDeadlock( CString reason, uint64_t iID )
 
 	RunCrashHandler( &crash );
 
-	_exit(1);
+	_exit( 1 );
 }
 
 /* XXX test for recursive crashes here (eg. GetBacktrace crashing) */
 
-void CrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
+void CrashHandler::CrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
 {
 	CrashData crash;
 	memset( &crash, 0, sizeof(crash) );
@@ -429,13 +389,17 @@ void CrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
 	BacktraceContext ctx;
 	GetSignalBacktraceContext( &ctx, uc );
 	GetBacktrace( crash.BacktracePointers[0], BACKTRACE_MAX_SIZE, &ctx );
+#if defined(HAVE_DECL_SIGUSR1) && HAVE_DECL_SIGUSR1
+	if( signal == SIGUSR1 )
+		BacktraceAllThreads( crash );
+#endif
 
 	strncpy( crash.m_ThreadName[0], RageThread::GetCurThreadName(), sizeof(crash.m_ThreadName[0])-1 );
 
 	RunCrashHandler( &crash );
 }
 
-void InitializeCrashHandler()
+void CrashHandler::InitializeCrashHandler()
 {
 	InitializeBacktrace();
 }

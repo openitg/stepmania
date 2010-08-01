@@ -16,12 +16,33 @@
 #include "Steps.h"
 
 
+static void LifePercentChangeInit( size_t /*ScoreEvent*/ i, RString &sNameOut, float &defaultValueOut )
+{
+	sNameOut = "LifePercentChange" + ScoreEventToString( (ScoreEvent)i );
+	switch( i )
+	{
+	DEFAULT_FAIL( int(i) );
+	case SE_W1:		defaultValueOut = +0.008f;	break;
+	case SE_W2:		defaultValueOut = +0.008f;	break;
+	case SE_W3:		defaultValueOut = +0.004f;	break;
+	case SE_W4:		defaultValueOut = +0.000f;	break;
+	case SE_W5:		defaultValueOut = -0.040f;	break;
+	case SE_Miss:		defaultValueOut = -0.080f;	break;
+	case SE_HitMine:	defaultValueOut = -0.160f;	break;
+	case SE_Held:		defaultValueOut = +0.008f;	break;
+	case SE_LetGo:		defaultValueOut = -0.080f;	break;
+	}
+}
+
+static Preference1D<float> g_fLifePercentChange( LifePercentChangeInit, NUM_ScoreEvent );
+
 static ThemeMetric<float> METER_WIDTH		("LifeMeterBar","MeterWidth");
 static ThemeMetric<float> METER_HEIGHT		("LifeMeterBar","MeterHeight");
 static ThemeMetric<float> DANGER_THRESHOLD	("LifeMeterBar","DangerThreshold");
-static ThemeMetric<int> NUM_CHAMBERS		("LifeMeterBar","NumChambers");
-static ThemeMetric<int> NUM_STRIPS			("LifeMeterBar","NumStrips");
+static ThemeMetric<int>   NUM_CHAMBERS		("LifeMeterBar","NumChambers");
+static ThemeMetric<int>   NUM_STRIPS		("LifeMeterBar","NumStrips");
 static ThemeMetric<float> INITIAL_VALUE		("LifeMeterBar","InitialValue");
+static ThemeMetricEnum<TapNoteScore> MIN_STAY_ALIVE( "LifeMeterBar","MinStayAlive" );
 
 const float FAIL_THRESHOLD = 0;
 
@@ -41,7 +62,7 @@ LifeMeterBar::LifeMeterBar()
 	default:	ASSERT(0);
 	}
 
-	const CString sType = "LifeMeterBar";
+	const RString sType = "LifeMeterBar";
 
 	m_fPassingAlpha = 0;
 	m_fHotAlpha = 0;
@@ -73,7 +94,7 @@ LifeMeterBar::LifeMeterBar()
 
 	m_pStream = new StreamDisplay;
 	bool bExtra = GAMESTATE->IsExtraStage()||GAMESTATE->IsExtraStage2();
-	CString sExtra = bExtra ? "extra " : "";
+	RString sExtra = bExtra ? "extra " : "";
 	m_pStream->Load(
 		METER_WIDTH,
 		METER_HEIGHT,
@@ -114,7 +135,7 @@ void LifeMeterBar::Load( const PlayerState *pPlayerState, PlayerStageStats *pPla
 		PREFSMAN->m_bMercifulBeginner;
 	if( bMercifulBeginnerInEffect )
 	{
-		m_fBaseLifeDifficulty = 2.5f;
+		m_fBaseLifeDifficulty = 5.0f;
 		m_fLifeDifficulty = m_fBaseLifeDifficulty;
 	}
 }
@@ -122,54 +143,34 @@ void LifeMeterBar::Load( const PlayerState *pPlayerState, PlayerStageStats *pPla
 void LifeMeterBar::ChangeLife( TapNoteScore score )
 {
 	float fDeltaLife=0.f;
+	switch( score )
+	{
+	DEFAULT_FAIL( score );
+	case TNS_W1:		fDeltaLife = g_fLifePercentChange[SE_W1];	break;
+	case TNS_W2:		fDeltaLife = g_fLifePercentChange[SE_W2];	break;
+	case TNS_W3:		fDeltaLife = g_fLifePercentChange[SE_W3];	break;
+	case TNS_W4:		fDeltaLife = g_fLifePercentChange[SE_W4];	break;
+	case TNS_W5:		fDeltaLife = g_fLifePercentChange[SE_W5];	break;
+	case TNS_Miss:		fDeltaLife = g_fLifePercentChange[SE_Miss];	break;
+	case TNS_HitMine:	fDeltaLife = g_fLifePercentChange[SE_HitMine];	break;
+	}
+	if( IsHot()  &&  score < TNS_W4 )
+		fDeltaLife = -0.10f;		// make it take a while to get back to "hot"
+
 	switch( GAMESTATE->m_SongOptions.m_DrainType )
 	{
+	DEFAULT_FAIL( GAMESTATE->m_SongOptions.m_DrainType );
 	case SongOptions::DRAIN_NORMAL:
-		switch( score )
-		{
-		case TNS_MARVELOUS:	fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeMarvelous;	break;
-		case TNS_PERFECT:	fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangePerfect;	break;
-		case TNS_GREAT:		fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeGreat;		break;
-		case TNS_GOOD:		fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeGood;		break;
-		case TNS_BOO:		fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeBoo;		break;
-		case TNS_MISS:		fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeMiss;		break;
-		case TNS_HIT_MINE:	fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeHitMine;	break;
-		default:
-			ASSERT(0);
-		}
-		if( IsHot()  &&  score < TNS_GOOD )
-			fDeltaLife = -0.10f;		// make it take a while to get back to "doing great"
 		break;
 	case SongOptions::DRAIN_NO_RECOVER:
-		switch( score )
-		{
-		case TNS_MARVELOUS:	fDeltaLife = +0.000f;	break;
-		case TNS_PERFECT:	fDeltaLife = +0.000f;	break;
-		case TNS_GREAT:		fDeltaLife = +0.000f;	break;
-		case TNS_GOOD:		fDeltaLife = +0.000f;	break;
-		case TNS_BOO:		fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeBoo;	break;
-		case TNS_MISS:		fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeMiss;	break;
-		case TNS_HIT_MINE:	fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeHitMine;	break;
-		default:
-			ASSERT(0);
-		}
+		fDeltaLife = min( fDeltaLife, 0 );
 		break;
 	case SongOptions::DRAIN_SUDDEN_DEATH:
-		switch( score )
-		{
-		case TNS_MARVELOUS:	fDeltaLife = +0;	break;
-		case TNS_PERFECT:	fDeltaLife = +0;	break;
-		case TNS_GREAT:		fDeltaLife = +0;	break;
-		case TNS_GOOD:		fDeltaLife = -1.0;	break;
-		case TNS_BOO:		fDeltaLife = -1.0;	break;
-		case TNS_MISS:		fDeltaLife = -1.0;	break;
-		case TNS_HIT_MINE:	fDeltaLife = -1.0;	break;
-		default:
-			ASSERT(0);
-		}
+		if( score < MIN_STAY_ALIVE )
+			fDeltaLife = -1.0f;
+		else
+			fDeltaLife = 0;
 		break;
-	default:
-		ASSERT(0);
 	}
 
 	ChangeLife( fDeltaLife );
@@ -177,30 +178,25 @@ void LifeMeterBar::ChangeLife( TapNoteScore score )
 
 void LifeMeterBar::ChangeLife( HoldNoteScore score, TapNoteScore tscore )
 {
-	/* The initial tap note score (which we happen to have in have in
-	 * tscore) has already been reported to the above function.  If the
-	 * hold end result was an NG, count it as a miss; if the end result
-	 * was an OK, count a perfect.  (Remember, this is just life meter
-	 * computation, not scoring.) */
 	float fDeltaLife=0.f;
 	switch( GAMESTATE->m_SongOptions.m_DrainType )
 	{
 	case SongOptions::DRAIN_NORMAL:
 		switch( score )
 		{
-		case HNS_OK:	fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeOK;	break;
-		case HNS_NG:	fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeNG;	break;
+		case HNS_Held:	fDeltaLife = g_fLifePercentChange[SE_Held];	break;
+		case HNS_LetGo:	fDeltaLife = g_fLifePercentChange[SE_LetGo];	break;
 		default:
 			ASSERT(0);
 		}
-		if( IsHot()  &&  score == HNS_NG )
-			fDeltaLife = -0.10f;		// make it take a while to get back to "doing great"
+		if( IsHot()  &&  score == HNS_LetGo )
+			fDeltaLife = -0.10f;		// make it take a while to get back to "hot"
 		break;
 	case SongOptions::DRAIN_NO_RECOVER:
 		switch( score )
 		{
-		case HNS_OK:	fDeltaLife = +0.000f;	break;
-		case HNS_NG:	fDeltaLife = PREFSMAN->m_fLifeDeltaPercentChangeNG;	break;
+		case HNS_Held:	fDeltaLife = +0.000f;	break;
+		case HNS_LetGo:	fDeltaLife = g_fLifePercentChange[SE_LetGo];	break;
 		default:
 			ASSERT(0);
 		}
@@ -208,8 +204,8 @@ void LifeMeterBar::ChangeLife( HoldNoteScore score, TapNoteScore tscore )
 	case SongOptions::DRAIN_SUDDEN_DEATH:
 		switch( score )
 		{
-		case HNS_OK:		fDeltaLife = +0;	break;
-		case HNS_NG:		fDeltaLife = -1.0;	break;
+		case HNS_Held:		fDeltaLife = +0;	break;
+		case HNS_LetGo:		fDeltaLife = -1.0;	break;
 		default:
 			ASSERT(0);
 		}
@@ -237,15 +233,14 @@ void LifeMeterBar::ChangeLife( float fDeltaLife )
 	else
 	{
 		fDeltaLife *= 1 + (float)m_iProgressiveLifebar/8 * m_iMissCombo;
-		// do this after; only successive boo/miss will
+		// do this after; only successive W5/miss will
 		// increase the amount of life lost.
 		m_iMissCombo++;
 		/* Increase by m_iRegenComboAfterMiss; never push it beyond m_iMaxRegenComboAfterMiss
 		 * but don't reduce it if it's already past. */
-		const int NewComboToRegainLife = min( 
-			(int)PREFSMAN->m_iMaxRegenComboAfterMiss,
-			m_iComboToRegainLife + PREFSMAN->m_iRegenComboAfterMiss );
-		m_iComboToRegainLife = max( m_iComboToRegainLife, NewComboToRegainLife );
+		int iNewComboToRegainLife = m_iComboToRegainLife + PREFSMAN->m_iRegenComboAfterMiss;
+		iNewComboToRegainLife = min( (int)PREFSMAN->m_iMaxRegenComboAfterMiss, iNewComboToRegainLife );
+		m_iComboToRegainLife = max( m_iComboToRegainLife, iNewComboToRegainLife );
 	}
 
 	/* If we've already failed, there's no point in letting them fill up the bar again.  */
@@ -268,10 +263,9 @@ void LifeMeterBar::ChangeLife( float fDeltaLife )
 	{
 		/* Increase by m_iRegenComboAfterFail; never push it beyond m_iMaxRegenComboAfterFail
 		 * but don't reduce it if it's already past. */
-		const int NewComboToRegainLife = min( 
-			(int)PREFSMAN->m_iMaxRegenComboAfterFail,
-			m_iComboToRegainLife + PREFSMAN->m_iRegenComboAfterFail );
-		m_iComboToRegainLife = max( m_iComboToRegainLife, NewComboToRegainLife );
+		int iNewComboToRegainLife = m_iComboToRegainLife + PREFSMAN->m_iRegenComboAfterFail;
+		iNewComboToRegainLife = min( (int)PREFSMAN->m_iMaxRegenComboAfterFail, iNewComboToRegainLife );
+		m_iComboToRegainLife = max( m_iComboToRegainLife, iNewComboToRegainLife );
 	}
 	
 	m_fLifePercentage += fDeltaLife;
@@ -289,14 +283,10 @@ void LifeMeterBar::AfterLifeChanged()
 
 bool LifeMeterBar::IsPastPassmark() const
 {
-    if( m_pPlayerState->m_PlayerOptions.m_fPassmark > 0 )
-    {
+	if( m_pPlayerState->m_PlayerOptions.m_fPassmark > 0 )
 		return m_fLifePercentage >= m_pPlayerState->m_PlayerOptions.m_fPassmark;
-    }
-    else
-    {
+	else
 		return false;
-    }
 }
 
 bool LifeMeterBar::IsHot() const
@@ -373,7 +363,8 @@ void LifeMeterBar::UpdateNonstopLifebar(const int cleared,
 
 	if (m_fLifeDifficulty >= 0.4) return;
 
-    /* Approximate deductions for a miss
+	/*
+	 * Approximate deductions for a miss
 	 * Life 1 :    5   %
 	 * Life 2 :    5.7 %
 	 * Life 3 :    6.6 %
@@ -392,10 +383,10 @@ void LifeMeterBar::UpdateNonstopLifebar(const int cleared,
 	 * Life 16+: 200   %
 	 *
 	 * Note there is 200%, because boos take off 1/2 as much as
-	 * a miss, and a boo would suck up half of your lifebar.
+	 * a miss, and a W5 would suck up half of your lifebar.
 	 *
 	 * Everything past 7 is intended mainly for nonstop mode.
-     */
+	 */
 
 
 	// the lifebar is pretty harsh at 0.4 already (you lose
@@ -419,14 +410,14 @@ void LifeMeterBar::UpdateNonstopLifebar(const int cleared,
 	return;
 }
 
-void LifeMeterBar::FillForHowToPlay(int NumPerfects, int NumMisses)
+void LifeMeterBar::FillForHowToPlay(int NumW2s, int NumMisses)
 {
 	m_iProgressiveLifebar = 0;  // disable progressive lifebar
 
-	float AmountForPerfect	= NumPerfects * m_fLifeDifficulty * 0.008f;
-	float AmountForMiss		= NumMisses / m_fLifeDifficulty * 0.08f;
+	float AmountForW2	= NumW2s * m_fLifeDifficulty * 0.008f;
+	float AmountForMiss	= NumMisses / m_fLifeDifficulty * 0.08f;
 
-	m_fLifePercentage = AmountForMiss - AmountForPerfect;
+	m_fLifePercentage = AmountForMiss - AmountForW2;
 	CLAMP( m_fLifePercentage, 0.0f, 1.0f );
 	AfterLifeChanged();
 }

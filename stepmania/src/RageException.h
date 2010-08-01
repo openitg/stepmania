@@ -1,4 +1,4 @@
-/* RageException - Class for thowing fatal errors. */
+/* RageException - Class for throwing fatal errors. */
 
 #ifndef RAGE_EXCEPTION_H
 #define RAGE_EXCEPTION_H
@@ -6,6 +6,8 @@
 namespace RageException
 {
 	void NORETURN Throw(const char *fmt, ...);
+	void SetCleanupHandler( void (*pHandler)(const RString &sError) );
+	void CallCleanupHandler( const RString &sError );
 };
 
 #endif

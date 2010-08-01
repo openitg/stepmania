@@ -5,11 +5,16 @@
 class ArchHooks_Unix: public ArchHooks
 {
 public:
-    ArchHooks_Unix();
-    void DumpDebugInfo();
+	ArchHooks_Unix();
+	RString GetArchName() { return "Unix"; }
+	void DumpDebugInfo();
 
 	void SetTime( tm newtime );
 	int64_t GetMicrosecondsSinceStart();
+
+	void MountInitialFilesystems( const RString &sDirOfExecutable );
+
+	static clockid_t GetClock();
 };
 
 #ifdef ARCH_HOOKS

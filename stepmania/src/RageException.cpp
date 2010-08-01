@@ -2,7 +2,6 @@
 #include "RageException.h"
 #include "RageUtil.h"
 #include "RageLog.h"
-#include "StepMania.h"
 
 #include <cstdarg>
 
@@ -10,39 +9,54 @@
 #include <windows.h>
 #endif
 
+static void (*g_CleanupHandler)( const RString &sError ) = NULL;
+void RageException::SetCleanupHandler( void (*pHandler)(const RString &sError) )
+{
+	g_CleanupHandler = pHandler;
+}
+
+void RageException::CallCleanupHandler( const RString &sError )
+{
+	if( g_CleanupHandler )
+		g_CleanupHandler( sError );
+}
+
 /* This is no longer actually implemented by throwing an exception, but it acts
  * the same way to code in practice. */
-void RageException::Throw(const char *fmt, ...)
+void RageException::Throw( const char *sFmt, ... )
 {
-    va_list	va;
-    va_start(va, fmt);
-    CString error = vssprintf( fmt, va );
-    va_end(va);
+	va_list	va;
+	va_start( va, sFmt );
+	RString error = vssprintf( sFmt, va );
+	va_end(va);
 
-    CString msg = ssprintf(
-				"\n"
-				"//////////////////////////////////////////////////////\n"
-				"Exception: %s\n"
-				"//////////////////////////////////////////////////////\n"
-				"",
-				error.c_str());
-	if(LOG)
+	RString msg = ssprintf(
+		"\n"
+		"//////////////////////////////////////////////////////\n"
+		"Exception: %s\n"
+		"//////////////////////////////////////////////////////\n"
+		"",
+		error.c_str() );
+	if( LOG )
 	{
-		LOG->Trace("%s", msg.c_str());
+		LOG->Trace( "%s", msg.c_str() );
 		LOG->Flush();
 	}
 	else
 	{
-		printf("%s\n", msg.c_str());
-		fflush(stdout);
+		printf( "%s\n", msg.c_str() );
+		fflush( stdout );
 	}
 
-#if defined(_WINDOWS) && defined(DEBUG)
+#if defined(WINDOWS) && defined(DEBUG)
 	if( IsDebuggerPresent() )
 		DebugBreak();
 #endif
 
-	HandleException( error );
+	if( g_CleanupHandler != NULL )
+		g_CleanupHandler( error );
+
+	exit(1);
 }
 
 /*

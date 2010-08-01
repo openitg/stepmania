@@ -5,6 +5,7 @@
 
 #include "ScreenWithMenuElements.h"
 #include "BitmapText.h"
+#include "RageSound.h"
 
 enum PromptType
 {
@@ -18,15 +19,15 @@ enum PromptAnswer
 	ANSWER_YES,
 	ANSWER_NO,
 	ANSWER_CANCEL,
-	NUM_PROMPT_ANSWERS
+	NUM_PromptAnswer
 };
 
 class ScreenPrompt : public ScreenWithMenuElements
 {
 public:
-	static void Prompt( ScreenMessage smSendOnPop, const CString &sText, PromptType type = PROMPT_OK, PromptAnswer defaultAnswer = ANSWER_NO, void(*OnYes)(void*) = NULL, void(*OnNo)(void*) = NULL, void* pCallbackData = NULL );
+	static void SetPromptSettings( const RString &sText, PromptType type = PROMPT_OK, PromptAnswer defaultAnswer = ANSWER_NO, void(*OnYes)(void*) = NULL, void(*OnNo)(void*) = NULL, void* pCallbackData = NULL );
+	static void Prompt( ScreenMessage smSendOnPop, const RString &sText, PromptType type = PROMPT_OK, PromptAnswer defaultAnswer = ANSWER_NO, void(*OnYes)(void*) = NULL, void(*OnNo)(void*) = NULL, void* pCallbackData = NULL );
 
-	ScreenPrompt( const CString &sScreenName );
 	virtual void Init();
 	virtual void BeginScreen();
 	virtual void Input( const InputEventPlus &input );
@@ -46,9 +47,11 @@ protected:
 	virtual void End( bool bCancelled );
 	void PositionCursor();
 
+	virtual void TweenOffScreen();
+
 	BitmapText		m_textQuestion;
 	AutoActor		m_sprCursor;
-	BitmapText		m_textAnswer[NUM_PROMPT_ANSWERS];
+	BitmapText		m_textAnswer[NUM_PromptAnswer];
 	PromptAnswer	m_Answer;
 
 	RageSound		m_sndChange;

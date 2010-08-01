@@ -10,17 +10,18 @@ class Trail;
 
 #include "GameConstantsAndTypes.h"
 
-struct PlayerOptions
+class PlayerOptions
 {
+public:
 	PlayerOptions() { Init(); };
 	void Init();
 	void Approach( const PlayerOptions& other, float fDeltaSeconds );
-	CString GetString() const;
-	CString GetSavedPrefsString() const;	// only the basic options that players would want for every song
+	RString GetString() const;
+	RString GetSavedPrefsString() const;	// only the basic options that players would want for every song
 	void ResetSavedPrefs();
-	void GetMods( vector<CString> &AddTo ) const;
-	void GetThemedMods( vector<CString> &AddTo ) const;
-	void FromString( CString sOptions, bool bWarnOnInvalid = false );
+	void GetMods( vector<RString> &AddTo ) const;
+	void GetLocalizedMods( vector<RString> &AddTo ) const;
+	void FromString( const RString &sOptions, bool bWarnOnInvalid = false );
 	void ChooseRandomModifiers();
 	bool ContainsTransformOrTurn() const;
 
@@ -40,6 +41,7 @@ struct PlayerOptions
 		EFFECT_DRUNK,
 		EFFECT_DIZZY,
 		EFFECT_MINI,
+		EFFECT_TINY,
 		EFFECT_FLIP,
 		EFFECT_INVERT,
 		EFFECT_TORNADO,
@@ -133,7 +135,7 @@ struct PlayerOptions
 	bool		m_bTransforms[NUM_TRANSFORMS];
 	ScoreDisplay m_ScoreDisplay;
 
-	CString		m_sNoteSkin;
+	RString		m_sNoteSkin;	// "" means "no change"
 
 	void NextAccel();
 	void NextEffect();
@@ -156,8 +158,8 @@ struct PlayerOptions
 
 
 	// return true if any mods being used will make the song(s) easier
-	bool IsEasierForSongAndSteps( Song* pSong, Steps* pSteps );
-	bool IsEasierForCourseAndTrail( Course* pCourse, Trail* pTrail );
+	bool IsEasierForSongAndSteps( Song* pSong, Steps* pSteps ) const;
+	bool IsEasierForCourseAndTrail( Course* pCourse, Trail* pTrail ) const;
 };
 
 #endif

@@ -7,7 +7,10 @@
 #include <set>
 #include <deque>
 #include "Command.h"
+#if !defined(SMPACKAGE)
 #include "ActorCommands.h"
+#endif
+#include "LuaReference.h"
 
 class IThemeMetric;
 class IniFile;
@@ -23,8 +26,8 @@ enum ElementCategory
 	NUM_ElementCategory
 };
 #define FOREACH_ElementCategory( ec ) FOREACH_ENUM( ElementCategory, NUM_ElementCategory, ec )
-const CString& ElementCategoryToString( ElementCategory ec );
-ElementCategory StringToElementCategory( const CString& s );
+const RString& ElementCategoryToString( ElementCategory ec );
+ElementCategory StringToElementCategory( const RString& s );
 
 struct Theme;
 
@@ -34,57 +37,71 @@ public:
 	ThemeManager();
 	~ThemeManager();
 
-	void GetThemeNames( CStringArray& AddTo );
-	bool DoesThemeExist( const CString &sThemeName );
-	void GetLanguages( CStringArray& AddTo );
-	bool DoesLanguageExist( const CString &sLanguage );
-	void SwitchThemeAndLanguage( const CString &sThemeName, const CString &sLanguage );
+	void GetThemeNames( vector<RString>& AddTo );
+	void GetSelectableThemeNames( vector<RString>& AddTo );
+	int GetNumSelectableThemes();
+	bool DoesThemeExist( const RString &sThemeName );
+	bool IsThemeSelectable( const RString &sThemeName );
+	RString GetThemeDisplayName( const RString &sThemeName );
+	void GetLanguages( vector<RString>& AddTo );
+	bool DoesLanguageExist( const RString &sLanguage );
+	void SwitchThemeAndLanguage( const RString &sThemeName, const RString &sLanguage, bool bPseudoLocalize );
 	void UpdateLuaGlobals();
-	CString GetCurThemeName() const { return m_sCurThemeName; };
+	RString GetCurThemeName() const { return m_sCurThemeName; };
 	bool IsThemeLoaded() const { return !m_sCurThemeName.empty(); };
-	CString GetCurLanguage() const { return m_sCurLanguage; };
-	CString GetCurThemeDir() const { return GetThemeDirFromName(m_sCurThemeName); };
+	RString GetCurLanguage() const { return m_sCurLanguage; };
+	RString GetCurThemeDir() const { return GetThemeDirFromName(m_sCurThemeName); };
 	void NextTheme();
 	void ReloadMetrics();
-	void GetModifierNames( vector<CString>& AddTo );
+	void ReloadSubscribers();
+	void GetOptionNames( vector<RString>& AddTo );
 
-	static void EvaluateString( CString &sText );
+	static void EvaluateString( RString &sText );
 
 	/* I renamed these for two reasons.  The overload conflicts with the ones below:
 	 * GetPathToB( str, str ) was matching the ones below instead of these.  It's also
 	 * easier to search for uses of obsolete functions if they have a different name. */
-	CString GetPath( ElementCategory category, const CString &sClassName, const CString &sElement, bool bOptional=false );
-	CString GetPathB( const CString &sClassName, const CString &sElement, bool bOptional=false ) { return GetPath(EC_BGANIMATIONS,sClassName,sElement,bOptional); };
-	CString GetPathF( const CString &sClassName, const CString &sElement, bool bOptional=false ) { return GetPath(EC_FONTS,sClassName,sElement,bOptional); };
-	CString GetPathG( const CString &sClassName, const CString &sElement, bool bOptional=false ) { return GetPath(EC_GRAPHICS,sClassName,sElement,bOptional); };
-	CString GetPathS( const CString &sClassName, const CString &sElement, bool bOptional=false ) { return GetPath(EC_SOUNDS,sClassName,sElement,bOptional); };
-	CString GetPathO( const CString &sClassName, const CString &sElement, bool bOptional=false ) { return GetPath(EC_OTHER,sClassName,sElement,bOptional); };
+	RString GetPath( ElementCategory category, const RString &sClassName, const RString &sElement, bool bOptional=false );
+	RString GetPathB( const RString &sClassName, const RString &sElement, bool bOptional=false ) { return GetPath(EC_BGANIMATIONS,sClassName,sElement,bOptional); };
+	RString GetPathF( const RString &sClassName, const RString &sElement, bool bOptional=false ) { return GetPath(EC_FONTS,sClassName,sElement,bOptional); };
+	RString GetPathG( const RString &sClassName, const RString &sElement, bool bOptional=false ) { return GetPath(EC_GRAPHICS,sClassName,sElement,bOptional); };
+	RString GetPathS( const RString &sClassName, const RString &sElement, bool bOptional=false ) { return GetPath(EC_SOUNDS,sClassName,sElement,bOptional); };
+	RString GetPathO( const RString &sClassName, const RString &sElement, bool bOptional=false ) { return GetPath(EC_OTHER,sClassName,sElement,bOptional); };
 	void ClearThemePathCache();
 
 	// TODO: Make these return values const refs.
-	bool		HasMetric( const CString &sClassName, const CString &sValueName );
-	CString		GetMetricRaw( const CString &sClassName, const CString &sValueName );
-	CString		GetMetric( const CString &sClassName, const CString &sValueName );
-	int			GetMetricI( const CString &sClassName, const CString &sValueName );
-	float		GetMetricF( const CString &sClassName, const CString &sValueName );
-	bool		GetMetricB( const CString &sClassName, const CString &sValueName );
-	RageColor	GetMetricC( const CString &sClassName, const CString &sValueName );
-	Commands	GetMetricM( const CString &sClassName, const CString &sValueName );
-	apActorCommands	GetMetricA( const CString &sClassName, const CString &sValueName );
+	bool		HasMetric( const RString &sClassName, const RString &sValueName );
+	RString		GetMetricRaw( const IniFile &ini, const RString &sClassName, const RString &sValueName );
+	RString		GetMetric( const RString &sClassName, const RString &sValueName );
+	int		GetMetricI( const RString &sClassName, const RString &sValueName );
+	float		GetMetricF( const RString &sClassName, const RString &sValueName );
+	bool		GetMetricB( const RString &sClassName, const RString &sValueName );
+	RageColor	GetMetricC( const RString &sClassName, const RString &sValueName );
+	Commands	GetMetricM( const RString &sClassName, const RString &sValueName );
+#if !defined(SMPACKAGE)
+	apActorCommands	GetMetricA( const RString &sClassName, const RString &sValueName );
+#endif
 
-	void	GetMetric( const CString &sClassName, const CString &sValueName, CString &valueOut )		{ valueOut = GetMetric( sClassName, sValueName ); }
-	void	GetMetric( const CString &sClassName, const CString &sValueName, int &valueOut )			{ valueOut = GetMetricI( sClassName, sValueName ); }
-	void	GetMetric( const CString &sClassName, const CString &sValueName, float &valueOut )			{ valueOut = GetMetricF( sClassName, sValueName ); }
-	void	GetMetric( const CString &sClassName, const CString &sValueName, bool &valueOut )			{ valueOut = GetMetricB( sClassName, sValueName ); }
-	void	GetMetric( const CString &sClassName, const CString &sValueName, RageColor &valueOut )		{ valueOut = GetMetricC( sClassName, sValueName ); }
-	void	GetMetric( const CString &sClassName, const CString &sValueName, Command &valueOut );
-	void	GetMetric( const CString &sClassName, const CString &sValueName, LuaExpression &valueOut );
-	void	GetMetric( const CString &sClassName, const CString &sValueName, apActorCommands &valueOut );
+	void	GetMetric( const RString &sClassName, const RString &sValueName, RString &valueOut )		{ valueOut = GetMetric( sClassName, sValueName ); }
+	void	GetMetric( const RString &sClassName, const RString &sValueName, int &valueOut )			{ valueOut = GetMetricI( sClassName, sValueName ); }
+	void	GetMetric( const RString &sClassName, const RString &sValueName, float &valueOut )			{ valueOut = GetMetricF( sClassName, sValueName ); }
+	void	GetMetric( const RString &sClassName, const RString &sValueName, bool &valueOut )			{ valueOut = GetMetricB( sClassName, sValueName ); }
+	void	GetMetric( const RString &sClassName, const RString &sValueName, RageColor &valueOut )		{ valueOut = GetMetricC( sClassName, sValueName ); }
+	void	GetMetric( const RString &sClassName, const RString &sValueName, Command &valueOut );
+	void	GetMetric( const RString &sClassName, const RString &sValueName, LuaExpression &valueOut );
+#if !defined(SMPACKAGE)
+	void	GetMetric( const RString &sClassName, const RString &sValueName, apActorCommands &valueOut );
+#endif
 
-	void GetMetricsThatBeginWith( const CString &sClassName, const CString &sValueName, set<CString> &vsValueNamesOut );
-	void LoadPreferencesFromSection( const CString &sClassName );
+	// Languages
+	bool	HasString( const RString &sClassName, const RString &sValueName );
+	RString	GetString( const RString &sClassName, const RString &sValueName );
+	void	GetString( const RString &sClassName, const RString &sValueName, RString &valueOut )		{ valueOut = GetString( sClassName, sValueName ); }
+	void FilterFileLanguages( vector<RString> &asElementPaths );
 
-	static CString GetBlankGraphicPath();
+	void GetMetricsThatBeginWith( const RString &sClassName, const RString &sValueName, set<RString> &vsValueNamesOut );
+
+	static RString GetBlankGraphicPath();
 
 	//
 	// For self-registering metrics
@@ -96,19 +113,21 @@ public:
 	void PushSelf( lua_State *L );
 
 protected:
-	void RunLuaScripts( const CString &sMask );
-	void LoadThemeRecursive( deque<Theme> &theme, const CString &sThemeName );
-	bool GetMetricRawRecursive( const CString &sClassName, const CString &sValueName, CString &sRet );
-	CString GetPathToAndFallback( ElementCategory category, const CString &sClassName, const CString &sFile );
-	CString GetPathToRaw( const CString &sThemeName, ElementCategory category, const CString &sClassName, const CString &sFile );
-	static CString GetThemeDirFromName( const CString &sThemeName );
-	CString GetElementDir( const CString &sThemeName );
-	static CString GetMetricsIniPath( const CString &sThemeName );
-	static void GetLanguagesForTheme( const CString &sThemeName, CStringArray& asLanguagesOut );
-	static CString GetLanguageIniPath( const CString &sThemeName, const CString &sLanguage );
+	void RunLuaScripts( const RString &sMask );
+	void LoadThemeMetrics( deque<Theme> &theme, const RString &sThemeName, const RString &sLanguage_ );
+	bool GetMetricRawRecursive( const IniFile &ini, const RString &sClassName, const RString &sValueName, RString &sRet );
+	RString GetPathToAndFallback( ElementCategory category, const RString &sClassName, const RString &sFile );
+	RString GetPathToRaw( const RString &sThemeName, ElementCategory category, const RString &sClassName, const RString &sFile );
+	static RString GetThemeDirFromName( const RString &sThemeName );
+	RString GetElementDir( const RString &sThemeName );
+	static RString GetMetricsIniPath( const RString &sThemeName );
+	static void GetLanguagesForTheme( const RString &sThemeName, vector<RString>& asLanguagesOut );
+	static RString GetLanguageIniPath( const RString &sThemeName, const RString &sLanguage );
+	RString GetDefaultLanguage();
 
-	CString m_sCurThemeName;
-	CString m_sCurLanguage;
+	RString m_sCurThemeName;
+	RString m_sCurLanguage;
+	bool m_bPseudoLocalize;
 };
 
 extern ThemeManager*	THEME;	// global and accessable from anywhere in our program

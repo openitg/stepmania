@@ -3,7 +3,6 @@
 #include "ScreenManager.h"
 #include "PrefsManager.h"
 #include "GameConstantsAndTypes.h"
-#include "PrefsManager.h"
 #include "GameManager.h"
 #include "RageLog.h"
 #include "AnnouncerManager.h"
@@ -33,9 +32,6 @@ Desc: Sets up the screen display
 ************************************/
 
 REGISTER_SCREEN_CLASS( ScreenSelectMode );
-ScreenSelectMode::ScreenSelectMode( CString sClassName ) : ScreenSelect( sClassName )
-{
-}
 
 void ScreenSelectMode::Init()
 {
@@ -67,7 +63,7 @@ void ScreenSelectMode::Init()
 		//
 		// Load Sprite
 		//
-		CString sElementPath = THEME->GetPathG("ScreenSelectMode",mc.m_sName);
+		RString sElementPath = THEME->GetPathG("ScreenSelectMode",mc.m_sName);
 
 		arrayLocations.push_back( sElementPath );
 		
@@ -94,13 +90,13 @@ void ScreenSelectMode::Init()
 				m_bCharsAvailable = true;
 				if(vpCharacters[i]->Has2DElems())
 				{
-					CString mpath = vpCharacters[i]->GetSongSelectIconPath();
+					RString mpath = vpCharacters[i]->GetSongSelectIconPath();
 					LOG->Trace("Char: %d, %s, 2D: true",i,mpath.c_str());						
 					m_b2DAvailable = true;
 				}
 				else
 				{
-					CString mpath = vpCharacters[i]->GetSongSelectIconPath();
+					RString mpath = vpCharacters[i]->GetSongSelectIconPath();
 					LOG->Trace("Char: %d, %s, 2D: false",i,mpath.c_str());						
 				}
 			}
@@ -188,14 +184,14 @@ void ScreenSelectMode::MenuRight( PlayerNumber pn )
 
 void ScreenSelectMode::UpdateSelectableChoices()
 {
-	CStringArray GraphicPaths;
+	vector<RString> GraphicPaths;
 	m_iNumChoices = 0;
 	unsigned i=0;
 	unsigned j=0;
 	for( i=0; i<m_aGameCommands.size(); i++ )
 	{
 		const GameCommand& mc = m_aGameCommands[i];
-		CString modename = mc.m_sName;
+		RString modename = mc.m_sName;
 		modename.MakeUpper();
 
 
@@ -247,14 +243,10 @@ void ScreenSelectMode::UpdateSelectableChoices()
 
 void ScreenSelectMode::HandleScreenMessage( const ScreenMessage SM )
 {
-	switch( SM )
+	if( SM == SM_MenuTimer )
 	{
-	case SM_MenuTimer:
-		{
-			m_bSelected = true;
-			SetCharacters();
-		}
-		break;
+		m_bSelected = true;
+		SetCharacters();
 	}
 	ScreenSelect::HandleScreenMessage(SM);
 }
@@ -312,7 +304,7 @@ void ScreenSelectMode::MenuStart( PlayerNumber pn )
 	for(int i=0; i<NUM_PLAYERS; i++)
 		OFF_COMMAND( m_CurChar[i] );
 
-	SCREENMAN->PostMessageToTopScreen( SM_AllDoneChoosing, 0.5f );
+	SCREENMAN->PostMessageToTopScreen( SM_BeginFadingOut, 0 );
 }
 
 int ScreenSelectMode::GetSelectionIndex( PlayerNumber pn )

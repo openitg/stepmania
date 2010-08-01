@@ -13,8 +13,13 @@
 #include "arch/Dialog/Dialog.h"
 #include <float.h>
 
-#if defined(__MACOSX__)
+#if defined(MACOSX) && defined(__ppc__)
+#	define USE_VECLIB
+#endif
+
+#if defined(USE_VECLIB)
 // Work around global namespace pollution.
+// www.gnu.org/software/gsl/manual/gsl-ref_43.html
 namespace vblas
 {
 # include <vecLib/vBLAS.h>
@@ -90,13 +95,13 @@ void RageVec3TransformNormal( RageVector3* pOut, const RageVector3* pV, const Ra
 
 void RageVec4TransformCoord( RageVector4* pOut, const RageVector4* pV, const RageMatrix* pM )
 {
-#if defined(__MACOSX__)
+#if defined(USE_VECLIB)
 	// (M^t * v)^t = v^t * M 
 	cblas_sgemv(CblasRowMajor, CblasTrans, 4, 4, 1, &pM->m00, 4, &pV->x, 1,
 				0, &pOut->x, 1);
 #else
-    const RageMatrix &a = *pM;
-    const RageVector4 &v = *pV;
+	const RageMatrix &a = *pM;
+	const RageVector4 &v = *pV;
 	*pOut = RageVector4(
 		a.m00*v.x+a.m10*v.y+a.m20*v.z+a.m30*v.w,
 		a.m01*v.x+a.m11*v.y+a.m21*v.z+a.m31*v.w,
@@ -135,7 +140,7 @@ RageMatrix RageMatrix::GetTranspose() const
 
 void RageMatrixMultiply( RageMatrix* pOut, const RageMatrix* pA, const RageMatrix* pB )
 {
-#if defined(__MACOSX__)
+#if defined(USE_VECLIB)
 	cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 4, 4, 4, 1,
 				&pB->m00, 4, &pA->m00, 4, 0, &pOut->m00, 4);
 #else
@@ -143,8 +148,8 @@ void RageMatrixMultiply( RageMatrix* pOut, const RageMatrix* pA, const RageMatri
 //	// <30 cycles for theirs versus >100 for ours.
 //	D3DXMatrixMultiply( (D3DMATRIX*)pOut, (D3DMATRIX*)pA, (D3DMATRIX*)pB );
 //#else
-    const RageMatrix &a = *pA;
-    const RageMatrix &b = *pB;
+	const RageMatrix &a = *pA;
+	const RageMatrix &b = *pB;
 
 	*pOut = RageMatrix(
 		b.m00*a.m00+b.m01*a.m10+b.m02*a.m20+b.m03*a.m30,
@@ -343,7 +348,7 @@ void RageQuatMultiply( RageVector4* pOut, const RageVector4 &pA, const RageVecto
 	out.z = pA.w * pB.z + pA.z * pB.w + pA.x * pB.y - pA.y * pB.x;
 	out.w = pA.w * pB.w - pA.x * pB.x - pA.y * pB.y - pA.z * pB.z;
 
-    float dist, square;
+	float dist, square;
 
 	square = out.x * out.x + out.y * out.y + out.z * out.z + out.w * out.w;
 	
@@ -351,10 +356,10 @@ void RageQuatMultiply( RageVector4* pOut, const RageVector4 &pA, const RageVecto
 		dist = 1.0f / sqrtf(square);
 	else dist = 1;
 
-    out.x *= dist;
-    out.y *= dist;
-    out.z *= dist;
-    out.w *= dist;
+	out.x *= dist;
+	out.y *= dist;
+	out.z *= dist;
+	out.w *= dist;
 
 	*pOut = out;
 }
@@ -501,7 +506,7 @@ void RageQuatSlerp(RageVector4 *pOut, const RageVector4 &from, const RageVector4
 		scale1 = RageFastSin(t * omega) / sinom;
 	}
 	else
-	{        
+	{
 		// "from" and "to" quaternions are very close 
 		//  ... so we can do a linear interpolation
 		scale0 = 1.0f - t;
@@ -531,8 +536,8 @@ RageMatrix RageLookAt(
 
 	Y = RageVector3(
 		 Z[1] * X[2] - Z[2] * X[1],
-        -Z[0] * X[2] + Z[2] * X[0],
-         Z[0] * X[1] - Z[1] * X[0] );
+		 -Z[0] * X[2] + Z[2] * X[0],
+		 Z[0] * X[1] - Z[1] * X[0] );
 
 	RageVec3Normalize(&X, &X);
 	RageVec3Normalize(&Y, &Y);
@@ -541,7 +546,7 @@ RageMatrix RageLookAt(
 		X[0], Y[0], Z[0], 0,
 		X[1], Y[1], Z[1], 0,
 		X[2], Y[2], Z[2], 0,
-		   0,    0,    0, 1 );
+		0,    0,    0,    1 );
 
 	RageMatrix mat2;
 	RageMatrixTranslation(&mat2, -eyex, -eyey, -eyez);
@@ -615,7 +620,7 @@ float RageFastSin( float x )
 
 	float fRemainder = fIndex - iSampleIndex[0];
 	for( unsigned i=0; i<ARRAYSIZE(iSampleIndex); i++ )
-        iSampleIndex[i] %= ARRAYSIZE(table) * 2;
+		iSampleIndex[i] %= ARRAYSIZE(table) * 2;
 
 	DEBUG_ASSERT( fRemainder>=0 && fRemainder<=1 );
 
@@ -629,7 +634,7 @@ float RageFastSin( float x )
 		{
 			// sin(x) == -sin(PI+x)
 			iSample -= ARRAYSIZE(table);
-			DEBUG_ASSERT( iSample>=0 && iSample<ARRAYSIZE(table) );
+			DEBUG_ASSERT( iSample>=0 && iSample<int(ARRAYSIZE(table)) );
 			fVal = -table[iSample];
 		}
 		else
@@ -646,8 +651,69 @@ float RageFastCos( float x )
 	return RageFastSin( x + 0.5f*PI );
 }
 
+float RageQuadradtic::Evaluate( float fT ) const
+{
+	// optimized (m_fA * fT*fT*fT) + (m_fB * fT*fT) + (m_fC * fT) + m_fD;
+	return ((m_fA*fT + m_fB)*fT + m_fC)*fT + m_fD;
+}
+
+void RageQuadradtic::SetFromBezier( float fX1, float fX2, float fX3, float fX4 )
+{
+	m_fD = fX1;
+	m_fC = 3.0f * (fX2 - fX1);
+	m_fB = 3.0f * (fX3 - fX2) - m_fC;
+	m_fA = fX4 - fX1 - m_fC - m_fB;
+}
+
+void RageQuadradtic::GetBezier( float &fX1, float &fX2, float &fX3, float &fX4 ) const
+{
+	fX1 = m_fD;
+	fX2 = m_fD + m_fC/3.0f;
+	fX3 = m_fD + 2*m_fC/3.0f + m_fB/3.0f;
+	fX4 = m_fD + m_fC + m_fB + m_fA;
+}
+
+float RageQuadradtic::GetSlope( float fT ) const
+{
+	return 3*m_fA*fT*fT + 2*m_fB*fT + m_fC;
+}
+
+void RageBezier2D::Evaluate( float fT, float *pX, float *pY ) const
+{
+	*pX = m_X.Evaluate( fT );
+	*pY = m_Y.Evaluate( fT );
+}
+
+float RageBezier2D::EvaluateYFromX( float fX ) const
+{
+	/* Quickly approximate T using Newton-Raphelson successive optimization (see
+	 * http://www.tinaja.com/text/bezmath.html).  This usually finds T within an
+	 * acceptable error margin in a few steps. */
+	float fT = SCALE( fX, m_X.GetBezierStart(), m_X.GetBezierEnd(), 0, 1 );
+	while(1)
+	{
+		float fGuessedX = m_X.Evaluate( fT );
+		float fError = fX-fGuessedX;
+
+		/* If our guess is good enough, evaluate the result Y and return. */
+		if( unlikely(fabsf(fError) < 0.0001f) )
+			return m_Y.Evaluate( fT );
+
+		float fSlope = m_X.GetSlope( fT );
+		fT += fError/fSlope;
+	}
+}
+
+void RageBezier2D::SetFromBezier(
+		float fC1X, float fC1Y, float fC2X, float fC2Y,
+		float fC3X, float fC3Y, float fC4X, float fC4Y )
+{
+	m_X.SetFromBezier( fC1X, fC2X, fC3X, fC4X );
+	m_Y.SetFromBezier( fC1Y, fC2Y, fC3Y, fC4Y );
+}
+
 /*
- * Copyright (c) 2001-2003 Chris Danford
+ * Copyright (c) 2001-2006 Chris Danford, Glenn Maynard
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

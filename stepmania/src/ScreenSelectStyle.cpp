@@ -4,7 +4,6 @@
 #include "GameSoundManager.h"
 #include "NetworkSyncManager.h"
 #include "ThemeManager.h"
-#include "PrefsManager.h"
 #include "ScreenManager.h"
 #include "GameState.h"
 #include "AnnouncerManager.h"
@@ -12,6 +11,7 @@
 #include "LightsManager.h"
 #include "CommonMetrics.h"
 #include "Command.h"
+#include "LocalizedString.h"
 
 
 #define ICON_GAIN_FOCUS_COMMAND		THEME->GetMetricA(m_sName,"IconGainFocusCommand")
@@ -20,13 +20,11 @@
 
 
 REGISTER_SCREEN_CLASS( ScreenSelectStyle );
-ScreenSelectStyle::ScreenSelectStyle( CString sClassName ) : ScreenSelect( sClassName )
-{
-	LIGHTSMAN->SetLightsMode( LIGHTSMODE_MENU );
-}
 
 void ScreenSelectStyle::Init()
 {
+	LIGHTSMAN->SetLightsMode( LIGHTSMODE_MENU );
+
 	ScreenSelect::Init();
 
 	m_iSelection = 0;
@@ -38,7 +36,7 @@ void ScreenSelectStyle::Init()
 		//
 		// Load icon
 		//
-		CString sIconPath = THEME->GetPathG(m_sName,ssprintf("icon%d",i+1));
+		RString sIconPath = THEME->GetPathG(m_sName,ssprintf("icon%d",i+1));
 
 		m_textIcon[i].SetName( ssprintf("Icon%d",i+1) );
 		m_sprIcon[i].SetName( ssprintf("Icon%d",i+1) );
@@ -60,7 +58,7 @@ void ScreenSelectStyle::Init()
 		//
 		// Load Picture
 		//
-		CString sPicturePath = THEME->GetPathG(m_sName, ssprintf("picture%d",i+1));
+		RString sPicturePath = THEME->GetPathG(m_sName, ssprintf("picture%d",i+1));
 		if( sPicturePath != "" )
 		{
 			m_sprPicture[i].SetName( "Picture" );
@@ -73,7 +71,7 @@ void ScreenSelectStyle::Init()
 		//
 		// Load info
 		//
-		CString sInfoPath = THEME->GetPathG(m_sName,ssprintf("info%d",i+1));
+		RString sInfoPath = THEME->GetPathG(m_sName,ssprintf("info%d",i+1));
 		if( sInfoPath != "" )
 		{
 			m_sprInfo[i].SetName( "Info" );
@@ -205,7 +203,6 @@ void ScreenSelectStyle::MenuStart( PlayerNumber pn )
 
 	SCREENMAN->PlayStartSound();
 	SCREENMAN->SendMessageToTopScreen( SM_BeginFadingOut );
-	SCREENMAN->SendMessageToTopScreen( SM_AllDoneChoosing );
 
 	const GameCommand& mc = m_aGameCommands[GetSelectionIndex(pn)];
 	SOUND->PlayOnceFromDir( ANNOUNCER->GetPathTo(ssprintf("%s comment %s",m_sName.c_str(),mc.m_sName.c_str())) );
@@ -231,6 +228,7 @@ int ScreenSelectStyle::GetSelectionIndex( PlayerNumber pn )
 	return m_iSelection;
 }
 
+static LocalizedString NO_STYLES_ARE_SELECTABLE( "ScreenSMOnlineLogin", "No Styles are selectable." );
 void ScreenSelectStyle::UpdateSelectableChoices()
 {
 	for( unsigned i=0; i<m_aGameCommands.size(); i++ )
@@ -266,7 +264,7 @@ void ScreenSelectStyle::UpdateSelectableChoices()
 	if( iSwitchToStyleIndex == -1 )// no styles are enabled.  We're stuck!
 	{
 		DEBUG_ASSERT(0);
-		SCREENMAN->SystemMessage( "No Styles are selectable." );
+		SCREENMAN->SystemMessage( NO_STYLES_ARE_SELECTABLE );
 		this->PostScreenMessage( SM_GoToPrevScreen, 0 );
 		return;
 	}

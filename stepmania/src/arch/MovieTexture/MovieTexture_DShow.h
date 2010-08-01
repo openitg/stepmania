@@ -1,5 +1,7 @@
-#ifndef RAGEMOVIETEXTURE_DSHOW_H
-#define RAGEMOVIETEXTURE_DSHOW_H
+/* MovieTexture_DShow - DirectShow movie renderer. */
+
+#ifndef RAGE_MOVIE_TEXTURE_DSHOW_H
+#define RAGE_MOVIE_TEXTURE_DSHOW_H
 
 #include "MovieTexture.h"
 
@@ -27,19 +29,16 @@ typedef char TCHAR, *PTCHAR;
 #include "RageTexture.h"
 #include "RageThreads.h"
 
-//-----------------------------------------------------------------------------
-// RageMovieTexture Class Declarations
-//-----------------------------------------------------------------------------
 class MovieTexture_DShow : public RageMovieTexture
 {
 public:
 	MovieTexture_DShow( RageTextureID ID );
 	virtual ~MovieTexture_DShow();
-	CString Init();
+	RString Init();
 
 	/* only called by RageTextureManager::InvalidateTextures */
 	void Invalidate() { m_uTexHandle = 0; }
-	void Update(float fDeltaTime);
+	void Update( float fDeltaTime );
 
 	virtual void Reload();
 
@@ -48,21 +47,21 @@ public:
 	virtual void SetPosition( float fSeconds );
 	virtual void SetPlaybackRate( float fRate );
 
-	void SetLooping(bool looping=true) { m_bLoop = looping; }
+	void SetLooping( bool bLooping=true ) { m_bLoop = bLooping; }
 
-	void NewData(const char *buffer);
+	void NewData( const char *pBuffer );
 
 private:
 	const char *buffer;
 	RageSemaphore buffer_lock, buffer_finished;
 
-	CString Create();
+	RString Create();
 
 	void CreateTexture();
 	void SkipUpdates();
 	void StopSkippingUpdates();
 	void CheckFrame();
-	CString GetActiveFilterList();
+	RString GetActiveFilterList();
 
 	unsigned GetTexHandle() const { return m_uTexHandle; }
 	unsigned m_uTexHandle;

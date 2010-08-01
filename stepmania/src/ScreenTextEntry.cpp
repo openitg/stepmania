@@ -3,7 +3,6 @@
 #include "RageUtil.h"
 #include "Preference.h"
 #include "ScreenManager.h"
-#include "GameSoundManager.h"
 #include "GameConstantsAndTypes.h"
 #include "ThemeManager.h"
 #include "FontCharAliases.h"
@@ -11,7 +10,7 @@
 #include "ScreenPrompt.h"
 #include "ActorUtil.h"
 #include "InputEventPlus.h"
-
+#include "RageInput.h"
 
 static const char* g_szKeys[NUM_KEYBOARD_ROWS][KEYS_PER_ROW] =
 {
@@ -25,31 +24,55 @@ static const char* g_szKeys[NUM_KEYBOARD_ROWS][KEYS_PER_ROW] =
 	{"","","Space","","","Backspace","","","Cancel","","","Done",""},
 };
 
-static Preference<bool> g_bAllowOldKeyboardInput( "AllowOldKeyboardInput",	true );
-
-CString ScreenTextEntry::s_sLastAnswer = "";
+RString ScreenTextEntry::s_sLastAnswer = "";
 
 /* Settings: */
 namespace
 {
-	CString g_sQuestion;
-	CString g_sInitialAnswer;
+	RString g_sQuestion;
+	RString g_sInitialAnswer;
 	int g_iMaxInputLength;
-	bool(*g_pValidate)(const CString &sAnswer,CString &sErrorOut);
-	void(*g_pOnOK)(const CString &sAnswer);
+	bool(*g_pValidate)(const RString &sAnswer,RString &sErrorOut);
+	void(*g_pOnOK)(const RString &sAnswer);
 	void(*g_pOnCancel)();
 	bool g_bPassword;
+	bool (*g_pValidateAppend)(const RString &sAnswerBeforeChar, RString &sAppend);
+	RString (*g_pFormatAnswerForDisplay)(const RString &sAnswer);
 };
+
+void ScreenTextEntry::SetTextEntrySettings( 
+	RString sQuestion, 
+	RString sInitialAnswer, 
+	int iMaxInputLength,
+	bool(*Validate)(const RString &sAnswer,RString &sErrorOut), 
+	void(*OnOK)(const RString &sAnswer), 
+	void(*OnCancel)(),
+	bool bPassword,
+	bool (*ValidateAppend)(const RString &sAnswerBeforeChar, RString &sAppend),
+	RString (*FormatAnswerForDisplay)(const RString &sAnswer)
+	)
+{	
+	g_sQuestion = sQuestion;
+	g_sInitialAnswer = sInitialAnswer;
+	g_iMaxInputLength = iMaxInputLength;
+	g_pValidate = Validate;
+	g_pOnOK = OnOK;
+	g_pOnCancel = OnCancel;
+	g_pValidateAppend = ValidateAppend;
+	g_pFormatAnswerForDisplay = FormatAnswerForDisplay;
+}
 
 void ScreenTextEntry::TextEntry( 
 	ScreenMessage smSendOnPop, 
-	CString sQuestion, 
-	CString sInitialAnswer, 
+	RString sQuestion, 
+	RString sInitialAnswer, 
 	int iMaxInputLength,
-	bool(*Validate)(const CString &sAnswer,CString &sErrorOut), 
-	void(*OnOK)(const CString &sAnswer), 
+	bool(*Validate)(const RString &sAnswer,RString &sErrorOut), 
+	void(*OnOK)(const RString &sAnswer), 
 	void(*OnCancel)(),
-	bool bPassword
+	bool bPassword,
+	bool (*ValidateAppend)(const RString &sAnswerBeforeChar, RString &sAppend),
+	RString (*FormatAnswerForDisplay)(const RString &sAnswer)
 	)
 {	
 	g_sQuestion = sQuestion;
@@ -59,6 +82,8 @@ void ScreenTextEntry::TextEntry(
 	g_pOnOK = OnOK;
 	g_pOnCancel = OnCancel;
 	g_bPassword = bPassword;
+	g_pValidateAppend = ValidateAppend;
+	g_pFormatAnswerForDisplay = FormatAnswerForDisplay;
 
 	SCREENMAN->AddNewScreenToTop( "ScreenTextEntry", smSendOnPop );
 }
@@ -73,11 +98,7 @@ bool ScreenTextEntry::s_bCancelledLast = false;
  * subject to change and shouldn't be written to disk.
  */
 REGISTER_SCREEN_CLASS( ScreenTextEntry );
-
-ScreenTextEntry::ScreenTextEntry( CString sClassName ) :
-	ScreenWithMenuElements( sClassName )
-{
-}
+REGISTER_SCREEN_CLASS( ScreenTextEntryVisual );
 
 void ScreenTextEntry::Init()
 {
@@ -87,15 +108,193 @@ void ScreenTextEntry::Init()
 	m_textQuestion.SetName( "Question" );
 	this->AddChild( &m_textQuestion );
 
-	m_sprAnswerBox.Load( THEME->GetPathG(m_sName,"AnswerBox") );
-	m_sprAnswerBox->SetName( "AnswerBox" );
-	this->AddChild( m_sprAnswerBox );
-
 	m_textAnswer.LoadFromFont( THEME->GetPathF(m_sName,"answer") );
 	m_textAnswer.SetName( "Answer" );
 	this->AddChild( &m_textAnswer );
 
 	m_bShowAnswerCaret = false;
+
+	m_sndType.Load( THEME->GetPathS(m_sName,"type"), true );
+	m_sndBackspace.Load( THEME->GetPathS(m_sName,"backspace"), true );
+}
+
+void ScreenTextEntry::BeginScreen()
+{
+	m_sAnswer = RStringToWstring( g_sInitialAnswer );
+
+	ScreenWithMenuElements::BeginScreen();
+
+	m_textQuestion.SetText( g_sQuestion );
+	SET_XY_AND_ON_COMMAND( m_textQuestion );
+	SET_XY_AND_ON_COMMAND( m_textAnswer );
+
+	UpdateAnswerText();
+}
+
+void ScreenTextEntry::UpdateAnswerText()
+{
+	RString s;
+	if( g_bPassword )
+		s = RString( m_sAnswer.size(), '*' );
+	else
+		s = WStringToRString(m_sAnswer);
+
+	bool bAnswerFull = (int) s.length() >= g_iMaxInputLength;
+
+	if( g_pFormatAnswerForDisplay )
+		s = g_pFormatAnswerForDisplay( s );
+
+	if( m_bShowAnswerCaret 	&&  !bAnswerFull )
+		s += '_';
+	else
+		s += "  ";	// assumes that underscore is the width of two spaces
+
+	FontCharAliases::ReplaceMarkers( s );
+	m_textAnswer.SetText( s );
+}
+
+void ScreenTextEntry::Update( float fDelta )
+{
+	ScreenWithMenuElements::Update( fDelta );
+
+	if( m_timerToggleCursor.PeekDeltaTime() > 0.25f )
+	{
+		m_timerToggleCursor.Touch();
+		m_bShowAnswerCaret = !m_bShowAnswerCaret;
+		UpdateAnswerText();
+	}
+}
+
+void ScreenTextEntry::Input( const InputEventPlus &input )
+{
+	if( IsTransitioning() )
+		return;
+
+	if( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_BACK) )
+	{
+		switch( input.type )
+		{
+		case IET_FIRST_PRESS:
+		case IET_SLOW_REPEAT:
+		case IET_FAST_REPEAT:
+			BackspaceInAnswer();
+			break;
+		}
+	}
+	else if( input.type == IET_FIRST_PRESS )
+	{
+		wchar_t c = INPUTMAN->DeviceInputToChar(input.DeviceI,true);
+		if( c >= ' ' ) 
+		{
+			TryAppendToAnswer( WStringToRString(wstring()+c) );
+
+			TextEnteredDirectly();
+		}
+	}
+
+	ScreenWithMenuElements::Input( input );
+}
+
+void ScreenTextEntry::TryAppendToAnswer( RString s )
+{
+	{
+		wstring sNewAnswer = m_sAnswer+RStringToWstring(s);
+		if( (int)sNewAnswer.length() > g_iMaxInputLength )
+		{
+			SCREENMAN->PlayInvalidSound();
+			return;
+		}
+	}
+
+	if( g_pValidateAppend  &&  !g_pValidateAppend( WStringToRString(m_sAnswer), s ) )
+	{
+		SCREENMAN->PlayInvalidSound();
+		return;
+	}
+
+	wstring sNewAnswer = m_sAnswer+RStringToWstring(s);
+	m_sAnswer = sNewAnswer;
+	m_sndType.Play();
+	UpdateAnswerText();
+}
+
+void ScreenTextEntry::BackspaceInAnswer()
+{
+	if( m_sAnswer.empty() )
+	{
+		SCREENMAN->PlayInvalidSound();
+		return;
+	}
+	m_sAnswer.erase( m_sAnswer.end()-1 );
+	m_sndBackspace.Play();
+	UpdateAnswerText();
+}
+
+void ScreenTextEntry::MenuStart( PlayerNumber pn )
+{
+	End( false );
+}
+
+void ScreenTextEntry::TweenOffScreen()
+{
+	ScreenWithMenuElements::TweenOffScreen();
+
+	OFF_COMMAND( m_textQuestion );
+	OFF_COMMAND( m_textAnswer );
+}
+
+void ScreenTextEntry::End( bool bCancelled )
+{
+	if( bCancelled )
+	{
+		if( g_pOnCancel ) 
+			g_pOnCancel();
+		
+		Cancel( SM_GoToNextScreen );
+		TweenOffScreen();
+	}
+	else
+	{
+		RString sAnswer = WStringToRString(m_sAnswer);
+		RString sError;
+		if( g_pValidate != NULL )
+		{
+			bool bValidAnswer = g_pValidate( sAnswer, sError );
+			if( !bValidAnswer )
+			{
+				ScreenPrompt::Prompt( SM_None, sError );
+				return;	// don't end this screen.
+			}
+		}
+
+		if( g_pOnOK )
+		{
+			RString ret = WStringToRString(m_sAnswer);
+			FontCharAliases::ReplaceMarkers(ret);
+			g_pOnOK( ret );
+		}
+
+		StartTransitioningScreen( SM_GoToNextScreen );
+		SCREENMAN->PlayStartSound();
+	}
+
+	s_bCancelledLast = bCancelled;
+	s_sLastAnswer = bCancelled ? RString("") : WStringToRString(m_sAnswer);
+}
+
+void ScreenTextEntry::MenuBack( PlayerNumber pn )
+{
+	End( true );
+}
+
+void ScreenTextEntryVisual::Init()
+{
+	ROW_START_X.Load( m_sName, "RowStartX" );
+	ROW_START_Y.Load( m_sName, "RowStartY" );
+	ROW_END_X.Load( m_sName, "RowEndX" );
+	ROW_END_Y.Load( m_sName, "RowEndY" );
+
+	ScreenTextEntry::Init();
 
 	m_sprCursor.Load( THEME->GetPathG(m_sName,"cursor") );
 	m_sprCursor->SetName( "Cursor" );
@@ -114,36 +313,30 @@ void ScreenTextEntry::Init()
 			for( int x=0; x<KEYS_PER_ROW; ++x )
 			{
 				BitmapText *&pbt = m_ptextKeys[r][x];
-				pbt = static_cast<BitmapText *>( text.Copy() );
+				pbt = static_cast<BitmapText *>( text.Copy() ); // XXX: Copy() should be covariant
 				this->AddChild( pbt );
+
+				RString s = g_szKeys[r][x];
+				if( !s.empty()  &&  r == KEYBOARD_ROW_SPECIAL )
+					s = THEME->GetString( m_sName, s );
+				pbt->SetText( s );
 			}
 		}
 	}
 
-	m_sndType.Load( THEME->GetPathS(m_sName,"type"), true );
-	m_sndBackspace.Load( THEME->GetPathS(m_sName,"backspace"), true );
 	m_sndChange.Load( THEME->GetPathS(m_sName,"change"), true );
 }
 
-ScreenTextEntry::~ScreenTextEntry()
+ScreenTextEntryVisual::~ScreenTextEntryVisual()
 {
 	FOREACH_KeyboardRow( r )
 		for( int x=0; x<KEYS_PER_ROW; ++x )
 			SAFE_DELETE( m_ptextKeys[r][x] );
 }
 
-void ScreenTextEntry::BeginScreen()
+void ScreenTextEntryVisual::BeginScreen()
 {
-	m_sAnswer = CStringToWstring( g_sInitialAnswer );
-
-	ScreenWithMenuElements::BeginScreen();
-
-	m_textQuestion.SetText( g_sQuestion );
-	SET_XY_AND_ON_COMMAND( m_textQuestion );
-	SET_XY_AND_ON_COMMAND( m_sprAnswerBox );
-	SET_XY_AND_ON_COMMAND( m_textAnswer );
-
-	UpdateAnswerText();
+	ScreenTextEntry::BeginScreen();
 
 	ON_COMMAND( m_sprCursor );
 	m_iFocusX = 0;
@@ -154,141 +347,34 @@ void ScreenTextEntry::BeginScreen()
 		for( int x=0; x<KEYS_PER_ROW; ++x )
 		{
 			BitmapText &bt = *m_ptextKeys[r][x];
-			float fX = roundf( SCALE( x, 0, KEYS_PER_ROW-1, SCREEN_LEFT+100, SCREEN_RIGHT-100 ) );
-			float fY = roundf( SCALE( r, 0, NUM_KEYBOARD_ROWS-1, SCREEN_CENTER_Y-30, SCREEN_BOTTOM-80 ) );
+			float fX = roundf( SCALE( x, 0, KEYS_PER_ROW-1, ROW_START_X, ROW_END_X ) );
+			float fY = roundf( SCALE( r, 0, NUM_KEYBOARD_ROWS-1, ROW_START_Y, ROW_END_Y ) );
 			bt.SetXY( fX, fY );
 		}
 	}
 
-	UpdateKeyboardText();
-
 	PositionCursor();
 }
 
-void ScreenTextEntry::UpdateKeyboardText()
-{
-	FOREACH_KeyboardRow( r )
-	{
-		for( int x=0; x<KEYS_PER_ROW; ++x )
-		{
-			CString s = g_szKeys[r][x];
-			if( !s.empty()  &&  r == KEYBOARD_ROW_SPECIAL )
-				s = THEME->GetMetric( "ScreenTextEntry", s );
-			BitmapText &bt = *m_ptextKeys[r][x];
-			bt.SetText( s );
-		}
-	}
-}
-
-void ScreenTextEntry::UpdateAnswerText()
-{
-	CString s = WStringToCString(m_sAnswer);
-	if( g_bPassword )
-	{
-		int len = s.GetLength();
-		s = "";
-		for( int i=0; i<len; ++i )
-			s += '*';
-	}
-
-	bool bAnswerFull = (int) s.length() >= g_iMaxInputLength;
-	if( m_bShowAnswerCaret 	&&  !bAnswerFull )
-		s += '_';
-	else
-		s += "  ";	// assumes that underscore is the width of two spaces
-
-	FontCharAliases::ReplaceMarkers( s );
-	m_textAnswer.SetText( s );
-}
-
-void ScreenTextEntry::PositionCursor()
+void ScreenTextEntryVisual::PositionCursor()
 {
 	BitmapText &bt = *m_ptextKeys[m_iFocusY][m_iFocusX];
 	m_sprCursor->SetXY( bt.GetX(), bt.GetY() );
 	m_sprCursor->PlayCommand( m_iFocusY == KEYBOARD_ROW_SPECIAL ? "SpecialKey" : "RegularKey" );
 }
 
-void ScreenTextEntry::Update( float fDelta )
+void ScreenTextEntryVisual::TextEnteredDirectly()
 {
-	ScreenWithMenuElements::Update( fDelta );
+	// If the user enters text with a keyboard, jump to DONE, so enter ends the screen.
+	m_iFocusY = KEYBOARD_ROW_SPECIAL;
+	m_iFocusX = DONE;
 
-	if( m_timerToggleCursor.PeekDeltaTime() > 0.25f )
-	{
-		m_timerToggleCursor.Touch();
-		m_bShowAnswerCaret = !m_bShowAnswerCaret;
-		UpdateAnswerText();
-	}
+	PositionCursor();
 }
 
-void ScreenTextEntry::Input( const InputEventPlus &input )
+void ScreenTextEntryVisual::MoveX( int iDir )
 {
-	if( m_In.IsTransitioning() || m_Out.IsTransitioning() || m_Cancel.IsTransitioning() )
-		return;
-
-	//The user wants to input text traditionally
-	if( g_bAllowOldKeyboardInput.Get() && ( input.type == IET_FIRST_PRESS ) )
-	{
-		if( input.DeviceI.button == KEY_BACK )
-		{
-			BackspaceInAnswer();
-		}
-		else if( input.DeviceI.ToChar() >= ' ' ) 
-		{
-			bool bIsHoldingShift = 
-					INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_RSHIFT)) ||
-					INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_LSHIFT));
-			if ( bIsHoldingShift )
-			{
-
-				char c = (char)toupper( input.DeviceI.ToChar() );
-
-				switch( c )
-				{
-				case '`':	c='~';	break;
-				case '1':	c='!';	break;
-				case '2':	c='@';	break;
-				case '3':	c='#';	break;
-				case '4':	c='$';	break;
-				case '5':	c='%';	break;
-				case '6':	c='^';	break;
-				case '7':	c='&';	break;
-				case '8':	c='*';	break;
-				case '9':	c='(';	break;
-				case '0':	c=')';	break;
-				case '-':	c='_';	break;
-				case '=':	c='+';	break;
-				case '[':	c='{';	break;
-				case ']':	c='}';	break;
-				case '\'':	c='"';	break;
-				case '\\':	c='|';	break;
-				case ';':	c=':';	break;
-				case ',':	c='<';	break;
-				case '.':	c='>';	break;
-				case '/':	c='?';	break;
-				}
-
-				AppendToAnswer( ssprintf( "%c", c ) );
-			}
-			else
-			{
-				AppendToAnswer( ssprintf( "%c", input.DeviceI.ToChar() ) );
-			}
-
-			//If the user wishes to select text in traditional way, start should finish text entry
-			m_iFocusY = KEYBOARD_ROW_SPECIAL;
-			m_iFocusX = DONE;
-
-			UpdateKeyboardText();
-			PositionCursor();
-		}
-	}
-
-	ScreenWithMenuElements::Input( input );
-}
-
-void ScreenTextEntry::MoveX( int iDir )
-{
-	CString sKey;
+	RString sKey;
 	do
 	{
 		m_iFocusX += iDir;
@@ -302,12 +388,12 @@ void ScreenTextEntry::MoveX( int iDir )
 	PositionCursor();
 }
 
-void ScreenTextEntry::MoveY( int iDir )
+void ScreenTextEntryVisual::MoveY( int iDir )
 {
-	CString sKey;
+	RString sKey;
 	do
 	{
-		m_iFocusY = (KeyboardRow)(m_iFocusY + iDir);
+		m_iFocusY = enum_add2( m_iFocusY,  +iDir );
 		wrap( (int&)m_iFocusY, NUM_KEYBOARD_ROWS );
 
 		// HACK: Round to nearest option so that we always stop 
@@ -334,42 +420,14 @@ void ScreenTextEntry::MoveY( int iDir )
 	PositionCursor();
 }
 
-void ScreenTextEntry::AppendToAnswer( CString s )
-{
-	wstring sNewAnswer = m_sAnswer+CStringToWstring(s);
-	if( (int)sNewAnswer.length() > g_iMaxInputLength )
-	{
-		SCREENMAN->PlayInvalidSound();
-		return;
-	}
-
-	m_sAnswer = sNewAnswer;
-	m_sndType.Play();
-	UpdateAnswerText();
-
-	UpdateKeyboardText();
-}
-
-void ScreenTextEntry::BackspaceInAnswer()
-{
-	if( m_sAnswer.empty() )
-	{
-		SCREENMAN->PlayInvalidSound();
-		return;
-	}
-	m_sAnswer.erase( m_sAnswer.end()-1 );
-	m_sndBackspace.Play();
-	UpdateAnswerText();
-}
-
-void ScreenTextEntry::MenuStart( PlayerNumber pn )
+void ScreenTextEntryVisual::MenuStart( PlayerNumber pn )
 {
 	if( m_iFocusY == KEYBOARD_ROW_SPECIAL )
 	{
 		switch( m_iFocusX )
 		{
 		case SPACEBAR:
-			AppendToAnswer( " " );
+			TryAppendToAnswer( " " );
 			break;
 		case BACKSPACE:
 			BackspaceInAnswer();
@@ -386,56 +444,15 @@ void ScreenTextEntry::MenuStart( PlayerNumber pn )
 	}
 	else
 	{
-		AppendToAnswer( g_szKeys[m_iFocusY][m_iFocusX] );
+		TryAppendToAnswer( g_szKeys[m_iFocusY][m_iFocusX] );
 	}
 }
 
-void ScreenTextEntry::End( bool bCancelled )
+void ScreenTextEntryVisual::TweenOffScreen()
 {
-	if( bCancelled )
-	{
-		if( g_pOnCancel ) 
-			g_pOnCancel();
-		
-		m_Cancel.StartTransitioning( SM_GoToNextScreen );
-	}
-	else
-	{
-		CString sAnswer = WStringToCString(m_sAnswer);
-		CString sError;
-		if ( g_pValidate != NULL )
-		{
-			bool bValidAnswer = g_pValidate( sAnswer, sError );
-			if( !bValidAnswer )
-			{
-				ScreenPrompt::Prompt( SM_None, sError );
-				return;	// don't end this screen.
-			}
-		}
+	ScreenTextEntry::TweenOffScreen();
 
-		if( g_pOnOK )
-		{
-			CString ret = WStringToCString(m_sAnswer);
-			FontCharAliases::ReplaceMarkers(ret);
-			g_pOnOK( ret );
-		}
-
-		m_Out.StartTransitioning( SM_GoToNextScreen );
-		SCREENMAN->PlayStartSound();
-	}
-
-	OFF_COMMAND( m_textQuestion );
-	OFF_COMMAND( m_sprAnswerBox );
-	OFF_COMMAND( m_textAnswer );
 	OFF_COMMAND( m_sprCursor );
-
-	s_bCancelledLast = bCancelled;
-	s_sLastAnswer = bCancelled ? CString("") : WStringToCString(m_sAnswer);
-}
-
-void ScreenTextEntry::MenuBack( PlayerNumber pn )
-{
-	End( true );
 }
 
 /*

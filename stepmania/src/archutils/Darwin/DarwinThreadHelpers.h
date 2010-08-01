@@ -1,14 +1,16 @@
 #ifndef DARWIN_THREAD_HELPERS_H
 #define DARWIN_THREAD_HELPERS_H
 
-bool SuspendThread(uint64_t threadHandle);
-bool ResumeThread(uint64_t threadHandle);
+bool SuspendThread( uint64_t threadHandle );
+bool ResumeThread( uint64_t threadHandle );
 uint64_t GetCurrentThreadId();
+// Valid values are from 0.0f to 1.0f. 0.5f is default.
+void SetThreadPrecedence( float prec );
 
 #endif
 
 /*
- * (c) 2004 Steve Checkoway
+ * (c) 2004-2006 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

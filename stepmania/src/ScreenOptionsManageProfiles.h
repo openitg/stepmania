@@ -9,9 +9,6 @@ class Course;
 class ScreenOptionsManageProfiles : public ScreenOptions
 {
 public:
-	ScreenOptionsManageProfiles( CString sName );
-	~ScreenOptionsManageProfiles();
-
 	void Init();
 	virtual void BeginScreen();
 
@@ -22,16 +19,12 @@ protected:
 	virtual void ExportOptions( int iRow, const vector<PlayerNumber> &vpns );
 	
 	virtual void AfterChangeRow( PlayerNumber pn );
-	virtual void ProcessMenuStart( PlayerNumber pn, const InputEventType type );
+	virtual void ProcessMenuStart( const InputEventPlus &input );
 
 	int GetLocalProfileIndexWithFocus() const;
-	CString GetLocalProfileIDWithFocus() const;
+	RString GetLocalProfileIDWithFocus() const;
 
-	vector<CString> m_vsLocalProfileID;
-
-	vector<OptionRowHandler*> m_OptionRowHandlers;
-
-	ScreenMiniMenu *m_pContextMenu;
+	vector<RString> m_vsLocalProfileID;
 };
 
 #endif

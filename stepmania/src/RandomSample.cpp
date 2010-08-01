@@ -17,7 +17,7 @@ RandomSample::~RandomSample()
 	UnloadAll();
 }
 
-bool RandomSample::Load( CString sFilePath, int iMaxToLoad )
+bool RandomSample::Load( RString sFilePath, int iMaxToLoad )
 {
 	if( GetExtension(sFilePath) == "" )
 		return LoadSoundDir( sFilePath, iMaxToLoad );
@@ -32,7 +32,7 @@ void RandomSample::UnloadAll()
 	m_pSamples.clear();
 }
 
-bool RandomSample::LoadSoundDir( CString sDir, int iMaxToLoad )
+bool RandomSample::LoadSoundDir( RString sDir, int iMaxToLoad )
 {
 	if( sDir == "" )
 		return true;
@@ -43,7 +43,7 @@ bool RandomSample::LoadSoundDir( CString sDir, int iMaxToLoad )
 	 * so we'll look for eg. themes\Default\sounds\sDir\*.mp3.  Otherwise,
 	 * don't, so we'll look for all of the files starting with sDir,
 	 * eg. themes\Default\sounds\sDir*.mp3. */
-	if(IsADirectory(sDir) && sDir[sDir.GetLength()-1] != "/" )
+	if(IsADirectory(sDir) && sDir[sDir.size()-1] != "/" )
 		sDir += "/";
 #else
 	// make sure there's a slash at the end of this path
@@ -51,7 +51,7 @@ bool RandomSample::LoadSoundDir( CString sDir, int iMaxToLoad )
 		sDir += "/";
 #endif
 
-	CStringArray arraySoundFiles;
+	vector<RString> arraySoundFiles;
 	GetDirListing( sDir + "*.mp3", arraySoundFiles );
 	GetDirListing( sDir + "*.ogg", arraySoundFiles );
 	GetDirListing( sDir + "*.wav", arraySoundFiles );
@@ -65,7 +65,7 @@ bool RandomSample::LoadSoundDir( CString sDir, int iMaxToLoad )
 	return true;
 }
 	
-bool RandomSample::LoadSound( CString sSoundFilePath )
+bool RandomSample::LoadSound( RString sSoundFilePath )
 {
 	LOG->Trace( "RandomSample::LoadSound( %s )", sSoundFilePath.c_str() );
 
@@ -92,7 +92,7 @@ int RandomSample::GetNextToPlay()
 	int iIndexToPlay = 0;
 	for( int i=0; i<5; i++ )
 	{
-		iIndexToPlay = rand() % m_pSamples.size();
+		iIndexToPlay = RandomInt( m_pSamples.size() );
 		if( iIndexToPlay != m_iIndexLastPlayed )
 			break;
 	}

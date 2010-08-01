@@ -13,24 +13,28 @@
 #include "SongManager.h"
 #include "Character.h"
 #include "PrefsManager.h"
+#include "SongUtil.h"
 #include "StepsUtil.h"
 #include "GameManager.h"
 #include "Foreach.h"
 #include "GameSoundManager.h"
 #include "CommonMetrics.h"
 #include "CharacterManager.h"
+#include "ScreenManager.h"
+#include "ScreenMiniMenu.h"	// for MenuRowDef
+#include "FontCharAliases.h"
 
-#define ENTRY(s)					THEME->GetMetric ("ScreenOptionsMaster",s)
-#define ENTRY_MODE(s,i)				THEME->GetMetric ("ScreenOptionsMaster",ssprintf("%s,%i",(s).c_str(),(i+1)))
-#define ENTRY_DEFAULT(s)			THEME->GetMetric ("ScreenOptionsMaster",(s) + "Default")
+#define ENTRY(s)		THEME->GetMetric ("ScreenOptionsMaster",s)
+#define ENTRY_MODE(s,i)		THEME->GetMetric ("ScreenOptionsMaster",ssprintf("%s,%i",(s).c_str(),(i+1)))
+#define ENTRY_DEFAULT(s)	THEME->GetMetric ("ScreenOptionsMaster",(s) + "Default")
 
-void OptionRowHandler::GetIconTextAndGameCommand( const OptionRowDefinition &def, int iFirstSelection, CString &sIconTextOut, GameCommand &gcOut ) const
+void OptionRowHandler::GetIconTextAndGameCommand( int iFirstSelection, RString &sIconTextOut, GameCommand &gcOut ) const
 {
 	sIconTextOut = "";
 	gcOut.Init();
 }
 
-static void SelectExactlyOne( int iSelection, vector<bool> &vbSelectedOut )
+void OptionRowHandlerUtil::SelectExactlyOne( int iSelection, vector<bool> &vbSelectedOut )
 {
 	ASSERT_M( iSelection >= 0  &&  iSelection < (int) vbSelectedOut.size(),
 			  ssprintf("%d/%u",iSelection, unsigned(vbSelectedOut.size())) );
@@ -38,7 +42,7 @@ static void SelectExactlyOne( int iSelection, vector<bool> &vbSelectedOut )
 		vbSelectedOut[i] = i==iSelection;
 }
 
-static int GetOneSelection( const vector<bool> &vbSelected )
+int OptionRowHandlerUtil::GetOneSelection( const vector<bool> &vbSelected )
 {
 	int iRet = -1;
 	for( unsigned i=0; i<vbSelected.size(); i++ )
@@ -53,125 +57,121 @@ static int GetOneSelection( const vector<bool> &vbSelected )
 	return iRet;
 }
 
+static LocalizedString OFF ( "OptionRowHandler", "Off" );
 
 class OptionRowHandlerList : public OptionRowHandler
 {
 public:
-	vector<GameCommand> ListEntries;
-	GameCommand Default;
+	vector<GameCommand> m_aListEntries;
+	GameCommand m_Default;
 	bool m_bUseModNameForIcon;
-	vector<CString> m_vsBroadcastOnExport;
+	vector<RString> m_vsBroadcastOnExport;
 
-	OptionRowHandlerList::OptionRowHandlerList() { Init(); }
+	OptionRowHandlerList() { Init(); }
 	virtual void Init()
 	{
 		OptionRowHandler::Init();
-		ListEntries.clear();
-		Default.Init();
+		m_aListEntries.clear();
+		m_Default.Init();
 		m_bUseModNameForIcon = false;
 		m_vsBroadcastOnExport.clear();
 	}
-	virtual void Load( OptionRowDefinition &defOut, CString sParam )
+	virtual void LoadInternal( const Commands &cmds )
 	{
+		ASSERT( cmds.v.size() == 1 );
+		const Command &command = cmds.v[0];
+		RString sParam = command.GetArg(1);
+		ASSERT( command.m_vsArgs.size() == 2 );
 		ASSERT( sParam.size() );
-
-		if(		 sParam.CompareNoCase("NoteSkins")==0 )		{ FillNoteSkins( defOut, sParam );		return; }
-		else if( sParam.CompareNoCase("Steps")==0 )			{ FillSteps( defOut, sParam, false );	return; }
-		else if( sParam.CompareNoCase("StepsLocked")==0 )	{ FillSteps( defOut, sParam, true );	return; }
-		else if( sParam.CompareNoCase("Characters")==0 )	{ FillCharacters( defOut, sParam );		return; }
-		else if( sParam.CompareNoCase("Styles")==0 )		{ FillStyles( defOut, sParam );			return; }
-		else if( sParam.CompareNoCase("Groups")==0 )		{ FillGroups( defOut, sParam );			return; }
-		else if( sParam.CompareNoCase("Difficulties")==0 )	{ FillDifficulties( defOut, sParam );	return; }
-		else if( sParam.CompareNoCase("SongsInCurrentSongGroup")==0 )	{ FillSongsInCurrentSongGroup( defOut, sParam );	return; }
-
-		Init();
-		defOut.Init();
 
 		m_bUseModNameForIcon = true;
 			
-		defOut.m_sName = sParam;
+		m_Def.m_sName = sParam;
 
-		Default.Load( -1, ParseCommands(ENTRY_DEFAULT(sParam)) );
+		m_Default.Load( -1, ParseCommands(ENTRY_DEFAULT(sParam)) );
 
-		/* Parse the basic configuration metric. */
-		Commands cmds = ParseCommands( ENTRY(sParam) );
-		if( cmds.v.size() < 1 )
-			RageException::Throw( "Parse error in ScreenOptionsMaster::%s", sParam.c_str() );
-
-		defOut.m_bOneChoiceForAllPlayers = false;
-		const int NumCols = atoi( cmds.v[0].m_vsArgs[0] );
-		for( unsigned i=1; i<cmds.v.size(); i++ )
 		{
-			const Command &cmd = cmds.v[i];
-			CString sName = cmd.GetName();
+			/* Parse the basic configuration metric. */
+			Commands cmds = ParseCommands( ENTRY(sParam) );
+			if( cmds.v.size() < 1 )
+				RageException::Throw( "Parse error in ScreenOptionsMaster::%s", sParam.c_str() );
 
-			if(		 sName == "together" )			defOut.m_bOneChoiceForAllPlayers = true;
-			else if( sName == "selectmultiple" )	defOut.m_selectType = SELECT_MULTIPLE;
-			else if( sName == "selectone" )			defOut.m_selectType = SELECT_ONE;
-			else if( sName == "selectnone" )		defOut.m_selectType = SELECT_NONE;
-			else if( sName == "showoneinrow" )		defOut.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
-			else if( sName == "reloadrowmessages" )
+			m_Def.m_bOneChoiceForAllPlayers = false;
+			const int NumCols = atoi( cmds.v[0].m_vsArgs[0] );
+			for( unsigned i=1; i<cmds.v.size(); i++ )
 			{
-				for( unsigned a=1; a<cmd.m_vsArgs.size(); a++ )
-					m_vsReloadRowMessages.push_back( cmd.m_vsArgs[a] );
-			}
-			else if( sName == "enabledforplayers" )
-			{
-				defOut.m_vEnabledForPlayers.clear();
-				for( unsigned a=1; a<cmd.m_vsArgs.size(); a++ )
+				const Command &cmd = cmds.v[i];
+				RString sName = cmd.GetName();
+
+				if(	 sName == "together" )		m_Def.m_bOneChoiceForAllPlayers = true;
+				else if( sName == "selectmultiple" )	m_Def.m_selectType = SELECT_MULTIPLE;
+				else if( sName == "selectone" )		m_Def.m_selectType = SELECT_ONE;
+				else if( sName == "selectnone" )	m_Def.m_selectType = SELECT_NONE;
+				else if( sName == "showoneinrow" )	m_Def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
+				else if( sName == "reloadrowmessages" )
 				{
-					CString sArg = cmd.m_vsArgs[a];
-					PlayerNumber pn = (PlayerNumber)(atoi(sArg)-1);
-					ASSERT( pn >= 0 && pn < NUM_PLAYERS );
-					defOut.m_vEnabledForPlayers.insert( pn );
+					for( unsigned a=1; a<cmd.m_vsArgs.size(); a++ )
+						m_vsReloadRowMessages.push_back( cmd.m_vsArgs[a] );
 				}
+				else if( sName == "enabledforplayers" )
+				{
+					m_Def.m_vEnabledForPlayers.clear();
+					for( unsigned a=1; a<cmd.m_vsArgs.size(); a++ )
+					{
+						RString sArg = cmd.m_vsArgs[a];
+						PlayerNumber pn = (PlayerNumber)(atoi(sArg)-1);
+						ASSERT( pn >= 0 && pn < NUM_PLAYERS );
+						m_Def.m_vEnabledForPlayers.insert( pn );
+					}
+				}
+				else if( sName == "exportonchange" )	m_Def.m_bExportOnChange = true;
+				else if( sName == "broadcastonexport" )
+				{
+					for( unsigned i=1; i<cmd.m_vsArgs.size(); i++ )
+						m_vsBroadcastOnExport.push_back( cmd.m_vsArgs[i] );
+				}
+				else	RageException::Throw( "Unkown row flag \"%s\"", sName.c_str() );
 			}
-			else if( sName == "exportonchange" )	defOut.m_bExportOnChange = true;
-			else if( sName == "broadcastonexport" )
+
+			for( int col = 0; col < NumCols; ++col )
 			{
-				for( unsigned i=1; i<cmd.m_vsArgs.size(); i++ )
-					m_vsBroadcastOnExport.push_back( cmd.m_vsArgs[i] );
+				GameCommand mc;
+				mc.ApplyCommitsScreens( false );
+				mc.Load( 0, ParseCommands(ENTRY_MODE(sParam, col)) );
+				/* If the row has just one entry, use the name of the row as the name of the
+				 * entry.  If it has more than one, each one must be specified explicitly. */
+				if( mc.m_sName == "" && NumCols == 1 )
+					mc.m_sName = sParam;
+				if( mc.m_sName == "" )
+					RageException::Throw( "List \"%s\", col %i has no name", sParam.c_str(), col );
+
+				if( !mc.IsPlayable() )
+				{
+					LOG->Trace( "\"%s\" is not playable.", sParam.c_str() );
+					continue;
+				}
+
+				m_aListEntries.push_back( mc );
+
+				RString sName = mc.m_sName;
+				RString sChoice = mc.m_sName;
+				m_Def.m_vsChoices.push_back( sChoice );
 			}
-			else		RageException::Throw( "Unkown row flag \"%s\"", sName.c_str() );
-		}
-
-		for( int col = 0; col < NumCols; ++col )
-		{
-			GameCommand mc;
-			mc.Load( 0, ParseCommands(ENTRY_MODE(sParam, col)) );
-			/* If the row has just one entry, use the name of the row as the name of the
-			 * entry.  If it has more than one, each one must be specified explicitly. */
-			if( mc.m_sName == "" && NumCols == 1 )
-				mc.m_sName = sParam;
-			if( mc.m_sName == "" )
-				RageException::Throw( "List \"%s\", col %i has no name", sParam.c_str(), col );
-
-			if( !mc.IsPlayable() )
-			{
-				LOG->Trace( "\"%s\" is not playable.", sParam.c_str() );
-				continue;
-			}
-
-			ListEntries.push_back( mc );
-
-			CString sName = mc.m_sName;
-			CString sChoice = mc.m_sName;
-			defOut.m_vsChoices.push_back( sChoice );
 		}
 	}
-	void ImportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
+	void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
 	{
-		int iFallbackOption = -1;
-		bool bUseFallbackOption = true;
-
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 		{
 			PlayerNumber p = *pn;
 			vector<bool> &vbSelOut = vbSelectedOut[p];
 
-			for( unsigned e = 0; e < ListEntries.size(); ++e )
+			int iFallbackOption = -1;
+			bool bUseFallbackOption = true;
+
+			for( unsigned e = 0; e < m_aListEntries.size(); ++e )
 			{
-				const GameCommand &mc = ListEntries[e];
+				const GameCommand &mc = m_aListEntries[e];
 
 				vbSelOut[e] = false;
 
@@ -180,18 +180,18 @@ public:
 					/* The entry has no effect.  This is usually a default "none of the
 					 * above" entry.  It will always return true for DescribesCurrentMode().
 					 * It's only the selected choice if nothing else matches. */
-					if( def.m_selectType != SELECT_MULTIPLE )
+					if( m_Def.m_selectType != SELECT_MULTIPLE )
 						iFallbackOption = e;
 					continue;
 				}
 
-				if( def.m_bOneChoiceForAllPlayers )
+				if( m_Def.m_bOneChoiceForAllPlayers )
 				{
 					if( mc.DescribesCurrentModeForAllPlayers() )
 					{
 						bUseFallbackOption = false;
-						if( def.m_selectType != SELECT_MULTIPLE )
-							SelectExactlyOne( e, vbSelOut );
+						if( m_Def.m_selectType != SELECT_MULTIPLE )
+							OptionRowHandlerUtil::SelectExactlyOne( e, vbSelOut );
 						else
 							vbSelOut[e] = true;
 					}
@@ -201,110 +201,122 @@ public:
 					if( mc.DescribesCurrentMode( p) )
 					{
 						bUseFallbackOption = false;
-						if( def.m_selectType != SELECT_MULTIPLE )
-							SelectExactlyOne( e, vbSelOut );
+						if( m_Def.m_selectType != SELECT_MULTIPLE )
+							OptionRowHandlerUtil::SelectExactlyOne( e, vbSelOut );
 						else
 							vbSelOut[e] = true;
 					}
 				}
 			}
 
-			if( def.m_selectType == SELECT_ONE && bUseFallbackOption )
+			if( m_Def.m_selectType == SELECT_ONE && bUseFallbackOption )
 			{
 				if( iFallbackOption == -1 )
 				{
-					CString s = ssprintf("No options in row \"%s\" were selected, and no fallback row found; selected entry 0", m_sName.c_str());
+					RString s = ssprintf("No options in row \"list,%s\" were selected, and no fallback row found; selected entry 0", m_Def.m_sName.c_str());
 					LOG->Warn( s );
 					CHECKPOINT_M( s );
 					iFallbackOption = 0;
 				}
 
-				SelectExactlyOne( iFallbackOption, vbSelOut );
+				OptionRowHandlerUtil::SelectExactlyOne( iFallbackOption, vbSelOut );
 			}
 
-			VerifySelected( def.m_selectType, vbSelOut, def.m_sName );
+			VerifySelected( m_Def.m_selectType, vbSelOut, m_Def.m_sName );
 		}
 	}
 
-	int ExportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
+	int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
 	{
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 		{
 			PlayerNumber p = *pn;
 			const vector<bool> &vbSel = vbSelected[p];
 		
-			Default.Apply( p );
+			m_Default.Apply( p );
 			for( unsigned i=0; i<vbSel.size(); i++ )
 			{
 				if( vbSel[i] )
-					ListEntries[i].Apply( p );
+					m_aListEntries[i].Apply( p );
 			}
 		}
-		FOREACH_CONST( CString, m_vsBroadcastOnExport, s )
+		FOREACH_CONST( RString, m_vsBroadcastOnExport, s )
 			MESSAGEMAN->Broadcast( *s );
 		return 0;
 	}
 
-	virtual void GetIconTextAndGameCommand( const OptionRowDefinition &def, int iFirstSelection, CString &sIconTextOut, GameCommand &gcOut ) const
+	virtual void GetIconTextAndGameCommand( int iFirstSelection, RString &sIconTextOut, GameCommand &gcOut ) const
 	{
 		sIconTextOut = m_bUseModNameForIcon ?
-			ListEntries[iFirstSelection].m_sModifiers :
-			def.m_vsChoices[iFirstSelection];
+			m_aListEntries[iFirstSelection].m_sModifiers :
+			m_Def.m_vsChoices[iFirstSelection];
 
-		gcOut = ListEntries[iFirstSelection];
+		gcOut = m_aListEntries[iFirstSelection];
 	}
-	virtual bool HasScreen( int iChoice ) const
+	virtual RString GetScreen( int iChoice ) const
 	{ 
-		const GameCommand &gc = ListEntries[iChoice];
-		return !gc.m_sScreen.empty();
+		const GameCommand &gc = m_aListEntries[iChoice];
+		return gc.m_sScreen;
 	}
 
-	void FillNoteSkins( OptionRowDefinition &defOut, CString sParam )
+	virtual ReloadChanged Reload()
 	{
-		Init();
-		defOut.Init();
+		// HACK: always reload "speed", to update the BPM text in the name of the speed line
+		if( !m_Def.m_sName.CompareNoCase("speed") )
+			return RELOAD_CHANGED_ALL;
 
-		ASSERT( sParam.size() );
-		m_sName = sParam;
+		return OptionRowHandler::Reload();
+	}
+};
 
-		defOut.m_sName = "NoteSkins";
-		defOut.m_bOneChoiceForAllPlayers = false;
-		defOut.m_bAllowThemeItems = false;	// we theme the text ourself
+class OptionRowHandlerListNoteSkins : public OptionRowHandlerList
+{
+	virtual void LoadInternal( const Commands &cmds )
+	{
+		m_Def.m_sName = "NoteSkins";
+		m_Def.m_bOneChoiceForAllPlayers = false;
+		m_Def.m_bAllowThemeItems = false;	// we theme the text ourself
 
-		CStringArray arraySkinNames;
+		vector<RString> arraySkinNames;
 		NOTESKIN->GetNoteSkinNames( arraySkinNames );
 		for( unsigned skin=0; skin<arraySkinNames.size(); skin++ )
 		{
-			arraySkinNames[skin].MakeUpper();
-
 			GameCommand mc;
 			mc.m_sModifiers = arraySkinNames[skin];
-			ListEntries.push_back( mc );
-			defOut.m_vsChoices.push_back( arraySkinNames[skin] );
+			m_aListEntries.push_back( mc );
+			m_Def.m_vsChoices.push_back( arraySkinNames[skin] );
 		}
 	}
+};
 
-	void FillSteps( OptionRowDefinition &defOut, CString sParam, bool bLockedTogether )
+// XXX: very similar to OptionRowHandlerSteps
+class OptionRowHandlerListSteps : public OptionRowHandlerList
+{
+	virtual void LoadInternal( const Commands &cmds )
 	{
-		Init();
-		defOut.Init();
+		m_Def.m_sName = "Steps";
+		m_Def.m_bAllowThemeItems = false;	// we theme the text ourself
 
-		ASSERT( sParam.size() );
-		m_sName = sParam;
+		Reload();
 
-		defOut.m_sName = "Steps";
-		defOut.m_bOneChoiceForAllPlayers = bLockedTogether;
-		defOut.m_bAllowThemeItems = false;	// we theme the text ourself
+		// don't call default
+		// OptionRowHandlerList::LoadInternal( cmds );
+	}
+
+	virtual ReloadChanged Reload()
+	{
+		m_Def.m_vsChoices.clear();
+		m_aListEntries.clear();
 
 		// fill in difficulty names
 		if( GAMESTATE->IsEditing() )
 		{
-			defOut.m_vsChoices.push_back( "" );
-			ListEntries.push_back( GameCommand() );
+			m_Def.m_vsChoices.push_back( "" );
+			m_aListEntries.push_back( GameCommand() );
 		}
-		else if( GAMESTATE->IsCourseMode() )   // playing a course
+		else if( GAMESTATE->IsCourseMode() && GAMESTATE->m_pCurCourse )   // playing a course
 		{
-			defOut.m_bOneChoiceForAllPlayers = (bool)PREFSMAN->m_bLockCourseDifficulties;
+			m_Def.m_bOneChoiceForAllPlayers = (bool)PREFSMAN->m_bLockCourseDifficulties;
 
 			vector<Trail*> vTrails;
 			GAMESTATE->m_pCurCourse->GetTrails( vTrails, GAMESTATE->GetCurrentStyle()->m_StepsType );
@@ -312,58 +324,227 @@ public:
 			{
 				Trail* pTrail = vTrails[i];
 
-				CString s = CourseDifficultyToThemedString( pTrail->m_CourseDifficulty );
+				RString s = CourseDifficultyToLocalizedString( pTrail->m_CourseDifficulty );
 				s += ssprintf( " %d", pTrail->GetMeter() );
-				defOut.m_vsChoices.push_back( s );
+				m_Def.m_vsChoices.push_back( s );
 				GameCommand mc;
 				mc.m_pTrail = pTrail;
-				ListEntries.push_back( mc );
+				m_aListEntries.push_back( mc );
 			}
 		}
-		else // !GAMESTATE->IsCourseMode(), playing a song
+		else if( GAMESTATE->m_pCurSong ) // playing a song
 		{
 			vector<Steps*> vpSteps;
 			Song *pSong = GAMESTATE->m_pCurSong;
-			pSong->GetSteps( vpSteps, GAMESTATE->GetCurrentStyle()->m_StepsType );
+			SongUtil::GetSteps( pSong, vpSteps, GAMESTATE->GetCurrentStyle()->m_StepsType );
 			StepsUtil::RemoveLockedSteps( pSong, vpSteps );
 			StepsUtil::SortNotesArrayByDifficulty( vpSteps );
 			for( unsigned i=0; i<vpSteps.size(); i++ )
 			{
 				Steps* pSteps = vpSteps[i];
 
-				CString s;
+				RString s;
 				if( pSteps->GetDifficulty() == DIFFICULTY_EDIT )
 					s = pSteps->GetDescription();
 				else
-					s = DifficultyToThemedString( pSteps->GetDifficulty() );
+					s = DifficultyToLocalizedString( pSteps->GetDifficulty() );
 				s += ssprintf( " %d", pSteps->GetMeter() );
-				defOut.m_vsChoices.push_back( s );
+				m_Def.m_vsChoices.push_back( s );
 				GameCommand mc;
 				mc.m_pSteps = pSteps;
 				mc.m_dc = pSteps->GetDifficulty();
-				ListEntries.push_back( mc );
+				m_aListEntries.push_back( mc );
 			}
 		}
+		else
+		{
+			/* We have neither a song nor a course.  We may be preloading the screen
+			 * for future use. */
+			m_Def.m_vsChoices.push_back( "n/a" );
+			m_aListEntries.push_back( GameCommand() );
+		}
+
+		return RELOAD_CHANGED_ALL;
+	}
+};
+
+class OptionRowHandlerSteps : public OptionRowHandler
+{
+public:
+	BroadcastOnChangePtr<Steps> *m_ppStepsToFill;
+	BroadcastOnChange<Difficulty> *m_pDifficultyToFill;
+	const BroadcastOnChange<StepsType> *m_pst;
+	vector<Steps*> m_vSteps;
+	vector<Difficulty> m_vDifficulties;
+
+	OptionRowHandlerSteps() { Init(); }
+	void Init()
+	{
+		OptionRowHandler::Init();
+		m_ppStepsToFill = NULL;
+		m_pDifficultyToFill = NULL;
+		m_vSteps.clear();
+		m_vDifficulties.clear();
 	}
 
-	void FillCharacters( OptionRowDefinition &defOut, CString sParam )
+	virtual void LoadInternal( const Commands &cmds )
 	{
-		Init();
-		defOut.Init();
-
+		ASSERT( cmds.v.size() == 1 );
+		const Command &command = cmds.v[0];
+		RString sParam = command.GetArg(1);
+		ASSERT( command.m_vsArgs.size() == 2 );
 		ASSERT( sParam.size() );
-		m_sName = sParam;
 
-		defOut.m_bOneChoiceForAllPlayers = false;
-		defOut.m_bAllowThemeItems = false;
-		defOut.m_sName = "Characters";
-		Default.m_pCharacter = CHARMAN->GetDefaultCharacter();
+		if( sParam == "EditSteps" )
+		{
+			m_ppStepsToFill = &GAMESTATE->m_pCurSteps[0];
+			m_pDifficultyToFill = &GAMESTATE->m_PreferredDifficulty[0];
+			m_pst = &GAMESTATE->m_stEdit;
+			m_vsReloadRowMessages.push_back( MessageToString(Message_EditStepsTypeChanged) );
+		}
+		else if( sParam == "EditSourceSteps" )
+		{
+			m_ppStepsToFill = &GAMESTATE->m_pEditSourceSteps;
+			m_pst = &GAMESTATE->m_stEditSource;
+			m_vsReloadRowMessages.push_back( MessageToString(Message_EditSourceStepsTypeChanged) );
+			if( GAMESTATE->m_pCurSteps[0].Get() != NULL )
+				m_Def.m_vEnabledForPlayers.clear();	// hide row
+		}
+		else
+		{
+			RageException::Throw( "invalid StepsType param \"%s\"", sParam.c_str() );
+		}
+		
+		m_Def.m_sName = sParam;
+		m_Def.m_bOneChoiceForAllPlayers = true;
+		m_Def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
+		m_Def.m_bExportOnChange = true;
+		m_Def.m_bAllowThemeItems = false;	// we theme the text ourself
+		m_vsReloadRowMessages.push_back( MessageToString(Message_CurrentSongChanged) );
+
+		m_vDifficulties.clear();
+		m_vSteps.clear();
+
+		if( GAMESTATE->m_pCurSong )
+		{
+			FOREACH_Difficulty( dc )
+			{
+				if( dc == DIFFICULTY_EDIT )
+					continue;
+				m_vDifficulties.push_back( dc );
+				Steps* pSteps = SongUtil::GetStepsByDifficulty( GAMESTATE->m_pCurSong, *m_pst, dc );
+				m_vSteps.push_back( pSteps );
+			}
+			SongUtil::GetSteps( GAMESTATE->m_pCurSong, m_vSteps, *m_pst, DIFFICULTY_EDIT );
+			m_vDifficulties.resize( m_vSteps.size(), DIFFICULTY_EDIT );
+
+			if( sParam == "EditSteps" )
+			{
+				m_vSteps.push_back( NULL );
+				m_vDifficulties.push_back( DIFFICULTY_EDIT );
+			}
+
+			for( unsigned i=0; i<m_vSteps.size(); i++ )
+			{
+				Steps* pSteps = m_vSteps[i];
+				Difficulty dc = m_vDifficulties[i];
+
+				RString s;
+				if( dc == DIFFICULTY_EDIT )
+				{
+					if( pSteps )
+						s = pSteps->GetDescription();
+					else
+						s = "NewEdit";
+				}
+				else
+				{
+					s = DifficultyToLocalizedString( dc );
+				}
+				m_Def.m_vsChoices.push_back( s );
+			}
+		}
+		else
+		{
+			m_vDifficulties.push_back( DIFFICULTY_EDIT );
+			m_vSteps.push_back( NULL );
+			m_Def.m_vsChoices.push_back( "none" );
+		}
+
+		if( m_pDifficultyToFill )
+			m_pDifficultyToFill->Set( m_vDifficulties[0] );
+		m_ppStepsToFill->Set( m_vSteps[0] );
+	}
+	virtual void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
+	{
+		FOREACH_CONST( PlayerNumber, vpns, pn )
+		{
+			PlayerNumber p = *pn;
+			vector<bool> &vbSelOut = vbSelectedOut[p];
+
+			ASSERT( m_vSteps.size() == vbSelOut.size() );
+
+			// look for matching steps
+			vector<Steps*>::const_iterator iter = find( m_vSteps.begin(), m_vSteps.end(), m_ppStepsToFill->Get() );
+			if( iter != m_vSteps.end() )
+			{
+				unsigned i = iter - m_vSteps.begin();
+				vbSelOut[i] = true;
+				return;
+			}
+			// look for matching difficulty
+			if( m_pDifficultyToFill )
+			{
+				FOREACH_CONST( Difficulty, m_vDifficulties, d )
+				{
+					unsigned i = d - m_vDifficulties.begin();
+					if( *d == GAMESTATE->m_PreferredDifficulty[0] )
+					{
+						vbSelOut[i] = true;
+						vector<PlayerNumber> v;
+						v.push_back( p );
+						ExportOption( v, vbSelectedOut );	// current steps changed
+						continue;
+					}
+				}
+			}
+			// default to 1st
+			vbSelOut[0] = true;
+		}
+	}
+	virtual int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
+	{
+		FOREACH_CONST( PlayerNumber, vpns, pn )
+		{
+			PlayerNumber p = *pn;
+			const vector<bool> &vbSel = vbSelected[p];
+
+			int index = OptionRowHandlerUtil::GetOneSelection( vbSel );
+			Difficulty dc = m_vDifficulties[index];
+			Steps *pSteps = m_vSteps[index];
+			if( m_pDifficultyToFill )
+				m_pDifficultyToFill->Set( dc );
+			m_ppStepsToFill->Set( pSteps );
+		}
+
+		return 0;
+	}
+};
+
+class OptionRowHandlerListCharacters: public OptionRowHandlerList
+{
+	virtual void LoadInternal( const Commands &cmds )
+	{
+		m_Def.m_bOneChoiceForAllPlayers = false;
+		m_Def.m_bAllowThemeItems = false;
+		m_Def.m_sName = "Characters";
+		m_Default.m_pCharacter = CHARMAN->GetDefaultCharacter();
 
 		{
-			defOut.m_vsChoices.push_back( "Off" );
+			m_Def.m_vsChoices.push_back( OFF );
 			GameCommand mc;
 			mc.m_pCharacter = NULL;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 
 		vector<Character*> vpCharacters;
@@ -371,131 +552,120 @@ public:
 		for( unsigned i=0; i<vpCharacters.size(); i++ )
 		{
 			Character* pCharacter = vpCharacters[i];
-			CString s = pCharacter->GetDisplayName();
+			RString s = pCharacter->GetDisplayName();
 			s.MakeUpper();
 
-			defOut.m_vsChoices.push_back( s ); 
+			m_Def.m_vsChoices.push_back( s ); 
 			GameCommand mc;
 			mc.m_pCharacter = pCharacter;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 	}
+};
 
-	void FillStyles( OptionRowDefinition &defOut, CString sParam )
+class OptionRowHandlerListStyles: public OptionRowHandlerList
+{
+	virtual void LoadInternal( const Commands &cmds )
 	{
-		Init();
-		defOut.Init();
-
-		ASSERT( sParam.size() );
-		m_sName = sParam;
-
-		defOut.m_bOneChoiceForAllPlayers = true;
-		defOut.m_sName = "Style";
-		defOut.m_bAllowThemeItems = false;	// we theme the text ourself
+		m_Def.m_bOneChoiceForAllPlayers = true;
+		m_Def.m_sName = "Style";
+		m_Def.m_bAllowThemeItems = false;	// we theme the text ourself
 
 		vector<const Style*> vStyles;
 		GAMEMAN->GetStylesForGame( GAMESTATE->m_pCurGame, vStyles );
 		ASSERT( vStyles.size() );
 		FOREACH_CONST( const Style*, vStyles, s )
 		{
-			defOut.m_vsChoices.push_back( GAMEMAN->StyleToThemedString(*s) ); 
+			m_Def.m_vsChoices.push_back( GAMEMAN->StyleToLocalizedString(*s) ); 
 			GameCommand mc;
 			mc.m_pStyle = *s;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 
-		Default.m_pStyle = vStyles[0];
+		m_Default.m_pStyle = vStyles[0];
 	}
+};
 
-	void FillGroups( OptionRowDefinition &defOut, CString sParam )
+class OptionRowHandlerListGroups: public OptionRowHandlerList
+{
+	virtual void LoadInternal( const Commands &cmds )
 	{
-		Init();
-		defOut.Init();
+		m_Def.m_bOneChoiceForAllPlayers = true;
+		m_Def.m_bAllowThemeItems = false;	// we theme the text ourself
+		m_Def.m_sName = "Group";
+		m_Default.m_sSongGroup = GROUP_ALL;
 
-		ASSERT( sParam.size() );
-		m_sName = sParam;
-
-		defOut.m_bOneChoiceForAllPlayers = true;
-		defOut.m_bAllowThemeItems = false;	// we theme the text ourself
-		defOut.m_sName = "Group";
-		Default.m_sSongGroup = GROUP_ALL;
-
-		vector<CString> vSongGroups;
+		vector<RString> vSongGroups;
 		SONGMAN->GetSongGroupNames( vSongGroups );
 		ASSERT( vSongGroups.size() );
 
 		{
-			defOut.m_vsChoices.push_back( "AllGroups" );
+			m_Def.m_vsChoices.push_back( "AllGroups" );
 			GameCommand mc;
 			mc.m_sSongGroup = GROUP_ALL;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 
-		FOREACH_CONST( CString, vSongGroups, g )
+		FOREACH_CONST( RString, vSongGroups, g )
 		{
-			defOut.m_vsChoices.push_back( *g ); 
+			m_Def.m_vsChoices.push_back( *g ); 
 			GameCommand mc;
 			mc.m_sSongGroup = *g;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 	}
+};
 
-	void FillDifficulties( OptionRowDefinition &defOut, CString sParam )
+class OptionRowHandlerListDifficulties: public OptionRowHandlerList
+{
+	virtual void LoadInternal( const Commands &cmds )
 	{
-		Init();
-		defOut.Init();
-
-		ASSERT( sParam.size() );
-		m_sName = sParam;
-
-		defOut.m_bOneChoiceForAllPlayers = true;
-		defOut.m_sName = "Difficulty";
-		Default.m_dc = DIFFICULTY_INVALID;
-		defOut.m_bAllowThemeItems = false;	// we theme the text ourself
+		m_Def.m_bOneChoiceForAllPlayers = true;
+		m_Def.m_sName = "Difficulty";
+		m_Default.m_dc = DIFFICULTY_INVALID;
+		m_Def.m_bAllowThemeItems = false;	// we theme the text ourself
 
 		{
-			defOut.m_vsChoices.push_back( "AllDifficulties" );
+			m_Def.m_vsChoices.push_back( "AllDifficulties" );
 			GameCommand mc;
 			mc.m_dc = DIFFICULTY_INVALID;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 
-		FOREACH_CONST( Difficulty, DIFFICULTIES_TO_SHOW.GetValue(), d )
+		FOREACH_CONST( Difficulty, CommonMetrics::DIFFICULTIES_TO_SHOW.GetValue(), d )
 		{
-			CString s = DifficultyToThemedString( *d );
+			RString s = DifficultyToLocalizedString( *d );
 
-			defOut.m_vsChoices.push_back( s ); 
+			m_Def.m_vsChoices.push_back( s ); 
 			GameCommand mc;
 			mc.m_dc = *d;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 	}
+};
 
-	void FillSongsInCurrentSongGroup( OptionRowDefinition &defOut, CString sParam )
+// XXX: very similar to OptionRowHandlerSongChoices
+class OptionRowHandlerListSongsInCurrentSongGroup: public OptionRowHandlerList
+{
+	virtual void LoadInternal( const Commands &cmds )
 	{
-		Init();
-		defOut.Init();
-
-		ASSERT( sParam.size() );
-		m_sName = sParam;
-
 		vector<Song*> vpSongs;
 		SONGMAN->GetSongs( vpSongs, GAMESTATE->m_sPreferredSongGroup );
 
 		if( GAMESTATE->m_pCurSong == NULL )
 			GAMESTATE->m_pCurSong.Set( vpSongs[0] );
 
-		defOut.m_sName = "SongsInCurrentSongGroup";
-		defOut.m_bOneChoiceForAllPlayers = true;
-		defOut.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
-		defOut.m_bExportOnChange = true;
+		m_Def.m_sName = "SongsInCurrentSongGroup";
+		m_Def.m_bOneChoiceForAllPlayers = true;
+		m_Def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
+		m_Def.m_bExportOnChange = true;
 
 		FOREACH_CONST( Song*, vpSongs, p )
 		{
-			defOut.m_vsChoices.push_back( (*p)->GetTranslitFullTitle() ); 
+			m_Def.m_vsChoices.push_back( (*p)->GetTranslitFullTitle() ); 
 			GameCommand mc;
 			mc.m_pSong = *p;
-			ListEntries.push_back( mc );
+			m_aListEntries.push_back( mc );
 		}
 	}
 };
@@ -504,6 +674,7 @@ class OptionRowHandlerLua : public OptionRowHandler
 {
 public:
 	LuaExpression *m_pLuaTable;
+	LuaReference m_EnabledForPlayersFunc;
 
 	OptionRowHandlerLua() { m_pLuaTable = new LuaExpression; Init(); }
 	virtual ~OptionRowHandlerLua() { delete m_pLuaTable; }
@@ -512,15 +683,52 @@ public:
 		OptionRowHandler::Init();
 		m_pLuaTable->Unset();
 	}
-	virtual void Load( OptionRowDefinition &defOut, CString sLuaFunction )
+
+	void SetEnabledForPlayers()
 	{
+		Lua *L = LUA->Get();
+
+		if( m_EnabledForPlayersFunc.IsNil() )
+		{
+			LUA->Release(L);
+			return;
+		}
+
+		m_EnabledForPlayersFunc.PushSelf( L );
+		
+		/* Argument 1 (self): */
+		m_pLuaTable->PushSelf( L );
+		
+		lua_call( L, 1, 1 ); // call function with 1 argument and 1 result
+		if( !lua_istable(L, -1) )
+			RageException::Throw( "\"EnabledForPlayers\" did not return a table" );
+
+		m_Def.m_vEnabledForPlayers.clear();	// and fill in with supplied PlayerNumbers below
+
+		lua_pushnil( L );
+		while( lua_next(L, -2) != 0 )
+		{
+			/* `key' is at index -2 and `value' at index -1 */
+			PlayerNumber pn = (PlayerNumber)luaL_checkint( L, -1 );
+
+			m_Def.m_vEnabledForPlayers.insert( pn );
+
+			lua_pop( L, 1 );  /* removes `value'; keeps `key' for next iteration */
+		}
+		lua_pop( L, 1 );
+
+		LUA->Release(L);
+	}
+
+	virtual void LoadInternal( const Commands &cmds )
+	{
+		ASSERT( cmds.v.size() == 1 );
+		const Command &command = cmds.v[0];
+		ASSERT( command.m_vsArgs.size() == 2 );
+		RString sLuaFunction = command.m_vsArgs[1];
 		ASSERT( sLuaFunction.size() );
 
-		Init();
-		defOut.Init();
-
-		m_sName = sLuaFunction;
-		defOut.m_bAllowThemeItems = false;	// Lua options are always dynamic and can theme themselves.
+		m_Def.m_bAllowThemeItems = false;	// Lua options are always dynamic and can theme themselves.
 
 		Lua *L = LUA->Get();
 
@@ -537,19 +745,19 @@ public:
 		const char *pStr = lua_tostring( L, -1 );
 		if( pStr == NULL )
 			RageException::Throw( "\"%s\" \"Name\" entry is not a string", sLuaFunction.c_str() );
-		defOut.m_sName = pStr;
+		m_Def.m_sName = pStr;
 		lua_pop( L, 1 );
 
 
 		lua_pushstring( L, "OneChoiceForAllPlayers" );
 		lua_gettable( L, -2 );
-		defOut.m_bOneChoiceForAllPlayers = !!lua_toboolean( L, -1 );
+		m_Def.m_bOneChoiceForAllPlayers = !!lua_toboolean( L, -1 );
 		lua_pop( L, 1 );
 
 
 		lua_pushstring( L, "ExportOnChange" );
 		lua_gettable( L, -2 );
-		defOut.m_bExportOnChange = !!lua_toboolean( L, -1 );
+		m_Def.m_bExportOnChange = !!lua_toboolean( L, -1 );
 		lua_pop( L, 1 );
 
 
@@ -558,8 +766,8 @@ public:
 		pStr = lua_tostring( L, -1 );
 		if( pStr == NULL )
 			RageException::Throw( "\"%s\" \"LayoutType\" entry is not a string", sLuaFunction.c_str() );
-		defOut.m_layoutType = StringToLayoutType( pStr );
-		ASSERT( defOut.m_layoutType != LAYOUT_INVALID );
+		m_Def.m_layoutType = StringToLayoutType( pStr );
+		ASSERT( m_Def.m_layoutType != LAYOUT_INVALID );
 		lua_pop( L, 1 );
 
 
@@ -568,8 +776,8 @@ public:
 		pStr = lua_tostring( L, -1 );
 		if( pStr == NULL )
 			RageException::Throw( "\"%s\" \"SelectType\" entry is not a string", sLuaFunction.c_str() );
-		defOut.m_selectType = StringToSelectType( pStr );
-		ASSERT( defOut.m_selectType != SELECT_INVALID );
+		m_Def.m_selectType = StringToSelectType( pStr );
+		ASSERT( m_Def.m_selectType != SELECT_INVALID );
 		lua_pop( L, 1 );
 
 
@@ -588,7 +796,7 @@ public:
 				RageException::Throw( "\"%s\" Column entry is not a string", sLuaFunction.c_str() );
 //				LOG->Trace( "'%s'", pValue);
 
-			defOut.m_vsChoices.push_back( pValue );
+			m_Def.m_vsChoices.push_back( pValue );
 
 			lua_pop( L, 1 );  /* removes `value'; keeps `key' for next iteration */
 		}
@@ -596,29 +804,13 @@ public:
 		lua_pop( L, 1 ); /* pop choices table */
 
 
-		/* Iterate over the "EnabledForPlayers" table. */
+		/* Set the EnabledForPlayers function. */
 		lua_pushstring( L, "EnabledForPlayers" );
 		lua_gettable( L, -2 );
-		if( !lua_isnil( L, -1 ) )
-		{
-			if( !lua_istable( L, -1 ) )
-				RageException::Throw( "\"%s\" \"EnabledForPlayers\" is not a table", sLuaFunction.c_str() );
-
-			defOut.m_vEnabledForPlayers.clear();	// and fill in with supplied PlayerNumbers below
-
-			lua_pushnil( L );
-			while( lua_next(L, -2) != 0 )
-			{
-				/* `key' is at index -2 and `value' at index -1 */
-				PlayerNumber pn = (PlayerNumber)luaL_checkint( L, -1 );
-
-				defOut.m_vEnabledForPlayers.insert( pn );
-
-				lua_pop( L, 1 );  /* removes `value'; keeps `key' for next iteration */
-			}
-		}
-		lua_pop( L, 1 ); /* pop EnabledForPlayers table */
-
+		if( !lua_isfunction( L, -1 ) && !lua_isnil( L, -1 ) )
+			RageException::Throw( "\"%s\" \"EnabledForPlayers\" is not a table", sLuaFunction.c_str() );
+		m_EnabledForPlayersFunc.SetFromStack( L );
+		SetEnabledForPlayers();
 		
 		/* Iterate over the "ReloadRowMessages" table. */
 		lua_pushstring( L, "ReloadRowMessages" );
@@ -650,7 +842,7 @@ public:
 		lua_gettable( L, -2 );
 		if( !lua_isnil( L, -1 ) )
 		{
-			defOut.m_bExportOnChange = !!MyLua_checkboolean( L, -1 );
+			m_Def.m_bExportOnChange = !!MyLua_checkboolean( L, -1 );
 		}
 		lua_pop( L, 1 ); /* pop ExportOnChange value */
 
@@ -660,49 +852,14 @@ public:
 
 		LUA->Release(L);
 	}
-	virtual void Reload( OptionRowDefinition &defOut )
+
+	virtual ReloadChanged Reload()
 	{
-		Lua *L = LUA->Get();
-
-		/* Run the Lua expression.  It should return a table. */
-		m_pLuaTable->SetFromExpression( m_sName );
-
-		if( m_pLuaTable->GetLuaType() != LUA_TTABLE )
-			RageException::Throw( "Result of \"%s\" is not a table", m_sName.c_str() );
-
-		m_pLuaTable->PushSelf( L );
-
-
-		/* Iterate over the "EnabledForPlayers" table. */
-		lua_pushstring( L, "EnabledForPlayers" );
-		lua_gettable( L, -2 );
-		if( !lua_isnil( L, -1 ) )
-		{
-			if( !lua_istable( L, -1 ) )
-				RageException::Throw( "\"%s\" \"EnabledForPlayers\" is not a table", m_sName.c_str() );
-
-			defOut.m_vEnabledForPlayers.clear();	// and fill in with supplied PlayerNumbers below
-
-			lua_pushnil( L );
-			while( lua_next(L, -2) != 0 )
-			{
-				/* `key' is at index -2 and `value' at index -1 */
-				PlayerNumber pn = (PlayerNumber)luaL_checkint( L, -1 );
-
-				defOut.m_vEnabledForPlayers.insert( pn );
-
-				lua_pop( L, 1 );  /* removes `value'; keeps `key' for next iteration */
-			}
-		}
-		lua_pop( L, 1 ); /* pop EnabledForPlayers table */
-
-
-		lua_pop( L, 1 ); /* pop main table */
-		ASSERT( lua_gettop(L) == 0 );
-
-		LUA->Release(L);
+		SetEnabledForPlayers();
+		return RELOAD_CHANGED_ENABLED;
 	}
-	virtual void ImportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
+
+	virtual void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
 	{
 		Lua *L = LUA->Get();
 
@@ -731,7 +888,7 @@ public:
 			lua_pushstring( L, "LoadSelections" );
 			lua_gettable( L, -2 );
 			if( !lua_isfunction( L, -1 ) )
-				RageException::Throw( "\"%s\" \"LoadSelections\" entry is not a function", def.m_sName.c_str() );
+				RageException::Throw( "\"%s\" \"LoadSelections\" entry is not a function", m_Def.m_sName.c_str() );
 
 			/* Argument 1 (self): */
 			m_pLuaTable->PushSelf( L );
@@ -758,7 +915,7 @@ public:
 
 		LUA->Release(L);
 	}
-    virtual int ExportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
+	virtual int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
 	{
 		Lua *L = LUA->Get();
 
@@ -785,7 +942,7 @@ public:
 			lua_pushstring( L, "SaveSelections" );
 			lua_gettable( L, -2 );
 			if( !lua_isfunction( L, -1 ) )
-				RageException::Throw( "\"%s\" \"SaveSelections\" entry is not a function", def.m_sName.c_str() );
+				RageException::Throw( "\"%s\" \"SaveSelections\" entry is not a function", m_Def.m_sName.c_str() );
 
 			/* Argument 1 (self): */
 			m_pLuaTable->PushSelf( L );
@@ -819,34 +976,43 @@ class OptionRowHandlerConfig : public OptionRowHandler
 public:
 	const ConfOption *opt;
 
-	OptionRowHandlerConfig::OptionRowHandlerConfig() { Init(); }
+	OptionRowHandlerConfig() { Init(); }
 	void Init()
 	{
 		OptionRowHandler::Init();
 		opt = NULL;
 	}
-	virtual void Load( OptionRowDefinition &defOut, CString sParam )
+	virtual void LoadInternal( const Commands &cmds )
 	{
+		ASSERT( cmds.v.size() == 1 );
+		const Command &command = cmds.v[0];
+		RString sParam = command.GetArg(1);
+		ASSERT( command.m_vsArgs.size() == 2 );
 		ASSERT( sParam.size() );
 
 		Init();
-		defOut.Init();
 
 		/* Configuration values are never per-player. */
-		defOut.m_bOneChoiceForAllPlayers = true;
+		m_Def.m_bOneChoiceForAllPlayers = true;
 
 		ConfOption *pConfOption = ConfOption::Find( sParam );
 		if( pConfOption == NULL )
-			RageException::Throw( "Invalid Conf type \"%s\"", sParam.c_str() );
+		{
+			LOG->Warn( "Invalid Conf type \"%s\"", sParam.c_str() );
+			pConfOption = ConfOption::Find( "Invalid" );
+			ASSERT_M( pConfOption != NULL, "ConfOption::Find(Invalid)" );
+		}
 
    		pConfOption->UpdateAvailableOptions();
 
 		opt = pConfOption;
-		opt->MakeOptionsList( defOut.m_vsChoices );
+		opt->MakeOptionsList( m_Def.m_vsChoices );
 
-		defOut.m_sName = opt->name;
+		m_Def.m_bAllowThemeItems = opt->m_bAllowThemeItems;
+
+		m_Def.m_sName = opt->name;
 	}
-	virtual void ImportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
+	virtual void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
 	{
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 		{
@@ -854,10 +1020,10 @@ public:
 			vector<bool> &vbSelOut = vbSelectedOut[p];
 
 			int iSelection = opt->Get();
-			SelectExactlyOne( iSelection, vbSelOut );
+			OptionRowHandlerUtil::SelectExactlyOne( iSelection, vbSelOut );
 		}
 	}
-	virtual int ExportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
+	virtual int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
 	{
 		bool bChanged = false;
 
@@ -866,7 +1032,7 @@ public:
 			PlayerNumber p = *pn;
 			const vector<bool> &vbSel = vbSelected[p];
 
-			int sel = GetOneSelection(vbSel);
+			int sel = OptionRowHandlerUtil::GetOneSelection(vbSel);
 
 			/* Get the original choice. */
 			int Original = opt->Get();
@@ -892,7 +1058,7 @@ public:
 	BroadcastOnChange<StepsType> *m_pstToFill;
 	vector<StepsType> m_vStepsTypesToShow;
 
-	OptionRowHandlerStepsType::OptionRowHandlerStepsType() { Init(); }
+	OptionRowHandlerStepsType() { Init(); }
 	void Init()
 	{
 		OptionRowHandler::Init();
@@ -900,12 +1066,13 @@ public:
 		m_vStepsTypesToShow.clear();
 	}
 
-	virtual void Load( OptionRowDefinition &defOut, CString sParam )
+	virtual void LoadInternal( const Commands &cmds )
 	{
+		ASSERT( cmds.v.size() == 1 );
+		const Command &command = cmds.v[0];
+		RString sParam = command.GetArg(1);
+		ASSERT( command.m_vsArgs.size() == 2 );
 		ASSERT( sParam.size() );
-
-		Init();
-		defOut.Init();
 
 		if( sParam == "EditStepsType" )
 		{
@@ -917,33 +1084,34 @@ public:
 			m_vsReloadRowMessages.push_back( MessageToString(Message_CurrentStepsP1Changed) );
 			m_vsReloadRowMessages.push_back( MessageToString(Message_EditStepsTypeChanged) );
 			if( GAMESTATE->m_pCurSteps[0].Get() != NULL )
-				defOut.m_vEnabledForPlayers.clear();	// hide row
+				m_Def.m_vEnabledForPlayers.clear();	// hide row
 		}
 		else
 		{
 			RageException::Throw( "invalid StepsType param \"%s\"", sParam.c_str() );
 		}
 
-		m_sName = sParam;
-		defOut.m_sName = sParam;
-		defOut.m_bOneChoiceForAllPlayers = true;
-		defOut.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
-		defOut.m_bExportOnChange = true;
-		defOut.m_bAllowThemeItems = false;	// we theme the text ourself
+		m_Def.m_sName = sParam;
+		m_Def.m_bOneChoiceForAllPlayers = true;
+		m_Def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
+		m_Def.m_bExportOnChange = true;
+		m_Def.m_bAllowThemeItems = false;	// we theme the text ourself
 
 		// calculate which StepsTypes to show
-		m_vStepsTypesToShow = STEPS_TYPES_TO_SHOW.GetValue();
+		m_vStepsTypesToShow = CommonMetrics::STEPS_TYPES_TO_SHOW.GetValue();
 
+		m_Def.m_vsChoices.clear();
 		FOREACH_CONST( StepsType, m_vStepsTypesToShow, st )
 		{
-			CString s = GAMEMAN->StepsTypeToThemedString( *st );
-			defOut.m_vsChoices.push_back( s );
+			RString s = GAMEMAN->StepsTypeToLocalizedString( *st );
+			m_Def.m_vsChoices.push_back( s );
 		}
 
 		if( *m_pstToFill == STEPS_TYPE_INVALID )
 			m_pstToFill->Set( m_vStepsTypesToShow[0] );
 	}
-	virtual void ImportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
+
+	virtual void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
 	{
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 		{
@@ -964,14 +1132,14 @@ public:
 			vbSelOut[0] = true;
 		}
 	}
-	virtual int ExportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
+	virtual int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
 	{
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 		{
 			PlayerNumber p = *pn;
 			const vector<bool> &vbSel = vbSelected[p];
 
-			int index = GetOneSelection( vbSel );
+			int index = OptionRowHandlerUtil::GetOneSelection( vbSel );
 			m_pstToFill->Set( m_vStepsTypesToShow[index] );
 		}
 
@@ -980,189 +1148,153 @@ public:
 };
 
 
-class OptionRowHandlerSteps : public OptionRowHandler
+class OptionRowHandlerGameCommand : public OptionRowHandler
 {
 public:
-	BroadcastOnChangePtr<Steps> *m_ppStepsToFill;
-	BroadcastOnChange<Difficulty> *m_pDifficultyToFill;
-	const BroadcastOnChange<StepsType> *m_pst;
-	vector<Steps*> m_vSteps;
-	vector<Difficulty> m_vDifficulties;
+	GameCommand m_gc;
 
-	OptionRowHandlerSteps::OptionRowHandlerSteps() { Init(); }
+	OptionRowHandlerGameCommand() { Init(); }
 	void Init()
 	{
 		OptionRowHandler::Init();
-		m_ppStepsToFill = NULL;
-		m_pDifficultyToFill = NULL;
-		m_vSteps.clear();
-		m_vDifficulties.clear();
+		m_gc.Init();
+		m_gc.ApplyCommitsScreens( false );
 	}
-
-	virtual void Load( OptionRowDefinition &defOut, CString sParam )
+	virtual void LoadInternal( const Commands &cmds )
 	{
-		ASSERT( sParam.size() );
+		ASSERT( cmds.v.size() > 1 );
 
-		Init();
-		defOut.Init();
-
-		if( sParam == "EditSteps" )
-		{
-			m_ppStepsToFill = &GAMESTATE->m_pCurSteps[0];
-			m_pDifficultyToFill = &GAMESTATE->m_PreferredDifficulty[0];
-			m_pst = &GAMESTATE->m_stEdit;
-			m_vsReloadRowMessages.push_back( MessageToString(Message_EditStepsTypeChanged) );
-		}
-		else if( sParam == "EditSourceSteps" )
-		{
-			m_ppStepsToFill = &GAMESTATE->m_pEditSourceSteps;
-			m_pst = &GAMESTATE->m_stEditSource;
-			m_vsReloadRowMessages.push_back( MessageToString(Message_EditSourceStepsTypeChanged) );
-			if( GAMESTATE->m_pCurSteps[0].Get() != NULL )
-				defOut.m_vEnabledForPlayers.clear();	// hide row
-		}
-		else
-		{
-			RageException::Throw( "invalid StepsType param \"%s\"", sParam.c_str() );
-		}
-		
-		m_sName = sParam;
-		defOut.m_sName = sParam;
-		defOut.m_bOneChoiceForAllPlayers = true;
-		defOut.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
-		defOut.m_bExportOnChange = true;
-		defOut.m_bAllowThemeItems = false;	// we theme the text ourself
-		m_vsReloadRowMessages.push_back( MessageToString(Message_CurrentSongChanged) );
-
-		if( GAMESTATE->m_pCurSong )
-		{
-			FOREACH_Difficulty( dc )
-			{
-				if( dc == DIFFICULTY_EDIT )
-					continue;
-				m_vDifficulties.push_back( dc );
-				Steps* pSteps = GAMESTATE->m_pCurSong->GetStepsByDifficulty( *m_pst, dc );
-				m_vSteps.push_back( pSteps );
-			}
-			GAMESTATE->m_pCurSong->GetSteps( m_vSteps, *m_pst, DIFFICULTY_EDIT );
-			m_vDifficulties.resize( m_vSteps.size(), DIFFICULTY_EDIT );
-
-			if( m_sName == "EditSteps" )
-			{
-				m_vSteps.push_back( NULL );
-				m_vDifficulties.push_back( DIFFICULTY_EDIT );
-			}
-
-			for( unsigned i=0; i<m_vSteps.size(); i++ )
-			{
-				Steps* pSteps = m_vSteps[i];
-				Difficulty dc = m_vDifficulties[i];
-
-				CString s;
-				if( dc == DIFFICULTY_EDIT )
-				{
-					if( pSteps )
-						s = pSteps->GetDescription();
-					else
-						s = "NewEdit";
-				}
-				else
-				{
-					s = DifficultyToThemedString( dc );
-				}
-				defOut.m_vsChoices.push_back( s );
-			}
-		}
-		else
-		{
-			m_vDifficulties.push_back( DIFFICULTY_EDIT );
-			m_vSteps.push_back( NULL );
-			defOut.m_vsChoices.push_back( "none" );
-		}
-
-		if( m_pDifficultyToFill )
-			m_pDifficultyToFill->Set( m_vDifficulties[0] );
-		m_ppStepsToFill->Set( m_vSteps[0] );
+		Commands temp = cmds;
+		temp.v.erase( temp.v.begin() );
+		m_gc.Load( 0, temp );
+		ASSERT( !m_gc.m_sName.empty() );
+		m_Def.m_sName = "";
+		m_Def.m_sExplanationName = m_gc.m_sName;
+		m_Def.m_bOneChoiceForAllPlayers = true;
+		//m_Def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
+		m_Def.m_selectType = SELECT_NONE;
+		m_Def.m_vsChoices.push_back( m_gc.m_sName );
 	}
-	virtual void ImportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
+	virtual void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
 	{
-		FOREACH_CONST( PlayerNumber, vpns, pn )
-		{
-			PlayerNumber p = *pn;
-			vector<bool> &vbSelOut = vbSelectedOut[p];
-
-			ASSERT( m_vSteps.size() == vbSelOut.size() );
-
-			// look for matching steps
-			vector<Steps*>::const_iterator iter = find( m_vSteps.begin(), m_vSteps.end(), m_ppStepsToFill->Get() );
-			if( iter != m_vSteps.end() )
-			{
-				unsigned i = iter - m_vSteps.begin();
-				vbSelOut[i] = true;
-				return;
-			}
-			// look for matching difficulty
-			if( m_pDifficultyToFill )
-			{
-				FOREACH_CONST( Difficulty, m_vDifficulties, d )
-				{
-					unsigned i = d - m_vDifficulties.begin();
-					if( *d == GAMESTATE->m_PreferredDifficulty[0] )
-					{
-						vbSelOut[i] = true;
-						vector<PlayerNumber> v;
-						v.push_back( p );
-						ExportOption( def, v, vbSelectedOut );	// current steps changed
-						continue;
-					}
-				}
-			}
-			// default to 1st
-			vbSelOut[0] = true;
-		}
 	}
-	virtual int ExportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
+	virtual int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
 	{
-		FOREACH_CONST( PlayerNumber, vpns, pn )
-		{
-			PlayerNumber p = *pn;
-			const vector<bool> &vbSel = vbSelected[p];
+		if( vbSelected[PLAYER_1][0] )
+			m_gc.ApplyToAllPlayers();
+		return 0;
+	}
+	virtual void GetIconTextAndGameCommand( int iFirstSelection, RString &sIconTextOut, GameCommand &gcOut ) const
+	{
+		sIconTextOut = "";
+		gcOut = m_gc;
+	}
+	virtual RString GetScreen( int iChoice ) const
+	{ 
+		return m_gc.m_sScreen;
+	}
+};
 
-			int index = GetOneSelection( vbSel );
-			Difficulty dc = m_vDifficulties[index];
-			Steps *pSteps = m_vSteps[index];
-			if( m_pDifficultyToFill )
-				m_pDifficultyToFill->Set( dc );
-			m_ppStepsToFill->Set( pSteps );
-		}
-
+class OptionRowHandlerNull: public OptionRowHandler
+{
+public:
+	OptionRowHandlerNull() { Init(); }
+	virtual void LoadInternal( const Commands &cmds )
+	{
+	}
+	virtual void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
+	{
+	}
+	virtual int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
+	{
 		return 0;
 	}
 };
 
+
 ///////////////////////////////////////////////////////////////////////////////////
 
-OptionRowHandler* OptionRowHandlerUtil::Make( const Command &command, OptionRowDefinition &defOut )
+OptionRowHandler* OptionRowHandlerUtil::Make( const Commands &cmds )
 {
 	OptionRowHandler* pHand = NULL;
 
-	BeginHandleArgs;
+	const RString &name = cmds.v[0].GetName();
 
-	const CString &name = command.GetName();
+#define MAKE( type )	{ type *p = new type; p->Load( cmds ); pHand = p; }
 
-#define MAKE( type )	{ type *p = new type; p->Load( defOut, sArg(1) ); pHand = p; }
+	// XXX: merge these, and merge "Steps" and "list,Steps"
+	if( name == "list" )
+	{
+		ASSERT( cmds.v.size() == 1 );
+		const Command &command = cmds.v[0];
+		RString sParam = command.GetArg(1);
+		ASSERT( command.m_vsArgs.size() == 2 );
+		ASSERT( sParam.size() );
 
-	if(		 name == "list" )			MAKE( OptionRowHandlerList )
-	else if( name == "lua" )			MAKE( OptionRowHandlerLua )
-	else if( name == "conf" )			MAKE( OptionRowHandlerConfig )
+		if(	 sParam.CompareNoCase("NoteSkins")==0 )		MAKE( OptionRowHandlerListNoteSkins )
+		else if( sParam.CompareNoCase("Steps")==0 )		MAKE( OptionRowHandlerListSteps )
+		else if( sParam.CompareNoCase("StepsLocked")==0 )
+		{
+			MAKE( OptionRowHandlerListSteps ); 
+			pHand->m_Def.m_bOneChoiceForAllPlayers = true;
+		}
+		else if( sParam.CompareNoCase("Characters")==0 )	MAKE( OptionRowHandlerListCharacters )
+		else if( sParam.CompareNoCase("Styles")==0 )		MAKE( OptionRowHandlerListStyles )
+		else if( sParam.CompareNoCase("Groups")==0 )		MAKE( OptionRowHandlerListGroups )
+		else if( sParam.CompareNoCase("Difficulties")==0 )	MAKE( OptionRowHandlerListDifficulties )
+		else if( sParam.CompareNoCase("SongsInCurrentSongGroup")==0 )	MAKE( OptionRowHandlerListSongsInCurrentSongGroup )
+		else MAKE( OptionRowHandlerList )
+	}
+	else if( name == "lua" )		MAKE( OptionRowHandlerLua )
+	else if( name == "conf" )		MAKE( OptionRowHandlerConfig )
 	else if( name == "stepstype" )		MAKE( OptionRowHandlerStepsType )
-	else if( name == "steps" )			MAKE( OptionRowHandlerSteps )
-
-	EndHandleArgs;
+	else if( name == "steps" )		MAKE( OptionRowHandlerSteps )
+	else if( name == "gamecommand" )	MAKE( OptionRowHandlerGameCommand )
 
 	return pHand;
 }
 
+OptionRowHandler* OptionRowHandlerUtil::MakeNull()
+{
+	OptionRowHandler* pHand = NULL;
+	Commands cmds;
+	MAKE( OptionRowHandlerNull )
+	return pHand;
+}
+
+OptionRowHandler* OptionRowHandlerUtil::MakeSimple( const MenuRowDef &mr )
+{
+	OptionRowHandler *pHand = OptionRowHandlerUtil::MakeNull();
+
+	pHand->m_Def.m_sName = mr.sName;
+	FontCharAliases::ReplaceMarkers( pHand->m_Def.m_sName );	// Allow special characters
+	
+	pHand->m_Def.m_vEnabledForPlayers.clear();
+	if( mr.pfnEnabled? mr.pfnEnabled():mr.bEnabled )
+	{
+		FOREACH_EnabledPlayer( pn )
+			pHand->m_Def.m_vEnabledForPlayers.insert( pn );
+	}
+
+	pHand->m_Def.m_bOneChoiceForAllPlayers = true;
+	pHand->m_Def.m_selectType = SELECT_ONE;
+	pHand->m_Def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
+	pHand->m_Def.m_bExportOnChange = false;
+		
+	pHand->m_Def.m_vsChoices = mr.choices;
+
+	// Each row must have at least one choice.
+	if( pHand->m_Def.m_vsChoices.empty() )
+		pHand->m_Def.m_vsChoices.push_back( "" );
+	
+	pHand->m_Def.m_bAllowThemeTitle = mr.bThemeTitle;
+	pHand->m_Def.m_bAllowThemeItems = mr.bThemeItems;
+
+	FOREACH( RString, pHand->m_Def.m_vsChoices, c )
+		FontCharAliases::ReplaceMarkers( *c );	// Allow special characters
+
+	return pHand;
+}
 
 /*
  * (c) 2002-2004 Chris Danford

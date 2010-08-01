@@ -4,32 +4,31 @@
 #include "RageLog.h"
 #include "GameManager.h"
 #include "GameState.h"
-#include "RageDisplay.h"
 #include "AnnouncerManager.h"
+#include "PlayerOptions.h"
 #include "ProfileManager.h"
 #include "Profile.h"
 #include "StepMania.h"
 #include "ScreenManager.h"
-#include "SongManager.h"
 #include "PrefsManager.h"
-#include "arch/ArchHooks/ArchHooks.h"
-#include "MemoryCardManager.h"
-#include "song.h"
 #include "Game.h"
 #include "Style.h"
 #include "Foreach.h"
-#include "Command.h"
 #include "arch/Dialog/Dialog.h"
-#include "Bookkeeper.h"
-#include "UnlockManager.h"
 #include "GameSoundManager.h"
-#include "ThemeManager.h"
 #include "PlayerState.h"
-#include "Course.h"
-#include "RageFileManager.h"
+#include "SongManager.h"
+#include "song.h"
+#include "UnlockManager.h"
+#include "LocalizedString.h"
+#include "arch/ArchHooks/ArchHooks.h"
+#include "ScreenPrompt.h"
+
+static LocalizedString COULD_NOT_LAUNCH_BROWSER( "GameCommand", "Could not launch web browser." );
 
 void GameCommand::Init()
 {
+	m_bApplyCommitsScreens = true;
 	m_sName = "";
 	m_sText = "";
 	m_bInvalid = true;
@@ -50,28 +49,21 @@ void GameCommand::Init()
 	m_pTrail = NULL;
 	m_pCharacter = NULL;
 	m_SortOrder = SORT_INVALID;
-	m_iUnlockIndex = -1;
+	m_sUnlockEntryID = "";
 	m_sSoundPath = "";
 	m_vsScreensToPrepare.clear();
 	m_iWeightPounds = -1;
 	m_iGoalCalories = -1;
-	m_GoalType = GOAL_INVALID;
+	m_GoalType = GoalType_INVALID;
 	m_sProfileID = "";
+	m_sUrl = "";
 
-	m_bClearBookkeepingData = false;
-	m_bClearMachineStats = false;
-	m_bClearMachineEdits = false;
-	m_bFillMachineStats = false;
-	m_bTransferStatsFromMachine = false;
-	m_bTransferStatsToMachine = false;
-	m_bCopyEditsFromMachine = false;
-	m_bCopyEditsToMachine = false;
 	m_bInsertCredit = false;
-	m_bResetToFactoryDefaults = false;
 	m_bStopMusic = false;
 	m_bApplyDefaultOptions = false;
 }
 
+class SongOptions;
 bool CompareSongOptions( const SongOptions &so1, const SongOptions &so2 );
 
 bool GameCommand::DescribesCurrentModeForAllPlayers() const
@@ -85,7 +77,7 @@ bool GameCommand::DescribesCurrentModeForAllPlayers() const
 
 bool GameCommand::DescribesCurrentMode( PlayerNumber pn ) const
 {
-	if( m_pGame != NULL && m_pGame != GAMESTATE->m_pCurGame )
+	if( m_pGame != NULL && m_pGame != GAMESTATE->m_pCurGame.Get() )
 		return false;
 	if( m_pm != PLAY_MODE_INVALID && GAMESTATE->m_PlayMode != m_pm )
 		return false;
@@ -137,9 +129,9 @@ bool GameCommand::DescribesCurrentMode( PlayerNumber pn ) const
 		return false;
 	if( m_iGoalCalories != -1 && PROFILEMAN->GetProfile(pn)->m_iGoalCalories != m_iGoalCalories )
 		return false;
-	if( m_GoalType != GOAL_INVALID && PROFILEMAN->GetProfile(pn)->m_GoalType != m_GoalType )
+	if( m_GoalType != GoalType_INVALID && PROFILEMAN->GetProfile(pn)->m_GoalType != m_GoalType )
 		return false;
-	if( !m_sProfileID.empty() && PREFSMAN->GetDefaultLocalProfileID(pn).Get() != m_sProfileID )
+	if( !m_sProfileID.empty() && ProfileManager::m_sDefaultLocalProfileID[pn].Get() != m_sProfileID )
 		return false;
 
 	return true;
@@ -157,16 +149,16 @@ void GameCommand::Load( int iIndex, const Commands& cmds )
 
 void GameCommand::LoadOne( const Command& cmd )
 {
-	CString sName = cmd.GetName();
+	RString sName = cmd.GetName();
 	if( sName.empty() )
 		return;
 	
-	CString sValue;
+	RString sValue;
 	for( unsigned i = 1; i < cmd.m_vsArgs.size(); ++i )
 	{
 		if( i > 1 )
 			sValue += ",";
-		sValue += (CString) cmd.GetArg(i);
+		sValue += (RString) cmd.GetArg(i);
 	}
 
 	if( sName == "game" )
@@ -250,7 +242,7 @@ void GameCommand::LoadOne( const Command& cmd )
 
 	else if( sName == "steps" )
 	{
-		CString sSteps = sValue;
+		RString sSteps = sValue;
 
 		/* This must be processed after "song" and "style" commands. */
 		if( !m_bInvalid )
@@ -262,9 +254,9 @@ void GameCommand::LoadOne( const Command& cmd )
 
 			Difficulty dc = StringToDifficulty( sSteps );
 			if( dc != DIFFICULTY_EDIT )
-				m_pSteps = pSong->GetStepsByDifficulty( pStyle->m_StepsType, dc );
+				m_pSteps = SongUtil::GetStepsByDifficulty( pSong, pStyle->m_StepsType, dc );
 			else
-				m_pSteps = pSong->GetStepsByDescription( pStyle->m_StepsType, sSteps );
+				m_pSteps = SongUtil::GetStepsByDescription( pSong, pStyle->m_StepsType, sSteps );
 			if( m_pSteps == NULL )
 			{
 				m_sInvalidReason = "steps not found";
@@ -275,7 +267,7 @@ void GameCommand::LoadOne( const Command& cmd )
 
 	else if( sName == "course" )
 	{
-		m_pCourse = SONGMAN->FindCourse( sValue );
+		m_pCourse = SONGMAN->FindCourse( "", sValue );
 		if( m_pCourse == NULL )
 		{
 			m_sInvalidReason = ssprintf( "Course \"%s\" not found", sValue.c_str() );
@@ -285,7 +277,7 @@ void GameCommand::LoadOne( const Command& cmd )
 	
 	else if( sName == "trail" )
 	{
-		CString sTrail = sValue;
+		RString sTrail = sValue;
 
 		/* This must be processed after "course" and "style" commands. */
 		if( !m_bInvalid )
@@ -348,9 +340,13 @@ void GameCommand::LoadOne( const Command& cmd )
 		m_sProfileID = sValue;
 	}
 
+	else if( sName == "url" )
+	{
+		m_sUrl = sValue;
+	}
 	else if( sName == "unlock" )
 	{
-		m_iUnlockIndex = atoi( sValue );
+		m_sUnlockEntryID = sValue;
 	}
 	
 	else if( sName == "sound" )
@@ -363,50 +359,16 @@ void GameCommand::LoadOne( const Command& cmd )
 		m_vsScreensToPrepare.push_back( sValue );
 	}
 	
-	else if( sName == "clearbookkeepingdata" )
-	{
-		m_bClearBookkeepingData = true;
-	}
-	else if( sName == "clearmachinestats" )
-	{
-		m_bClearMachineStats = true;
-	}
-	else if( sName == "clearmachineedits" )
-	{
-		m_bClearMachineEdits = true;
-	}
-	else if( sName == "fillmachinestats" )
-	{
-		m_bFillMachineStats = true;
-	}
-	else if( sName == "transferstatsfrommachine" )
-	{
-		m_bTransferStatsFromMachine = true;
-	}
-	else if( sName == "copyeditstomachine" )
-	{
-		m_bCopyEditsToMachine = true;
-	}
-	else if( sName == "copyeditsfrommachine" )
-	{
-		m_bCopyEditsFromMachine = true;
-	}
-	else if( sName == "transferstatstomachine" )
-	{
-		m_bTransferStatsToMachine = true;
-	}
 	else if( sName == "insertcredit" )
 	{
 		m_bInsertCredit = true;
 	}
-	else if( sName == "resettofactorydefaults" )
-	{
-		m_bResetToFactoryDefaults = true;
-	}
+
 	else if( sName == "stopmusic" )
 	{
 		m_bStopMusic = true;
 	}
+
 	else if( sName == "applydefaultoptions" )
 	{
 		m_bApplyDefaultOptions = true;
@@ -414,7 +376,7 @@ void GameCommand::LoadOne( const Command& cmd )
 
 	else
 	{
-		CString sWarning = ssprintf( "Command '%s' is not valid.", cmd.GetOriginalCommandString().c_str() );
+		RString sWarning = ssprintf( "Command '%s' is not valid.", cmd.GetOriginalCommandString().c_str() );
 		LOG->Warn( sWarning );
 		Dialog::OK( sWarning, "INVALID_GAME_COMMAND" );
 	}
@@ -441,13 +403,12 @@ int GetCreditsRequiredToPlayStyle( const Style *style )
 	{
 	case ONE_PLAYER_ONE_SIDE:
 		return 1;
+	case TWO_PLAYERS_SHARED_SIDES:
 	case TWO_PLAYERS_TWO_SIDES:
 		return 2;
 	case ONE_PLAYER_TWO_SIDES:
 		return (GAMESTATE->GetPremium() == PREMIUM_DOUBLE) ? 1 : 2;
-	default:
-		ASSERT(0);
-		return 1;
+	DEFAULT_FAIL( style->m_StyleType );
 	}
 }
 
@@ -464,7 +425,7 @@ static bool AreStyleAndPlayModeCompatible( const Style *style, PlayMode pm )
 		// This is correct for dance (ie, no rave for solo and doubles),
 		// and should be okay for pump .. not sure about other game types.
 		// Techno Motion scales down versus arrows, though, so allow this.
-		if( style->m_iColsPerPlayer >= 6 && CString(GAMESTATE->m_pCurGame->m_szName) != "techno" )
+		if( style->m_iColsPerPlayer >= 6 && RString(GAMESTATE->m_pCurGame->m_szName) != "techno" )
 			return false;
 		
 		/* Don't allow battle modes if the style takes both sides. */
@@ -475,7 +436,7 @@ static bool AreStyleAndPlayModeCompatible( const Style *style, PlayMode pm )
 	return true;
 }
 
-bool GameCommand::IsPlayable( CString *why ) const
+bool GameCommand::IsPlayable( RString *why ) const
 {
 	if( m_bInvalid )
 	{
@@ -609,101 +570,6 @@ void GameCommand::Apply( PlayerNumber pn ) const
 	Apply( vpns );
 }
 
-static HighScore MakeRandomHighScore( float fPercentDP )
-{
-	HighScore hs;
-	hs.SetName( "FAKE" );
-	hs.SetGrade( (Grade)SCALE( rand()%5, 0, 4, Grade_Tier01, Grade_Tier05 ) );
-	hs.SetScore( rand()%100*1000 );
-	hs.SetPercentDP( fPercentDP );
-	hs.SetSurviveSeconds( randomf(30.0f, 100.0f) );
-	PlayerOptions po;
-	po.ChooseRandomModifiers();
-	hs.SetModifiers( po.GetString() );
-	hs.SetDateTime( DateTime::GetNowDateTime() );
-	hs.SetPlayerGuid( Profile::MakeGuid() );
-	hs.SetMachineGuid( Profile::MakeGuid() );
-	hs.SetProductID( rand()%10 );
-	FOREACH_TapNoteScore( tns )
-		hs.SetTapNoteScore( tns, rand() % 100 );
-	FOREACH_HoldNoteScore( hns )
-		hs.SetHoldNoteScore( hns, rand() % 100 );
-	RadarValues rv;
-	FOREACH_RadarCategory( rc )
-		rv.m_Values.f[rc] = randomf( 0, 1 );
-	hs.SetRadarValues( rv );
-
-	return hs;
-}
-
-static void FillProfile( Profile *pProfile )
-{
-	// Choose a percent for all scores.  This is useful for testing unlocks
-	// where some elements are unlocked at a certain percent complete
-	float fPercentDP = randomf( 0.6f, 1.2f );
-	CLAMP( fPercentDP, 0.0f, 1.0f );
-
-	int iCount = pProfile->IsMachine()? 
-		PREFSMAN->m_iMaxHighScoresPerListForMachine.Get():
-		PREFSMAN->m_iMaxHighScoresPerListForPlayer.Get();
-
-	vector<Song*> vpAllSongs = SONGMAN->GetAllSongs();
-	FOREACH( Song*, vpAllSongs, pSong )
-	{
-		vector<Steps*> vpAllSteps = (*pSong)->GetAllSteps();
-		FOREACH( Steps*, vpAllSteps, pSteps )
-		{
-			pProfile->IncrementStepsPlayCount( *pSong, *pSteps );
-			for( int i=0; i<iCount; i++ )
-			{
-				int iIndex = 0;
-				pProfile->AddStepsHighScore( *pSong, *pSteps, MakeRandomHighScore(fPercentDP), iIndex );
-			}
-		}
-	}
-	
-	vector<Course*> vpAllCourses;
-	SONGMAN->GetAllCourses( vpAllCourses, true );
-	FOREACH( Course*, vpAllCourses, pCourse )
-	{
-		vector<Trail*> vpAllTrails;
-		(*pCourse)->GetAllTrails( vpAllTrails );
-		FOREACH( Trail*, vpAllTrails, pTrail )
-		{
-			pProfile->IncrementCoursePlayCount( *pCourse, *pTrail );
-			for( int i=0; i<iCount; i++ )
-			{
-				int iIndex = 0;
-				pProfile->AddCourseHighScore( *pCourse, *pTrail, MakeRandomHighScore(fPercentDP), iIndex );
-			}
-		}
-	}
-}
-
-
-/* Hack: if this GameCommand would set the screen, clear the setting and return
- * the screen that would have been set. */
-CString GameCommand::GetAndClearScreen()
-{
-	CString sRet;
-	FOREACH( Command, m_Commands.v, cmd )
-	{
-		GameCommand gc;
-		gc.m_bInvalid = false;
-		gc.LoadOne( *cmd );
-		if( gc.m_sScreen != "" )
-		{
-			sRet = gc.m_sScreen;
-			m_Commands.v.erase( cmd );
-			break;
-		}
-	}
-
-	m_sScreen = "";
-
-	return sRet;
-}
-
 void GameCommand::Apply( const vector<PlayerNumber> &vpns ) const
 {
 	if( m_Commands.v.size() )
@@ -713,6 +579,7 @@ void GameCommand::Apply( const vector<PlayerNumber> &vpns ) const
 		{
 			GameCommand gc;
 			gc.m_bInvalid = false;
+			gc.m_bApplyCommitsScreens = m_bApplyCommitsScreens;
 			gc.LoadOne( *cmd );
 			gc.ApplySelf( vpns );
 		}
@@ -730,7 +597,7 @@ void GameCommand::ApplySelf( const vector<PlayerNumber> &vpns ) const
 	const PlayMode OldPlayMode = GAMESTATE->m_PlayMode;
 
 	if( m_pGame != NULL )
-		GAMESTATE->m_pCurGame = m_pGame;
+		GAMESTATE->SetCurGame( m_pGame );
 	if( m_pm != PLAY_MODE_INVALID )
 		GAMESTATE->m_PlayMode.Set( m_pm );
 
@@ -761,6 +628,7 @@ void GameCommand::ApplySelf( const vector<PlayerNumber> &vpns ) const
 			break;
 		case TWO_PLAYERS_TWO_SIDES:
 		case ONE_PLAYER_TWO_SIDES:
+		case TWO_PLAYERS_SHARED_SIDES:
 			{
 				FOREACH_PlayerNumber( p )
 					GAMESTATE->m_bSideIsJoined[p] = true;
@@ -791,7 +659,7 @@ void GameCommand::ApplySelf( const vector<PlayerNumber> &vpns ) const
 		}
 		LUA->Release(L);
 	}
-	if( m_sScreen != "" )
+	if( m_sScreen != "" && m_bApplyCommitsScreens )
 		SCREENMAN->SetNewScreen( m_sScreen );
 	if( m_pSong )
 	{
@@ -815,14 +683,22 @@ void GameCommand::ApplySelf( const vector<PlayerNumber> &vpns ) const
 	if( m_pCharacter )
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 			GAMESTATE->m_pCurCharacters[*pn] = m_pCharacter;
-	for( map<CString,CString>::const_iterator i = m_SetEnv.begin(); i != m_SetEnv.end(); i++ )
-		GAMESTATE->m_mapEnv[ i->first ] = i->second;
+	for( map<RString,RString>::const_iterator i = m_SetEnv.begin(); i != m_SetEnv.end(); i++ )
+	{
+		Lua *L = LUA->Get();
+		GAMESTATE->m_Environment->PushSelf(L);
+		lua_pushstring( L, i->first );
+		lua_pushstring( L, i->second );
+		lua_settable( L, -3 );
+		lua_pop( L, 1 );
+		LUA->Release(L);
+	}
 	if( !m_sSongGroup.empty() )
 		GAMESTATE->m_sPreferredSongGroup.Set( m_sSongGroup );
 	if( m_SortOrder != SORT_INVALID )
 		GAMESTATE->m_PreferredSortOrder = m_SortOrder;
-	if( m_iUnlockIndex != -1 )
-		UNLOCKMAN->UnlockCode( m_iUnlockIndex );
+	if( !m_sUnlockEntryID.empty() )
+		UNLOCKMAN->UnlockEntryID( m_sUnlockEntryID );
 	if( m_sSoundPath != "" )
 		SOUND->PlayOnce( THEME->GetPathS( "", m_sSoundPath ) );
 	if( m_iWeightPounds != -1 )
@@ -831,282 +707,37 @@ void GameCommand::ApplySelf( const vector<PlayerNumber> &vpns ) const
 	if( m_iGoalCalories != -1 )
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 			PROFILEMAN->GetProfile(*pn)->m_iGoalCalories = m_iGoalCalories;
-	if( m_GoalType != GOAL_INVALID )
+	if( m_GoalType != GoalType_INVALID )
 		FOREACH_CONST( PlayerNumber, vpns, pn )
 			PROFILEMAN->GetProfile(*pn)->m_GoalType = m_GoalType;
 	if( !m_sProfileID.empty() )
 		FOREACH_CONST( PlayerNumber, vpns, pn )
-			PREFSMAN->GetDefaultLocalProfileID(*pn).Set( m_sProfileID );
+			ProfileManager::m_sDefaultLocalProfileID[*pn].Set( m_sProfileID );
+	if( !m_sUrl.empty() )
+	{
+		if( HOOKS->GoToURL( m_sUrl ) )
+			SCREENMAN->SetNewScreen( "ScreenExit" );
+		else
+			ScreenPrompt::Prompt( SM_None, COULD_NOT_LAUNCH_BROWSER );
+	}		
 
 	/* If we're going to stop music, do so before preparing new screens, so we don't
 	 * stop music between preparing screens and loading screens. */
 	if( m_bStopMusic )
 		SOUND->StopMusic();
 
-	FOREACH_CONST( CString, m_vsScreensToPrepare, s )
+	FOREACH_CONST( RString, m_vsScreensToPrepare, s )
 		SCREENMAN->PrepareScreen( *s );
 
-	if( m_bClearBookkeepingData )
-	{
-		BOOKKEEPER->ClearAll();
-		BOOKKEEPER->WriteToDisk();
-		SCREENMAN->SystemMessage( "Bookkeeping data cleared." );
-	}
-	if( m_bClearMachineStats )
-	{
-		Profile* pProfile = PROFILEMAN->GetMachineProfile();
-		// don't reset the Guid
-		CString sGuid = pProfile->m_sGuid;
-		pProfile->InitAll();
-		pProfile->m_sGuid = sGuid;
-		PROFILEMAN->SaveMachineProfile();
-		SCREENMAN->SystemMessage( "Machine stats cleared." );
-	}
-	if( m_bClearMachineEdits )
-	{
-		int iNumAttempted = 0;
-		int iNumSuccessful = 0;
-		
-		vector<CString> vsEditFiles;
-		GetDirListing( PROFILEMAN->GetProfileDir(PROFILE_SLOT_MACHINE)+EDIT_STEPS_SUBDIR+"*.edit", vsEditFiles, false, true );
-		GetDirListing( PROFILEMAN->GetProfileDir(PROFILE_SLOT_MACHINE)+EDIT_COURSES_SUBDIR+"*.crs", vsEditFiles, false, true );
-		FOREACH_CONST( CString, vsEditFiles, i )
-		{
-			iNumAttempted++;
-			bool bSuccess = FILEMAN->Remove( *i );
-			if( bSuccess )
-				iNumSuccessful++;
-		}
-
-		// reload the machine profile
-		PROFILEMAN->SaveMachineProfile();
-		PROFILEMAN->LoadMachineProfile();
-		
-		SCREENMAN->SystemMessage( ssprintf("%d edits cleared, %d errors.",iNumSuccessful,iNumAttempted-iNumSuccessful) );
-	}
-	if( m_bFillMachineStats )
-	{
-		Profile* pProfile = PROFILEMAN->GetMachineProfile();
-		FillProfile( pProfile );
-
-		PROFILEMAN->SaveMachineProfile();
-		SCREENMAN->SystemMessage( "Machine stats filled." );
-	}
-	if( m_bTransferStatsFromMachine )
-	{
-		bool bTriedToSave = false;
-		FOREACH_PlayerNumber( pn )
-		{
-			if( MEMCARDMAN->GetCardState(pn) != MEMORY_CARD_STATE_READY )
-				continue;	// skip
-
-			MEMCARDMAN->MountCard(pn);
-
-			bTriedToSave = true;
-
-			CString sDir = MEM_CARD_MOUNT_POINT[pn];
-			sDir += "MachineProfile/";
-
-			bool bSaved = PROFILEMAN->GetMachineProfile()->SaveAllToDir( sDir, PREFSMAN->m_bSignProfileData );
-
-			MEMCARDMAN->UnmountCard(pn);
-
-			if( bSaved )
-				SCREENMAN->SystemMessage( ssprintf("Machine stats saved to P%d card.",pn+1) );
-			else
-				SCREENMAN->SystemMessage( ssprintf("Error saving machine stats to P%d card.",pn+1) );
-			break;
-		}
-
-		if( !bTriedToSave )
-			SCREENMAN->SystemMessage( "Stats not saved - No memory cards ready." );
-
-		MEMCARDMAN->FlushAndReset();
-	}
-	if( m_bTransferStatsToMachine )
-	{
-		bool bTriedToLoad = false;
-		FOREACH_PlayerNumber( pn )
-		{
-			if( MEMCARDMAN->GetCardState(pn) != MEMORY_CARD_STATE_READY )
-				continue;	// skip
-
-			MEMCARDMAN->MountCard(pn);
-
-			bTriedToLoad = true;
-
-			CString sDir = MEM_CARD_MOUNT_POINT[pn];
-			sDir += "MachineProfile/";
-
-			Profile backup = *PROFILEMAN->GetMachineProfile();
-
-			ProfileLoadResult lr = PROFILEMAN->GetMachineProfile()->LoadAllFromDir( sDir, PREFSMAN->m_bSignProfileData );
-			switch( lr )
-			{
-			case ProfileLoadResult_Success:
-				SCREENMAN->SystemMessage( ssprintf("Machine stats loaded from P%d card.",pn+1) );
-				break;
-			case ProfileLoadResult_FailedNoProfile:
-				SCREENMAN->SystemMessage( ssprintf("There is no machine profile on P%d card.",pn+1) );
-				*PROFILEMAN->GetMachineProfile() = backup;
-				break;
-			case ProfileLoadResult_FailedTampered:
-				SCREENMAN->SystemMessage( ssprintf("The profile on P%d card contains corrupt or tampered data.",pn+1) );
-				*PROFILEMAN->GetMachineProfile() = backup;
-				break;
-			default:
-				ASSERT(0);
-			}
-
-			MEMCARDMAN->UnmountCard(pn);
-			break;
-		}
-
-		if( !bTriedToLoad )
-			SCREENMAN->SystemMessage( "Stats not loaded - No memory cards ready." );
-
-		MEMCARDMAN->FlushAndReset();
-	}
-	if( m_bCopyEditsFromMachine )
-	{
-		bool bTriedToCopy = false;
-		FOREACH_PlayerNumber( pn )
-		{
-			if( MEMCARDMAN->GetCardState(pn) != MEMORY_CARD_STATE_READY )
-				continue;	// skip
-
-			MEMCARDMAN->MountCard(pn);
-
-			bTriedToCopy = true;
-
-			int iNumAttempted = 0;
-			int iNumSuccessful = 0;
-			int iNumOverwritten = 0;
-			
-			{
-				CString sFromDir = PROFILEMAN->GetProfileDir(PROFILE_SLOT_MACHINE) + EDIT_STEPS_SUBDIR;
-				CString sToDir = MEM_CARD_MOUNT_POINT[pn] + (CString)PREFSMAN->m_sMemoryCardProfileSubdir + "/" + EDIT_STEPS_SUBDIR;
-
-				vector<CString> vsFiles;
-				GetDirListing( sFromDir+"*.edit", vsFiles, false, false );
-				FOREACH_CONST( CString, vsFiles, i )
-				{
-					iNumAttempted++;
-					if( DoesFileExist(sToDir+*i) )
-						iNumOverwritten++;
-					bool bSuccess = FileCopy( sFromDir+*i, sToDir+*i );
-					if( bSuccess )
-						iNumSuccessful++;
-				}
-			}
-			
-			{
-				CString sFromDir = PROFILEMAN->GetProfileDir(PROFILE_SLOT_MACHINE) + EDIT_COURSES_SUBDIR;
-				CString sToDir = MEM_CARD_MOUNT_POINT[pn] + (CString)PREFSMAN->m_sMemoryCardProfileSubdir + "/" + EDIT_COURSES_SUBDIR;
-
-				vector<CString> vsFiles;
-				GetDirListing( sFromDir+"*.crs", vsFiles, false, false );
-				FOREACH_CONST( CString, vsFiles, i )
-				{
-					iNumAttempted++;
-					if( DoesFileExist(sToDir+*i) )
-						iNumOverwritten++;
-					bool bSuccess = FileCopy( sFromDir+*i, sToDir+*i );
-					if( bSuccess )
-						iNumSuccessful++;
-				}
-			}
-			
-			MEMCARDMAN->UnmountCard(pn);
-
-			SCREENMAN->SystemMessage( ssprintf("Copied to P%d card: %d/%d copies OK (%d overwritten).",pn+1,iNumSuccessful,iNumAttempted,iNumOverwritten) );
-			break;
-		}
-
-		if( !bTriedToCopy )
-			SCREENMAN->SystemMessage( "Edits not copied - No memory cards ready." );
-
-		MEMCARDMAN->FlushAndReset();
-	}
-	if( m_bCopyEditsToMachine )
-	{
-		bool bTriedToCopy = false;
-		FOREACH_PlayerNumber( pn )
-		{
-			if( MEMCARDMAN->GetCardState(pn) != MEMORY_CARD_STATE_READY )
-				continue;	// skip
-
-			MEMCARDMAN->MountCard(pn);
-
-			bTriedToCopy = true;
-
-			int iNumAttempted = 0;
-			int iNumSuccessful = 0;
-			int iNumOverwritten = 0;
-			
-			{
-				CString sFromDir = MEM_CARD_MOUNT_POINT[pn] + (CString)PREFSMAN->m_sMemoryCardProfileSubdir + "/" + EDIT_STEPS_SUBDIR;
-				CString sToDir = PROFILEMAN->GetProfileDir(PROFILE_SLOT_MACHINE) + EDIT_STEPS_SUBDIR;
-
-				vector<CString> vsFiles;
-				GetDirListing( sFromDir+"*.edit", vsFiles, false, false );
-				FOREACH_CONST( CString, vsFiles, i )
-				{
-					iNumAttempted++;
-					if( DoesFileExist(sToDir+*i) )
-						iNumOverwritten++;
-					bool bSuccess = FileCopy( sFromDir+*i, sToDir+*i );
-					if( bSuccess )
-						iNumSuccessful++;
-				}
-			}
-			
-			{
-				CString sFromDir = MEM_CARD_MOUNT_POINT[pn] + (CString)PREFSMAN->m_sMemoryCardProfileSubdir + "/" + EDIT_COURSES_SUBDIR;
-				CString sToDir = PROFILEMAN->GetProfileDir(PROFILE_SLOT_MACHINE) + EDIT_COURSES_SUBDIR;
-
-				vector<CString> vsFiles;
-				GetDirListing( sFromDir+"*.crs", vsFiles, false, false );
-				FOREACH_CONST( CString, vsFiles, i )
-				{
-					iNumAttempted++;
-					if( DoesFileExist(sToDir+*i) )
-						iNumOverwritten++;
-					bool bSuccess = FileCopy( sFromDir+*i, sToDir+*i );
-					if( bSuccess )
-						iNumSuccessful++;
-				}
-			}
-			
-			MEMCARDMAN->UnmountCard(pn);
-
-			// reload the machine profile
-			PROFILEMAN->SaveMachineProfile();
-			PROFILEMAN->LoadMachineProfile();
-
-			SCREENMAN->SystemMessage( ssprintf("Copied from P%d card: %d/%d copies OK (%d overwritten).",pn+1,iNumSuccessful,iNumAttempted,iNumOverwritten) );
-			break;
-		}
-
-		if( !bTriedToCopy )
-			SCREENMAN->SystemMessage( "Edits not copied - No memory cards ready." );
-
-		MEMCARDMAN->FlushAndReset();
-	}
 	if( m_bInsertCredit )
 	{
-		InsertCredit();
-	}
-	if( m_bResetToFactoryDefaults )
-	{
-		PREFSMAN->ResetToFactoryDefaults();
-		SCREENMAN->SystemMessage( "All options reset to factory defaults." );
+		StepMania::InsertCredit();
 	}
 	if( m_bApplyDefaultOptions )
 	{
 		FOREACH_PlayerNumber( p )
-			GAMESTATE->m_pPlayerState[p]->m_PlayerOptions.FromString( PREFSMAN->m_sDefaultModifiers );
-		GAMESTATE->m_SongOptions.FromString( PREFSMAN->m_sDefaultModifiers );
+			GAMESTATE->GetDefaultPlayerOptions( GAMESTATE->m_pPlayerState[p]->m_PlayerOptions );
+		GAMESTATE->GetDefaultSongOptions( GAMESTATE->m_SongOptions );
 	}
 	// HACK:  Set life type to BATTERY just once here so it happens once and 
 	// we don't override the user's changes if they back out.
@@ -1136,9 +767,9 @@ bool GameCommand::IsZero() const
 		m_SortOrder != SORT_INVALID ||
 		m_iWeightPounds != -1 ||
 		m_iGoalCalories != -1 ||
-		m_GoalType != GOAL_INVALID ||
-		!m_sProfileID.empty()
-		)
+		m_GoalType != GoalType_INVALID ||
+		!m_sProfileID.empty() ||
+		!m_sUrl.empty() )
 		return false;
 
 	return true;

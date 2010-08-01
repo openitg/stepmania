@@ -1,11 +1,11 @@
-/* LoadingWindow_Win32 - Loading window using a Windows dialog */
+/* LoadingWindow_Win32 - Loading window using a Windows dialog box. */
 
 #ifndef LOADING_WINDOW_WIN32_H
 #define LOADING_WINDOW_WIN32_H
 
 #include "LoadingWindow.h"
 #include <windows.h>
-#include "../../archutils/Win32/AppInstance.h"
+#include "archutils/Win32/AppInstance.h"
 
 class LoadingWindow_Win32: public LoadingWindow
 {
@@ -13,14 +13,14 @@ public:
 	LoadingWindow_Win32();
 	~LoadingWindow_Win32();
 
-	void SetText(CString str);
+	void SetText( RString sText );
 	void Paint();
 	void SetIcon( const RageSurface *pIcon );
 
 private:
 	AppInstance handle;
 	HWND hwnd;
-	CString text[3];
+	RString text[3];
 	HICON m_hIcon;
 
 	static BOOL CALLBACK WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );

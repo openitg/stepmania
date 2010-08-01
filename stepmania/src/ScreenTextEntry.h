@@ -5,6 +5,8 @@
 
 #include "ScreenWithMenuElements.h"
 #include "BitmapText.h"
+#include "RageSound.h"
+#include "ThemeMetric.h"
 
 enum KeyboardRow
 {
@@ -22,76 +24,108 @@ enum KeyboardRowSpecialKey
 class ScreenTextEntry : public ScreenWithMenuElements
 {
 public:
+	static void SetTextEntrySettings( 
+		RString sQuestion, 
+		RString sInitialAnswer, 
+		int iMaxInputLength, 
+		bool(*Validate)(const RString &sAnswer,RString &sErrorOut) = NULL, 
+		void(*OnOK)(const RString &sAnswer) = NULL, 
+		void(*OnCanel)() = NULL,
+		bool bPassword = false,
+		bool (*ValidateAppend)(const RString &sAnswerBeforeChar, RString &sAppend) = NULL,
+		RString (*FormatAnswerForDisplay)(const RString &sAnswer) = NULL
+		);
 	static void TextEntry( 
 		ScreenMessage smSendOnPop, 
-		CString sQuestion, 
-		CString sInitialAnswer, 
+		RString sQuestion, 
+		RString sInitialAnswer, 
 		int iMaxInputLength, 
-		bool(*Validate)(const CString &sAnswer,CString &sErrorOut) = NULL, 
-		void(*OnOK)(const CString &sAnswer) = NULL, 
+		bool(*Validate)(const RString &sAnswer,RString &sErrorOut) = NULL, 
+		void(*OnOK)(const RString &sAnswer) = NULL, 
 		void(*OnCanel)() = NULL,
-		bool bPassword = false );
+		bool bPassword = false,
+		bool (*ValidateAppend)(const RString &sAnswerBeforeChar, RString &sAppend) = NULL,
+		RString (*FormatAnswerForDisplay)(const RString &sAnswer) = NULL
+		);
 	static void Password( 
 		ScreenMessage smSendOnPop, 
-		const CString &sQuestion, 
-		void(*OnOK)(const CString &sPassword) = NULL, 
+		const RString &sQuestion, 
+		void(*OnOK)(const RString &sPassword) = NULL, 
 		void(*OnCanel)() = NULL )
 	{
 		TextEntry( smSendOnPop, sQuestion, "", 255, NULL, OnOK, OnCanel, true );
 	}
 
-	ScreenTextEntry( CString sName );
-	~ScreenTextEntry();
 	virtual void Init();
 	virtual void BeginScreen();
 
 	virtual void Update( float fDelta );
 	virtual void Input( const InputEventPlus &input );
+	virtual void TweenOffScreen();
 
-	static CString s_sLastAnswer;
+	static RString s_sLastAnswer;
 	static bool s_bCancelledLast;
+
+protected:
+	void TryAppendToAnswer( RString s );
+	void BackspaceInAnswer();
+	virtual void TextEnteredDirectly() { }
+
+	virtual void End( bool bCancelled );
+
+private:
+	virtual void MenuStart( PlayerNumber pn );
+	virtual void MenuBack( PlayerNumber pn );
+
+	void UpdateAnswerText();
+
+	wstring			m_sAnswer;
+	bool			m_bShowAnswerCaret;
+
+	BitmapText		m_textQuestion;
+	BitmapText		m_textAnswer;
+	
+	RageSound		m_sndType;
+	RageSound		m_sndBackspace;
+	
+	RageTimer		m_timerToggleCursor;
+};
+
+class ScreenTextEntryVisual: public ScreenTextEntry
+{
+public:
+	~ScreenTextEntryVisual();
+	void Init();
+	void BeginScreen();
+	virtual void TweenOffScreen();
 
 protected:
 	void MoveX( int iDir );
 	void MoveY( int iDir );
+	void PositionCursor();
+
+	virtual void TextEnteredDirectly();
 	
-	void AppendToAnswer( CString s );
-	void BackspaceInAnswer();
-
-	void End( bool bCancelled );
-
 	virtual void MenuLeft( PlayerNumber pn )	{ MoveX(-1); }
 	virtual void MenuRight( PlayerNumber pn )	{ MoveX(+1); }
 	virtual void MenuUp( PlayerNumber pn )		{ MoveY(-1); }
 	virtual void MenuDown( PlayerNumber pn )	{ MoveY(+1); }
+
 	virtual void MenuStart( PlayerNumber pn );
-	virtual void MenuBack( PlayerNumber pn );
 
-	void UpdateKeyboardText();
-	void UpdateAnswerText();
-
-	BitmapText		m_textQuestion;
-	AutoActor		m_sprAnswerBox;
-	wstring			m_sAnswer;
-	BitmapText		m_textAnswer;
-	bool			m_bShowAnswerCaret;
-	
-	AutoActor		m_sprCursor;
-
-	int				m_iFocusX;
+	int			m_iFocusX;
 	KeyboardRow		m_iFocusY;
 	
-	void PositionCursor();
-
+	AutoActor		m_sprCursor;
 	BitmapText		*m_ptextKeys[NUM_KEYBOARD_ROWS][KEYS_PER_ROW];
 
-	RageSound	m_sndType;
-	RageSound	m_sndBackspace;
-	RageSound	m_sndChange;
-	
-	RageTimer	m_timerToggleCursor;
-};
+	RageSound		m_sndChange;
 
+	ThemeMetric<float>	ROW_START_X;
+	ThemeMetric<float>	ROW_START_Y;
+	ThemeMetric<float>	ROW_END_X;
+	ThemeMetric<float>	ROW_END_Y;
+};
 
 #endif
 

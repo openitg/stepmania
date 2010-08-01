@@ -22,7 +22,7 @@ HICON IconFromSurface( const RageSurface *pSrcImg )
 			0x00FF0000,
 			0x0000FF00,
 			0x000000FF,
-			0x80000000 );
+			0xFF000000 );
 		RageSurfaceUtils::Blit( pSrcImg, pImg );
 	}
 
@@ -88,9 +88,9 @@ HICON IconFromSurface( const RageSurface *pSrcImg )
 	return icon;
 }
 
-HICON IconFromFile( const CString &sIconFile )
+HICON IconFromFile( const RString &sIconFile )
 {
-	CString sError;
+	RString sError;
 	RageSurface *pImg = RageSurfaceUtils::LoadFile( sIconFile, sError );
 	if( pImg == NULL )
 	{

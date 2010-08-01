@@ -2,55 +2,61 @@
 #define RAGE_SOUND_DRIVER_CA_H
 
 #include "RageSoundDriver_Generic_Software.h"
+#include <vector>
+#include <CoreFoundation/CoreFoundation.h>
+#include <AudioToolbox/AudioToolbox.h>
 
-struct AudioTimeStamp;
-struct AudioBufferList;
-struct OpaqueAudioConverter;
-typedef struct OpaqueAudioConverter *AudioConverterRef;
-typedef unsigned long UInt32;
-typedef UInt32 AudioDeviceID;
-typedef UInt32 AudioDevicePropertyID;
-typedef unsigned char Boolean;
-typedef long OSStatus;
-class CAAudioHardwareDevice;
 class RageSoundBase;
+class RageThreadRegister;
 
 class RageSound_CA : public RageSound_Generic_Software
 {
-private:
-    int64_t mDecodePos;
-    float mLatency;
-    CAAudioHardwareDevice *mOutputDevice;
-	AudioConverterRef mConverter;
-	
-	static OSStatus GetData(AudioDeviceID inDevice,
-							const AudioTimeStamp *inNow,
-							const AudioBufferList *inInputData,
-							const AudioTimeStamp *inInputTime,
-							AudioBufferList *outOutputData,
-							const AudioTimeStamp *inOutputTime,
-							void *inClientData);	
-    
-    static OSStatus OverloadListener(AudioDeviceID inDevice,
-                                     UInt32 inChannel,
-                                     Boolean isInput,
-                                     AudioDevicePropertyID inPropertyID,
-                                     void *inData);
-                              
 public:
-    RageSound_CA();
-    CString Init();
-    ~RageSound_CA();
-    float GetPlayLatency() const { return mLatency; }
-    int64_t GetPosition(const RageSoundBase *sound) const;
-    void SetupDecodingThread();
+	RageSound_CA();
+	RString Init();
+	~RageSound_CA();
+	float GetPlayLatency() const { return m_fLatency; }
+	int GetSampleRate( int rate ) const { return m_iSampleRate; }
+	int64_t GetPosition( const RageSoundBase *sound ) const;
+	void SetupDecodingThread();
+
+private:
+	float m_fLatency;
+	AudioDeviceID m_OutputDevice;
+	AudioConverterRef m_Converter;
+	bool m_bStarted;
+	int m_iSampleRate;
+	mutable int64_t m_iLastSampleTime;
+	int64_t m_iOffset;
+	UInt32 m_iBufferNumber;
+	vector<pair<AudioDevicePropertyID, AudioDevicePropertyListenerProc> > m_vPropertyListeners;
+	RageThreadRegister *m_pIOThread, *m_pNotificationThread;
+	
+	void AddListener( AudioDevicePropertyID propertyID,
+			  AudioDevicePropertyListenerProc handler, const char *name );
+	void RemoveListeners();
+	static OSStatus GetData( AudioDeviceID inDevice,
+				 const AudioTimeStamp *inNow,
+				 const AudioBufferList *inInputData,
+				 const AudioTimeStamp *inInputTime,
+				 AudioBufferList *outOutputData,
+				 const AudioTimeStamp *inOutputTime,
+				 void *inClientData );
+	
+	static void NameHALThread( CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info );
+	static OSStatus OverloadListener( AudioDeviceID inDevice, UInt32 inChannel, Boolean isInput,
+					  AudioDevicePropertyID inPropertyID, void *inData );
+	static OSStatus DeviceChanged( AudioDeviceID inDevice, UInt32 inChannel, Boolean isInput,
+				       AudioDevicePropertyID inPropertyID, void *inData );
+	static OSStatus JackChanged( AudioDeviceID inDevice, UInt32 inChannel, Boolean isInput,
+				     AudioDevicePropertyID inPropertyID, void *inData );
 };
 #define USE_RAGE_SOUND_CA
 
 #endif
 
 /*
- * (c) 2004 Steve Checkoway
+ * (c) 2004-2006 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

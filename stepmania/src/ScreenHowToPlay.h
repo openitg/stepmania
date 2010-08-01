@@ -12,7 +12,7 @@
 class ScreenHowToPlay : public ScreenAttract
 {
 public:
-	ScreenHowToPlay( CString sName );
+	ScreenHowToPlay();
 	virtual void Init();
 	~ScreenHowToPlay();
 	
@@ -22,22 +22,21 @@ public:
 
 protected:
 	virtual void Step();
-	LifeMeterBar*	m_pLifeMeterBar;
-	Player*			m_pPlayer;
-	Model*			m_pmCharacter;
-	Model*			m_pmDancePad;
-	int				m_iPerfects;
-	int				m_iNumPerfects;
-
-	Song			m_Song;
-	NoteData		m_NoteData;
-	float			m_fFakeSecondsIntoSong;
+	LifeMeterBar	*m_pLifeMeterBar;
+	PlayerPlus	*m_pPlayer;
+	Model		*m_pmCharacter;
+	Model		*m_pmDancePad;
+	int		m_iW2s;
+	int		m_iNumW2s;
+	Song		m_Song;
+	NoteData	m_NoteData;
+	float		m_fFakeSecondsIntoSong;
 };
 
 #endif
 
 /*
- * (c) 2001-2004 Chris Danford
+ * (c) 2001-2004 Chris Danford, Thad Ward
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

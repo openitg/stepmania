@@ -8,7 +8,6 @@
 class ScreenEditMenu : public ScreenWithMenuElements
 {
 public:
-	ScreenEditMenu( CString sName );
 	virtual void Init();
 
 	virtual void HandleScreenMessage( const ScreenMessage SM );
@@ -17,8 +16,8 @@ private:
 
 	void MenuUp( PlayerNumber pn );
 	void MenuDown( PlayerNumber pn );
-	void MenuLeft( PlayerNumber pn, const InputEventType type );
-	void MenuRight( PlayerNumber pn, const InputEventType type );
+	void MenuLeft( const InputEventPlus &input );
+	void MenuRight( const InputEventPlus &input );
 	void MenuBack( PlayerNumber pn );
 	void MenuStart( PlayerNumber pn );
 

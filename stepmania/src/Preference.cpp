@@ -1,21 +1,62 @@
 #include "global.h"
 #include "Preference.h"
-#include "PrefsManager.h"
-#include "IniFile.h"
+#include "XmlFile.h"
 #include "RageLog.h"
 #include "LuaFunctions.h"
 #include "LuaManager.h"
 #include "MessageManager.h"
+#include "SubscriptionManager.h"
 
-IPreference::IPreference( const CString& sName ):
-	m_sName( sName )
+static SubscriptionManager<IPreference> m_Subscribers;
+
+IPreference::IPreference( const RString& sName ):
+	m_sName( sName ),
+	m_bIsStatic( false )
 {
-	PrefsManager::Subscribe( this );
+	m_Subscribers.Subscribe( this );
 }
 
 IPreference::~IPreference()
 {
-	PrefsManager::Unsubscribe( this );
+	m_Subscribers.Unsubscribe( this );
+}
+
+IPreference *IPreference::GetPreferenceByName( const RString &sName )
+{
+	FOREACHS( IPreference*, *m_Subscribers.m_pSubscribers, p )
+	{
+		if( !(*p)->GetName().CompareNoCase( sName ) )
+			return *p;
+	}
+
+	return NULL;
+}
+
+void IPreference::LoadAllDefaults()
+{
+	FOREACHS_CONST( IPreference*, *m_Subscribers.m_pSubscribers, p )
+		(*p)->LoadDefault();
+}
+
+void IPreference::ReadAllPrefsFromNode( const XNode* pNode, bool bIsStatic )
+{
+	ASSERT( pNode );
+	FOREACHS_CONST( IPreference*, *m_Subscribers.m_pSubscribers, p )
+		(*p)->ReadFrom( pNode, bIsStatic );
+}
+
+void IPreference::SavePrefsToNode( XNode* pNode )
+{
+	FOREACHS_CONST( IPreference*, *m_Subscribers.m_pSubscribers, p )
+		(*p)->WriteTo( pNode );
+}
+
+void IPreference::ReadAllDefaultsFromNode( const XNode* pNode )
+{
+	if( pNode == NULL )
+		return;
+	FOREACHS_CONST( IPreference*, *m_Subscribers.m_pSubscribers, p )
+		(*p)->ReadDefaultFrom( pNode );
 }
 
 void IPreference::PushValue( lua_State *L ) const
@@ -33,58 +74,55 @@ void IPreference::SetFromStack( lua_State *L )
 
 	lua_pop( L, 1 );
 }
-
-#define READFROM_AND_WRITETO( type, cast ) \
-	template<> void Preference<type>::FromString( const CString &s ) \
+#define READFROM_AND_WRITETO( type ) \
+	template<> RString PrefToString( const type &v ) \
 	{ \
-		::FromString( s, (cast)m_currentValue ); \
+		return ::ToString( v ); \
 	} \
-	template<> CString Preference<type>::ToString() const \
+	template<> void PrefFromString( const RString &s, type &v ) \
 	{ \
-		return ::ToString( (cast)m_currentValue ); \
+		::FromString( s, v ); \
 	} \
-	template<> void Preference<type>::PushValue( lua_State *L ) const \
+	template<> void PrefSetFromStack( lua_State *L, type &v ) \
 	{ \
-		LuaHelpers::PushStack( (cast)m_currentValue, L ); \
+		LuaHelpers::PopStack( v, L ); \
 	} \
-	template<> void Preference<type>::SetFromStack( lua_State *L ) \
+	template<> void PrefPushValue( lua_State *L, const type &v ) \
 	{ \
-		LuaHelpers::PopStack( (cast)m_currentValue, L ); \
+		LuaHelpers::PushStack( v, L ); \
 	}
 
-READFROM_AND_WRITETO( int, int& )
-READFROM_AND_WRITETO( float, float& )
-READFROM_AND_WRITETO( bool, bool& )
-READFROM_AND_WRITETO( CString, CString& )
-READFROM_AND_WRITETO( PrefsManager::BackgroundMode, int& )
-READFROM_AND_WRITETO( PrefsManager::BannerCache, int& )
-READFROM_AND_WRITETO( PrefsManager::MusicWheelUsesSections, int& )
-READFROM_AND_WRITETO( PrefsManager::MarvelousTiming, int& )
-READFROM_AND_WRITETO( CoinMode, int& )
-READFROM_AND_WRITETO( Premium, int& )
-READFROM_AND_WRITETO( PrefsManager::Maybe, int& )
-READFROM_AND_WRITETO( PrefsManager::CharacterOption, int& )
-READFROM_AND_WRITETO( PrefsManager::CourseSortOrders, int& )
-READFROM_AND_WRITETO( PrefsManager::GetRankingName, int& )
-READFROM_AND_WRITETO( PrefsManager::ScoringTypes, int& )
-READFROM_AND_WRITETO( PrefsManager::BoostAppPriority, int& )
-READFROM_AND_WRITETO( PrefsManager::AttractSoundFrequency, int& )
-READFROM_AND_WRITETO( PlayerController, int& )
-READFROM_AND_WRITETO( RageSoundReader_Resample::ResampleQuality, int& )
+READFROM_AND_WRITETO( int )
+READFROM_AND_WRITETO( float )
+READFROM_AND_WRITETO( bool )
+READFROM_AND_WRITETO( RString )
 
-void IPreference::ReadFrom( const IniFile &ini )
+void IPreference::ReadFrom( const XNode* pNode, bool bIsStatic )
 {
-	CString sVal;
-	if( ini.GetValue( "Options", m_sName, sVal ) )
+	RString sVal;
+	if( pNode->GetAttrValue(m_sName, sVal) )
+	{
 		FromString( sVal );
+		m_bIsStatic = bIsStatic;
+	}
 }
 
-void IPreference::WriteTo( IniFile &ini ) const
+void IPreference::WriteTo( XNode* pNode ) const
 {
-	ini.SetValue( "Options", m_sName, ToString() );
+	if( !m_bIsStatic )
+		pNode->AppendAttr( m_sName, ToString() );
 }
 
-void BroadcastPreferenceChanged( const CString& sPreferenceName )
+/* Load our value from the node, and make it the new default. */
+void IPreference::ReadDefaultFrom( const XNode* pNode )
+{
+	RString sVal;
+	if( !pNode->GetAttrValue(m_sName, sVal) )
+		return;
+	SetDefaultFromString( sVal );
+}
+
+void BroadcastPreferenceChanged( const RString& sPreferenceName )
 {
 	if( MESSAGEMAN )
 		MESSAGEMAN->Broadcast( sPreferenceName+"Changed" );

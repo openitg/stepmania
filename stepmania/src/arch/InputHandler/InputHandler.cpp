@@ -3,6 +3,7 @@
 #include "RageUtil.h"
 #include "InputHandler.h"
 #include "RageLog.h"
+#include "LocalizedString.h"
 
 void InputHandler::UpdateTimer()
 {
@@ -20,7 +21,7 @@ void InputHandler::ButtonPressed( DeviceInput di, bool Down )
 
 	INPUTFILTER->ButtonPressed( di, Down );
 
-	if( m_iInputsSinceUpdate >= 50 )
+	if( m_iInputsSinceUpdate >= 1000 )
 	{
 		/*
 		 * We havn't received an update in a long time, so warn about it.  We expect to receive
@@ -28,13 +29,133 @@ void InputHandler::ButtonPressed( DeviceInput di, bool Down )
 		 * m_iInputsSinceUpdate where it is, so we only warn once.  Only updates that didn't provide
 		 * a timestamp are counted; if the driver provides its own timestamps, UpdateTimer is
 		 * optional.
-		 *
-		 * This can also happen if a device sends a lot of inputs at once; for example, a keyboard
-		 * driver that sends every key in one frame.  If that's really needed (wasteful), increase
-		 * the threshold.
 		 */
-		LOG->Warn( "InputHandler::ButtonPressed: Driver sent 50 updates without calling UpdateTimer" );
+		LOG->Warn( "InputHandler::ButtonPressed: Driver sent many updates without calling UpdateTimer" );
 		FAIL_M("x");
+	}
+}
+
+wchar_t InputHandler::DeviceButtonToChar( DeviceButton button, bool bUseCurrentKeyModifiers )
+{
+	wchar_t c = L'\0';
+	switch( button )
+	{
+	default:
+		if( button < 127 )
+			c = (wchar_t) button;
+		else if( button >= KEY_KP_C0 && button <= KEY_KP_C9 )
+			c =(wchar_t) (button - KEY_KP_C0) + '0';
+		break;
+	case KEY_KP_SLASH:	c = L'/';	break;
+	case KEY_KP_ASTERISK:	c = L'*';	break;
+	case KEY_KP_HYPHEN:	c = L'-';	break;
+	case KEY_KP_PLUS:	c = L'+';	break;
+	case KEY_KP_PERIOD:	c = L'.';	break;
+	case KEY_KP_EQUAL:	c = L'=';	break;
+	}
+
+	// Handle some default US keyboard modifiers for derived InputHandlers that 
+	// don't implement DeviceButtonToChar.
+	if( bUseCurrentKeyModifiers )
+	{
+		bool bHoldingShift = 
+			INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LSHIFT)) ||
+			INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RSHIFT));
+
+		bool bHoldingCtrl = 
+			INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LCTRL)) ||
+			INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RCTRL));
+		
+		if( bHoldingShift && !bHoldingCtrl )
+		{
+			MakeUpper( &c, 1 );
+
+			switch( c )
+			{
+			case '`':	c = L'~';	break;
+			case '1':	c = L'!';	break;
+			case '2':	c = L'@';	break;
+			case '3':	c = L'#';	break;
+			case '4':	c = L'$';	break;
+			case '5':	c = L'%';	break;
+			case '6':	c = L'^';	break;
+			case '7':	c = L'&';	break;
+			case '8':	c = L'*';	break;
+			case '9':	c = L'(';	break;
+			case '0':	c = L')';	break;
+			case '-':	c = L'_';	break;
+			case '=':	c = L'+';	break;
+			case '[':	c = L'{';	break;
+			case ']':	c = L'}';	break;
+			case '\'':	c = L'"';	break;
+			case '\\':	c = L'|';	break;
+			case ';':	c = L':';	break;
+			case ',':	c = L'<';	break;
+			case '.':	c = L'>';	break;
+			case '/':	c = L'?';	break;
+			}
+		}
+
+	}
+	
+	return c;
+}
+
+static LocalizedString HOME	( "DeviceButton", "Home" );
+static LocalizedString END	( "DeviceButton", "End" );
+static LocalizedString UP	( "DeviceButton", "Up" );
+static LocalizedString DOWN	( "DeviceButton", "Down" );
+static LocalizedString SPACE	( "DeviceButton", "Space" );
+static LocalizedString SHIFT	( "DeviceButton", "Shift" );
+static LocalizedString CTRL	( "DeviceButton", "Ctrl" );
+static LocalizedString ALT	( "DeviceButton", "Alt" );
+static LocalizedString INSERT	( "DeviceButton", "Insert" );
+static LocalizedString DELETE	( "DeviceButton", "Delete" );
+static LocalizedString PGUP	( "DeviceButton", "PgUp" );
+static LocalizedString PGDN	( "DeviceButton", "PgDn" );
+static LocalizedString BACKSLASH	( "DeviceButton", "Backslash" );
+
+RString InputHandler::GetDeviceSpecificInputString( const DeviceInput &di )
+{
+	if( di.device == DEVICE_NONE )
+		return RString();
+
+	if( di.device == DEVICE_KEYBOARD )
+	{
+		wchar_t c = DeviceButtonToChar( di.button, false );
+		if( c && c != L' ' )				// Don't show "Key  " for space.
+			return InputDeviceToString(di.device) + " " + Capitalize( WStringToRString(wstring()+c) );
+	}
+
+	RString s = DeviceButtonToString(di.button);
+	if( di.device != DEVICE_KEYBOARD )
+		InputDeviceToString(di.device) + " " + s;
+	return s;
+}
+
+RString InputHandler::GetLocalizedInputString( const DeviceInput &di )
+{
+	switch( di.button )
+	{
+	case KEY_HOME:		return HOME.GetValue();
+	case KEY_END:		return END.GetValue();
+	case KEY_UP:		return UP.GetValue();
+	case KEY_DOWN:		return DOWN.GetValue();
+	case KEY_SPACE:		return SPACE.GetValue();
+	case KEY_LSHIFT: case KEY_RSHIFT:	return SHIFT.GetValue();
+	case KEY_LCTRL:	 case KEY_RCTRL:	return CTRL.GetValue();
+	case KEY_LALT:	 case KEY_RALT:		return ALT.GetValue();
+	case KEY_INSERT:	return INSERT.GetValue();
+	case KEY_DEL:		return DELETE.GetValue();
+	case KEY_PGUP:		return PGUP.GetValue();
+	case KEY_PGDN:		return PGDN.GetValue();
+	case KEY_BACKSLASH:	return BACKSLASH.GetValue();
+	default:
+		wchar_t c = DeviceButtonToChar(di.button,false);
+		if( c && c != L' ' )				// Don't show "Key  " for space.
+			return Capitalize( WStringToRString(wstring()+c) );
+
+		return DeviceButtonToString(di.button);
 	}
 }
 

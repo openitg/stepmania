@@ -3,114 +3,70 @@
 #include "GameState.h"
 #include "song.h"
 #include "PrefsManager.h"
-#include "ScreenPrompt.h"
+#include "LocalizedString.h"
+#include "AdjustSync.h"
 
-
-static CString GetPromptText()
+static LocalizedString CHANGED_TIMING_OF	("ScreenSaveSync","You have changed the timing of");
+static LocalizedString WOULD_YOU_LIKE_TO_SAVE	("ScreenSaveSync","Would you like to save these changes?");
+static LocalizedString CHOOSING_NO_WILL_DISCARD	("ScreenSaveSync","Choosing NO will discard your changes.");
+static RString GetPromptText()
 {
-	CString s;
+	RString s;
 
 	{
-		float fOld = GAMESTATE->m_fGlobalOffsetSecondsOriginal;
-		float fNew = PREFSMAN->m_fGlobalOffsetSeconds;
-		float fDelta = fNew - fOld;
+		vector<RString> vs;
+		AdjustSync::GetSyncChangeTextGlobal( vs );
+		if( !vs.empty() )
+			s += join( "\n", vs ) + "\n\n";
+	}
 
-		if( fabs(fDelta) > 0.00001 )
+	{
+		vector<RString> vs;
+		AdjustSync::GetSyncChangeTextSong( vs );
+		if( !vs.empty() )
 		{
 			s += ssprintf( 
-				"You have changed the Global Offset\nfrom %+.3f to %+.3f (change of %+.3f, notes %s).\n\n",
-				fOld, 
-				fNew,
-				fDelta,
-				fDelta > 0 ? "earlier":"later"  );
+				CHANGED_TIMING_OF.GetValue()+"\n"
+				"%s:\n"
+				"\n", 
+				GAMESTATE->m_pCurSong->GetDisplayFullTitle().c_str() );
+
+			s += join( "\n", vs ) + "\n\n";
 		}
 	}
 
-	vector<CString> vsSongChanges;
-
-	{
-		float fOld = GAMESTATE->m_pTimingDataOriginal->m_fBeat0OffsetInSeconds;
-		float fNew = GAMESTATE->m_pCurSong->m_Timing.m_fBeat0OffsetInSeconds;
-		float fDelta = fNew - fOld;
-
-		if( fabs(fDelta) > 0.00001 )
-		{
-			vsSongChanges.push_back( ssprintf( 
-				"The song offset changed from %+.3f to %+.3f (change of %+.3f, notes %s).\n\n",
-				fOld, 
-				fNew,
-				fDelta,
-				fDelta > 0 ? "earlier":"later" ) );
-		}
-	}
-
-	for( unsigned i=0; i<GAMESTATE->m_pCurSong->m_Timing.m_BPMSegments.size(); i++ )
-	{
-		float fOld = GAMESTATE->m_pTimingDataOriginal->m_BPMSegments[i].m_fBPS;
-		float fNew = GAMESTATE->m_pCurSong->m_Timing.m_BPMSegments[i].m_fBPS;
-		float fDelta = fNew - fOld;
-
-		if( fabs(fDelta) > 0.00001 )
-		{
-			vsSongChanges.push_back( ssprintf( 
-				"The %s BPM segment changed from %+.3f BPS to %+.3f BPS (change of %+.3f).\n\n",
-				FormatNumberAndSuffix(i+1).c_str(),
-				fOld, 
-				fNew,
-				fDelta ) );
-		}
-	}
-
-	for( unsigned i=0; i<GAMESTATE->m_pCurSong->m_Timing.m_StopSegments.size(); i++ )
-	{
-		float fOld = GAMESTATE->m_pTimingDataOriginal->m_StopSegments[i].m_fStopSeconds;
-		float fNew = GAMESTATE->m_pCurSong->m_Timing.m_StopSegments[i].m_fStopSeconds;
-		float fDelta = fNew - fOld;
-
-		if( fabs(fDelta) > 0.00001 )
-		{
-			vsSongChanges.push_back( ssprintf( 
-				"The %s Stop segment changed from %+.3f seconds to %+.3f seconds (change of %+.3f).\n\n",
-				FormatNumberAndSuffix(i+1).c_str(),
-				fOld, 
-				fNew,
-				fDelta ) );
-		}
-	}
-
-
-	if( !vsSongChanges.empty() )
-	{
-		s += ssprintf( 
-			"You have changed the timing of\n"
-			"%s:\n"
-			"\n", 
-			GAMESTATE->m_pCurSong->GetDisplayFullTitle().c_str() );
-
-		s += join( "\n", vsSongChanges );
-	}
-
-	s +="\n\n"
-		"Would you like to save these changes to the song file?\n"
-		"Choosing NO will discard your changes.";
-
+	s += WOULD_YOU_LIKE_TO_SAVE.GetValue()+"\n"+
+		CHOOSING_NO_WILL_DISCARD.GetValue();
 	return s;
 }
 			
 static void SaveSyncChanges( void* pThrowAway )
 {
-	GAMESTATE->SaveSyncChanges();
+	AdjustSync::SaveSyncChanges();
 }
 
 static void RevertSyncChanges( void* pThrowAway )
 {
-	GAMESTATE->RevertSyncChanges();
+	AdjustSync::RevertSyncChanges();
 }
 
-void ScreenSaveSync::SaveSync()
+void ScreenSaveSync::Init()
+{
+	ScreenPrompt::Init();
+
+	ScreenPrompt::SetPromptSettings(
+		GetPromptText(), 
+		PROMPT_YES_NO, 
+		ANSWER_YES, 
+		SaveSyncChanges, 
+		RevertSyncChanges, 
+		NULL );
+}
+
+void ScreenSaveSync::PromptSaveSync( ScreenMessage sm )
 {
 	ScreenPrompt::Prompt(
-		SM_None,
+		sm,
 		GetPromptText(), 
 		PROMPT_YES_NO, 
 		ANSWER_YES, 

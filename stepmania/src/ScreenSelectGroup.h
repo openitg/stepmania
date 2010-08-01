@@ -14,7 +14,6 @@
 class ScreenSelectGroup : public ScreenWithMenuElements
 {
 public:
-	ScreenSelectGroup( CString sName );
 	virtual void Init();
 
 	virtual void Input( const InputEventPlus &input );
@@ -29,8 +28,8 @@ public:
 	void MenuStart( PlayerNumber pn );
 	void MenuBack( PlayerNumber pn );
 
-	void TweenOursOnScreen();
-	void TweenOursOffScreen();
+	void TweenOnScreen();
+	void TweenOffScreen();
 
 private:
 

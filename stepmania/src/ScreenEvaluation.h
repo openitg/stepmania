@@ -16,90 +16,108 @@
 #include "ThemeMetric.h"
 
 const int MAX_SONGS_TO_SHOW = 5;	// In summary, we show last 3 stages, plus extra stages if passed
-enum JudgeLine { marvelous, perfect, great, good, boo, miss, ok, max_combo, error, NUM_JUDGE_LINES };
-enum StatsLine { jumps, holds, mines, hands, rolls, NUM_STATS_LINES };
+enum JudgeLine
+{
+	JudgeLine_W1, 
+	JudgeLine_W2, 
+	JudgeLine_W3, 
+	JudgeLine_W4, 
+	JudgeLine_W5, 
+	JudgeLine_Miss, 
+	JudgeLine_Held, 
+	JudgeLine_MaxCombo, 
+	NUM_JudgeLine
+};
+enum StatLine
+{
+	StatLine_Jumps, 
+	StatLine_Holds, 
+	StatLine_Mines, 
+	StatLine_Hands, 
+	StatLine_Rolls, 
+	NUM_StatLine 
+};
 
 class ScreenEvaluation : public ScreenWithMenuElements
 {
 public:
-	ScreenEvaluation( CString sClassName );
+	ScreenEvaluation();
 	virtual void Init();
 	virtual void Input( const InputEventPlus &input );
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
-	virtual void TweenOursOffScreen();
+	virtual void TweenOffScreen();
 	virtual void MenuBack( PlayerNumber pn );
 	virtual void MenuStart( PlayerNumber pn );
 
 protected:
 	void EndScreen();
 
-	bool m_bSummary;
+	bool			m_bSummary;
 
 	// banner area
-	Banner				m_LargeBanner;
-	AutoActor			m_sprLargeBannerFrame;
+	Banner			m_LargeBanner;
+	AutoActor		m_sprLargeBannerFrame;
 	DifficultyIcon		m_DifficultyIcon[NUM_PLAYERS];
 	DifficultyMeter		m_DifficultyMeter[NUM_PLAYERS];
-	BitmapText			m_textPlayerOptions[NUM_PLAYERS];
-	Banner				m_SmallBanner[MAX_SONGS_TO_SHOW];
-	AutoActor			m_sprSmallBannerFrame[MAX_SONGS_TO_SHOW];
+	BitmapText		m_textPlayerOptions[NUM_PLAYERS];
+	Banner			m_SmallBanner[MAX_SONGS_TO_SHOW];
+	AutoActor		m_sprSmallBannerFrame[MAX_SONGS_TO_SHOW];
 
 	// grade area
-	AutoActor			m_sprGradeFrame[NUM_PLAYERS];
+	AutoActor		m_sprGradeFrame[NUM_PLAYERS];
 	GradeDisplay		m_Grades[NUM_PLAYERS];
-	AutoActor			m_sprGrade[NUM_PLAYERS];
 
 	// points area
-	bool				m_bNewSongsUnlocked;
+	bool			m_bNewSongsUnlocked;
 	PercentageDisplay	m_Percent[NUM_PLAYERS];
-	AutoActor			m_sprPercentFrame[NUM_PLAYERS];
+	AutoActor		m_sprPercentFrame[NUM_PLAYERS];
 
 	// bonus area
-	AutoActor			m_sprBonusFrame[NUM_PLAYERS];
-	Sprite				m_sprPossibleBar[NUM_PLAYERS][NUM_RADAR_CATEGORIES];
-	Sprite				m_sprActualBar[NUM_PLAYERS][NUM_RADAR_CATEGORIES];
+	AutoActor		m_sprBonusFrame[NUM_PLAYERS];
+	Sprite			m_sprPossibleBar[NUM_PLAYERS][NUM_RadarCategory];
+	Sprite			m_sprActualBar[NUM_PLAYERS][NUM_RadarCategory];
 
 	// survived area
-	AutoActor			m_sprSurvivedFrame[NUM_PLAYERS];
-	BitmapText			m_textSurvivedNumber[NUM_PLAYERS];
+	AutoActor		m_sprSurvivedFrame[NUM_PLAYERS];
+	BitmapText		m_textSurvivedNumber[NUM_PLAYERS];
 
 	// win area
-	AutoActor			m_sprWinFrame[NUM_PLAYERS];
-	Sprite				m_sprWin[NUM_PLAYERS];
+	AutoActor		m_sprWinFrame[NUM_PLAYERS];
+	Sprite			m_sprWin[NUM_PLAYERS];
 
 	// judgment area
-	Sprite				m_sprJudgeLabels[NUM_JUDGE_LINES];
-	BitmapText			m_textJudgeNumbers[NUM_JUDGE_LINES][NUM_PLAYERS];
+	Sprite			m_sprJudgeLabels[NUM_JudgeLine];
+	BitmapText		m_textJudgeNumbers[NUM_JudgeLine][NUM_PLAYERS];
 
 	// stats area
-	AutoActor			m_sprStatsLabel[NUM_STATS_LINES];
-	BitmapText			m_textStatsText[NUM_STATS_LINES][NUM_PLAYERS];
+	AutoActor		m_sprStatsLabel[NUM_StatLine];
+	BitmapText		m_textStatsText[NUM_StatLine][NUM_PLAYERS];
 
 	// score area
-	AutoActor			m_sprScoreLabel;
-	BitmapText			m_textScore[NUM_PLAYERS];
+	AutoActor		m_sprScoreLabel;
+	BitmapText		m_textScore[NUM_PLAYERS];
 
 	// total score area
-	AutoActor			m_sprTotalScoreLabel;
-	BitmapText			m_textTotalScore[NUM_PLAYERS];
+	AutoActor		m_sprTotalScoreLabel;
+	BitmapText		m_textTotalScore[NUM_PLAYERS];
 
 	// time area
-	AutoActor			m_sprTimeLabel;
-	BitmapText			m_textTime[NUM_PLAYERS];
+	AutoActor		m_sprTimeLabel;
+	BitmapText		m_textTime[NUM_PLAYERS];
 
 	// extra area
-	AutoActor			m_sprMachineRecord[NUM_PLAYERS];
-	AutoActor			m_sprPersonalRecord[NUM_PLAYERS];
-	bool				m_bTryExtraStage;
-	AutoActor			m_sprTryExtraStage;
+	AutoActor		m_sprMachineRecord[NUM_PLAYERS];
+	AutoActor		m_sprPersonalRecord[NUM_PLAYERS];
+	bool			m_bTryExtraStage;
+	AutoActor		m_sprTryExtraStage;
 	bool m_bFailed;
 
-	RageSound	m_soundStart;	// sound played if the player passes or fails
+	RageSound		m_soundStart;	// sound played if the player passes or fails
 
-	ThemeMetric<bool> SUMMARY;
+	ThemeMetric<bool>	SUMMARY;
 
-	bool m_bSavedScreenshot[NUM_PLAYERS];
+	bool			m_bSavedScreenshot[NUM_PLAYERS];
 };
 
 #endif

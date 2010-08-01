@@ -27,11 +27,14 @@ class InputHandler
 public:
 	InputHandler() { m_iInputsSinceUpdate = 0; }
 	virtual ~InputHandler() { }
-	virtual void Update( float fDeltaTime ) { }
-	virtual void GetDevicesAndDescriptions( vector<InputDevice>& vDevicesOut, vector<CString>& vDescriptionsOut ) = 0;
+	virtual void Update() { }
+	virtual bool DevicesChanged() { return false; }
+	virtual void GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut ) = 0;
 	
 	// Override to return a pretty string that's specific to the controller type.
-	virtual CString GetDeviceSpecificInputString( const DeviceInput &di ) { return di.toString(); }
+	virtual RString GetDeviceSpecificInputString( const DeviceInput &di );
+	virtual RString GetLocalizedInputString( const DeviceInput &di );
+	virtual wchar_t DeviceButtonToChar( DeviceButton button, bool bUseCurrentKeyModifiers );
 
 	// Override to find out whether the controller is currently plugged in.
 	// Not all InputHandlers will support this.  Not applicable to all InputHandlers.

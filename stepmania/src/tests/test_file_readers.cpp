@@ -17,7 +17,7 @@ void CreateBinaryTestFile( RageFile &f, int size )
 	}
 }
 
-void CreateBinaryTestFile( CString fn, int size )
+void CreateBinaryTestFile( RString fn, int size )
 {
 	RageFile f;
 	f.Open( fn, RageFile::WRITE );
@@ -36,7 +36,7 @@ void CreateBinaryTestFile( CString fn, int size )
 }
 
 
-bool CheckData( const CString &buf, int offset )
+bool CheckData( const RString &buf, int offset )
 {
 	char c = offset%256;
 	
@@ -62,7 +62,7 @@ int TestBinaryRead( RageFile &test, int size, bool AllowEOF, int ExpectedFilePos
 		return -1;
 	}
 
-	if( !CheckData( CString(buf, ret), TestDataPos ) )
+	if( !CheckData( RString(buf, ret), TestDataPos ) )
 	{
 		LOG->Warn("TestBinaryRead: check failed (size %i, %i,%i)",
 				size, ExpectedFilePos, TestDataPos );
@@ -77,14 +77,14 @@ int TestBinaryRead( RageFile &test, int size, bool AllowEOF, int ExpectedFilePos
 	return 1;
 }
 
-CString MakeTextTestLine( int line, int size )
+RString MakeTextTestLine( int line, int size )
 {
-	CString ret = ssprintf( "%02i", line );
-	ret.append( CString( size-ret.size(), 'x' ) );
+	RString ret = ssprintf( "%02i", line );
+	ret.append( RString( size-ret.size(), 'x' ) );
 	return ret;
 }
 
-bool CheckTextData( const CString &buf, int LineSize, int size )
+bool CheckTextData( const RString &buf, int LineSize, int size )
 {
 	return buf == MakeTextTestLine( LineSize, size );
 }
@@ -93,7 +93,7 @@ void TestText( int LineSize, bool DOS )
 {
 	const unsigned NumLines = 50;
 	
-	CString filename = "test.text";
+	RString filename = "test.text";
 	if( DOS )
 		filename += ".DOS";
 	filename += ssprintf( ".%i", LineSize );
@@ -104,7 +104,7 @@ void TestText( int LineSize, bool DOS )
 
 		for( unsigned line = 0; line < NumLines; ++line )
 		{
-			const CString TestLine = MakeTextTestLine( line, LineSize );
+			const RString TestLine = MakeTextTestLine( line, LineSize );
 			f.Write( TestLine );
 			if( DOS )
 				f.Write( "\r" );
@@ -130,7 +130,7 @@ void TestText( int LineSize, bool DOS )
 	int ExpectedPos = 0;
 	for( unsigned line = 0; line < NumLines; ++line )
 	{
-		CString buf;
+		RString buf;
 		if( test.GetLine( buf ) <= 0 )
 		{
 			LOG->Warn("Text read failure, line %i, size %i, DOS %i",
@@ -171,7 +171,7 @@ void TestText( int LineSize, bool DOS )
 	TestBinaryRead( test, 1024, true, test.Tell(), 1024*3 );
 
 	{
-		CString buf;
+		RString buf;
 		if( test.GetLine( buf ) <= 0 )
 		{
 			LOG->Warn( "Unexpected EOF in final line read, DOS %i", DOS );
@@ -192,7 +192,7 @@ void TestText( int LineSize, bool DOS )
 	}
 
 	{
-		CString buf;
+		RString buf;
 		if( test.GetLine( buf ) != 0 )
 		{
 			LOG->Warn( "Expected EOF in final text read, but didn't get it" );
@@ -234,11 +234,11 @@ void TestText()
 
 void TestSeek( bool relative )
 {
-	const CString TestLine = "Hello World\n";
+	const RString TestLine = "Hello World\n";
 	/* Print a couple kb of text.  Make sure this is big enough that the binary
 	 * test data after it won't start in the buffer; if that happens, the seek
 	 * will be optimized out. */
-	CString junk;
+	RString junk;
 	for( int lines = 0; lines < 128; ++lines )
 		junk += "XXXXXXXXX\n";
 
@@ -258,7 +258,7 @@ void TestSeek( bool relative )
 	 * read into the buffer. */
 	RageFile test;
 	test.Open("test.seek");
-	CString line;
+	RString line;
 	test.GetLine( line );
 
 	/* Run the absolute seek test twice. */
@@ -326,6 +326,73 @@ void TestSeek( bool relative )
 
 
 
+#include "RageFileDriverMemory.h"
+#include "RageFileDriverDeflate.h"
+void CheckDeflate( RageFileObjMem &data, int iSize, unsigned iInputCRC, int iBlockSize )
+{
+	data.Seek(0);
+
+	RString foo2;
+
+	RageFileObjInflate infl( &data, iSize );
+	infl.EnableCRC32();
+	int iGot = 0;
+	while( iGot < iSize )
+	{
+		int iRet = infl.Read( foo2, iBlockSize );
+		if( iRet == 0 )
+		{
+			LOG->Warn( "Premature EOF (iSize %i, iBlockSize %i)", iSize, iBlockSize );
+			return;
+		}
+			
+		iGot += iRet;
+	}
+
+	unsigned iOutputCRC;
+	if( !infl.GetCRC32(&iOutputCRC) )
+	{
+		LOG->Warn( "Inflate GetCRC32 failed" );
+		return;
+	}
+	if( iInputCRC != iOutputCRC )
+	{
+		LOG->Warn( "Expected CRC %08x, got %08x", iInputCRC, iOutputCRC );
+		return;
+	}
+
+	if( iSize != iGot )
+	{
+		LOG->Warn( "Expected %i, got %i", iSize, iGot );
+		return;
+	}
+}
+
+void TestDeflate()
+{
+	RageFileObjMem data;
+	RageFileObjDeflate defl( &data );
+	defl.EnableCRC32();
+
+	int iSize = 0;
+	while( iSize < 1024*512 )
+		iSize += defl.Write("test foo bar fah");
+	defl.Flush();
+
+	unsigned iOutputCRC;
+	if( !defl.GetCRC32(&iOutputCRC) )
+	{
+		LOG->Warn( "Deflate GetCRC32 failed" );
+		return;
+	}
+
+	CheckDeflate( data, iSize, iOutputCRC, 1 );
+	CheckDeflate( data, iSize, iOutputCRC, 1024 );
+	CheckDeflate( data, iSize, iOutputCRC, 1024*4 );
+	CheckDeflate( data, iSize, iOutputCRC, iSize-1 );
+	CheckDeflate( data, iSize, iOutputCRC, iSize );
+}
+
 int main( int argc, char *argv[] )
 {
 	test_handle_args( argc, argv );
@@ -348,6 +415,13 @@ int main( int argc, char *argv[] )
 
 	test_init();
 
+	if( GetCommandlineArgument("zlib") )
+	{
+		TestDeflate();
+		test_deinit();
+		return 0;
+	}
+			
 	if( CreateTestFiles )
 		CreateBinaryTestFile( "test.binary", 4096 );
 	else

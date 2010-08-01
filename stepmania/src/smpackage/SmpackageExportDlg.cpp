@@ -1,6 +1,8 @@
 // SmpackageExportDlg.cpp : implementation file
 //
 
+#define CO_EXIST_WITH_MFC
+#include "global.h"
 #include "stdafx.h"
 #include "smpackage.h"
 #include "SmpackageExportDlg.h"
@@ -11,10 +13,17 @@
 #include "smpackageUtil.h"	
 #include "EditInsallations.h"	
 #include "IniFile.h"	
+#include "RageFileDriverMemory.h"
+#include "archutils/Win32/SpecialDirs.h"
+#include "archutils/Win32/DialogUtil.h"
+#include "LocalizedString.h"
+#include "RageFileDriverDirect.h"
+#include "arch/Dialog/Dialog.h"
 
 #include <vector>
 #include <algorithm>
 #include <set>
+#include ".\smpackageexportdlg.h"
 using namespace std;
 
 #ifdef _DEBUG
@@ -57,6 +66,7 @@ BEGIN_MESSAGE_MAP(CSmpackageExportDlg, CDialog)
 	ON_CBN_SELCHANGE(IDC_COMBO_DIR, OnSelchangeComboDir)
 	ON_BN_CLICKED(IDC_BUTTON_OPEN, OnButtonOpen)
 	//}}AFX_MSG_MAP
+	ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
@@ -67,7 +77,7 @@ BOOL CSmpackageExportDlg::OnInitDialog()
 	CDialog::OnInitDialog();
 	
 	// TODO: Add extra initialization here
-	//
+	DialogUtil::LocalizeDialogAndContents( *this );
 
 	RefreshInstallationList();
 	
@@ -76,9 +86,9 @@ BOOL CSmpackageExportDlg::OnInitDialog()
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
-CString ReplaceInvalidFileNameChars( CString sOldFileName )
+RString ReplaceInvalidFileNameChars( RString sOldFileName )
 {
-	CString sNewFileName = sOldFileName;
+	RString sNewFileName = sOldFileName;
 	const char charsToReplace[] = { 
 		' ', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', 
 		'+', '=', '[', ']', '{', '}', '|', ':', '\"', '\\',
@@ -89,70 +99,15 @@ CString ReplaceInvalidFileNameChars( CString sOldFileName )
 	return sNewFileName;
 }
 
-void GetFilePaths( CString sDirOrFile, 	vector<CString> &asPathToFilesOut )
-{
-	vector<CString> asDirectoriesToExplore;
-
-	// HACK:
-	// Must use backslashes in the path, or else WinZip and WinRAR don't see the files.
-	// Not sure if this is ZipArchive's fault.
-
-	if( IsADirectory(sDirOrFile) && sDirOrFile.Right(1) != "\\" )
-	{
-		sDirOrFile += "\\";
-		sDirOrFile += "*.*";
-	}
-	
-	if( IsAFile(sDirOrFile) )
-	{
-		asPathToFilesOut.push_back( sDirOrFile );
-		return;
-	}
-
-
-	GetDirListing( sDirOrFile, asPathToFilesOut, false, true );
-	GetDirListing( sDirOrFile, asDirectoriesToExplore, true, true );
-	while( asDirectoriesToExplore.size() > 0 )
-	{
-		GetDirListing( asDirectoriesToExplore[0] + "\\*.*", asPathToFilesOut, false, true );
-		GetDirListing( asDirectoriesToExplore[0] + "\\*.*", asDirectoriesToExplore, true, true );
-		asDirectoriesToExplore.erase( asDirectoriesToExplore.begin() );
-	}
-}
-
-CString GetDesktopPath()
-{
-    static TCHAR strNull[2] = _T("");
-    static TCHAR strPath[MAX_PATH];
-    DWORD dwType;
-    DWORD dwSize = MAX_PATH;
-    HKEY  hKey;
-
-    // Open the appropriate registry key
-    LONG lResult = RegOpenKeyEx( HKEY_CURRENT_USER,
-                                _T("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders"),
-                                0, KEY_READ, &hKey );
-    if( ERROR_SUCCESS != lResult )
-        return strNull;
-
-    lResult = RegQueryValueEx( hKey, _T("Desktop"), NULL,
-                              &dwType, (BYTE*)strPath, &dwSize );
-    RegCloseKey( hKey );
-
-    if( ERROR_SUCCESS != lResult )
-        return strNull;
-
-    return strPath;
-}
-
-bool ExportPackage( CString sPackageName, const CStringArray& asDirectoriesToExport, CString sComment )	
+static LocalizedString ERROR_ADDING_FILE ( "SmpackageExportDlg", "Error adding file '%s'." );
+static bool ExportPackage( const RString &sPackageName, const RString &sSourceInstallDir, const vector<RString>& asDirectoriesToExport, const RString &sComment )	
 {
 	CZipArchive zip;
 	
 	//
 	// Create the package zip file
 	//
-	const CString sPackagePath = GetDesktopPath() + "\\" + sPackageName;
+	const RString sPackagePath = SpecialDirs::GetDesktopDir() + sPackageName;
 	try
 	{
 		zip.Open( sPackagePath, CZipArchive::zipCreate );
@@ -165,38 +120,53 @@ bool ExportPackage( CString sPackageName, const CStringArray& asDirectoriesToExp
 		return false;
 	}
 
-
 	zip.SetGlobalComment( sComment );
 
+
 	/* Find files to add to zip. */
-	unsigned i;
-	vector<CString> asFilePaths;
-	for( i=0; i<asDirectoriesToExport.size(); i++ )
-		GetFilePaths( asDirectoriesToExport[i], asFilePaths );
+	vector<RString> asFilePaths;
+	{
+		RageFileDriverDirect fileDriver( sSourceInstallDir );
+
+		for( unsigned i=0; i<asDirectoriesToExport.size(); i++ )
+		{
+			RString sDir = asDirectoriesToExport[i];
+			if( sDir.Right(1) != "/" )
+				sDir += "/";
+			GetDirListingRecursive( &fileDriver, sDir, "*", asFilePaths );
+			SMPackageUtil::StripIgnoredSmzipFiles( asFilePaths );
+		}
+	}
+
+
+	// Must use backslashes in the path, or else WinZip and WinRAR don't see the files.
+	// Not sure if this is ZipArchive's fault.
+	//;XXX
 
 	{
 		IniFile ini;
-		ini.SetValueI( "SMZIP", "Version", 1 );
+		ini.SetValue( "SMZIP", "Version", 1 );
 
-		set<CString> Directories;
-		for( i=0; i<asFilePaths.size(); i++ )
+		set<RString> Directories;
+		for( unsigned i=0; i<asFilePaths.size(); i++ )
 		{
-			const CString name = GetPackageDirectory( asFilePaths[i] );
+			const RString name = SMPackageUtil::GetPackageDirectory( asFilePaths[i] );
 			if( name != "" )
 				Directories.insert( name );
 		}
 
-		set<CString>::const_iterator it;
+		set<RString>::const_iterator it;
 		int num = 0;
 		for( it = Directories.begin(); it != Directories.end(); ++it )
 			ini.SetValue( "Packages", ssprintf("%i", num++), *it );
-		ini.SetValueI( "Packages", "NumPackages", num );
+		ini.SetValue( "Packages", "NumPackages", num );
 
-		CString buf;
-		ini.WriteBuf(buf);
+		RageFileObjMem f;
+		ini.WriteFile( f );
+		RString buf = f.GetString();
 
 		CZipMemFile control;
-		control.Write( buf.GetBuffer(0), buf.GetLength() );
+		control.Write( buf.GetBuffer(0), buf.size() );
 
 		control.Seek( 0, CZipAbstractFile::begin );
 		zip.AddNewFile( control, "smzip.ctl" );
@@ -207,20 +177,14 @@ bool ExportPackage( CString sPackageName, const CStringArray& asDirectoriesToExp
 	//
 	for( unsigned j=0; j<asFilePaths.size(); j++ )
 	{
-		CString sFilePath = asFilePaths[j];
+		RString sFilePath = asFilePaths[j];
 		
-		// don't export "thumbs.db" files or "CVS" folders
-		if( sFilePath.Find("CVS")!=-1 )
-			continue;	// skip
-		if( sFilePath.Find("Thumbs.db")!=-1 )
-			continue;	// skip
-
-		CString sDir, sFName, sExt;
-		splitrelpath( sFilePath, sDir, sFName, sExt );
+		RString sExt = GetExtension( sFilePath );
 		bool bUseCompression = true;
 		if( sExt.CompareNoCase("avi")==0 ||
 			sExt.CompareNoCase("mpeg")==0 ||
 			sExt.CompareNoCase("mpg")==0 ||
+			sExt.CompareNoCase("mp3")==0 ||
 			sExt.CompareNoCase("ogg")==0 ||
 			sExt.CompareNoCase("gif")==0 ||
 			sExt.CompareNoCase("jpg")==0 ||
@@ -229,11 +193,11 @@ bool ExportPackage( CString sPackageName, const CStringArray& asDirectoriesToExp
 
 		try
 		{
-			zip.AddNewFile( sFilePath, bUseCompression?Z_BEST_COMPRESSION:Z_NO_COMPRESSION, true );
+			zip.AddNewFile( sSourceInstallDir+sFilePath, sFilePath, bUseCompression?Z_BEST_COMPRESSION:Z_NO_COMPRESSION, true );
 		}
 		catch (CException* e)
 		{
-			AfxMessageBox( ssprintf("Error adding file '%s'.", sFilePath) );
+			Dialog::OK( ssprintf(ERROR_ADDING_FILE.GetValue(), sFilePath.c_str()) );
 			zip.Close();
 			e->Delete();
 			return false;
@@ -244,10 +208,10 @@ bool ExportPackage( CString sPackageName, const CStringArray& asDirectoriesToExp
 	return true;
 }
 
-bool CSmpackageExportDlg::MakeComment( CString &comment )
+bool CSmpackageExportDlg::MakeComment( RString &comment )
 {
 	bool DontAskForComment;
-	if( GetPref("DontAskForComment", DontAskForComment) && DontAskForComment )
+	if( SMPackageUtil::GetPref("DontAskForComment", DontAskForComment) && DontAskForComment )
 	{
 		comment = "";
 		return true;
@@ -260,19 +224,21 @@ bool CSmpackageExportDlg::MakeComment( CString &comment )
 
 	comment = commentDlg.m_sEnteredComment;
 	if( commentDlg.m_bDontAsk )
-		SetPref( "DontAskForComment", true );
+		SMPackageUtil::SetPref( "DontAskForComment", true );
 
 	return true;
 }
 
+static LocalizedString NO_ITEMS_ARE_CHECKED	( "CSmpackageExportDlg", "No items are checked." );
+static LocalizedString SUCCESSFULLY_EXPORTED( "CSmpackageExportDlg", "Successfully exported package '%s' to your Desktop." );
 void CSmpackageExportDlg::OnButtonExportAsOne() 
 {
-	CStringArray asPaths;
+	vector<RString> asPaths;
 	GetCheckedPaths( asPaths );
 
 	if( asPaths.size() == 0 )
 	{
-		AfxMessageBox( "No items are checked" );
+		Dialog::OK( NO_ITEMS_ARE_CHECKED.GetValue() );
 		return;
 	}
 	else if( asPaths.size() == 1 )
@@ -282,7 +248,7 @@ void CSmpackageExportDlg::OnButtonExportAsOne()
 	}
 
 	// Generate a package name
-	CString sPackageName;
+	RString sPackageName;
 	EnterName nameDlg;
 	int nResponse = nameDlg.DoModal();
 	if( nResponse != IDOK )
@@ -291,82 +257,67 @@ void CSmpackageExportDlg::OnButtonExportAsOne()
 	sPackageName = ReplaceInvalidFileNameChars( sPackageName+".smzip" );
 
 	// Generate a comment
-	CString sComment;
+	RString sComment;
 	if( !MakeComment(sComment) )
 		return;		// cancelled
 
-	if( ExportPackage( sPackageName, asPaths, sComment ) )
-		AfxMessageBox( ssprintf("Successfully exported package '%s' to your Desktop.",sPackageName) );
+	if( ExportPackage( sPackageName, GetCurrentInstallDir(), asPaths, sComment ) )
+		Dialog::OK( ssprintf(SUCCESSFULLY_EXPORTED.GetValue(),sPackageName.c_str()) );
 }
 
+static LocalizedString THE_FOLLOWING_PACKAGES_WERE_EXPORTED ("CSmpackageExportDlg","The following packages were exported to your Desktop:");
+static LocalizedString THE_FOLLOWING_PACKAGES_FAILED ("CSmpackageExportDlg","The following packages failed to export:");
 void CSmpackageExportDlg::OnButtonExportAsIndividual() 
 {
-	CStringArray asPaths;
+	vector<RString> asPaths;
 	GetCheckedPaths( asPaths );
 
 	if( asPaths.size() == 0 )
 	{
-		AfxMessageBox( "No items are checked" );
+		Dialog::OK( NO_ITEMS_ARE_CHECKED.GetValue() );
 		return;
 	}
 	
 	// Generate a comment
-	CString sComment;
+	RString sComment;
 	if( !MakeComment(sComment) )
 		return;		// cancelled
 
-	bool bAllSucceeded = true;
-	CStringArray asExportedPackages;
-	CStringArray asFailedPackages;
+	vector<RString> asExportedPackages;
+	vector<RString> asFailedPackages;
 	for( unsigned i=0; i<asPaths.size(); i++ )
 	{		
 		// Generate a package name for every path
-		CString sPath = asPaths[i];
+		RString sPath = asPaths[i];
 
-		CString sPackageName;
-		CStringArray asPathBits;
-		split( sPath, "\\", asPathBits, true );
-		sPackageName = asPathBits[ asPathBits.size()-1 ] + ".smzip";
-		sPackageName = ReplaceInvalidFileNameChars( sPackageName );
+		RString sPackageName = ReplaceInvalidFileNameChars( sPath ) + ".smzip";
 
-		CStringArray asPathsToExport;
+		vector<RString> asPathsToExport;
 		asPathsToExport.push_back( sPath );
 		
-		if( ExportPackage( sPackageName, asPathsToExport, sComment ) )
+		if( ExportPackage( sPackageName, GetCurrentInstallDir(), asPathsToExport, sComment ) )
 			asExportedPackages.push_back( sPackageName );
 		else
 			asFailedPackages.push_back( sPackageName );
 	}
 
-	CString sMessage;
-	if( asFailedPackages.size() == 0 )
-		sMessage = ssprintf("Successfully exported the package%s '%s' to your Desktop.", asFailedPackages.size()>1?"s":"", join("', '",asExportedPackages) );
-	else
-		sMessage = ssprintf("  The packages %s failed to export.", join(", ",asFailedPackages) );
-	AfxMessageBox( sMessage );
+	RString sMessage;
+	if( asExportedPackages.size() > 0 )
+		sMessage += THE_FOLLOWING_PACKAGES_WERE_EXPORTED.GetValue()+"\n\n"+join( "\n", asExportedPackages );
+	
+	if( asFailedPackages.size() > 0 )
+	{
+		if( !sMessage.empty() )
+			sMessage += "\n\n";
+		sMessage += THE_FOLLOWING_PACKAGES_FAILED.GetValue()+"\n\n"+join( "\n", asFailedPackages );
+	}
+	Dialog::OK( sMessage );
 }
 
 void CSmpackageExportDlg::OnButtonPlay() 
 {
 	// TODO: Add your control notification handler code here
-
-	PROCESS_INFORMATION pi;
-	STARTUPINFO	si;
-	ZeroMemory( &si, sizeof(si) );
-
-	CreateProcess(
-		NULL,		// pointer to name of executable module
-		"stepmania.exe",		// pointer to command line string
-		NULL,  // process security attributes
-		NULL,   // thread security attributes
-		false,  // handle inheritance flag
-		0, // creation flags
-		NULL,  // pointer to new environment block
-		NULL,   // pointer to current directory name
-		&si,  // pointer to STARTUPINFO
-		&pi  // pointer to PROCESS_INFORMATION
-	);
-
+	SMPackageUtil::LaunchGame();
 	exit(0);
 }
 
@@ -407,7 +358,7 @@ void CSmpackageExportDlg::GetCheckedTreeItems( CArray<HTREEITEM,HTREEITEM>& aChe
 			aCheckedItemsOut.Add( aItems[i] );
 }
 
-void CSmpackageExportDlg::GetCheckedPaths( CStringArray& aPathsOut )
+void CSmpackageExportDlg::GetCheckedPaths( vector<RString>& aPathsOut )
 {
 	CArray<HTREEITEM,HTREEITEM> aItems;	
 
@@ -416,15 +367,15 @@ void CSmpackageExportDlg::GetCheckedPaths( CStringArray& aPathsOut )
 	{
 		HTREEITEM item = aItems[i];
 
-		CString sPath;
+		RString sPath;
 		
 		while( item )
 		{
-			sPath = m_tree.GetItemText(item) + '\\' + sPath;
+			sPath = RString((LPCTSTR)m_tree.GetItemText(item)) + '/' + sPath;
 			item = m_tree.GetParentItem(item);
 		}
 
-		sPath.TrimRight('\\');	// strip off last slash
+		TrimRight( sPath, "/" );	// strip off last slash
 
 		aPathsOut.push_back( sPath );
 	}
@@ -438,7 +389,6 @@ void CSmpackageExportDlg::OnButtonEdit()
 	int nResponse = dlg.DoModal();
 	if( nResponse == IDOK )
 	{
-		WriteStepManiaInstallDirs( dlg.m_asReturnedInstallDirs );
 		RefreshInstallationList();
 		RefreshTree();
 	}
@@ -448,8 +398,8 @@ void CSmpackageExportDlg::RefreshInstallationList()
 {
 	m_comboDir.ResetContent();
 
-	CStringArray asInstallDirs;
-	GetStepManiaInstallDirs( asInstallDirs );
+	vector<RString> asInstallDirs;
+	SMPackageUtil::GetGameInstallDirs( asInstallDirs );
 	for( unsigned i=0; i<asInstallDirs.size(); i++ )
 	{
 		m_comboDir.AddString( asInstallDirs[i] );
@@ -463,81 +413,88 @@ void CSmpackageExportDlg::OnSelchangeComboDir()
 	RefreshTree();
 }
 
+RString CSmpackageExportDlg::GetCurrentInstallDir()
+{
+	CString s;
+	m_comboDir.GetWindowText( s );
+	RString s2 = s;
+	if( s2.Right(1) != "/" )
+		s2 += "/";
+	return s2;
+}
+
 void CSmpackageExportDlg::RefreshTree()
 {
 	m_tree.DeleteAllItems();
 
-	CString sDir;
-	m_comboDir.GetWindowText( sDir );
-
-	SetCurrentDirectory( sDir );
+	RageFileDriverDirect fileDriver( GetCurrentInstallDir() );
 
 	// Add announcers
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "Announcers" );
-		GetDirListing( "Announcers\\*.*", as1, true, false );
+		fileDriver.GetDirListing( "Announcers/*", as1, true, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 			m_tree.InsertItem( as1[i], item1 );
 	}
 
 	// Add characters
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "Characters" );
-		GetDirListing( "Characters\\*.*", as1, true, false );
+		fileDriver.GetDirListing( "Characters/*", as1, true, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 			m_tree.InsertItem( as1[i], item1 );
 	}
 
 	// Add themes
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "Themes" );
-		GetDirListing( "Themes\\*.*", as1, true, false );
+		fileDriver.GetDirListing( "Themes/*", as1, true, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 			m_tree.InsertItem( as1[i], item1 );
 	}
 
 	// Add BGAnimations
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "BGAnimations" );
-		GetDirListing( "BGAnimations\\*.*", as1, true, false );
+		fileDriver.GetDirListing( "BGAnimations/*", as1, true, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 			m_tree.InsertItem( as1[i], item1 );
 	}
 
 	// Add RandomMovies
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "RandomMovies" );
-		GetDirListing( "RandomMovies\\*.avi", as1, false, false );
-		GetDirListing( "RandomMovies\\*.mpg", as1, false, false );
-		GetDirListing( "RandomMovies\\*.mpeg", as1, false, false );
+		fileDriver.GetDirListing( "RandomMovies/*.avi", as1, false, false );
+		fileDriver.GetDirListing( "RandomMovies/*.mpg", as1, false, false );
+		fileDriver.GetDirListing( "RandomMovies/*.mpeg", as1, false, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 			m_tree.InsertItem( as1[i], item1 );
 	}
 
 	// Add visualizations
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "Visualizations" );
-		GetDirListing( "Visualizations\\*.avi", as1, false, false );
-		GetDirListing( "Visualizations\\*.mpg", as1, false, false );
-		GetDirListing( "Visualizations\\*.mpeg", as1, false, false );
+		fileDriver.GetDirListing( "Visualizations/*.avi", as1, false, false );
+		fileDriver.GetDirListing( "Visualizations/*.mpg", as1, false, false );
+		fileDriver.GetDirListing( "Visualizations/*.mpeg", as1, false, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 			m_tree.InsertItem( as1[i], item1 );
 	}
 
 	// Add courses
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "Courses" );
-		GetDirListing( "Courses\\*.crs", as1, false, false );
+		fileDriver.GetDirListing( "Courses/*.crs", as1, false, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 		{
-			as1[i] = as1[i].Left(as1[i].GetLength()-4);	// strip off ".crs"
+			as1[i] = as1[i].Left(as1[i].size()-4);	// strip off ".crs"
 			m_tree.InsertItem( as1[i], item1 );
 		}
 	}
@@ -547,14 +504,14 @@ void CSmpackageExportDlg::RefreshTree()
 	// Add NoteSkins
 	//
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "NoteSkins" );
-		GetDirListing( "NoteSkins\\*.*", as1, true, false );
+		fileDriver.GetDirListing( "NoteSkins/*", as1, true, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 		{
-			CStringArray as2;
+			vector<RString> as2;
 			HTREEITEM item2 = m_tree.InsertItem( as1[i], item1 );
-			GetDirListing( "NoteSkins\\" + as1[i] + "\\*.*", as2, true, false );
+			fileDriver.GetDirListing( "NoteSkins/" + as1[i] + "/*", as2, true, false );
 			for( unsigned j=0; j<as2.size(); j++ )
 				m_tree.InsertItem( as2[j], item2 );
 		}
@@ -564,14 +521,14 @@ void CSmpackageExportDlg::RefreshTree()
 	// Add Songs
 	//
 	{
-		CStringArray as1;
+		vector<RString> as1;
 		HTREEITEM item1 = m_tree.InsertItem( "Songs" );
-		GetDirListing( "Songs\\*.*", as1, true, false );
+		fileDriver.GetDirListing( "Songs/*", as1, true, false );
 		for( unsigned i=0; i<as1.size(); i++ )
 		{
-			CStringArray as2;
+			vector<RString> as2;
 			HTREEITEM item2 = m_tree.InsertItem( as1[i], item1 );
-			GetDirListing( "Songs\\" + as1[i] + "\\*.*", as2, true, false );
+			fileDriver.GetDirListing( "Songs/" + as1[i] + "/*", as2, true, false );
 			for( unsigned j=0; j<as2.size(); j++ )
 				m_tree.InsertItem( as2[j], item2 );
 		}
@@ -582,8 +539,10 @@ void CSmpackageExportDlg::RefreshTree()
 	CArray<HTREEITEM,HTREEITEM> aItems;
 	GetTreeItems( aItems );
 	for( int i=0; i<aItems.GetSize(); i++ )
+	{
 		if( m_tree.GetItemText(aItems[i]).CompareNoCase("CVS")==0 )
 			m_tree.DeleteItem( aItems[i] );
+	}
 }
 
 void CSmpackageExportDlg::OnButtonOpen() 
@@ -614,3 +573,28 @@ void CSmpackageExportDlg::OnButtonOpen()
 		&pi  // pointer to PROCESS_INFORMATION
 	);
 }
+
+/*
+ * (c) 2002-2005 Chris Danford
+ * All rights reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, and/or sell copies of the Software, and to permit persons to
+ * whom the Software is furnished to do so, provided that the above
+ * copyright notice(s) and this permission notice appear in all copies of
+ * the Software and that both the above copyright notice(s) and this
+ * permission notice appear in supporting documentation.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+ * THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+ * INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT
+ * OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */

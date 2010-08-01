@@ -4,11 +4,6 @@
 
 REGISTER_SCREEN_CLASS( ScreenGameplayNormal );
 
-ScreenGameplayNormal::ScreenGameplayNormal( CString sName ) : ScreenGameplay(sName)
-{
-
-}
-
 void ScreenGameplayNormal::FillPlayerInfo( vector<PlayerInfo> &vPlayerInfoOut )
 {
 	vPlayerInfoOut.resize( NUM_PLAYERS );

@@ -7,10 +7,13 @@ class RageMutex;
 class ArchHooks_Win32: public ArchHooks
 {
 public:
-    ArchHooks_Win32();
-    ~ArchHooks_Win32();
-    void DumpDebugInfo();
+	ArchHooks_Win32();
+	~ArchHooks_Win32();
+	RString GetArchName() { return "Windows"; }
+	void DumpDebugInfo();
 	void RestartProgram();
+	RString GetMachineId();
+	bool CheckForMultipleInstances();
 
 	int OldThreadPriority;
 	RageMutex *TimeCritMutex;
@@ -21,9 +24,8 @@ public:
 	void BoostPriority();
 	void UnBoostPriority();
 	void SetupConcurrentRenderingThread();
-
-private:
-	void CheckVideoDriver();
+	
+	bool GoToURL( RString sUrl );
 };
 
 #ifdef ARCH_HOOKS

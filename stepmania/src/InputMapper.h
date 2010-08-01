@@ -9,10 +9,9 @@
 #include "StyleInput.h"
 #include "GameConstantsAndTypes.h"
 
-
-
 const int NUM_GAME_TO_DEVICE_SLOTS	= 5;	// five device inputs may map to one game input
-
+const int NUM_SHOWN_GAME_TO_DEVICE_SLOTS = 3;
+const int NUM_USER_GAME_TO_DEVICE_SLOTS = 2;
 
 class InputMapper
 {
@@ -25,42 +24,43 @@ public:
 
 	void ClearAllMappings();
 
-	void SetInputMap( DeviceInput DeviceI, GameInput GameI, int iSlotIndex );
-	void ClearFromInputMap( DeviceInput DeviceI );
-	void ClearFromInputMap( GameInput GameI, int iSlotIndex );
+	void SetInputMap( const DeviceInput &DeviceI, const GameInput &GameI, int iSlotIndex );
+	void ClearFromInputMap( const DeviceInput &DeviceI );
+	bool ClearFromInputMap( const GameInput &GameI, int iSlotIndex );
 
 	void AddDefaultMappingsForCurrentGameIfUnmapped();
 	void AutoMapJoysticksForCurrentGame();
+	bool CheckForChangedInputDevicesAndRemap( RString &sMessageOut );
 
-	bool IsMapped( DeviceInput DeviceI );
-	bool IsMapped( GameInput GameI );
+	bool IsMapped( const DeviceInput &DeviceI );
+	bool IsMapped( const GameInput &GameI );
 	
-	bool DeviceToGame( DeviceInput DeviceI, GameInput& GameI );	// return true if there is a mapping from device to pad
-	bool GameToDevice( GameInput GameI, int iSoltNum, DeviceInput& DeviceI );	// return true if there is a mapping from pad to device
+	bool DeviceToGame( const DeviceInput &DeviceI, GameInput& GameI );	// return true if there is a mapping from device to pad
+	bool GameToDevice( const GameInput &GameI, int iSoltNum, DeviceInput& DeviceI );	// return true if there is a mapping from pad to device
 
-	void GameToStyle( GameInput GameI, StyleInput &StyleI );
-	void StyleToGame( StyleInput StyleI, GameInput &GameI );
+	void GameToStyle( const GameInput &GameI, StyleInput &StyleI );
+	void StyleToGame( const StyleInput &StyleI, GameInput &GameI );
 
-	void GameToMenu( GameInput GameI, MenuInput &MenuI );
-	void MenuToGame( MenuInput MenuI, GameInput GameIout[4] );
+	void GameToMenu( const GameInput &GameI, MenuInput &MenuI );
+	void MenuToGame( const MenuInput &MenuI, GameInput GameIout[4] );
 
-	float GetSecsHeld( GameInput GameI );
-	float GetSecsHeld( MenuInput MenuI );
-	float GetSecsHeld( StyleInput StyleI );
+	float GetSecsHeld( const GameInput &GameI, MultiPlayer mp = MultiPlayer_INVALID );
+	float GetSecsHeld( const MenuInput &MenuI );
+	float GetSecsHeld( const StyleInput &StyleI, MultiPlayer mp = MultiPlayer_INVALID );
 
-	bool IsButtonDown( GameInput GameI );
-	bool IsButtonDown( MenuInput MenuI );
-	bool IsButtonDown( StyleInput StyleI );
+	bool IsButtonDown( const GameInput &GameI, MultiPlayer mp = MultiPlayer_INVALID );
+	bool IsButtonDown( const MenuInput &MenuI );
+	bool IsButtonDown( const StyleInput &StyleI, MultiPlayer mp = MultiPlayer_INVALID );
 
-	void ResetKeyRepeat( GameInput GameI );
-	void ResetKeyRepeat( MenuInput MenuI );
-	void ResetKeyRepeat( StyleInput StyleI );
+	void ResetKeyRepeat( const GameInput &GameI );
+	void ResetKeyRepeat( const MenuInput &MenuI );
+	void ResetKeyRepeat( const StyleInput &StyleI );
 
 	struct Mapping {
 		bool IsEndMarker() const { return iSlotIndex==-1; }
 
 		int iSlotIndex;	// -1 == end marker
-		int deviceButton;
+		DeviceButton deviceButton;
 		GameButton gb;
 		/* If this is true, this is an auxilliary mapping assigned to the second
 		* player.  If two of the same device are found, and the device has secondary
@@ -76,15 +76,13 @@ public:
 	static InputDevice MultiPlayerToInputDevice( MultiPlayer mp );
 	static MultiPlayer InputDeviceToMultiPlayer( InputDevice id );
 
+	void Unmap( InputDevice device );
 	void ApplyMapping( const Mapping *maps, GameController gc, InputDevice device );
 
 protected:
 	// all the DeviceInputs that map to a GameInput
 	DeviceInput m_GItoDI[MAX_GAME_CONTROLLERS][MAX_GAME_BUTTONS][NUM_GAME_TO_DEVICE_SLOTS];
 
-	// lookup for efficiency from a DeviceInput to a GameInput
-	// This is repopulated every time m_PItoDI changes by calling UpdateTempDItoPI().
-	GameInput m_tempDItoGI[NUM_INPUT_DEVICES][MAX_DEVICE_BUTTONS];
 	void UpdateTempDItoGI();
 };
 

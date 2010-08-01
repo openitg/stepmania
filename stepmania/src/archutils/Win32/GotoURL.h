@@ -1,7 +1,9 @@
+/* Open URLs in a browser. */
+
 #ifndef GOTO_URL_H
 #define GOTO_URL_H
 
-bool GotoURL(CString url);
+bool GotoURL( RString sUrl );
 
 #endif
 

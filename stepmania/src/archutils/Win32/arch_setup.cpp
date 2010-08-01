@@ -1,82 +1,12 @@
 #include "global.h"
 #include "arch_setup.h"
-#include "RageThreads.h"
-#include <time.h>
 #ifdef _WINDOWS
 #  include <windows.h>
 #endif
-#include "StepMania.h"
-
-struct tm *my_localtime_r( const time_t *timep, struct tm *result )
-{
-	static RageMutex mut("my_localtime_r");
-	LockMut(mut);
-
-	*result = *localtime( timep );
-	return result;
-}
-
-struct tm *my_gmtime_r( const time_t *timep, struct tm *result )
-{
-	static RageMutex mut("my_gmtime_r");
-	LockMut(mut);
-
-	*result = *gmtime( timep );
-	return result;
-}
-
-void my_usleep( unsigned long usec )
-{
-	Sleep( usec/1000 );
-}
+#include "CommandLine.h"
 
 #if defined(WINDOWS)
-/* Ugh.  Windows doesn't give us the argv[] parser; all it gives is CommandLineToArgvW,
- * which is NT-only, so we have to do this ourself.  Don't be fancy; only handle double
- * quotes. */
-int GetWin32CmdLine( char** &argv )
-{
-	char *pCmdLine = GetCommandLine();
-	int argc = 0;
-	argv = NULL;
-
-	int i = 0;
-	while( pCmdLine[i] )
-	{
-		argv = (char **) realloc( argv, (argc+1) * sizeof(char *) );
-		argv[argc] = pCmdLine+i;
-		++argc;
-
-		/* Skip to the end of this argument. */
-		while( pCmdLine[i] && pCmdLine[i] != ' ' )
-		{
-			if( pCmdLine[i] == '"' )
-			{
-				/* Erase the quote. */
-				memmove( pCmdLine+i, pCmdLine+i+1, strlen(pCmdLine+i+1)+1 );
-
-				/* Skip to the close quote. */
-				while( pCmdLine[i] && pCmdLine[i] != '"' )
-					++i;
-
-				/* Erase the close quote. */
-				if( pCmdLine[i] == '"' )
-					memmove( pCmdLine+i, pCmdLine+i+1, strlen(pCmdLine+i+1)+1 );
-			}
-			else
-				++i;
-		}
-
-		if( pCmdLine[i] == ' ' )
-		{
-			pCmdLine[i] = '\0';
-			++i;
-		}
-	}
-
-	return argc;
-}
-
+int main( int argc, char* argv[] );
 int __stdcall WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine, int nCmdShow )
 {
 	char **argv;

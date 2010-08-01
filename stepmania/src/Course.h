@@ -10,9 +10,12 @@
 #include "Trail.h"
 #include <set>
 #include "EnumHelper.h"
+#include "RageTypes.h"
+#include "SongUtil.h"
+#include "StepsUtil.h"
 
-struct PlayerOptions;
-struct SongOptions;
+class PlayerOptions;
+class SongOptions;
 class Song;
 class Steps;
 class Profile;
@@ -26,11 +29,12 @@ enum CourseType
 	COURSE_TYPE_ONI,		// if life meter type is BATTERY
 	COURSE_TYPE_ENDLESS,	// if set to REPEAT
 	COURSE_TYPE_SURVIVAL,	// if life meter type is TIME
-	NUM_CourseType
+	NUM_CourseType,
+	CourseType_INVALID
 };
 #define FOREACH_CourseType( i ) FOREACH_ENUM( CourseType, NUM_CourseType, i )
-const CString& CourseTypeToString( CourseType i );
-const CString& CourseTypeToThemedString( CourseType i );
+const RString& CourseTypeToString( CourseType i );
+const RString& CourseTypeToLocalizedString( CourseType i );
 
 inline PlayMode CourseTypeToPlayMode( CourseType ct ) { return (PlayMode)(PLAY_MODE_NONSTOP+ct); }
 inline CourseType PlayModeToCourseType( PlayMode pm ) { return (CourseType)(pm-PLAY_MODE_NONSTOP); }
@@ -46,8 +50,8 @@ enum SongSort
 	NUM_SongSort,
 };
 #define FOREACH_SongSort( i ) FOREACH_ENUM( SongSort, NUM_SongSort, i )
-const CString& SongSortToString( SongSort ss );
-const CString& SongSortToThemedString( SongSort ss );
+const RString& SongSortToString( SongSort ss );
+const RString& SongSortToLocalizedString( SongSort ss );
 
 class CourseEntry
 {
@@ -57,17 +61,15 @@ public:
 	// filter criteria, applied from top to bottom
 	// TODO: change this to be a SongID
 	Song* pSong;			// don't filter if NULL
-	CString sSongGroup;		// don't filter if empty
-	Difficulty baseDifficulty;	// don't filter if DIFFICULTY_INVALID
-	bool bNoDifficult;			// if true, CourseDifficulty doesn't affect this entry
-	int iLowMeter;			// don't filter if -1
-	int iHighMeter;			// don't filter if -1
+	SongCriteria songCriteria;
+	StepsCriteria stepsCriteria;
+	bool bNoDifficult;		// if true, CourseDifficulty doesn't affect this entry
 	
-	SongSort songSort;	// sort by this after filtering
-	int iChooseIndex;	// 
+	SongSort songSort;		// sort by this after filtering
+	int iChooseIndex;		// 
 
-	CString sModifiers;		// set player and song options using these
-	AttackArray attacks;	// timed sModifiers
+	RString sModifiers;		// set player and song options using these
+	AttackArray attacks;		// timed sModifiers
 	float fGainSeconds;		// time gained back at the beginning of the song.  LifeMeterTime only.
 
 	CourseEntry()
@@ -75,11 +77,7 @@ public:
 		bSecret = false;
 
 		pSong = NULL;
-		sSongGroup = "";
-		baseDifficulty = DIFFICULTY_INVALID;
 		bNoDifficult = false;
-		iLowMeter = -1;
-		iHighMeter = -1;
 
 		songSort = SongSort_Randomize;
 		iChooseIndex = 0;
@@ -88,14 +86,9 @@ public:
 		fGainSeconds = 0;
 	}
 
-	bool IsRandomSong() const
-	{
-		return
-			iChooseIndex == -1  &&
-			pSong == NULL;
-	}
+	bool IsFixedSong() const { return pSong != NULL; }
 
-	CString GetTextDescription() const;
+	RString GetTextDescription() const;
 	int GetNumModChanges() const;
 
 	// Lua
@@ -110,37 +103,37 @@ public:
 	Course();
 
 	bool		m_bIsAutogen;		// was this created by AutoGen?
-	CString		m_sPath;
+	RString		m_sPath;
 
-	CString		m_sMainTitle, m_sMainTitleTranslit;
-	CString		m_sSubTitle, m_sSubTitleTranslit;
+	RString		m_sMainTitle, m_sMainTitleTranslit;
+	RString		m_sSubTitle, m_sSubTitleTranslit;
 
 	bool HasBanner() const;
 
-	CString		m_sBannerPath;
-	CString		m_sCDTitlePath;
-	CString		m_sGroupName;
+	RString		m_sBannerPath;
+	RString		m_sCDTitlePath;
+	RString		m_sGroupName;
 
 	bool		m_bRepeat;	// repeat after last song?  "Endless"
 	bool		m_bShuffle;	// play the songs in a random order
-	int			m_iLives;	// -1 means use bar life meter
-	int			m_iCustomMeter[NUM_DIFFICULTIES];	// -1 = no meter specified
+	int		m_iLives;	// -1 means use bar life meter
+	int		m_iCustomMeter[NUM_Difficulty];	// -1 = no meter specified
 	bool		m_bSortByMeter;
 
 	vector<CourseEntry> m_vEntries;
 
 	/* If PREFSMAN->m_bShowNative is off, these are the same as GetTranslit* below.
 	 * Otherwise, they return the main titles. */
-	CString GetDisplayMainTitle() const;
-	CString GetDisplaySubTitle() const;
+	RString GetDisplayMainTitle() const;
+	RString GetDisplaySubTitle() const;
 
 	/* Returns the transliterated titles, if any; otherwise returns the main titles. */
-	CString GetTranslitMainTitle() const { return m_sMainTitleTranslit.size()? m_sMainTitleTranslit: m_sMainTitle; }
-	CString GetTranslitSubTitle() const { return m_sSubTitleTranslit.size()? m_sSubTitleTranslit: m_sSubTitle; }
+	RString GetTranslitMainTitle() const { return m_sMainTitleTranslit.size()? m_sMainTitleTranslit: m_sMainTitle; }
+	RString GetTranslitSubTitle() const { return m_sSubTitleTranslit.size()? m_sSubTitleTranslit: m_sSubTitle; }
 
 	/* "title subtitle" */
-	CString GetDisplayFullTitle() const;
-	CString GetTranslitFullTitle() const;
+	RString GetDisplayFullTitle() const;
+	RString GetTranslitFullTitle() const;
 
 	// Dereferences course_entries and returns only the playable Songs and Steps
 	Trail* GetTrail( StepsType st, CourseDifficulty cd=DIFFICULTY_MEDIUM ) const;
@@ -164,15 +157,10 @@ public:
 	void SetCourseType( CourseType ct );
 	PlayMode GetPlayMode() const;
 
-	bool IsFixed() const;
-
 	bool ShowInDemonstrationAndRanking() const;
 
 	void RevertFromDisk();
 	void Init();
-	void AutogenEndlessFromGroup( CString sGroupName, Difficulty dc );
-	void AutogenNonstopFromGroup( CString sGroupName, Difficulty dc );
-	void AutogenOniFromArtist( CString sArtistName, CString sArtistNameTranslit, vector<Song*> aSongs, Difficulty dc );
 
 	// sorting values
 	int		m_SortOrder_TotalDifficulty;
@@ -182,18 +170,20 @@ public:
 	void UpdateCourseStats( StepsType st );
 
 	/* Call to regenerate Trails with random entries */
-	void RegenerateNonFixedTrails();
+	void RegenerateNonFixedTrails() const;
 
 	/* Call when a Song or its Steps are deleted/changed. */
 	void Invalidate( Song *pStaleSong );
 
 	void GetAllCachedTrails( vector<Trail *> &out );
-	CString GetCacheFilePath() const;
+	RString GetCacheFilePath() const;
 
 	const CourseEntry *FindFixedSong( const Song *pSong ) const;
 
 	ProfileSlot GetLoadedFromProfileSlot() const { return m_LoadedFromProfile; }
 	void SetLoadedFromProfile( ProfileSlot slot ) { m_LoadedFromProfile = slot; }
+
+	bool Matches(RString sGroup, RString sCourse) const;
 
 	// Lua
 	void PushSelf( lua_State *L );
@@ -203,8 +193,8 @@ public:
 	bool GetTrailUnsorted( StepsType st, CourseDifficulty cd, Trail &trail ) const;
 	bool GetTrailSorted( StepsType st, CourseDifficulty cd, Trail &trail ) const;
 
-	bool IsAnEdit() const { return m_LoadedFromProfile != PROFILE_SLOT_INVALID; }
-	ProfileSlot		m_LoadedFromProfile;	// PROFILE_SLOT_INVALID if wasn't loaded from a profile
+	bool IsAnEdit() const { return m_LoadedFromProfile != ProfileSlot_INVALID; }
+	ProfileSlot		m_LoadedFromProfile;	// ProfileSlot_INVALID if wasn't loaded from a profile
 
 	typedef pair<StepsType,Difficulty> CacheEntry;
 	struct CacheData

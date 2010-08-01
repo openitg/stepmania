@@ -2,8 +2,6 @@
 #include "ScoreDisplayRave.h"
 #include "RageUtil.h"
 #include "RageLog.h"
-#include "PrefsManager.h"
-#include "RageLog.h"
 #include "ThemeManager.h"
 #include "ActorUtil.h"
 #include "PlayerState.h"
@@ -13,24 +11,16 @@ ScoreDisplayRave::ScoreDisplayRave()
 {
 	LOG->Trace( "ScoreDisplayRave::ScoreDisplayRave()" );
 	
-	this->SetName( "ScoreDisplayRave" );
-
 	m_lastLevelSeen = ATTACK_LEVEL_1;
-
-	this->AddChild( &m_sprFrameBase );
 
 	for( int i=0; i<NUM_ATTACK_LEVELS; i++ )	
 	{
 		m_sprMeter[i].Load( THEME->GetPathG("ScoreDisplayRave",ssprintf("stream level%d",i+1)) ); 
 		m_sprMeter[i].SetCropRight( 1.f );
-		this->AddChild( &m_sprMeter[i] );
 	}
-
-	this->AddChild( &m_sprFrameOverlay );
 
 	m_textLevel.LoadFromFont( THEME->GetPathF("ScoreDisplayRave","level") );
 	m_textLevel.SetText( "1" );
-	this->AddChild( &m_textLevel );
 }
 
 void ScoreDisplayRave::Init( const PlayerState* pPlayerState, const PlayerStageStats* pPlayerStageStats )
@@ -40,16 +30,21 @@ void ScoreDisplayRave::Init( const PlayerState* pPlayerState, const PlayerStageS
 	PlayerNumber pn = pPlayerState->m_PlayerNumber;
 
 	m_sprFrameBase.Load( THEME->GetPathG("ScoreDisplayRave",ssprintf("frame base p%d",pn+1)) );
-	m_sprFrameOverlay.Load( THEME->GetPathG("ScoreDisplayRave",ssprintf("frame overlay p%d",pn+1)) );
+	this->AddChild( m_sprFrameBase );
 
 	for( int i=0; i<NUM_ATTACK_LEVELS; i++ )	
 	{
 		m_sprMeter[i].SetName( ssprintf("MeterP%d",pn+1) );
 		ON_COMMAND( m_sprMeter[i] );
+		this->AddChild( &m_sprMeter[i] );
 	}
 		
 	m_textLevel.SetName( ssprintf("LevelP%d",pn+1) );
 	ON_COMMAND( m_textLevel );
+	this->AddChild( &m_textLevel );
+
+	m_sprFrameOverlay.Load( THEME->GetPathG("ScoreDisplayRave",ssprintf("frame overlay p%d",pn+1)) );
+	this->AddChild( m_sprFrameOverlay );
 }
 
 void ScoreDisplayRave::Update( float fDelta )

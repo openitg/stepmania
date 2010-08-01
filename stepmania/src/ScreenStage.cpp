@@ -10,23 +10,17 @@
 #include "ThemeManager.h"
 #include "LightsManager.h"
 
-#define NEXT_SCREEN				THEME->GetMetric (m_sName,"NextScreen")
 #define MINIMUM_DELAY			THEME->GetMetricF(m_sName,"MinimumDelay")
 
 AutoScreenMessage( SM_PrepScreen )
 
 REGISTER_SCREEN_CLASS( ScreenStage );
-ScreenStage::ScreenStage( CString sClassName ) : Screen( sClassName )
-{
-}
 
 void ScreenStage::Init()
 {
 	Screen::Init();
 
 	ALLOW_BACK.Load( m_sName, "AllowBack" );
-
-	m_bZeroDeltaOnNextUpdate = false;
 
 	SOUND->StopMusic();
 
@@ -61,7 +55,7 @@ void ScreenStage::HandleScreenMessage( const ScreenMessage SM )
 	if( SM == SM_PrepScreen )
 	{
 		RageTimer length;
-		SCREENMAN->PrepareScreen( NEXT_SCREEN );
+		SCREENMAN->PrepareScreen( GetNextScreen() );
 		float fScreenLoadSeconds = length.GetDeltaTime();
 
 		/* The screen load took fScreenLoadSeconds.  Move on to the next screen after
@@ -89,7 +83,7 @@ void ScreenStage::Update( float fDeltaTime )
 {
 	if( this->IsFirstUpdate() )
 	{
-		if( SCREENMAN->ConcurrentlyPrepareScreen(NEXT_SCREEN, SM_BeginFadingOut) )
+		if( SCREENMAN->ConcurrentlyPrepareScreen(GetNextScreen(), SM_BeginFadingOut) )
 		{
 			/* Continue when both the screen finishes loading and the tween finishes. */
 			this->PostScreenMessage( SM_BeginFadingOut, m_sprOverlay->GetTweenTimeLeft() );
@@ -99,12 +93,6 @@ void ScreenStage::Update( float fDeltaTime )
 			/* Prep the new screen once m_In is complete. */ 	 
 			this->PostScreenMessage( SM_PrepScreen, m_sprOverlay->GetTweenTimeLeft() );
 		}
-	}
-
-	if( m_bZeroDeltaOnNextUpdate )
-	{
-		m_bZeroDeltaOnNextUpdate = false;
-		fDeltaTime = 0;
 	}
 
 	Screen::Update( fDeltaTime );
@@ -119,13 +107,15 @@ void ScreenStage::MenuBack( PlayerNumber pn )
 		return;
 	
 	this->ClearMessageQueue();
+	GAMESTATE->CancelStage();
+	m_sNextScreen = GetPrevScreen();
 	m_Cancel.StartTransitioning( SM_GoToPrevScreen );
 
 	/* If a Back is buffered while we're prepping the screen (very common), we'll
 	 * get it right after the prep finishes.  However, the next update will contain
 	 * the time spent prepping the screen.  Zero the next delta, so the update is
 	 * seen. */
-	m_bZeroDeltaOnNextUpdate = true;
+	SCREENMAN->ZeroNextUpdate();
 }
 
 /*

@@ -6,6 +6,7 @@
 #include "GameManager.h"
 #include "RageException.h"
 #include "RageFile.h"
+#include "SongUtil.h"
 #include "StepsUtil.h"
 #include "song.h"
 #include "Steps.h"
@@ -32,22 +33,21 @@
 	only 4 notes are used.  If so, shift the Up+Right column back to the Up
 	column
 
-	Hey, folks, BMSes are used for things BESIDES DDR steps,
-	and so we're borking up BMSes that are for pnm/bm/etc.
+	BMSes are used for games besides dance and so we're borking up BMSes that are for popn/beat/etc.
 
-	pnm-nine:   11-15,22-25
-	pnm-five:   13-15,21-22
-	bm-single5: 11-16
-	bm-double5: 11-16,21-26
-	bm-single7: 11-16,18-19
-	bm-double7: 11-16,18-19,21-26,28-29
+	popn-nine:   11-15,22-25
+	popn-five:   13-15,21-22
+	beat-single5: 11-16
+	beat-double5: 11-16,21-26
+	beat-single7: 11-16,18-19
+	beat-double7: 11-16,18-19,21-26,28-29
 
 	So the magics for these are:
-	pnm-nine: nothing >5, with 12, 14, 22 and/or 24
-	pnm-five: nothing >5, with 14 and/or 22
-	bm-*: can't tell difference between bm-single and dance-solo
-		18/19 marks bm-single7, 28/29 marks bm-double7
-		bm-double uses 21-26. */
+	popn-nine: nothing >5, with 12, 14, 22 and/or 24
+	popn-five: nothing >5, with 14 and/or 22
+	beat-*: can't tell difference between beat-single and dance-solo
+		18/19 marks beat-single7, 28/29 marks beat-double7
+		beat-double uses 21-26. */
 
 enum BmsTrack
 {
@@ -120,7 +120,7 @@ static bool ConvertRawTrackToTapNote( int iRawTrack, BmsTrack &bmsTrackOut, bool
 }
 
 // Find the largest common substring at the start of both strings.
-static CString FindLargestInitialSubstring( CString string1, CString string2 )
+static RString FindLargestInitialSubstring( RString string1, RString string2 )
 {
 	// First see if the whole first string matches an appropriately-sized
 	// substring of the second, then keep chopping off the last character of
@@ -162,37 +162,37 @@ static StepsType DetermineStepsType( int iPlayer, const NoteData &nd )
 	{
 	case 1:		// "1 player"		
 		/*	Track counts:
-			4 - DDR
-			5 - PNM 5-key
-			6 - DDR Solo, BM 5-key
-			8 - BM 7-key
-			9 - PNM 9-key */
+			4 - dance 4-panel
+			5 - pop 5-key
+			6 - dance 6-panel, beat 5-key
+			8 - beat 7-key
+			9 - popn 9-key */
 		switch( iNumNonEmptyTracks ) 
 		{
 		case 4:		return STEPS_TYPE_DANCE_SINGLE;
-		case 5:		return STEPS_TYPE_PNM_FIVE;
+		case 5:		return STEPS_TYPE_POPN_FIVE;
 		case 6:
 			// FIXME: There's no way to distinguish between these types.
-			// They use the same tracks.  Assume it's a BM type since they
+			// They use the same tracks.  Assume it's a Beat type since they
 			// are more common.
 			//return STEPS_TYPE_DANCE_SOLO;
-			return STEPS_TYPE_BM_SINGLE5;
-		case 8:		return STEPS_TYPE_BM_SINGLE7;
-		case 9:		return STEPS_TYPE_PNM_NINE;
+			return STEPS_TYPE_BEAT_SINGLE5;
+		case 8:		return STEPS_TYPE_BEAT_SINGLE7;
+		case 9:		return STEPS_TYPE_POPN_NINE;
 		default:	return STEPS_TYPE_INVALID;
 		}
 	case 2:		// couple/battle
 		return STEPS_TYPE_DANCE_COUPLE;
 	case 3:		// double
 	/*	Track counts:
-		8 - DDR Double
-		12 - BM Double 5-key
-		16 - BM Double 7-key */
+		8 - dance Double
+		12 - beat Double 5-key
+		16 - beat Double 7-key */
 		switch( iNumNonEmptyTracks ) 
 		{
-		case 8:		return STEPS_TYPE_BM_SINGLE7;
-		case 12:	return STEPS_TYPE_BM_DOUBLE5;
-		case 16:	return STEPS_TYPE_BM_DOUBLE7;
+		case 8:		return STEPS_TYPE_BEAT_SINGLE7;
+		case 12:	return STEPS_TYPE_BEAT_DOUBLE5;
+		case 16:	return STEPS_TYPE_BEAT_DOUBLE7;
 		default:	return STEPS_TYPE_INVALID;
 		}
 	default:
@@ -229,9 +229,9 @@ int BMSLoader::GetMeasureStartRow( const MeasureToTimeSig_t &sigs, int iMeasureN
 }
 
 
-void BMSLoader::SearchForDifficulty( CString sTag, Steps *pOut )
+void BMSLoader::SearchForDifficulty( RString sTag, Steps *pOut )
 {
-	sTag.ToLower();
+	sTag.MakeLower();
 
 	/* Only match "Light" in parentheses. */
 	if( sTag.find( "(light" ) != sTag.npos )
@@ -251,7 +251,7 @@ void BMSLoader::SearchForDifficulty( CString sTag, Steps *pOut )
 	LOG->Trace( "Tag \"%s\" is %s", sTag.c_str(), DifficultyToString(pOut->GetDifficulty()).c_str() );
 }
 
-bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNameToData, Steps &out )
+bool BMSLoader::LoadFromBMSFile( const RString &sPath, const NameToData_t &mapNameToData, Steps &out )
 {
 	LOG->Trace( "Steps::LoadFromBMSFile( '%s' )", sPath.c_str() );
 
@@ -259,7 +259,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 
 	// BMS player code.  Fill in below and use to determine StepsType.
 	int iPlayer = -1;
-	CString sData;
+	RString sData;
 	if( GetTagFromMap( mapNameToData, "#player", sData ) )
 		iPlayer = atoi(sData);
 	if( GetTagFromMap( mapNameToData, "#playlevel", sData ) )
@@ -276,7 +276,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 			sData = sData.substr( iOpenBracket+1, iCloseBracket-iOpenBracket-1 );
 
 		// if there's a 6 in the description, it's probably part of "6panel" or "6-panel"
-		if( sData.Find("6") != -1 )
+		if( sData.find("6") != string::npos )
 			out.m_StepsType = STEPS_TYPE_DANCE_SOLO;
 	}
 
@@ -291,7 +291,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 	NameToData_t::const_iterator it;
 	for( it = mapNameToData.lower_bound("#00000"); it != mapNameToData.end(); ++it )
 	{
-		const CString &sName = it->first;
+		const RString &sName = it->first;
 		if( sName.size() != 6 || sName[0] != '#' || !IsAnInt( sName.substr(1,5) ) )
 			 continue;
 
@@ -300,16 +300,16 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 		int iRawTrackNum = atoi( sName.substr(4,2).c_str() );
 		int iRowNo = GetMeasureStartRow( mapMeasureToTimeSig, iMeasureNo );
 		float fBeatsPerMeasure = GetBeatsPerMeasure( mapMeasureToTimeSig, iMeasureNo );
-		const CString &sNoteData = it->second;
+		const RString &sNoteData = it->second;
 
 		vector<TapNote> vTapNotes;
-		for( int i=0; i+1<sNoteData.GetLength(); i+=2 )
+		for( size_t i=0; i+1<sNoteData.size(); i+=2 )
 		{
-			CString sNoteId = sNoteData.substr(i,2);
+			RString sNoteId = sNoteData.substr(i,2);
 			if( sNoteId != "00" )
 			{
 				TapNote tn = TAP_ORIGINAL_TAP;
-				map<CString,int>::const_iterator it = m_mapWavIdToKeysoundIndex.find(sNoteId);
+				map<RString,int>::const_iterator it = m_mapWavIdToKeysoundIndex.find(sNoteId);
 				if( it != m_mapWavIdToKeysoundIndex.end() )
 				{
 					tn.bKeysound = true;
@@ -427,7 +427,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 		iTransformNewToOld[7] = BMS_P2_TURN;
 		break;
 	case STEPS_TYPE_DANCE_SOLO:
-	case STEPS_TYPE_BM_SINGLE5:
+	case STEPS_TYPE_BEAT_SINGLE5:
 		// Hey! Why are these exactly the same? :-)
 		iTransformNewToOld[0] = BMS_P1_KEY1;
 		iTransformNewToOld[1] = BMS_P1_KEY2;
@@ -436,7 +436,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 		iTransformNewToOld[4] = BMS_P1_KEY5;
 		iTransformNewToOld[5] = BMS_P1_TURN;
 		break;
-	case STEPS_TYPE_PNM_FIVE:
+	case STEPS_TYPE_POPN_FIVE:
 		iTransformNewToOld[0] = BMS_P1_KEY3;
 		iTransformNewToOld[1] = BMS_P1_KEY4;
 		iTransformNewToOld[2] = BMS_P1_KEY5;
@@ -444,7 +444,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 		iTransformNewToOld[3] = BMS_P2_KEY2;
 		iTransformNewToOld[4] = BMS_P2_KEY3;
 		break;
-	case STEPS_TYPE_PNM_NINE:
+	case STEPS_TYPE_POPN_NINE:
 		iTransformNewToOld[0] = BMS_P1_KEY1; // lwhite
 		iTransformNewToOld[1] = BMS_P1_KEY2; // lyellow
 		iTransformNewToOld[2] = BMS_P1_KEY3; // lgreen
@@ -456,7 +456,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 		iTransformNewToOld[7] = BMS_P2_KEY4; // ryellow
 		iTransformNewToOld[8] = BMS_P2_KEY5; // rwhite
 		break;
-	case STEPS_TYPE_BM_DOUBLE5:
+	case STEPS_TYPE_BEAT_DOUBLE5:
 		iTransformNewToOld[0] = BMS_P1_KEY1;
 		iTransformNewToOld[1] = BMS_P1_KEY2;
 		iTransformNewToOld[2] = BMS_P1_KEY3;
@@ -470,7 +470,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 		iTransformNewToOld[10] = BMS_P2_KEY5;
 		iTransformNewToOld[11] = BMS_P2_TURN;
 		break;
-	case STEPS_TYPE_BM_SINGLE7:
+	case STEPS_TYPE_BEAT_SINGLE7:
 		iTransformNewToOld[0] = BMS_P1_KEY1;
 		iTransformNewToOld[1] = BMS_P1_KEY2;
 		iTransformNewToOld[2] = BMS_P1_KEY3;
@@ -480,7 +480,7 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 		iTransformNewToOld[6] = BMS_P1_KEY7;
 		iTransformNewToOld[7] = BMS_P1_TURN;
 		break;
-	case STEPS_TYPE_BM_DOUBLE7:
+	case STEPS_TYPE_BEAT_DOUBLE7:
 		iTransformNewToOld[0] = BMS_P1_KEY1;
 		iTransformNewToOld[1] = BMS_P1_KEY2;
 		iTransformNewToOld[2] = BMS_P1_KEY3;
@@ -513,20 +513,20 @@ bool BMSLoader::LoadFromBMSFile( const CString &sPath, const NameToData_t &mapNa
 	return true;
 }
 
-void BMSLoader::GetApplicableFiles( CString sPath, CStringArray &out )
+void BMSLoader::GetApplicableFiles( const RString &sPath, vector<RString> &out )
 {
-	GetDirListing( sPath + CString("*.bms"), out );
-	GetDirListing( sPath + CString("*.bme"), out );
+	GetDirListing( sPath + RString("*.bms"), out );
+	GetDirListing( sPath + RString("*.bme"), out );
 }
 
-bool BMSLoader::ReadBMSFile( const CString &sPath, NameToData_t &mapNameToData )
+bool BMSLoader::ReadBMSFile( const RString &sPath, NameToData_t &mapNameToData )
 {
 	RageFile file;
 	if( !file.Open(sPath) )
 		RageException::Throw( "Failed to open \"%s\" for reading: %s", sPath.c_str(), file.GetError().c_str() );
 	while( !file.AtEOF() )
 	{
-		CString line;
+		RString line;
 		if( file.GetLine( line ) == -1 )
 		{
 			LOG->Warn( "Error reading \"%s\": %s", sPath.c_str(), file.GetError().c_str() );
@@ -537,8 +537,8 @@ bool BMSLoader::ReadBMSFile( const CString &sPath, NameToData_t &mapNameToData )
 
 		// BMS value names can be separated by a space or a colon.
 		size_t iIndexOfSeparator = line.find_first_of( ": " );
-		CString value_name = line.substr( 0, iIndexOfSeparator );
-		CString value_data;
+		RString value_name = line.substr( 0, iIndexOfSeparator );
+		RString value_data;
 		if( iIndexOfSeparator != line.npos )
 			value_data = line.substr( iIndexOfSeparator+1 );
 
@@ -549,7 +549,7 @@ bool BMSLoader::ReadBMSFile( const CString &sPath, NameToData_t &mapNameToData )
 	return true;
 }
 
-bool BMSLoader::GetTagFromMap( const NameToData_t &mapNameToData, const CString &sName, CString &sOut )
+bool BMSLoader::GetTagFromMap( const NameToData_t &mapNameToData, const RString &sName, RString &sOut )
 {
 	NameToData_t::const_iterator it;
 	it = mapNameToData.find( sName );
@@ -563,12 +563,12 @@ bool BMSLoader::GetTagFromMap( const NameToData_t &mapNameToData, const CString 
 
 /* Finds the longest common match for the given tag in all files.  If the given tag
  * was found in at least one file, returns true; otherwise returns false. */
-bool BMSLoader::GetCommonTagFromMapList( const vector<NameToData_t> &aBMSData, const CString &sName, CString &sCommonTag )
+bool BMSLoader::GetCommonTagFromMapList( const vector<NameToData_t> &aBMSData, const RString &sName, RString &sCommonTag )
 {
 	bool bFoundOne = false;
 	for( unsigned i=0; i < aBMSData.size(); i++ )
 	{
-		CString sTag;
+		RString sTag;
 		if( !GetTagFromMap( aBMSData[i], sName, sTag ) )
 			continue;
 
@@ -594,7 +594,7 @@ enum
 
 void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 {
-	CString sData;
+	RString sData;
 	if( GetTagFromMap( mapNameToData, "#title", sData ) )
 		GetMainAndSubTitlesFromFullTitle( sData, out.m_sMainTitle, out.m_sSubTitle );
 
@@ -604,7 +604,7 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 
 	if( GetTagFromMap( mapNameToData, "#bpm", sData ) )
 	{
-		BPMSegment newSeg( 0, strtof(sData, NULL) );
+		BPMSegment newSeg( 0, StringToFloat(sData) );
 		out.AddBPMSegment( newSeg );
 
 		LOG->Trace( "Inserting new BPM change at beat %f, BPM %f", NoteRowToBeat(newSeg.m_iStartIndex), newSeg.GetBPM() );
@@ -613,14 +613,14 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 	NameToData_t::const_iterator it;
 	for( it = mapNameToData.lower_bound("#wav"); it != mapNameToData.end(); ++it )
 	{
-		const CString &sName = it->first;
+		const RString &sName = it->first;
 
 		if( sName.size() != 6 || sName.Left(4) != "#wav" )
 			continue;
 
 		// this is keysound file name.  Looks like "#WAV1A"
-		CString sData = it->second;
-		CString sWavID = sName.Right(2);
+		RString sData = it->second;
+		RString sWavID = sName.Right(2);
 
 		/* Due to bugs in some programs, many BMS files have a "WAV" extension
 		 * on files in the BMS for files that actually have some other extension.
@@ -631,7 +631,7 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 			const char *exts[] = { "ogg", "wav", "mp3", NULL }; // XXX: stop duplicating these everywhere
 			for( unsigned i = 0; exts[i] != NULL; ++i )
 			{
-				CString fn = SetExtension( sData, exts[i] );
+				RString fn = SetExtension( sData, exts[i] );
 				if( IsAFile(out.GetSongDir()+fn) )
 				{
 					sData = fn;
@@ -655,7 +655,7 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 
 	for( it = mapNameToData.lower_bound("#00000"); it != mapNameToData.end(); ++it )
 	{
-		const CString &sName = it->first;
+		const RString &sName = it->first;
 		if( sName.size() != 6 || sName[0] != '#' || !IsAnInt( sName.substr(1,5) ) )
 			 continue;
 		// this is step or offset data.  Looks like "#00705"
@@ -665,11 +665,11 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 		float fBeatsPerMeasure = GetBeatsPerMeasure( mapMeasureToTimeSig, iMeasureNo );
 		int iRowsPerMeasure = BeatToNoteRow( fBeatsPerMeasure );
 
-		CString sData = it->second;
+		RString sData = it->second;
 		int totalPairs = sData.size() / 2;
 		for( int i = 0; i < totalPairs; ++i )
 		{
-			CString sPair = sData.substr(i*2,2);
+			RString sPair = sData.substr(i*2,2);
 
 			int iVal = 0;
 			if( sscanf( sPair, "%x", &iVal ) == 0 || iVal == 0 )
@@ -687,11 +687,11 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 
 			case BMS_TRACK_BPM_REF:
 			{
-				CString sTagToLookFor = ssprintf( "#bpm%02x", iVal );
-				CString sBPM;
+				RString sTagToLookFor = ssprintf( "#bpm%02x", iVal );
+				RString sBPM;
 				if( GetTagFromMap( mapNameToData, sTagToLookFor, sBPM ) )
 				{
-					float fBPM = strtof( sBPM, NULL );
+					float fBPM = StringToFloat( sBPM );
 
 					BPMSegment newSeg;
 					newSeg.m_iStartIndex = BeatToNoteRow(fBeat);
@@ -705,13 +705,13 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 			}
 			case BMS_TRACK_STOP:
 			{
-				CString sTagToLookFor = ssprintf( "#stop%02x", iVal );
-				CString sBeats;
+				RString sTagToLookFor = ssprintf( "#stop%02x", iVal );
+				RString sBeats;
 				if( GetTagFromMap( mapNameToData, sTagToLookFor, sBeats ) )
 				{
 					// find the BPM at the time of this freeze
 					float fBPS = out.m_Timing.GetBPMAtBeat(fBeat) / 60.0f;
-					float fBeats = strtof(sBeats,NULL) / 48.0f;
+					float fBeats = StringToFloat( sBeats ) / 48.0f;
 					float fFreezeSecs = fBeats / fBPS;
 
 					StopSegment newSeg( BeatToNoteRow(fBeat), fFreezeSecs );
@@ -733,11 +733,11 @@ void BMSLoader::ReadGlobalTags( const NameToData_t &mapNameToData, Song &out )
 			int iBPMNo;
 			sscanf( sData, "%x", &iBPMNo );	// data is in hexadecimal
 
-			CString sBPM;
-			CString sTagToLookFor = ssprintf( "#bpm%02x", iBPMNo );
+			RString sBPM;
+			RString sTagToLookFor = ssprintf( "#bpm%02x", iBPMNo );
 			if( GetTagFromMap( mapNameToData, sTagToLookFor, sBPM ) )
 			{
-				float fBPM = strtof( sBPM, NULL );
+				float fBPM = StringToFloat( sBPM );
 
 				BPMSegment newSeg;
 				newSeg.m_iStartIndex = iStepIndex;
@@ -762,12 +762,12 @@ void BMSLoader::ReadTimeSigs( const NameToData_t &mapNameToData, MeasureToTimeSi
 	NameToData_t::const_iterator it;
 	for( it = mapNameToData.lower_bound("#00000"); it != mapNameToData.end(); ++it )
 	{
-		const CString &sName = it->first;
+		const RString &sName = it->first;
 		if( sName.size() != 6 || sName[0] != '#' || !IsAnInt( sName.substr(1,5) ) )
 			 continue;
 
 		// this is step or offset data.  Looks like "#00705"
-		const CString &sData = it->second;
+		const RString &sData = it->second;
 		int iMeasureNo	= atoi( sName.substr(1,3).c_str() );
 		int iBMSTrackNo	= atoi( sName.substr(4,2).c_str() );
 		if( iBMSTrackNo == BMS_TRACK_TIME_SIG )
@@ -846,14 +846,14 @@ void BMSLoader::SetTimeSigAdjustments( const MeasureToTimeSig_t &sigs, Song *pOu
 	}
 }
 
-bool BMSLoader::LoadFromDir( CString sDir, Song &out )
+bool BMSLoader::LoadFromDir( const RString &sDir, Song &out )
 {
 	LOG->Trace( "Song::LoadFromBMSDir(%s)", sDir.c_str() );
 
 	ASSERT( out.m_vsKeysoundFile.empty() );
 
 	m_sDir = sDir;
-	CStringArray arrayBMSFileNames;
+	vector<RString> arrayBMSFileNames;
 	GetApplicableFiles( sDir, arrayBMSFileNames );
 
 	/* We should have at least one; if we had none, we shouldn't have been
@@ -868,7 +868,7 @@ bool BMSLoader::LoadFromDir( CString sDir, Song &out )
 		ReadBMSFile( out.GetSongDir() + arrayBMSFileNames[i], aBMSData.back() );
 	}
 
-	CString commonSubstring;
+	RString commonSubstring;
 	GetCommonTagFromMapList( aBMSData, "#title", commonSubstring );
 
 	if( commonSubstring == "" )
@@ -889,13 +889,11 @@ bool BMSLoader::LoadFromDir( CString sDir, Song &out )
 	{
 		Steps *pSteps = apSteps[i];
 		pSteps->SetDifficulty( DIFFICULTY_MEDIUM );
-		CString sTag;
+		RString sTag;
 		if( GetTagFromMap( aBMSData[i], "#title", sTag ) && sTag.size() != commonSubstring.size() )
 		{
 			sTag = sTag.substr( commonSubstring.size(), sTag.size() - commonSubstring.size() );
-			sTag.ToLower();
-
-			// XXX: Someone find me some DDR BMS examples!
+			sTag.MakeLower();
 
 			// XXX: We should do this with filenames too, I have plenty of examples.
 			//      however, filenames will be trickier, as stuffs at the beginning AND
@@ -938,7 +936,7 @@ bool BMSLoader::LoadFromDir( CString sDir, Song &out )
 			// XXX: Is this really effective if Common Substring parsing failed?
 			Steps *pSteps = apSteps[i];
 			pSteps->SetDifficulty( DIFFICULTY_MEDIUM );
-			CString sTag;
+			RString sTag;
 			if( GetTagFromMap( aBMSData[i], "#title", sTag ) )
 				SearchForDifficulty( sTag, pSteps );
 			if( GetTagFromMap( aBMSData[i], "#genre", sTag ) )
@@ -957,8 +955,8 @@ bool BMSLoader::LoadFromDir( CString sDir, Song &out )
 	ReadGlobalTags( aBMSData[iMainDataIndex], out );
 	    
 	// Override what that global tag said about the title if we have a good substring.
-	// Prevents clobbering and catches "D2R (7keys)" / "D2R (Another) (7keys)"
-	// Also catches "D2R (7keys)" / "D2R (14keys)"
+	// Prevents clobbering and catches "MySong (7keys)" / "MySong (Another) (7keys)"
+	// Also catches "MySong (7keys)" / "MySong (14keys)"
 	if( commonSubstring != "" )
 		GetMainAndSubTitlesFromFullTitle( commonSubstring, out.m_sMainTitle, out.m_sSubTitle );
 
@@ -1000,7 +998,7 @@ void BMSLoader::SlideDuplicateDifficulties( Song &p )
 				continue;
 
 			vector<Steps*> vSteps;
-			p.GetSteps( vSteps, st, dc );
+			SongUtil::GetSteps( &p, vSteps, st, dc );
 
 			StepsUtil::SortNotesArrayByDifficulty( vSteps );
 			for( unsigned k=1; k<vSteps.size(); k++ )

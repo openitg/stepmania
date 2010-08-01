@@ -20,12 +20,12 @@ ScoreDisplayAliveTime::~ScoreDisplayAliveTime()
 {
 }
 
-void ScoreDisplayAliveTime::LoadFromNode( const CString& sDir, const XNode* pNode )
+void ScoreDisplayAliveTime::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	BitmapText::LoadFromNode( sDir, pNode );
 
 	{
-		CString sPlayerNumber;
+		RString sPlayerNumber;
 		bool b = pNode->GetAttrValue( "PlayerNumber", sPlayerNumber );
 		ASSERT( b );
 		m_PlayerNumber = (PlayerNumber) LuaHelpers::RunExpressionI(sPlayerNumber);
@@ -39,7 +39,7 @@ void ScoreDisplayAliveTime::Update( float fDelta )
 	BitmapText::Update( fDelta );
 }
 
-void ScoreDisplayAliveTime::PlayCommand( const CString &sCommandName, Actor* pParent )
+void ScoreDisplayAliveTime::PlayCommand( const RString &sCommandName, Actor* pParent )
 {
 	// TODO: Add handling of GoalComplete message
 	
@@ -52,7 +52,7 @@ void ScoreDisplayAliveTime::UpdateNumber()
 	ASSERT( m_PlayerNumber != PLAYER_INVALID );
 	if( GAMESTATE->IsPlayerEnabled(m_PlayerNumber) )
 		fSecsIntoPlay = 
-			STATSMAN->GetAccumStageStats().m_player[m_PlayerNumber].fAliveSeconds +
+			STATSMAN->GetAccumPlayedStageStats().m_player[m_PlayerNumber].fAliveSeconds +
 			STATSMAN->m_CurStageStats.m_player[m_PlayerNumber].fAliveSeconds;
 
 	SetText( SecondsToMMSSMsMs(fSecsIntoPlay) );

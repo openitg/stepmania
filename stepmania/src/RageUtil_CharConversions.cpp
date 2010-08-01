@@ -9,7 +9,7 @@
 #include "windows.h"
 
 /* Convert from the given codepage to UTF-8.  Return true if successful. */
-static bool CodePageConvert(CString &txt, int cp)
+static bool CodePageConvert(RString &txt, int cp)
 {
 	if( txt.size() == 0 )
 		return true;
@@ -27,19 +27,19 @@ static bool CodePageConvert(CString &txt, int cp)
 	size = MultiByteToWideChar(cp, MB_ERR_INVALID_CHARS, txt.data(), txt.size(), (wchar_t *) out.data(), size);
 	ASSERT( size != 0 );
 
-	txt = WStringToCString(out);
+	txt = WStringToRString(out);
 	return true;
 }
 
-static bool AttemptEnglishConversion( CString &txt ) { return CodePageConvert( txt, 1252 ); }
-static bool AttemptKoreanConversion( CString &txt ) { return CodePageConvert( txt, 949 ); }
-static bool AttemptJapaneseConversion( CString &txt ) { return CodePageConvert( txt, 932 ); }
+static bool AttemptEnglishConversion( RString &txt ) { return CodePageConvert( txt, 1252 ); }
+static bool AttemptKoreanConversion( RString &txt ) { return CodePageConvert( txt, 949 ); }
+static bool AttemptJapaneseConversion( RString &txt ) { return CodePageConvert( txt, 932 ); }
 
 #elif defined(HAVE_ICONV)
 #include <errno.h>
 #include <iconv.h>
 
-static bool ConvertFromCharset( CString &txt, const char *charset )
+static bool ConvertFromCharset( RString &txt, const char *charset )
 {
 	if ( txt.size() == 0 )
 		return true;
@@ -52,11 +52,11 @@ static bool ConvertFromCharset( CString &txt, const char *charset )
 	}
 
 	/* Copy the string into a char* for iconv */
-	char *txtin = const_cast<char*>( txt.data() );
+	ICONV_CONST char *txtin = const_cast<ICONV_CONST char*>( txt.data() );
 	size_t inleft = txt.size();
 
 	/* Create a new string with enough room for the new conversion */
-	CString buf;
+	RString buf;
 	buf.resize( txt.size() * 5 );
 
 	char *txtout = const_cast<char*>( buf.data() );
@@ -73,7 +73,7 @@ static bool ConvertFromCharset( CString &txt, const char *charset )
 
 	if( inleft != 0 )
 	{
-		LOG->Warn( "iconv(UTF-8,%s) for \"%s\": whole buffer not converted (%i left)", charset, txt.c_str(), inleft );
+		LOG->Warn( "iconv(UTF-8,%s) for \"%s\": whole buffer not converted (%i left)", charset, txt.c_str(), int(inleft) );
 		return false;
 	}
 
@@ -86,22 +86,53 @@ static bool ConvertFromCharset( CString &txt, const char *charset )
 	return true;
 }
 
-static bool AttemptEnglishConversion( CString &txt ) { return ConvertFromCharset( txt, "CP1252" ); }
-static bool AttemptKoreanConversion( CString &txt ) { return ConvertFromCharset( txt, "CP949" ); }
-static bool AttemptJapaneseConversion( CString &txt ) { return ConvertFromCharset( txt, "CP932" ); }
+static bool AttemptEnglishConversion( RString &txt ) { return ConvertFromCharset( txt, "CP1252" ); }
+static bool AttemptKoreanConversion( RString &txt ) { return ConvertFromCharset( txt, "CP949" ); }
+static bool AttemptJapaneseConversion( RString &txt ) { return ConvertFromCharset( txt, "CP932" ); }
+
+#elif defined(MACOSX)
+#include <CoreFoundation/CoreFoundation.h>
+
+static bool ConvertFromCP( RString &txt, int cp )
+{
+	CFStringEncoding encoding = CFStringConvertWindowsCodepageToEncoding( cp );
+	
+	if( encoding == kCFStringEncodingInvalidId )
+		return false;
+	
+	CFStringRef old = CFStringCreateWithCString( kCFAllocatorDefault, txt, encoding );
+	
+	if( old == NULL )
+		return false;
+	const size_t size = CFStringGetMaximumSizeForEncoding( CFStringGetLength(old), kCFStringEncodingUTF8 );
+	
+	char *buf = new char[size];
+	if( !CFStringGetCString(old, buf, size, kCFStringEncodingUTF8) )
+	{
+		delete[] buf;
+		return false;
+	}
+	txt = buf;
+	delete[] buf;
+	return true;
+}
+
+static bool AttemptEnglishConversion( RString &txt ) { return ConvertFromCP( txt, 1252 ); }
+static bool AttemptKoreanConversion( RString &txt ) { return ConvertFromCP( txt, 949 ); }
+static bool AttemptJapaneseConversion( RString &txt ) { return ConvertFromCP( txt, 932 ); }
 
 #else
 
 /* No converters are available, so all fail--we only accept UTF-8. */
-static bool AttemptEnglishConversion( CString &txt ) { return false; }
-static bool AttemptKoreanConversion( CString &txt ) { return false; }
-static bool AttemptJapaneseConversion( CString &txt ) { return false; }
+static bool AttemptEnglishConversion( RString &txt ) { return false; }
+static bool AttemptKoreanConversion( RString &txt ) { return false; }
+static bool AttemptJapaneseConversion( RString &txt ) { return false; }
 
 #endif
 
-bool ConvertString(CString &str, const CString &encodings)
+bool ConvertString(RString &str, const RString &encodings)
 {
-	CStringArray lst;
+	vector<RString> lst;
 	split(encodings, ",", lst);
 
 	for(unsigned i = 0; i < lst.size(); ++i)

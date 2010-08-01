@@ -5,12 +5,12 @@
 #include <sys/time.h>
 #include <errno.h>
 
-#if defined(LINUX)
+#if defined(LINUX) || defined(BSD)
 #include "archutils/Unix/LinuxThreadHelpers.h"
 #include "archutils/Unix/RunningUnderValgrind.h"
 #endif
 
-#if defined(__MACOSX__)
+#if defined(MACOSX)
 #include "archutils/Darwin/DarwinThreadHelpers.h"
 #endif
 
@@ -43,7 +43,7 @@ int ThreadImpl_Pthreads::Wait()
 	int *val;
 	int ret = pthread_join( thread, (void **) &val );
 	if( ret )
-		RageException::Throw( "pthread_join: %s", strerror(errno) );
+		RageException::Throw( "pthread_join: %s", strerror(ret) );
 
 	int iRet = *val;
 	delete val;
@@ -109,7 +109,7 @@ MutexImpl_Pthreads::~MutexImpl_Pthreads()
 }
 
 
-#if defined(HAVE_PTHREAD_MUTEX_TIMEDLOCK) || defined(__MACOSX__)
+#if defined(HAVE_PTHREAD_MUTEX_TIMEDLOCK) || defined(HAVE_PTHREAD_COND_TIMEDWAIT)
 static bool UseTimedlock()
 {
 #if defined(LINUX)
@@ -209,10 +209,95 @@ MutexImpl *MakeMutex( RageMutex *pParent )
 	return new MutexImpl_Pthreads( pParent );
 }
 
+/* Check if condattr_setclock is supported, and supports the clock that RageTimer
+ * selected. */
+#if defined(UNIX)
+#include <dlfcn.h>
+#include "arch/ArchHooks/ArchHooks_Unix.h"
+#else
+typedef void *clockid_t;
+static clockid_t CLOCK_REALTIME = NULL;
+#endif
+namespace
+{
+	typedef int (* CONDATTR_SET_CLOCK)( pthread_condattr_t *attr, clockid_t clock_id );
+	CONDATTR_SET_CLOCK g_CondattrSetclock = NULL;
+	bool bInitialized = false;
+
+#if defined(UNIX)
+	clockid_t GetClock()
+	{
+		return ArchHooks_Unix::GetClock();
+	}
+
+	void InitMonotonic()
+	{
+		if( bInitialized )
+			return;
+		bInitialized = true;
+
+		void *pLib = NULL;
+
+		do {
+			{
+				pLib = dlopen( NULL, RTLD_LAZY );
+				if( pLib == NULL )
+					break;
+
+				g_CondattrSetclock = (CONDATTR_SET_CLOCK) dlsym( pLib, "pthread_condattr_setclock" );
+
+				if( g_CondattrSetclock == NULL )
+					break;
+			}
+
+			/* Make sure that we can set up the clock attribute. */
+			pthread_condattr_t condattr;
+			pthread_condattr_init( &condattr );
+
+			if( g_CondattrSetclock(&condattr, GetClock()) != 0 )
+			{
+				printf( "pthread_condattr_setclock failed\n" );
+				pthread_condattr_destroy( &condattr );
+				break;
+			}
+			pthread_condattr_destroy( &condattr );
+
+			/* Everything seems to work. */
+			return;
+		} while(0);
+
+		g_CondattrSetclock = NULL;
+		if( pLib != NULL )
+			dlclose( pLib );
+		pLib = NULL;
+	}
+#else
+	void InitMonotonic()
+	{
+		bInitialized = true;
+	}
+
+	clockid_t GetClock()
+	{
+		return CLOCK_REALTIME;
+	}
+#endif
+};
+
 EventImpl_Pthreads::EventImpl_Pthreads( MutexImpl_Pthreads *pParent )
 {
 	m_pParent = pParent;
-	pthread_cond_init( &m_Cond, NULL );
+
+	InitMonotonic();
+       
+	pthread_condattr_t condattr;
+	pthread_condattr_init( &condattr );
+
+	if( g_CondattrSetclock != NULL )
+		g_CondattrSetclock( &condattr, GetClock() );
+
+	pthread_cond_init( &m_Cond, &condattr );
+	pthread_condattr_destroy( &condattr );
 }
 
 EventImpl_Pthreads::~EventImpl_Pthreads()
@@ -229,9 +314,34 @@ bool EventImpl_Pthreads::Wait( RageTimer *pTimeout )
 		return true;
 	}
 
+	/* If the clock is not CLOCK_MONOTONIC, or we can't change the wait clock (no
+	 * condattr_setclock), pthread_cond_timedwait has an inherent race condition:
+	 * the system clock may change before we call it. */
 	timespec abstime;
-	abstime.tv_sec = pTimeout->m_secs;
-	abstime.tv_nsec = pTimeout->m_us * 1000;
+	if( g_CondattrSetclock != NULL || GetClock() == CLOCK_REALTIME )
+	{
+		/* If we support condattr_setclock, we'll set the condition to use the same
+		 * clock as RageTimer and can use it directly.  If the clock is CLOCK_REALTIME,
+		 * that's the default anyway. */
+		abstime.tv_sec = pTimeout->m_secs;
+		abstime.tv_nsec = pTimeout->m_us * 1000;
+	}
+	else
+	{
+		/* The RageTimer clock is different than the wait clock; convert it. */
+		timeval tv;
+		gettimeofday( &tv, NULL );
+
+		RageTimer timeofday;
+		timeofday.m_secs = tv.tv_sec;
+		timeofday.m_us = tv.tv_usec;
+
+		float fSecondsInFuture = -pTimeout->Ago();
+		timeofday += fSecondsInFuture;
+
+		abstime.tv_sec = timeofday.m_secs;
+		abstime.tv_nsec = timeofday.m_us * 1000;
+	}
 
 	int iRet = pthread_cond_timedwait( &m_Cond, &m_pParent->mutex, &abstime );
 	return iRet != ETIMEDOUT;
@@ -301,10 +411,11 @@ bool SemaImpl_Pthreads::Wait()
 bool SemaImpl_Pthreads::TryWait()
 {
 	int ret = sem_trywait( &sem );
-	if( ret == EBUSY )
+	if( ret == -1 && errno == EAGAIN )
 		return false;
-	if( ret )
-		RageException::Throw( "TryWait: sem_trywait failed: %s", strerror(errno) );
+	
+	ASSERT_M( ret == 0, ssprintf("TryWait: sem_trywait failed: %s", strerror(errno)) );
+
 	return true;
 }
 #else
@@ -336,7 +447,7 @@ void SemaImpl_Pthreads::Post()
 
 bool SemaImpl_Pthreads::Wait()
 {
-#if defined(HAVE_PTHREAD_MUTEX_TIMEDLOCK) || defined(__MACOSX__)
+#if defined(HAVE_PTHREAD_COND_TIMEDWAIT)
 	if( UseTimedlock() )
 	{
 		timeval tv;

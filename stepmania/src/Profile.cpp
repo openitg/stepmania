@@ -18,6 +18,7 @@
 #include "crypto/CryptRand.h"
 #include "UnlockManager.h"
 #include "XmlFile.h"
+#include "XmlFileUtil.h"
 #include "Foreach.h"
 #include "CatalogXml.h"
 #include "Bookkeeper.h"
@@ -25,16 +26,17 @@
 #include "CharacterManager.h"
 #include "Character.h"
 
-const CString STATS_XSL            = "Stats.xsl";
-const CString COMMON_XSL           = "Common.xsl";
-const CString STATS_XML            = "Stats.xml";
-const CString EDITABLE_INI         = "Editable.ini";
-const CString DONT_SHARE_SIG       = "DontShare.sig";
-const CString PUBLIC_KEY_FILE      = "public.key";
-const CString SCREENSHOTS_SUBDIR   = "Screenshots/";
-const CString EDIT_STEPS_SUBDIR    = "Edits/";
-const CString EDIT_COURSES_SUBDIR  = "EditCourses/";
-const CString LASTGOOD_SUBDIR      = "LastGood/";
+const RString STATS_XSL            = "Stats.xsl";
+const RString COMMON_XSL           = "Common.xsl";
+const RString STATS_XML            = "Stats.xml";
+const RString EDITABLE_INI         = "Editable.ini";
+const RString DONT_SHARE_SIG       = "DontShare.sig";
+const RString PUBLIC_KEY_FILE      = "public.key";
+const RString SCREENSHOTS_SUBDIR   = "Screenshots/";
+const RString EDIT_STEPS_SUBDIR    = "Edits/";
+const RString EDIT_COURSES_SUBDIR  = "EditCourses/";
+
+ThemeMetric<bool> SHOW_COIN_DATA( "Profile", "ShowCoinData" );
 
 #define GUID_SIZE_BYTES 8
 
@@ -81,13 +83,13 @@ void Profile::InitEditableData()
 	m_iWeightPounds = 0;
 }
 
-CString Profile::MakeGuid()
+RString Profile::MakeGuid()
 {
 	// Does the RNG need to be inited and seeded every time?
 	random_init();
 	random_add_noise( "ai8049ujr3odusj" );
 	
-	CString s;
+	RString s;
 	for( unsigned i=0; i<GUID_SIZE_BYTES; i++ )
 		s += ssprintf( "%02x", random_byte() );
 	return s;
@@ -114,7 +116,7 @@ void Profile::InitGeneralData()
 	m_iNumExtraStagesPassed = 0;
 	m_iNumExtraStagesFailed = 0;
 	m_iNumToasties = 0;
-	m_UnlockedSongs.clear();
+	m_UnlockedEntryIDs.clear();
 	m_sLastPlayedMachineGuid = "";
 	m_LastPlayedDate.Init();
 	m_iTotalTapsAndHolds = 0;
@@ -178,14 +180,14 @@ void Profile::InitRecentCourseScores()
 	m_vRecentCourseScores.clear();
 }
 
-CString Profile::GetDisplayNameOrHighScoreName() const
+RString Profile::GetDisplayNameOrHighScoreName() const
 {
 	if( !m_sDisplayName.empty() )
 		return m_sDisplayName;
 	else if( !m_sLastUsedHighScoreName.empty() )
 		return m_sLastUsedHighScoreName;
 	else
-		return CString();
+		return RString();
 }
 
 Character *Profile::GetCharacter() const
@@ -200,7 +202,7 @@ Character *Profile::GetCharacter() const
 	return CHARMAN->GetDefaultCharacter();
 }
 
-static CString FormatCalories( float fCals )
+static RString FormatCalories( float fCals )
 {
 	return Commify((int)fCals) + " Cal";
 }
@@ -213,12 +215,12 @@ int Profile::GetCalculatedWeightPounds() const
 		return m_iWeightPounds;
 }
 
-CString Profile::GetDisplayTotalCaloriesBurned() const
+RString Profile::GetDisplayTotalCaloriesBurned() const
 {
 	return FormatCalories( m_fTotalCaloriesBurned );
 }
 
-CString Profile::GetDisplayTotalCaloriesBurnedToday() const
+RString Profile::GetDisplayTotalCaloriesBurnedToday() const
 {
 	float fCals = GetCaloriesBurnedToday();
 	return FormatCalories( fCals );
@@ -387,23 +389,31 @@ float Profile::GetSongsPercentComplete( StepsType st, Difficulty dc ) const
 	return GetSongsActual(st,dc) / GetSongsPossible(st,dc);
 }
 
+static void GetHighScoreCourses( vector<Course*> &vpCoursesOut )
+{
+	vpCoursesOut.clear();
+
+	vector<Course*> vpCourses;
+	SONGMAN->GetAllCourses( vpCourses, false );
+	FOREACH_CONST( Course*, vpCourses, c )
+	{
+		// Don't count any course that has any entries that change over time.
+		if( !(*c)->AllSongsAreFixed() )
+			continue;
+
+		vpCoursesOut.push_back( *c );
+	}
+}
 
 float Profile::GetCoursesPossible( StepsType st, CourseDifficulty cd ) const
 {
 	int iTotalTrails = 0;
 
-	// add course high scores
-	vector<Course*> vCourses;
-	SONGMAN->GetAllCourses( vCourses, false );
-	for( unsigned i=0; i<vCourses.size(); i++ )
+	vector<Course*> vpCourses;
+	GetHighScoreCourses( vpCourses );
+	FOREACH_CONST( Course*, vpCourses, c )
 	{
-		const Course* pCourse = vCourses[i];
-		
-		// Don't count any course that has any entries that change over time.
-		if( !pCourse->AllSongsAreFixed() )
-			continue;
-
-		Trail* pTrail = pCourse->GetTrail(st,cd);
+		Trail* pTrail = (*c)->GetTrail(st,cd);
 		if( pTrail == NULL )
 			continue;
 
@@ -417,44 +427,16 @@ float Profile::GetCoursesActual( StepsType st, CourseDifficulty cd ) const
 {
 	float fTotalPercents = 0;
 	
-	// add course high scores
-	FOREACHM_CONST( CourseID, HighScoresForACourse, m_CourseHighScores, i )
+	vector<Course*> vpCourses;
+	GetHighScoreCourses( vpCourses );
+	FOREACH_CONST( Course*, vpCourses, c )
 	{
-		CourseID id = i->first;
-		const Course* pCourse = id.ToCourse();
-		
-		// If the Course isn't loaded on the current machine, then we can't 
-		// get radar values to compute dance points.
-		if( pCourse == NULL )
-			continue;
-		
-		// Don't count any course that has any entries that change over time.
-		if( !pCourse->AllSongsAreFixed() )
+		Trail *pTrail = (*c)->GetTrail( st, cd );
+		if( pTrail == NULL )
 			continue;
 
-		const HighScoresForACourse &hsfac = i->second;
-
-		FOREACHM_CONST( TrailID, HighScoresForATrail, hsfac.m_TrailHighScores, j )
-		{
-			const TrailID &id = j->first;
-			Trail* pTrail = id.ToTrail( pCourse, true );
-			
-			// If the Steps isn't loaded on the current machine, then we can't 
-			// get radar values to compute dance points.
-			if( pTrail == NULL )
-				continue;
-
-			if( pTrail->m_StepsType != st )
-				continue;
-
-			if( pTrail->m_CourseDifficulty != cd )
-				continue;
-
-			const HighScoresForATrail& h = j->second;
-			const HighScoreList& hsl = h.hsl;
-
-			fTotalPercents += hsl.GetTopScore().GetPercentDP();
-		}
+		const HighScoreList& hsl = GetCourseHighScoreList( *c, pTrail );
+		fTotalPercents += hsl.GetTopScore().GetPercentDP();
 	}
 
 	return fTotalPercents;
@@ -514,9 +496,9 @@ int Profile::GetSongNumTimesPlayed( const SongID& songID ) const
  * In practice, we get the default modifiers from the theme the first time a game
  * is played, and from the profile every time thereafter.
  */
-bool Profile::GetDefaultModifiers( const Game* pGameType, CString &sModifiersOut ) const
+bool Profile::GetDefaultModifiers( const Game* pGameType, RString &sModifiersOut ) const
 {
-	map<CString,CString>::const_iterator it;
+	map<RString,RString>::const_iterator it;
 	it = m_sDefaultModifiers.find( pGameType->m_szName );
 	if( it == m_sDefaultModifiers.end() )
 		return false;
@@ -524,7 +506,7 @@ bool Profile::GetDefaultModifiers( const Game* pGameType, CString &sModifiersOut
 	return true;
 }
 
-void Profile::SetDefaultModifiers( const Game* pGameType, const CString &sModifiers )
+void Profile::SetDefaultModifiers( const Game* pGameType, const RString &sModifiers )
 {
 	if( sModifiers == "" )
 		m_sDefaultModifiers.erase( pGameType->m_szName );
@@ -532,9 +514,9 @@ void Profile::SetDefaultModifiers( const Game* pGameType, const CString &sModifi
 		m_sDefaultModifiers[pGameType->m_szName] = sModifiers;
 }
 
-bool Profile::IsCodeUnlocked( int iCode ) const
+bool Profile::IsCodeUnlocked( RString sUnlockEntryID ) const
 {
-	return m_UnlockedSongs.find( iCode ) != m_UnlockedSongs.end();
+	return m_UnlockedEntryIDs.find( sUnlockEntryID ) != m_UnlockedEntryIDs.end();
 }
 
 
@@ -626,20 +608,26 @@ DateTime Profile::GetSongLastPlayedDateTime( const Song* pSong ) const
 	return dtLatest;
 }
 
+bool Profile::HasPassedSteps( const Song* pSong, const Steps* pSteps ) const
+{
+	const HighScoreList &hsl = GetStepsHighScoreList( pSong, pSteps );
+	Grade grade = hsl.GetTopScore().GetGrade();
+	switch( grade )
+	{
+	case Grade_Failed:
+	case Grade_NoData:
+		return false;
+	default:
+		return true;
+	}
+}
+
 bool Profile::HasPassedAnyStepsInSong( const Song* pSong ) const
 {
 	FOREACH_CONST( Steps*, pSong->GetAllSteps(), steps )
 	{
-		const HighScoreList &hsl = GetStepsHighScoreList( pSong, *steps );
-		Grade grade = hsl.GetTopScore().GetGrade();
-		switch( grade )
-		{
-		case Grade_Failed:
-		case Grade_NoData:
-			break;
-		default:
+		if( HasPassedSteps( pSong, *steps ) )
 			return true;
-		}
 	}
 	return false;
 }
@@ -805,7 +793,7 @@ void Profile::IncrementCategoryPlayCount( StepsType st, RankingCategory rc )
 	if( X==NULL ) LOG->Warn("Failed to read section " #X); \
 	else Load##X##FromNode(X); }
 
-ProfileLoadResult Profile::LoadAllFromDir( CString sDir, bool bRequireSignature )
+ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature )
 {
 	CHECKPOINT;
 
@@ -819,7 +807,7 @@ ProfileLoadResult Profile::LoadAllFromDir( CString sDir, bool bRequireSignature 
 	LoadEditableDataFromDir( sDir );
 	
 	// Check for the existance of stats.xml
-	CString fn = sDir + STATS_XML;
+	RString fn = sDir + STATS_XML;
 	if( !IsAFile(fn) )
 		return ProfileLoadResult_FailedNoProfile;
 
@@ -838,8 +826,8 @@ ProfileLoadResult Profile::LoadAllFromDir( CString sDir, bool bRequireSignature 
 
 	if( bRequireSignature )
 	{ 
-		CString sStatsXmlSigFile = fn+SIGNATURE_APPEND;
-		CString sDontShareFile = sDir + DONT_SHARE_SIG;
+		RString sStatsXmlSigFile = fn+SIGNATURE_APPEND;
+		RString sDontShareFile = sDir + DONT_SHARE_SIG;
 
 		LOG->Trace( "Verifying don't share signature" );
 		// verify the stats.xml signature with the "don't share" file
@@ -862,7 +850,7 @@ ProfileLoadResult Profile::LoadAllFromDir( CString sDir, bool bRequireSignature 
 
 	LOG->Trace( "Loading %s", fn.c_str() );
 	XNode xml;
-	if( !xml.LoadFromFile(fn) )
+	if( !XmlFileUtil::LoadFromFileShowErrors(xml, fn) )
 		return ProfileLoadResult_FailedTampered;
 	LOG->Trace( "Done." );
 
@@ -884,9 +872,9 @@ ProfileLoadResult Profile::LoadStatsXmlFromNode( const XNode *xml, bool bIgnoreE
 
 	/* These are loaded from Editable, so we usually want to ignore them
 	 * here. */
-	CString sName = m_sDisplayName;
-	CString sCharacterID = m_sCharacterID;
-	CString sLastUsedHighScoreName = m_sLastUsedHighScoreName;
+	RString sName = m_sDisplayName;
+	RString sCharacterID = m_sCharacterID;
+	RString sLastUsedHighScoreName = m_sLastUsedHighScoreName;
 	int iWeightPounds = m_iWeightPounds;
 
 	LOAD_NODE( GeneralData );
@@ -909,7 +897,7 @@ ProfileLoadResult Profile::LoadStatsXmlFromNode( const XNode *xml, bool bIgnoreE
 	return ProfileLoadResult_Success;
 }
 
-bool Profile::SaveAllToDir( CString sDir, bool bSignData ) const
+bool Profile::SaveAllToDir( RString sDir, bool bSignData ) const
 {
 	m_sLastPlayedMachineGuid = PROFILEMAN->GetMachineProfile()->m_sGuid;
 	m_LastPlayedDate = DateTime::GetNowDate();
@@ -944,23 +932,23 @@ XNode *Profile::SaveStatsXmlCreateNode() const
 	xml->AppendChild( SaveCalorieDataCreateNode() );
 	xml->AppendChild( SaveRecentSongScoresCreateNode() );
 	xml->AppendChild( SaveRecentCourseScoresCreateNode() );
-	if( IsMachine() )
+	if( SHOW_COIN_DATA.GetValue() && IsMachine() )
 		xml->AppendChild( SaveCoinDataCreateNode() );
 
 	return xml;
 }
 
-bool Profile::SaveStatsXmlToDir( CString sDir, bool bSignData ) const
+bool Profile::SaveStatsXmlToDir( RString sDir, bool bSignData ) const
 {
 	XNode *xml = SaveStatsXmlCreateNode();
 
 	// Save stats.xml
-	CString fn = sDir + STATS_XML;
+	RString fn = sDir + STATS_XML;
 
 	DISP_OPT opts;
 	opts.stylesheet = STATS_XSL;
 	opts.write_tabs = false;
-	bool bSaved = xml->SaveToFile(fn, &opts);
+	bool bSaved = xml->SaveToFile( fn, opts );
 
 	SAFE_DELETE( xml );
 	
@@ -969,27 +957,27 @@ bool Profile::SaveStatsXmlToDir( CString sDir, bool bSignData ) const
 	
 	if( bSaved && bSignData )
 	{
-		CString sStatsXmlSigFile = fn+SIGNATURE_APPEND;
+		RString sStatsXmlSigFile = fn+SIGNATURE_APPEND;
 		CryptManager::SignFileToFile(fn, sStatsXmlSigFile);
 
 		// Update file cache, or else IsAFile in CryptManager won't see sStatsXmlSigFile.
 		FILEMAN->FlushDirCache( sDir );
 
 		// Save the "don't share" file
-		CString sDontShareFile = sDir + DONT_SHARE_SIG;
+		RString sDontShareFile = sDir + DONT_SHARE_SIG;
 		CryptManager::SignFileToFile(sStatsXmlSigFile, sDontShareFile);
 	}
 
 	return bSaved;
 }
 
-void Profile::SaveEditableDataToDir( CString sDir ) const
+void Profile::SaveEditableDataToDir( RString sDir ) const
 {
 	IniFile ini;
 
 	ini.SetValue( "Editable", "DisplayName",			m_sDisplayName );
 	ini.SetValue( "Editable", "CharacterID",			m_sCharacterID );
-	ini.SetValue( "Editable", "LastUsedHighScoreName",	m_sLastUsedHighScoreName );
+	ini.SetValue( "Editable", "LastUsedHighScoreName",		m_sLastUsedHighScoreName );
 	ini.SetValue( "Editable", "WeightPounds",			m_iWeightPounds );
 
 	ini.WriteFile( sDir + EDITABLE_INI );
@@ -1003,40 +991,40 @@ XNode* Profile::SaveGeneralDataCreateNode() const
 	// TRICKY: These are write-only elements that are normally never read again.
 	// This data is required by other apps (like internet ranking), but is 
 	// redundant to the game app.
-	pGeneralDataNode->AppendChild( "DisplayName",					GetDisplayNameOrHighScoreName() );
-	pGeneralDataNode->AppendChild( "CharacterID",					m_sCharacterID );
-	pGeneralDataNode->AppendChild( "LastUsedHighScoreName",			m_sLastUsedHighScoreName );
-	pGeneralDataNode->AppendChild( "WeightPounds",					m_iWeightPounds );
-	pGeneralDataNode->AppendChild( "IsMachine",						IsMachine() );
-	pGeneralDataNode->AppendChild( "IsWeightSet",					m_iWeightPounds != 0 );
+	pGeneralDataNode->AppendChild( "DisplayName",			GetDisplayNameOrHighScoreName() );
+	pGeneralDataNode->AppendChild( "CharacterID",			m_sCharacterID );
+	pGeneralDataNode->AppendChild( "LastUsedHighScoreName",		m_sLastUsedHighScoreName );
+	pGeneralDataNode->AppendChild( "WeightPounds",			m_iWeightPounds );
+	pGeneralDataNode->AppendChild( "IsMachine",			IsMachine() );
+	pGeneralDataNode->AppendChild( "IsWeightSet",			m_iWeightPounds != 0 );
 
-	pGeneralDataNode->AppendChild( "Guid",							m_sGuid );
-	pGeneralDataNode->AppendChild( "SortOrder",						SortOrderToString(m_SortOrder) );
-	pGeneralDataNode->AppendChild( "LastDifficulty",				DifficultyToString(m_LastDifficulty) );
-	pGeneralDataNode->AppendChild( "LastCourseDifficulty",			CourseDifficultyToString(m_LastCourseDifficulty) );
+	pGeneralDataNode->AppendChild( "Guid",				m_sGuid );
+	pGeneralDataNode->AppendChild( "SortOrder",			SortOrderToString(m_SortOrder) );
+	pGeneralDataNode->AppendChild( "LastDifficulty",		DifficultyToString(m_LastDifficulty) );
+	pGeneralDataNode->AppendChild( "LastCourseDifficulty",		CourseDifficultyToString(m_LastCourseDifficulty) );
 	pGeneralDataNode->AppendChild( m_lastSong.CreateNode() );
 	pGeneralDataNode->AppendChild( m_lastCourse.CreateNode() );
-	pGeneralDataNode->AppendChild( "TotalPlays",					m_iTotalPlays );
-	pGeneralDataNode->AppendChild( "TotalPlaySeconds",				m_iTotalPlaySeconds );
-	pGeneralDataNode->AppendChild( "TotalGameplaySeconds",			m_iTotalGameplaySeconds );
-	pGeneralDataNode->AppendChild( "CurrentCombo",					m_iCurrentCombo );
-	pGeneralDataNode->AppendChild( "TotalCaloriesBurned",			m_fTotalCaloriesBurned );
-	pGeneralDataNode->AppendChild( "GoalType",						m_GoalType );
-	pGeneralDataNode->AppendChild( "GoalCalories",					m_iGoalCalories );
-	pGeneralDataNode->AppendChild( "GoalSeconds",					m_iGoalSeconds );
-	pGeneralDataNode->AppendChild( "LastPlayedMachineGuid",			m_sLastPlayedMachineGuid );
-	pGeneralDataNode->AppendChild( "LastPlayedDate",				m_LastPlayedDate );
-	pGeneralDataNode->AppendChild( "TotalDancePoints",				m_iTotalDancePoints );
-	pGeneralDataNode->AppendChild( "NumExtraStagesPassed",			m_iNumExtraStagesPassed );
-	pGeneralDataNode->AppendChild( "NumExtraStagesFailed",			m_iNumExtraStagesFailed );
-	pGeneralDataNode->AppendChild( "NumToasties",					m_iNumToasties );
-	pGeneralDataNode->AppendChild( "TotalTapsAndHolds",				m_iTotalTapsAndHolds );
-	pGeneralDataNode->AppendChild( "TotalJumps",					m_iTotalJumps );
-	pGeneralDataNode->AppendChild( "TotalHolds",					m_iTotalHolds );
-	pGeneralDataNode->AppendChild( "TotalRolls",					m_iTotalRolls );
-	pGeneralDataNode->AppendChild( "TotalMines",					m_iTotalMines );
-	pGeneralDataNode->AppendChild( "TotalHands",					m_iTotalHands );
-	pGeneralDataNode->AppendChild( "Data",							m_SavedLuaData.Serialize() );
+	pGeneralDataNode->AppendChild( "TotalPlays",			m_iTotalPlays );
+	pGeneralDataNode->AppendChild( "TotalPlaySeconds",		m_iTotalPlaySeconds );
+	pGeneralDataNode->AppendChild( "TotalGameplaySeconds",		m_iTotalGameplaySeconds );
+	pGeneralDataNode->AppendChild( "CurrentCombo",			m_iCurrentCombo );
+	pGeneralDataNode->AppendChild( "TotalCaloriesBurned",		m_fTotalCaloriesBurned );
+	pGeneralDataNode->AppendChild( "GoalType",			m_GoalType );
+	pGeneralDataNode->AppendChild( "GoalCalories",			m_iGoalCalories );
+	pGeneralDataNode->AppendChild( "GoalSeconds",			m_iGoalSeconds );
+	pGeneralDataNode->AppendChild( "LastPlayedMachineGuid",		m_sLastPlayedMachineGuid );
+	pGeneralDataNode->AppendChild( "LastPlayedDate",		m_LastPlayedDate );
+	pGeneralDataNode->AppendChild( "TotalDancePoints",		m_iTotalDancePoints );
+	pGeneralDataNode->AppendChild( "NumExtraStagesPassed",		m_iNumExtraStagesPassed );
+	pGeneralDataNode->AppendChild( "NumExtraStagesFailed",		m_iNumExtraStagesFailed );
+	pGeneralDataNode->AppendChild( "NumToasties",			m_iNumToasties );
+	pGeneralDataNode->AppendChild( "TotalTapsAndHolds",		m_iTotalTapsAndHolds );
+	pGeneralDataNode->AppendChild( "TotalJumps",			m_iTotalJumps );
+	pGeneralDataNode->AppendChild( "TotalHolds",			m_iTotalHolds );
+	pGeneralDataNode->AppendChild( "TotalRolls",			m_iTotalRolls );
+	pGeneralDataNode->AppendChild( "TotalMines",			m_iTotalMines );
+	pGeneralDataNode->AppendChild( "TotalHands",			m_iTotalHands );
+	pGeneralDataNode->AppendChild( "Data",				m_SavedLuaData.Serialize() );
 
 	// Keep declared variables in a very local scope so they aren't 
 	// accidentally used where they're not intended.  There's a lot of
@@ -1044,14 +1032,14 @@ XNode* Profile::SaveGeneralDataCreateNode() const
 
 	{
 		XNode* pDefaultModifiers = pGeneralDataNode->AppendChild("DefaultModifiers");
-		FOREACHM_CONST( CString, CString, m_sDefaultModifiers, it )
+		FOREACHM_CONST( RString, RString, m_sDefaultModifiers, it )
 			pDefaultModifiers->AppendChild( it->first, it->second );
 	}
 
 	{
-		XNode* pUnlockedSongs = pGeneralDataNode->AppendChild("UnlockedSongs");
-		FOREACHS_CONST( int, m_UnlockedSongs, it )
-			pUnlockedSongs->AppendChild( ssprintf("Unlock%i", *it) );
+		XNode* pUnlocks = pGeneralDataNode->AppendChild("Unlocks");
+		FOREACHS_CONST( RString, m_UnlockedEntryIDs, it )
+			pUnlocks->AppendChild("UnlockEntry")->AppendAttr( "UnlockEntryID", it->c_str() );
 	}
 
 	{
@@ -1125,9 +1113,9 @@ XNode* Profile::SaveGeneralDataCreateNode() const
 	return pGeneralDataNode;
 }
 
-ProfileLoadResult Profile::LoadEditableDataFromDir( CString sDir )
+ProfileLoadResult Profile::LoadEditableDataFromDir( RString sDir )
 {
-	CString fn = sDir + EDITABLE_INI;
+	RString fn = sDir + EDITABLE_INI;
 
 	//
 	// Don't load unreasonably large editable.xml files.
@@ -1147,14 +1135,14 @@ ProfileLoadResult Profile::LoadEditableDataFromDir( CString sDir )
 
 	ini.GetValue( "Editable", "DisplayName",			m_sDisplayName );
 	ini.GetValue( "Editable", "CharacterID",			m_sCharacterID );
-	ini.GetValue( "Editable", "LastUsedHighScoreName",	m_sLastUsedHighScoreName );
+	ini.GetValue( "Editable", "LastUsedHighScoreName",		m_sLastUsedHighScoreName );
 	ini.GetValue( "Editable", "WeightPounds",			m_iWeightPounds );
 
 	// This is data that the user can change, so we have to validate it.
-	wstring wstr = CStringToWstring(m_sDisplayName);
+	wstring wstr = RStringToWstring(m_sDisplayName);
 	if( wstr.size() > PROFILE_MAX_DISPLAY_NAME_LENGTH )
 		wstr = wstr.substr(0, PROFILE_MAX_DISPLAY_NAME_LENGTH);
-	m_sDisplayName = WStringToCString(wstr);
+	m_sDisplayName = WStringToRString(wstr);
 	// TODO: strip invalid chars?
 	if( m_iWeightPounds != 0 )
 		CLAMP( m_iWeightPounds, 20, 1000 );
@@ -1166,42 +1154,42 @@ void Profile::LoadGeneralDataFromNode( const XNode* pNode )
 {
 	ASSERT( pNode->m_sName == "GeneralData" );
 
-	CString s;
+	RString s;
 	const XNode* pTemp;
 
-	pNode->GetChildValue( "DisplayName",					m_sDisplayName );
-	pNode->GetChildValue( "CharacterID",					m_sCharacterID );
+	pNode->GetChildValue( "DisplayName",				m_sDisplayName );
+	pNode->GetChildValue( "CharacterID",				m_sCharacterID );
 	pNode->GetChildValue( "LastUsedHighScoreName",			m_sLastUsedHighScoreName );
-	pNode->GetChildValue( "WeightPounds",					m_iWeightPounds );
-	pNode->GetChildValue( "Guid",							m_sGuid );
-	pNode->GetChildValue( "SortOrder",						s );	m_SortOrder = StringToSortOrder( s );
-	pNode->GetChildValue( "LastDifficulty",					s );	m_LastDifficulty = StringToDifficulty( s );
+	pNode->GetChildValue( "WeightPounds",				m_iWeightPounds );
+	pNode->GetChildValue( "Guid",					m_sGuid );
+	pNode->GetChildValue( "SortOrder",				s );	m_SortOrder = StringToSortOrder( s );
+	pNode->GetChildValue( "LastDifficulty",				s );	m_LastDifficulty = StringToDifficulty( s );
 	pNode->GetChildValue( "LastCourseDifficulty",			s );	m_LastCourseDifficulty = StringToCourseDifficulty( s );
 	pTemp = pNode->GetChild( "Song" );				if( pTemp ) m_lastSong.LoadFromNode( pTemp );
-	pTemp = pNode->GetChild( "Course" );			if( pTemp ) m_lastCourse.LoadFromNode( pTemp );
-	pNode->GetChildValue( "TotalPlays",						m_iTotalPlays );
-	pNode->GetChildValue( "TotalPlaySeconds",				m_iTotalPlaySeconds );
+	pTemp = pNode->GetChild( "Course" );				if( pTemp ) m_lastCourse.LoadFromNode( pTemp );
+	pNode->GetChildValue( "TotalPlays",				m_iTotalPlays );
+	pNode->GetChildValue( "TotalPlaySeconds",			m_iTotalPlaySeconds );
 	pNode->GetChildValue( "TotalGameplaySeconds",			m_iTotalGameplaySeconds );
-	pNode->GetChildValue( "CurrentCombo",					m_iCurrentCombo );
+	pNode->GetChildValue( "CurrentCombo",				m_iCurrentCombo );
 	pNode->GetChildValue( "TotalCaloriesBurned",			m_fTotalCaloriesBurned );
-	pNode->GetChildValue( "GoalType",						(int&)m_GoalType );
-	pNode->GetChildValue( "GoalCalories",					m_iGoalCalories );
-	pNode->GetChildValue( "GoalSeconds",					m_iGoalSeconds );
+	pNode->GetChildValue( "GoalType",				(int&)m_GoalType );
+	pNode->GetChildValue( "GoalCalories",				m_iGoalCalories );
+	pNode->GetChildValue( "GoalSeconds",				m_iGoalSeconds );
 	pNode->GetChildValue( "LastPlayedMachineGuid",			m_sLastPlayedMachineGuid );
-	pNode->GetChildValue( "LastPlayedDate",					m_LastPlayedDate );
-	pNode->GetChildValue( "TotalDancePoints",				m_iTotalDancePoints );
+	pNode->GetChildValue( "LastPlayedDate",				m_LastPlayedDate );
+	pNode->GetChildValue( "TotalDancePoints",			m_iTotalDancePoints );
 	pNode->GetChildValue( "NumExtraStagesPassed",			m_iNumExtraStagesPassed );
 	pNode->GetChildValue( "NumExtraStagesFailed",			m_iNumExtraStagesFailed );
-	pNode->GetChildValue( "NumToasties",					m_iNumToasties );
-	pNode->GetChildValue( "TotalTapsAndHolds",				m_iTotalTapsAndHolds );
-	pNode->GetChildValue( "TotalJumps",						m_iTotalJumps );
-	pNode->GetChildValue( "TotalHolds",						m_iTotalHolds );
-	pNode->GetChildValue( "TotalRolls",						m_iTotalRolls );
-	pNode->GetChildValue( "TotalMines",						m_iTotalMines );
-	pNode->GetChildValue( "TotalHands",						m_iTotalHands );
+	pNode->GetChildValue( "NumToasties",				m_iNumToasties );
+	pNode->GetChildValue( "TotalTapsAndHolds",			m_iTotalTapsAndHolds );
+	pNode->GetChildValue( "TotalJumps",				m_iTotalJumps );
+	pNode->GetChildValue( "TotalHolds",				m_iTotalHolds );
+	pNode->GetChildValue( "TotalRolls",				m_iTotalRolls );
+	pNode->GetChildValue( "TotalMines",				m_iTotalMines );
+	pNode->GetChildValue( "TotalHands",				m_iTotalHands );
 
 	{
-		CString sData;
+		RString sData;
 		if( pNode->GetChildValue( "Data", sData ) )
 		{
 			m_SavedLuaData.LoadFromString( sData );
@@ -1228,14 +1216,14 @@ void Profile::LoadGeneralDataFromNode( const XNode* pNode )
 	}
 
 	{
-		const XNode* pUnlockedSongs = pNode->GetChild("UnlockedSongs");
-		if( pUnlockedSongs )
+		const XNode* pUnlocks = pNode->GetChild("Unlocks");
+		if( pUnlocks )
 		{
-			FOREACH_CONST_Child( pUnlockedSongs, song )
+			FOREACH_CONST_Child( pUnlocks, unlock )
 			{
-				int iUnlock;
-				if( sscanf(song->m_sName.c_str(),"Unlock%d",&iUnlock) == 1 )
-					m_UnlockedSongs.insert( iUnlock );
+				RString sUnlockEntryID;
+				if( unlock->GetAttrValue("UnlockEntryID",sUnlockEntryID) )
+					m_UnlockedEntryIDs.insert( sUnlockEntryID );
 			}
 		}
 	}
@@ -1468,13 +1456,13 @@ void Profile::LoadCourseScoresFromNode( const XNode* pCourseScores )
 			Course *pC = courseID.ToCourse();
 			if( pC == NULL )
 			{
-				CString sDir, sFName, sExt;
+				RString sDir, sFName, sExt;
 				splitpath( courseID.sPath, sDir, sFName, sExt );
-				CString sFullFileName = sFName + sExt;
+				RString sFullFileName = sFName + sExt;
 
 				FOREACH_CONST( Course*, vpAllCourses, c )
 				{
-					CString sOther = (*c)->m_sPath.Right(sFullFileName.size());
+					RString sOther = (*c)->m_sPath.Right(sFullFileName.size());
 
 					if( sFullFileName.CompareNoCase(sOther) == 0 )
 					{
@@ -1555,7 +1543,7 @@ void Profile::LoadCategoryScoresFromNode( const XNode* pCategoryScores )
 		if( pStepsType->m_sName != "StepsType" )
 			continue;
 
-		CString str;
+		RString str;
 		if( !pStepsType->GetAttrValue( "Type", str ) )
 			WARN_AND_CONTINUE;
 		StepsType st = GameManager::StringToStepsType( str );
@@ -1583,7 +1571,7 @@ void Profile::LoadCategoryScoresFromNode( const XNode* pCategoryScores )
 	}
 }
 
-void Profile::SaveStatsWebPageToDir( CString sDir ) const
+void Profile::SaveStatsWebPageToDir( RString sDir ) const
 {
 	ASSERT( PROFILEMAN );
 
@@ -1593,7 +1581,7 @@ void Profile::SaveStatsWebPageToDir( CString sDir ) const
 	FileCopy( CATALOG_XML_FILE, sDir+CATALOG_XML );
 }
 
-void Profile::SaveMachinePublicKeyToDir( CString sDir ) const
+void Profile::SaveMachinePublicKeyToDir( RString sDir ) const
 {
 	if( PREFSMAN->m_bSignProfileData && IsAFile(CRYPTMAN->GetPublicKeyFileName()) )
 		FileCopy( CRYPTMAN->GetPublicKeyFileName(), sDir+PUBLIC_KEY_FILE );
@@ -1649,7 +1637,7 @@ void Profile::LoadCalorieDataFromNode( const XNode* pCalorieData )
 		if( pCaloriesBurned->m_sName != "CaloriesBurned" )
 			WARN_AND_CONTINUE_M( pCaloriesBurned->m_sName );
 
-		CString sDate;
+		RString sDate;
 		if( !pCaloriesBurned->GetAttrValue("Date",sDate) )
 			WARN_AND_CONTINUE;
 		DateTime date;
@@ -1924,12 +1912,12 @@ XNode* Profile::SaveCoinDataCreateNode() const
 	return pNode;
 }
 
-void Profile::BackupToDir( CString sFromDir, CString sToDir )
+void Profile::MoveBackupToDir( RString sFromDir, RString sToDir )
 {
-	FileCopy( sFromDir+EDITABLE_INI,				sToDir+EDITABLE_INI );
-	FileCopy( sFromDir+STATS_XML,					sToDir+STATS_XML );
-	FileCopy( sFromDir+STATS_XML+SIGNATURE_APPEND,	sToDir+STATS_XML+SIGNATURE_APPEND );
-	FileCopy( sFromDir+DONT_SHARE_SIG,				sToDir+DONT_SHARE_SIG );
+	FILEMAN->Move( sFromDir+EDITABLE_INI,				sToDir+EDITABLE_INI );
+	FILEMAN->Move( sFromDir+STATS_XML,					sToDir+STATS_XML );
+	FILEMAN->Move( sFromDir+STATS_XML+SIGNATURE_APPEND,	sToDir+STATS_XML+SIGNATURE_APPEND );
+	FILEMAN->Move( sFromDir+DONT_SHARE_SIG,				sToDir+DONT_SHARE_SIG );
 }
 
 // lua start
@@ -1951,9 +1939,9 @@ public:
 	static int GetGoalSeconds( T* p, lua_State *L )			{ lua_pushnumber(L, p->m_iGoalSeconds ); return 1; }
 	static int SetGoalSeconds( T* p, lua_State *L )			{ p->m_iGoalSeconds = IArg(1); return 0; }
 	static int GetCaloriesBurnedToday( T* p, lua_State *L )	{ lua_pushnumber(L, p->GetCaloriesBurnedToday() ); return 1; }
-	static int GetSaved( T* p, lua_State *L )				{ p->m_SavedLuaData.PushSelf(L); return 1; }
+	static int GetSaved( T* p, lua_State *L )			{ p->m_SavedLuaData.PushSelf(L); return 1; }
 	static int GetTotalNumSongsPlayed( T* p, lua_State *L )	{ lua_pushnumber(L, p->m_iNumTotalSongsPlayed ); return 1; }
-	static int IsCodeUnlocked( T* p, lua_State *L )			{ lua_pushboolean(L, p->IsCodeUnlocked(IArg(1)) ); return 1; }
+	static int IsCodeUnlocked( T* p, lua_State *L )			{ lua_pushboolean(L, p->IsCodeUnlocked(SArg(1)) ); return 1; }
 	static int GetSongsActual( T* p, lua_State *L )			{ lua_pushnumber(L, p->GetSongsActual((StepsType)IArg(1),(Difficulty)IArg(2)) ); return 1; }
 	static int GetCoursesActual( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetCoursesActual((StepsType)IArg(1),(CourseDifficulty)IArg(2)) ); return 1; }
 	static int GetSongsPossible( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetSongsPossible((StepsType)IArg(1),(Difficulty)IArg(2)) ); return 1; }
@@ -1965,7 +1953,8 @@ public:
 	static int GetNumTotalSongsPlayed( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_iNumTotalSongsPlayed ); return 1; }
 	static int GetLastPlayedStepsType( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetLastPlayedStepsType() ); return 1; }
 	static int GetSongsAndCoursesPercentCompleteAllDifficulties( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetSongsAndCoursesPercentCompleteAllDifficulties((StepsType)IArg(1)) ); return 1; }
-	static int GetDisplayTotalCaloriesBurned( T* p, lua_State *L )		{ lua_pushstring(L, p->GetDisplayTotalCaloriesBurned() ); return 1; }
+	static int GetTotalCaloriesBurned( T* p, lua_State *L )		{ lua_pushnumber(L, p->m_fTotalCaloriesBurned ); return 1; }
+	static int GetDisplayTotalCaloriesBurned( T* p, lua_State *L )	{ lua_pushstring(L, p->GetDisplayTotalCaloriesBurned() ); return 1; }
 	static int GetMostPopularSong( T* p, lua_State *L )
 	{
 		Song *p2 = p->GetMostPopularSong();
@@ -2026,6 +2015,7 @@ public:
 		ADD_METHOD( GetNumTotalSongsPlayed );
 		ADD_METHOD( GetLastPlayedStepsType );
 		ADD_METHOD( GetSongsAndCoursesPercentCompleteAllDifficulties );
+		ADD_METHOD( GetTotalCaloriesBurned );
 		ADD_METHOD( GetDisplayTotalCaloriesBurned );
 		ADD_METHOD( GetMostPopularSong );
 		ADD_METHOD( GetMostPopularCourse );

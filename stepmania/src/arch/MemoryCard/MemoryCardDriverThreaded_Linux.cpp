@@ -2,56 +2,24 @@
 #include "MemoryCardDriverThreaded_Linux.h"
 #include "RageLog.h"
 #include "RageUtil.h"
-#include "RageFileManager.h"
-#include "ProfileManager.h"
-#include "PrefsManager.h"
-#include "Foreach.h"
 #include "RageFile.h"
 
-#include <cstdio>
-#include <cstring>
 #include <cerrno>
-#include <unistd.h>
 #include <fcntl.h>
-#include <fstream>
 #include <dirent.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/poll.h>
 
-const CString TEMP_MOUNT_POINT = "/@mctemp/";
-
-void GetNewStorageDevices( vector<UsbStorageDevice>& vDevicesOut );
-
-template<class T>
-bool VectorsAreEqual( const T &a, const T &b )
+bool MemoryCardDriverThreaded_Linux::TestWrite( UsbStorageDevice* pDevice )
 {
-	if( a.size() != b.size() )
+	if( access(pDevice->sOsMountDir, W_OK) == -1 )
+	{
+		pDevice->SetError( "TestFailed" );
 		return false;
-	
-	for( unsigned i=0; i<a.size(); i++ )
-    {
-		if( a[i] != b[i] )
-			return false;
-    }
-	
+	}
+
 	return true;
 }
 
-static bool TestWrite( CCStringRef sDir )
-{
-	// Try to write a file.
-	// TODO: Can we use RageFile for this?
-	CString sFile = sDir + "/temp";
-	FILE* fp = fopen( sFile, "w" );
-	if( fp == NULL )
-		return false;
-	fclose( fp );
-	remove( sFile );
-	return true;
-}
-
-static bool ExecuteCommand( CCStringRef sCommand )
+static bool ExecuteCommand( const RString &sCommand )
 {
 	LOG->Trace( "executing '%s'", sCommand.c_str() );
 	int ret = system(sCommand);
@@ -61,19 +29,7 @@ static bool ExecuteCommand( CCStringRef sCommand )
 	return ret == 0;
 }
 
-MemoryCardDriverThreaded_Linux::MemoryCardDriverThreaded_Linux()
-{
-}
-
-MemoryCardDriverThreaded_Linux::~MemoryCardDriverThreaded_Linux()
-{
-}
-
-void MemoryCardDriverThreaded_Linux::Reset()
-{
-}
-
-static bool ReadFile( const CString &sPath, CString &sBuf )
+static bool ReadFile( const RString &sPath, RString &sBuf )
 {
 	sBuf.clear();
 
@@ -104,7 +60,7 @@ static bool ReadFile( const CString &sPath, CString &sBuf )
 	return true;
 }
 
-static void GetFileList( const CString &sPath, vector<CString> &out )
+static void GetFileList( const RString &sPath, vector<RString> &out )
 {
 	out.clear();
 
@@ -118,16 +74,15 @@ static void GetFileList( const CString &sPath, vector<CString> &out )
 	closedir( dp );
 }
 
-static bool BlockDevicesChanged()
+bool MemoryCardDriverThreaded_Linux::USBStorageDevicesChanged()
 {
-	static CString sLastDevices = "";
-	CString sThisDevices;
+	RString sThisDevices;
 
 	/* If a device is removed and reinserted, the inode of the /sys/block entry
 	 * will change. */
-	CString sDevicePath = "/sys/block/";
+	RString sDevicePath = "/sys/block/";
 	
-	vector<CString> asDevices;
+	vector<RString> asDevices;
 	GetFileList( sDevicePath, asDevices );
 
 	for( unsigned i = 0; i < asDevices.size(); ++i )
@@ -139,148 +94,37 @@ static bool BlockDevicesChanged()
 		sThisDevices += ssprintf( "%i,", (int) buf.st_ino );
 	}
 	       
-	bool bChanged = sThisDevices != sLastDevices;
-	sLastDevices = sThisDevices;
+	bool bChanged = sThisDevices != m_sLastDevices;
+	m_sLastDevices = sThisDevices;
 	if( bChanged )
 		LOG->Trace( "Change in USB storage devices detected." );
 	return bChanged;
 }
 
-bool MemoryCardDriverThreaded_Linux::NeedUpdate( bool bMount ) const
+void MemoryCardDriverThreaded_Linux::GetUSBStorageDevices( vector<UsbStorageDevice>& vDevicesOut )
 {
-	if( bMount )
-	{
-		/* Check if any devices need a write test. */
-		for( unsigned i=0; i<m_vDevicesLastSeen.size(); i++ )
-		{
-			const UsbStorageDevice &d = m_vDevicesLastSeen[i];
-			if( d.m_State == UsbStorageDevice::STATE_CHECKING )
-				return true;
-		}
-	}
-
-	/* Nothing needs a write test (or we ca'nt do it right now).  If no devices
-	 * have changed, either, we have nothing to do. */
-	if( BlockDevicesChanged() )
-		return true;
-
-	/* Nothing to do. */
-	return false;
-}
-
-bool MemoryCardDriverThreaded_Linux::DoOneUpdate( bool bMount, vector<UsbStorageDevice>& vStorageDevicesOut )
-{
-	if( !NeedUpdate(bMount) )
-		return false;
-
-	vector<UsbStorageDevice> vOld = m_vDevicesLastSeen; // copy
-	GetNewStorageDevices( vStorageDevicesOut );
-	vector<UsbStorageDevice> &vNew = vStorageDevicesOut;
-	
-	// check for connects
-	vector<UsbStorageDevice> vConnects;
-	FOREACH( UsbStorageDevice, vNew, newd )
-	{
-		vector<UsbStorageDevice>::iterator iter = find( vOld.begin(), vOld.end(), *newd );
-		if( iter == vOld.end() )    // didn't find
-		{
-			LOG->Trace( "New device connected: %s", newd->sDevice.c_str() );
-			vConnects.push_back( *newd );
-		}
-	}
-	
-	/* When we first see a device, regardless of bMount, just return it as CHECKING,
-	 * so the main thread knows about the device.  On the next call where bMount is
-	 * true, check it. */
-	for( unsigned i=0; i<vStorageDevicesOut.size(); i++ )
-	{
-		UsbStorageDevice &d = vStorageDevicesOut[i];
-
-		/* If this device was just connected (it wasn't here last time), set it to
-		 * CHECKING and return it, to let the main thread know about the device before
-		 * we start checking. */
-		vector<UsbStorageDevice>::iterator iter = find( vOld.begin(), vOld.end(), d );
-		if( iter == vOld.end() )    // didn't find
-		{
-			LOG->Trace("New device entering CHECKING: %s", d.sDevice.c_str() );
-			d.m_State = UsbStorageDevice::STATE_CHECKING;
-			continue;
-		}
-
-		/* Preserve the state of the device, and any data loaded from previous checks. */
-		d.m_State = iter->m_State;
-		d.bIsNameAvailable = iter->bIsNameAvailable;
-		d.sName = iter->sName;
-
-		/* The device was here last time.  If CHECKING, check the device now if
-		 * we're allowed to. */
-		if( d.m_State == UsbStorageDevice::STATE_CHECKING )
-		{
-			if( !bMount )
-			{
-				/* We can't check it now.  Keep the checking state and check it when
-				 * we can. */
-				d.m_State = UsbStorageDevice::STATE_CHECKING;
-				continue;
-			}
-
-			if( !ExecuteCommand("mount " + d.sDevice) )
-			{
-				d.SetError( "MountFailed" );
-				continue;
-			}
-
-			if( !TestWrite(d.sOsMountDir) )
-			{
-				d.SetError( "TestFailed" );
-			}
-			else
-			{
-				/* We've successfully mounted and tested the device.  Read the
-				 * profile name (by mounting a temporary, private mountpoint),
-				 * and then unmount it until Mount() is called. */
-				d.m_State = UsbStorageDevice::STATE_READY;
-			
-				FILEMAN->Mount( "dir", d.sOsMountDir, TEMP_MOUNT_POINT );
-				d.bIsNameAvailable = PROFILEMAN->FastLoadProfileNameFromMemoryCard( TEMP_MOUNT_POINT, d.sName );
-				FILEMAN->Unmount( "dir", d.sOsMountDir, TEMP_MOUNT_POINT );
-			}
-
-			ExecuteCommand( "sync; umount -l \"" + d.sOsMountDir + "\"" );
-
-			LOG->Trace( "WriteTest: %s, Name: %s", d.m_State == UsbStorageDevice::STATE_ERROR? "failed":"succeeded", d.sName.c_str() );
-		}
-	}
-	
-	m_vDevicesLastSeen = vNew;
-	
-	CHECKPOINT;
-	return true;
-}
-
-void GetNewStorageDevices( vector<UsbStorageDevice>& vDevicesOut )
-{
-	LOG->Trace( "GetNewStorageDevices" );
+	LOG->Trace( "GetUSBStorageDevices" );
 	
 	vDevicesOut.clear();
 
 	{
-		vector<CString> asDevices;
-		CString sBlockDevicePath = "/sys/block/";
+		vector<RString> asDevices;
+		RString sBlockDevicePath = "/sys/block/";
 		GetFileList( sBlockDevicePath, asDevices );
 
 		for( unsigned i = 0; i < asDevices.size(); ++i )
 		{
-			const CString &sDevice = asDevices[i];
+			const RString &sDevice = asDevices[i];
 			if( sDevice == "." || sDevice == ".." )
 				continue;
 
 			UsbStorageDevice usbd;
 
-			CString sPath = sBlockDevicePath + sDevice + "/";
+			RString sPath = sBlockDevicePath + sDevice + "/";
+			usbd.sSysPath = sPath;
 
 			/* Ignore non-removable devices. */
-			CString sBuf;
+			RString sBuf;
 			if( !ReadFile( sPath + "removable", sBuf ) )
 				continue; // already warned
 			if( atoi(sBuf) != 1 )
@@ -321,12 +165,12 @@ void GetNewStorageDevices( vector<UsbStorageDevice>& vDevicesOut )
 				 * the number of hops.
 				 */
 				szLink[iRet] = 0;
-				vector<CString> asBits;
+				vector<RString> asBits;
 				split( szLink, "/", asBits );
 
 				if( strstr( szLink, "usb" ) != NULL )
 				{
-					CString sHostPort = asBits[asBits.size()-2];
+					RString sHostPort = asBits[asBits.size()-2];
 					sHostPort.Replace( "-", "." );
 					asBits.clear();
 					split( sHostPort, ".", asBits );
@@ -372,7 +216,7 @@ void GetNewStorageDevices( vector<UsbStorageDevice>& vDevicesOut )
 		// /dev/sdb1               /mnt/flash2             auto    noauto,owner 0 0
 		// /dev/sdc1               /mnt/flash3             auto    noauto,owner 0 0
 		
-		CString fn = "/rootfs/etc/fstab";
+		RString fn = "/rootfs/etc/fstab";
 		RageFile f;
 		if( !f.Open(fn) )
 		{
@@ -380,7 +224,7 @@ void GetNewStorageDevices( vector<UsbStorageDevice>& vDevicesOut )
 			return;
 		}
 		
-		CString sLine;
+		RString sLine;
 		while( !f.AtEOF() )
 		{
 			switch( f.GetLine(sLine) )
@@ -398,7 +242,7 @@ void GetNewStorageDevices( vector<UsbStorageDevice>& vDevicesOut )
 				continue;	// don't process this line
 			
 			
-			CString sMountPoint = szMountPoint;
+			RString sMountPoint = szMountPoint;
 			TrimLeft( sMountPoint );
 			TrimRight( sMountPoint );
 			
@@ -436,7 +280,7 @@ void GetNewStorageDevices( vector<UsbStorageDevice>& vDevicesOut )
 		}
 	}
 	
-	LOG->Trace( "Done with GetNewStorageDevices" );
+	LOG->Trace( "Done with GetUSBStorageDevices" );
 }
 
 
@@ -444,7 +288,7 @@ bool MemoryCardDriverThreaded_Linux::Mount( UsbStorageDevice* pDevice )
 {
 	ASSERT( !pDevice->sDevice.empty() );
 	
-        CString sCommand = "mount " + pDevice->sDevice;
+        RString sCommand = "mount " + pDevice->sDevice;
         bool bMountedSuccessfully = ExecuteCommand( sCommand );
 
 	return bMountedSuccessfully;
@@ -460,18 +304,8 @@ void MemoryCardDriverThreaded_Linux::Unmount( UsbStorageDevice* pDevice )
 	 * by new devices until those are closed.  Without this, if something
 	 * causes the device to not unmount here, we'll never unmount it; that
 	 * causes a device name leak, eventually running us out of mountpoints. */
-	CString sCommand = "sync; umount -l \"" + pDevice->sDevice + "\"";
+	RString sCommand = "sync; umount -l \"" + pDevice->sDevice + "\"";
 	ExecuteCommand( sCommand );
-}
-
-void MemoryCardDriverThreaded_Linux::Flush( UsbStorageDevice* pDevice )
-{
-	if( pDevice->sDevice.empty() )
-		return;
-	
-	// "sync" will only flush all file systems at the same time.  -Chris
-	// That's OK.
-	ExecuteCommand( "sync" );
 }
 
 /*

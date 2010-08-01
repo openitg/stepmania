@@ -3,103 +3,205 @@
 
 RageSoundReader_Resample_Fast::RageSoundReader_Resample_Fast()
 {
-	source = NULL;
-	samplerate = -1;
+	m_pSource = NULL;
+	m_iInputRate = -1;
+	m_iOutputRate = -1;
+	m_iChannels = 2;
+	Reset();
 }
 
-void RageSoundReader_Resample_Fast::Open(SoundReader *source_)
+void RageSoundReader_Resample_Fast::Reset()
 {
-	source = source_;
-	ASSERT(source);
+	m_bAtEof = false;
+	memset( m_iPrevSample, 0, sizeof(m_iPrevSample) );
+	m_iPos = 0;
+	m_OutBuf.clear();
+}
 
-	samplerate = source->GetSampleRate();
-	resamp.SetInputSampleRate(samplerate);
-	resamp.SetChannels( source->GetNumChannels() );
+void RageSoundReader_Resample_Fast::Open( SoundReader *pSource )
+{
+	m_pSource = pSource;
+	ASSERT(m_pSource);
+
+	m_iInputRate = m_iOutputRate = m_pSource->GetSampleRate();
+	ASSERT( m_pSource->GetNumChannels() < MAX_CHANNELS );
+	m_iChannels = m_pSource->GetNumChannels();
 }
 
 
 RageSoundReader_Resample_Fast::~RageSoundReader_Resample_Fast()
 {
-	delete source;
+	delete m_pSource;
 }
 
-void RageSoundReader_Resample_Fast::SetSampleRate(int hz)
+void RageSoundReader_Resample_Fast::SetSampleRate( int iRate )
 {
-	samplerate = hz;
-	resamp.SetOutputSampleRate(samplerate);
+	m_iOutputRate = iRate;
 }
 
 int RageSoundReader_Resample_Fast::GetLength() const
 {
-	resamp.reset();
-	return source->GetLength();
+	return m_pSource->GetLength();
 }
 
 int RageSoundReader_Resample_Fast::GetLength_Fast() const
 {
-	resamp.reset();
-	return source->GetLength_Fast();
+	return m_pSource->GetLength_Fast();
 }
 
-int RageSoundReader_Resample_Fast::SetPosition_Accurate(int ms)
+int RageSoundReader_Resample_Fast::SetPosition_Accurate( int ms )
 {
-	resamp.reset();
-	return source->SetPosition_Accurate(ms);
+	Reset();
+	return m_pSource->SetPosition_Accurate(ms);
 }
 
-int RageSoundReader_Resample_Fast::SetPosition_Fast(int ms)
+int RageSoundReader_Resample_Fast::SetPosition_Fast( int ms )
 {
-	resamp.reset();
-	return source->SetPosition_Fast(ms);
+	Reset();
+	return m_pSource->SetPosition_Fast(ms);
 }
 static const int BUFSIZE = 1024*16;
 
-int RageSoundReader_Resample_Fast::Read(char *buf, unsigned len)
+int RageSoundReader_Resample_Fast::Read( char *pBuf, unsigned iSize )
 {
-	int bytes_read = 0;
-	while(len)
+	int iBytesRead = 0;
+	while( iSize )
 	{
-		int size = resamp.read(buf, len);
+		{
+			ASSERT( (iSize % sizeof(int16_t)) == 0 );
 
-		if(size == -1)
-			break;
+			/* If no data is available, and we're m_bAtEof, stop. */
+			if( m_OutBuf.size() == 0 && m_bAtEof )
+				break;
 
-		buf += size;
-		len -= size;
-		bytes_read += size;
+			/* Fill as much as we have. */
+			int iGot = min( m_OutBuf.size()*sizeof(int16_t), size_t(iSize) );
+			memcpy( pBuf, &m_OutBuf[0], iGot );
+			m_OutBuf.erase( m_OutBuf.begin(), m_OutBuf.begin() + iGot/sizeof(int16_t) );
 
-		if(size == 0)
+			pBuf += iGot;
+			iSize -= iGot;
+			iBytesRead += iGot;
+
+			if( iGot )
+				continue;
+		}
+
 		{
 			static char buf[BUFSIZE];
+			int iGot = m_pSource->Read( buf, sizeof(buf) );
 
-			int cnt = source->Read(buf, sizeof(buf));
-
-			if(cnt == -1)
+			if( iGot == -1 )
 			{
-				SetError(source->GetError());
+				SetError( m_pSource->GetError() );
 				return -1;
 			}
-			if(cnt == 0)
-				resamp.eof();
+			if( iGot == 0 )
+			{
+				ASSERT( !m_bAtEof );
+
+				/* Write some silence to flush out the real data.  If we don't have any sound,
+				 * don't do this, so seeking past end of file doesn't write silence. */
+				bool bNeedsFlush = false;
+				for( int c = 0; c < m_iChannels; ++c )
+					if( m_iPrevSample[c] != 0 ) 
+						bNeedsFlush = true;
+
+				if( bNeedsFlush )
+				{
+					const int iSize = m_iChannels*16;
+					int16_t *pData = new int16_t[iSize];
+					memset( pData, 0, iSize * sizeof(int16_t) );
+					WriteSamples( pData, iSize * sizeof(int16_t) );
+					delete[] pData;
+				}
+
+				m_bAtEof = true;
+			}
 			else
-				resamp.write(buf, cnt);
+				WriteSamples( buf, iGot );
 		}
 	}
 
-	return bytes_read;
+	return iBytesRead;
 }
 
 SoundReader *RageSoundReader_Resample_Fast::Copy() const
 {
-	SoundReader *new_source = source->Copy();
-	RageSoundReader_Resample_Fast *ret = new RageSoundReader_Resample_Fast;
-	ret->Open(new_source);
-	ret->SetSampleRate(samplerate);
-	return ret;
+	SoundReader *pNewSource = m_pSource->Copy();
+	RageSoundReader_Resample_Fast *pRet = new RageSoundReader_Resample_Fast;
+	pRet->Open( pNewSource );
+	pRet->SetSampleRate( m_iOutputRate );
+	return pRet;
 }
 
+
+
+/* Write data to be converted. */
+void RageSoundReader_Resample_Fast::WriteSamples(const void *data_, int bytes)
+{
+	ASSERT(!m_bAtEof);
+
+	const int16_t *data = (const int16_t *) data_;
+
+	const unsigned samples = bytes / sizeof(int16_t);
+	const unsigned frames = samples / m_iChannels;
+
+	if( m_iInputRate == m_iOutputRate )
+	{
+		/* Optimization: */
+		m_OutBuf.insert(m_OutBuf.end(), data, data+samples);
+		return;
+	}
+
+	/* Lerp. */
+	const int FIXED_SHIFT = 14;
+	const int FIXED_ONE = 1<<FIXED_SHIFT;
+	int iInputSamplesPerOutputSample =
+		(m_iInputRate<<FIXED_SHIFT) / m_iOutputRate;
+
+	m_OutBuf.resize( (frames*m_iChannels*m_iOutputRate)/m_iInputRate + 10 );
+	int iSize = 0;
+	
+	for( int c = 0; c < m_iChannels; ++c )
+	{
+		int iPos = m_iPos;
+		const int16_t *pInBuf = &data[c];
+		int16_t *pOutBuf = &m_OutBuf[c];
+		int iSamplesInput = 0;
+		int iSamplesOutput = 0;
+		int16_t iPrevSample = m_iPrevSample[c];
+		for( unsigned f = 0; f < frames; ++f )
+		{
+			while( iPos < FIXED_ONE )
+			{
+				int iSamp = iPrevSample * (FIXED_ONE-iPos) +
+					pInBuf[iSamplesInput] * iPos;
+				pOutBuf[iSamplesOutput] = int16_t(iSamp >> FIXED_SHIFT);
+				iSamplesOutput += m_iChannels;
+				iPos += iInputSamplesPerOutputSample;
+			}
+
+			iPos -= FIXED_ONE;
+
+			iPrevSample = pInBuf[iSamplesInput];
+			iSamplesInput += m_iChannels;
+		}
+		m_iPrevSample[c] = iPrevSample;
+
+		if( c == m_iChannels-1 )
+		{
+			iSize = iSamplesOutput;
+			m_iPos = iPos;
+		}
+	}
+
+	m_OutBuf.erase( m_OutBuf.begin()+iSize, m_OutBuf.end() );
+}
+
+
 /*
- * Copyright (c) 2003 Glenn Maynard
+ * Copyright (c) 2003-2006 Glenn Maynard
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

@@ -11,17 +11,18 @@
 #include "ActorUtil.h"
 #include "InputEventPlus.h"
 
-#define NEXT_SCREEN					THEME->GetMetric (m_sName,"NextScreen")
-#define PREV_SCREEN					THEME->GetMetric (m_sName,"PrevScreen")
-#define PREPARE_SCREENS				THEME->GetMetric (m_sName,"PrepareScreens")
-#define PERSIST_SCREENS				THEME->GetMetric (m_sName,"PersistScreens")
-#define GROUPED_SCREENS				THEME->GetMetric (m_sName,"GroupedScreens")
+#define NEXT_SCREEN		THEME->GetMetric (m_sName,"NextScreen")
+#define PREV_SCREEN		THEME->GetMetric (m_sName,"PrevScreen")
+#define PREPARE_SCREENS		THEME->GetMetric (m_sName,"PrepareScreens")
+#define PERSIST_SCREENS		THEME->GetMetric (m_sName,"PersistScreens")
+#define GROUPED_SCREENS		THEME->GetMetric (m_sName,"GroupedScreens")
 
-Screen::Screen( CString sName )
+void Screen::InitScreen( Screen *pScreen )
 {
-	SetName( sName );
+	/* Set the name of the loading screen. */
+	ActorUtil::ActorParam LoadingScreen( "LoadingScreen", pScreen->GetName() );
 
-	ALLOW_OPERATOR_MENU_BUTTON.Load( sName, "AllowOperatorMenuButton" );
+	pScreen->Init();
 }
 
 Screen::~Screen()
@@ -29,21 +30,25 @@ Screen::~Screen()
 
 }
 
-bool Screen::SortMessagesByDelayRemaining(const Screen::QueuedScreenMessage &m1,
-										 const Screen::QueuedScreenMessage &m2)
+bool Screen::SortMessagesByDelayRemaining( const Screen::QueuedScreenMessage &m1,
+					   const Screen::QueuedScreenMessage &m2 )
 {
 	return m1.fDelayRemaining < m2.fDelayRemaining;
 }
 
 void Screen::Init()
 {
+	ALLOW_OPERATOR_MENU_BUTTON.Load( m_sName, "AllowOperatorMenuButton" );
+
+	SetFOV( 0 );
+
 	m_smSendOnPop = SM_None;
 
 	ActorUtil::LoadAllCommandsFromName( *this, m_sName, "Screen" );
 
 	this->PlayCommand( "Init" );
 
-	vector<CString> asList;
+	vector<RString> asList;
 	split( PREPARE_SCREENS, ",", asList );
 	for( unsigned i = 0; i < asList.size(); ++i )
 	{
@@ -64,12 +69,25 @@ void Screen::Init()
 
 void Screen::BeginScreen()
 {
+	/* Screens set these when they determine their next screen dynamically.  Reset them
+	 * here, so a reused screen doesn't inherit these from the last time it was used. */
+	m_sNextScreen = RString();
+	
+	m_fLockInputSecs = 0;
+
 	this->RunCommands( THEME->GetMetricA(m_sName, "ScreenOnCommand") );
+
+	if( m_fLockInputSecs == 0 )
+		m_fLockInputSecs = 0.0001f;     // always lock for a tiny amount of time so that we throw away any queued inputs during the load.
+
+	this->PlayCommand( "Begin" );
 }
 
 void Screen::Update( float fDeltaTime )
 {
 	ActorFrame::Update( fDeltaTime );
+	
+	m_fLockInputSecs = max( 0, m_fLockInputSecs-fDeltaTime );
 
 	/*
 	 * We need to ensure two things:
@@ -135,11 +153,20 @@ void Screen::Update( float fDeltaTime )
 	}
 }
 
-void Screen::MenuBack(	PlayerNumber pn, const InputEventType type )
+void Screen::MenuUp(	const InputEventPlus &input )	{ if(input.type==IET_FIRST_PRESS) MenuUp(input.MenuI.player); }
+void Screen::MenuDown(	const InputEventPlus &input )	{ if(input.type==IET_FIRST_PRESS) MenuDown(input.MenuI.player); }
+void Screen::MenuLeft(	const InputEventPlus &input )	{ if(input.type==IET_FIRST_PRESS) MenuLeft(input.MenuI.player); }
+void Screen::MenuRight( const InputEventPlus &input )	{ if(input.type==IET_FIRST_PRESS) MenuRight(input.MenuI.player); }
+void Screen::MenuStart( const InputEventPlus &input )	{ if(input.type==IET_FIRST_PRESS) MenuStart(input.MenuI.player); }
+void Screen::MenuSelect( const InputEventPlus &input )	{ if(input.type==IET_FIRST_PRESS) MenuSelect(input.MenuI.player); }
+
+void Screen::MenuBack( const InputEventPlus &input )
 {
-	if(!PREFSMAN->m_bDelayedBack || type==IET_SLOW_REPEAT || type==IET_FAST_REPEAT)
-		MenuBack(pn); 
+	if(!PREFSMAN->m_bDelayedBack || input.type==IET_SLOW_REPEAT || input.type==IET_FAST_REPEAT)
+		MenuBack( input.MenuI.player) ; 
 }
+
+void Screen::MenuCoin(	const InputEventPlus &input )	{ if(input.type==IET_FIRST_PRESS) MenuCoin(input.MenuI.player); }
 
 /* ScreenManager sends input here first.  Overlay screens can use it to get a first
  * pass at input.  Return true if the input was handled and should not be passed
@@ -176,51 +203,42 @@ void Screen::Input( const InputEventPlus &input )
 
 	switch( input.MenuI.button )
 	{
-	case MENU_BUTTON_UP:	this->MenuUp	( input.MenuI.player, input.type );	return;
-	case MENU_BUTTON_DOWN:	this->MenuDown	( input.MenuI.player, input.type );	return;
-	case MENU_BUTTON_LEFT:	this->MenuLeft	( input.MenuI.player, input.type );	return;
-	case MENU_BUTTON_RIGHT:	this->MenuRight	( input.MenuI.player, input.type );	return;
-	case MENU_BUTTON_BACK:	this->MenuBack	( input.MenuI.player, input.type );	return;
-	case MENU_BUTTON_START:	this->MenuStart	( input.MenuI.player, input.type );	return;
-	case MENU_BUTTON_SELECT:this->MenuSelect( input.MenuI.player, input.type );	return;
-	case MENU_BUTTON_COIN:	this->MenuCoin	( input.MenuI.player, input.type );	return;
+	case MENU_BUTTON_UP:	this->MenuUp	( input );	return;
+	case MENU_BUTTON_DOWN:	this->MenuDown	( input );	return;
+	case MENU_BUTTON_LEFT:	this->MenuLeft	( input );	return;
+	case MENU_BUTTON_RIGHT:	this->MenuRight	( input );	return;
+	case MENU_BUTTON_BACK:	this->MenuBack	( input );	return;
+	case MENU_BUTTON_START:	this->MenuStart	( input );	return;
+	case MENU_BUTTON_SELECT:this->MenuSelect( input );	return;
+	case MENU_BUTTON_COIN:	this->MenuCoin	( input );	return;
 	}
 }
 
 void Screen::HandleScreenMessage( const ScreenMessage SM )
 {
-	switch( SM )
+	if( SM == SM_MenuTimer )
 	{
-	case SM_MenuTimer:
 		FOREACH_HumanPlayer(p)
 			MenuStart( p );
-		break;
-	case SM_GoToNextScreen:
+	}
+	else if( SM == SM_GoToNextScreen || SM == SM_GoToPrevScreen )
+	{
 		if( SCREENMAN->IsStackedScreen(this) )
 			SCREENMAN->PopTopScreen( m_smSendOnPop );
 		else
-			SCREENMAN->SetNewScreen( GetNextScreen() );
-		break;
-	case SM_GoToPrevScreen:
-		if( SCREENMAN->IsStackedScreen(this) )
-			SCREENMAN->PopTopScreen( m_smSendOnPop );
-		else
-			SCREENMAN->SetNewScreen( GetPrevScreen() );
-		break;
+			SCREENMAN->SetNewScreen( SM == SM_GoToNextScreen? GetNextScreen():GetPrevScreen() );
 	}
 }
 
-CString Screen::GetNextScreen() const
+RString Screen::GetNextScreen() const
 {
 	if( !m_sNextScreen.empty() )
 		return m_sNextScreen;
 	return NEXT_SCREEN;
 }
 
-CString Screen::GetPrevScreen() const
+RString Screen::GetPrevScreen() const
 {
-	if( !m_sPrevScreen.empty() )
-		return m_sPrevScreen;
 	return PREV_SCREEN;
 }
 
@@ -302,9 +320,23 @@ class LunaScreen: public Luna<Screen>
 {
 public:
 	LunaScreen() { LUA->Register( Register ); }
+	static int GetNextScreen( T* p, lua_State *L ) { lua_pushstring(L, p->GetNextScreen() ); return 1; }
+	static int lockinput( T* p, lua_State *L ) { p->SetLockInputSecs(FArg(1)); return 0; }
+
+	static int PostScreenMessage( T* p, lua_State *L )
+	{
+		RString sMessage = SArg(1);
+		ScreenMessage SM = ScreenMessageHelpers::ToMessageNumber( sMessage );
+		p->PostScreenMessage( SM, 0 );
+		return 0;
+	}
 
 	static void Register( Lua *L )
 	{
+		ADD_METHOD( GetNextScreen );
+		ADD_METHOD( PostScreenMessage );
+		ADD_METHOD( lockinput );
+
 		Luna<T>::Register( L );
 	}
 };

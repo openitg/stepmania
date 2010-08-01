@@ -9,12 +9,10 @@
 #include "GameState.h"
 #include "GameSoundManager.h"
 #include "ThemeManager.h"
-#include "ScreenRanking.h"
 #include "Course.h"
 #include "AnnouncerManager.h"
 #include "ProfileManager.h"
 #include "Profile.h"
-#include "NoteFieldPositioning.h"
 #include "StageStats.h"
 #include "Game.h"
 #include "ScreenDimensions.h"
@@ -88,10 +86,21 @@ float GetClosestCharYPos( float fFakeBeat )
 
 
 REGISTER_SCREEN_CLASS( ScreenNameEntry );
-ScreenNameEntry::ScreenNameEntry( CString sClassName ) : Screen( sClassName )
+ScreenNameEntry::ScreenNameEntry()
 {
-	LOG->Trace( "ScreenNameEntry::ScreenNameEntry()" );
+		// DEBUGGING STUFF
+//	GAMESTATE->m_CurGame = GAME_DANCE;
+//	GAMESTATE->m_CurStyle = STYLE_DANCE_SINGLE;
+//	GAMESTATE->m_PlayMode = PLAY_MODE_REGULAR;
+//	GAMESTATE->m_bSideIsJoined[PLAYER_1] = true;
+//	GAMESTATE->m_MasterPlayerNumber = PLAYER_1;
+//	GAMESTATE->m_RankingCategory[PLAYER_1] = RANKING_A;
+//	GAMESTATE->m_iRankingIndex[PLAYER_1] = 0;
+}
 
+void ScreenNameEntry::Init()
+{
+	Screen::Init();
 
 	// update cache
 	g_fCharsZoomSmall = CHARS_ZOOM_SMALL;
@@ -101,19 +110,6 @@ ScreenNameEntry::ScreenNameEntry( CString sClassName ) : Screen( sClassName )
 	g_iNumCharsToDrawBehind = NUM_CHARS_TO_DRAW_BEHIND;
 	g_iNumCharsToDrawTotal = NUM_CHARS_TO_DRAW_TOTAL;
 	g_fFakeBeatsPerSec = FAKE_BEATS_PER_SEC;
-
-
-
-
-		// DEBUGGING STUFF
-//	GAMESTATE->m_CurGame = GAME_DANCE;
-//	GAMESTATE->m_CurStyle = STYLE_DANCE_SINGLE;
-//	GAMESTATE->m_PlayMode = PLAY_MODE_REGULAR;
-//	GAMESTATE->m_bSideIsJoined[PLAYER_1] = true;
-//	GAMESTATE->m_MasterPlayerNumber = PLAYER_1;
-//	GAMESTATE->m_RankingCategory[PLAYER_1] = RANKING_A;
-//	GAMESTATE->m_iRankingIndex[PLAYER_1] = 0;
-
 
 	/* Save options.  We'll reset them to display letters, and we must put them
 	 * back when we're done. */
@@ -133,7 +129,7 @@ ScreenNameEntry::ScreenNameEntry( CString sClassName ) : Screen( sClassName )
 	{
 		GAMESTATE->GetRankingFeats( p, aFeats[p] );
 		GAMESTATE->JoinPlayer( p );
-		m_bStillEnteringName[p] = true;//aFeats[p].size()>0;
+		m_bStillEnteringName[p] = aFeats[p].size()>0;
 	}
 
 	if( !AnyStillEntering() )
@@ -150,12 +146,12 @@ ScreenNameEntry::ScreenNameEntry( CString sClassName ) : Screen( sClassName )
 		(PREFSMAN->m_GetRankingName == PrefsManager::RANKING_LIST && !IsOnRanking) )
 	{
 		// don't collect score due to ranking setting
-		HandleScreenMessage( SM_GoToNextScreen );
+		PostScreenMessage( SM_GoToNextScreen, 0 );
 		return;
 	}
 
 
-	GAMESTATE->m_bPastHereWeGo = true;	// enable the gray arrows
+	GAMESTATE->m_bGameplayLeadIn.Set( false );	// enable the gray arrows
 
 	FOREACH_PlayerNumber( p )
 	{
@@ -173,7 +169,7 @@ ScreenNameEntry::ScreenNameEntry( CString sClassName ) : Screen( sClassName )
 			continue;	// skip
 
 		// remove modifiers that may have been on the last song
-		GAMESTATE->m_pPlayerState[p]->m_PlayerOptions = PlayerOptions();
+		GAMESTATE->GetDefaultPlayerOptions( GAMESTATE->m_pPlayerState[p]->m_PlayerOptions );
 
 		ASSERT( GAMESTATE->IsHumanPlayer(p) );	// they better be enabled if they made a high score!
 
@@ -229,7 +225,7 @@ ScreenNameEntry::ScreenNameEntry( CString sClassName ) : Screen( sClassName )
 		m_textCategory[p].SetX( fPlayerX );
 		m_textCategory[p].SetY( CATEGORY_Y );
 		m_textCategory[p].SetZoom( CATEGORY_ZOOM );
-		CString joined;
+		RString joined;
 		for( unsigned j = 0; j < aFeats[p].size(); ++j )
 		{
 			if( j )
@@ -262,8 +258,6 @@ ScreenNameEntry::ScreenNameEntry( CString sClassName ) : Screen( sClassName )
 	this->SortByDrawOrder();
 
 	m_soundStep.Load( THEME->GetPathS("ScreenNameEntry","step") );
-
-	SOUND->PlayMusic( THEME->GetPathS("ScreenNameEntry","music") );
 
 	m_fFakeBeat = 0;
 }
@@ -324,7 +318,7 @@ void ScreenNameEntry::DrawPrimitives()
 				if( iCharIndex==iClosestIndex )
 					fZoom = SCALE(fabsf(GetClosestCharYOffset(m_fFakeBeat)),0,0.5f,g_fCharsZoomLarge,g_fCharsZoomSmall);
 				m_textScrollingChars[p][t].SetZoom(fZoom);
-				float fAlpha = m_textScrollingChars[p][t].GetDiffuseAlpha();
+				float fAlpha = 1;
 				if( i==0 )
 					fAlpha *= SCALE(GetClosestCharYOffset(m_fFakeBeat),-0.5f,0.f,0.f,1.f);
 				if( i==g_iNumCharsToDrawTotal-1 )
@@ -359,7 +353,7 @@ void ScreenNameEntry::Input( const InputEventPlus &input )
 		int iStringIndex = m_ColToStringIndex[input.StyleI.player][input.StyleI.col];
 		if( iStringIndex != -1 )
 		{
-			m_ReceptorArrowRow[input.StyleI.player].Step( input.StyleI.col, TNS_MARVELOUS );
+			m_ReceptorArrowRow[input.StyleI.player].Step( input.StyleI.col, TNS_W1 );
 			m_soundStep.Play();
 			char c = NAME_CHARS[GetClosestCharIndex(m_fFakeBeat)];
 			m_textSelectedChars[input.StyleI.player][input.StyleI.col].SetText( ssprintf("%c",c) );
@@ -372,28 +366,25 @@ void ScreenNameEntry::Input( const InputEventPlus &input )
 
 void ScreenNameEntry::HandleScreenMessage( const ScreenMessage SM )
 {
-	switch( SM )
+	if( SM == SM_MenuTimer )
 	{
-	case SM_MenuTimer:
 		if( !m_Out.IsTransitioning() )
 		{
 			FOREACH_PlayerNumber( p )
 				this->MenuStart( p );
 		}
-		break;
-	case SM_GoToNextScreen:
-		{
-			GAMESTATE->RestoreSelectedOptions();
+	}
+	else if( SM == SM_GoToNextScreen )
+	{
+		GAMESTATE->RestoreSelectedOptions();
 
-			// There shouldn't be NameEntry in event mode.  -Chris
-//			/* Hack: go back to the select course screen in event mode. */
-//			if( GAMESTATE->GetEventMode() && GAMESTATE->IsCourseMode() )
-//			{
-//				SCREENMAN->SetNewScreen( "ScreenSelectCourse" );
-//				break;
-//			}
-		}
-		break;
+		// There shouldn't be NameEntry in event mode.  -Chris
+//		/* Hack: go back to the select course screen in event mode. */
+//		if( GAMESTATE->GetEventMode() && GAMESTATE->IsCourseMode() )
+//		{
+//			SCREENMAN->SetNewScreen( "ScreenSelectCourse" );
+//			break;
+//		}
 	}
 
 	Screen::HandleScreenMessage( SM );

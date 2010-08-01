@@ -16,15 +16,20 @@
 #include "InputEventPlus.h"
 
 REGISTER_SCREEN_CLASS( ScreenPlayerOptions );
-ScreenPlayerOptions::ScreenPlayerOptions( CString sClassName ) :
-	ScreenOptionsMaster( sClassName )
-{
-	LOG->Trace( "ScreenPlayerOptions::ScreenPlayerOptions()" );
-}
 
 void ScreenPlayerOptions::Init()
 {
 	ScreenOptionsMaster::Init();
+
+	FOREACH_PlayerNumber( p )
+	{
+		m_sprDisqualify[p].Load( THEME->GetPathG(m_sName,"disqualify") );
+		m_sprDisqualify[p]->SetName( ssprintf("DisqualifyP%i",p+1) );
+		SET_XY( m_sprDisqualify[p] );
+		m_sprDisqualify[p]->SetHidden( true );	// unhide later if handicapping options are discovered
+		m_sprDisqualify[p]->SetDrawOrder( 2 );
+		m_framePage.AddChild( m_sprDisqualify[p] );
+	}
 
 	m_bAskOptionsMessage =
 		!GAMESTATE->IsEditing() && PREFSMAN->m_ShowSongOptions == PrefsManager::ASK;
@@ -51,10 +56,6 @@ void ScreenPlayerOptions::Init()
 	m_bAcceptedChoices = false;
 	m_bGoToOptions = ( PREFSMAN->m_ShowSongOptions == PrefsManager::YES );
 
-	CString sPath = THEME->GetPathS( m_sName,"cancel all", true );
-	if( sPath != "" )
-		m_CancelAll.Load( sPath, true );
-
 	SOUND->PlayOnceFromDir( ANNOUNCER->GetPathTo("player options intro") );
 
 	this->SortByDrawOrder();
@@ -66,6 +67,9 @@ void ScreenPlayerOptions::Init()
 
 void ScreenPlayerOptions::BeginScreen()
 {
+	FOREACH_PlayerNumber( p )
+		ON_COMMAND( m_sprDisqualify[p] );
+
 	ScreenOptionsMaster::BeginScreen();
 
 	FOREACH_HumanPlayer( p )
@@ -94,12 +98,8 @@ void ScreenPlayerOptions::Input( const InputEventPlus &input )
 	PlayerNumber pn = GAMESTATE->GetCurrentStyle()->ControllerToPlayerNumber( input.GameI.controller );
 	if( GAMESTATE->IsHumanPlayer(pn) && CodeDetector::EnteredCode(input.GameI.controller,CODE_CANCEL_ALL_PLAYER_OPTIONS) )
 	{
-		if( m_CancelAll.IsLoaded() )
-			m_CancelAll.Play();
-		
 		// apply the game default mods, but not the Profile saved mods
-		GAMESTATE->m_pPlayerState[pn]->m_PlayerOptions.Init();
-		GAMESTATE->m_pPlayerState[pn]->m_PlayerOptions.FromString( PREFSMAN->m_sDefaultModifiers );
+		GAMESTATE->GetDefaultPlayerOptions( GAMESTATE->m_pPlayerState[pn]->m_PlayerOptions );
 		
 		MESSAGEMAN->Broadcast( ssprintf("CancelAllP%i", pn+1) );
 
@@ -107,9 +107,11 @@ void ScreenPlayerOptions::Input( const InputEventPlus &input )
 		{
 			vector<PlayerNumber> v;
 			v.push_back( pn );
+			int iOldFocus = m_pRows[r]->GetChoiceInRowWithFocus( pn );
 			this->ImportOptions( r, v );
-			this->PositionUnderlines( r, pn );
+			m_pRows[r]->AfterImportOptions( pn );
 			this->UpdateDisqualified( r, pn );
+			m_pRows[r]->SetChoiceInRowWithFocus( pn, iOldFocus );
 		}
 	}
 
@@ -125,28 +127,21 @@ void ScreenPlayerOptions::Input( const InputEventPlus &input )
 
 void ScreenPlayerOptions::HandleScreenMessage( const ScreenMessage SM )
 {
-	if( m_bAskOptionsMessage )
+	if( SM == SM_BeginFadingOut && m_bAskOptionsMessage ) // user accepts the page of options
 	{
-		switch( SM )
-		{
-		case SM_BeginFadingOut: // when the user accepts the page of options
-			{
-				m_bAcceptedChoices = true;
+		m_bAcceptedChoices = true;
 
-				float fShowSeconds = m_Out.GetLengthSeconds();
+		float fShowSeconds = max( m_Out.GetLengthSeconds()-0.3f, 0 );
 
-				// show "hold START for options"
-				m_sprOptionsMessage.SetDiffuse( RageColor(1,1,1,0) );
-				m_sprOptionsMessage.BeginTweening( 0.15f );     // fade in
-				m_sprOptionsMessage.SetZoomY( 1 );
-				m_sprOptionsMessage.SetDiffuse( RageColor(1,1,1,1) );
-				m_sprOptionsMessage.BeginTweening( fShowSeconds-0.3f ); // sleep
-				m_sprOptionsMessage.BeginTweening( 0.15f );     // fade out
-				m_sprOptionsMessage.SetDiffuse( RageColor(1,1,1,0) );
-				m_sprOptionsMessage.SetZoomY( 0 );
-			}
-			break;
-		}
+		// show "hold START for options"
+		m_sprOptionsMessage.SetDiffuse( RageColor(1,1,1,0) );
+		m_sprOptionsMessage.BeginTweening( 0.15f );     // fade in
+		m_sprOptionsMessage.SetZoomY( 1 );
+		m_sprOptionsMessage.SetDiffuse( RageColor(1,1,1,1) );
+		m_sprOptionsMessage.BeginTweening( fShowSeconds ); // sleep
+		m_sprOptionsMessage.BeginTweening( 0.15f );     // fade out
+		m_sprOptionsMessage.SetDiffuse( RageColor(1,1,1,0) );
+		m_sprOptionsMessage.SetZoomY( 0 );
 	}
 
 	ScreenOptionsMaster::HandleScreenMessage( SM );
@@ -165,6 +160,7 @@ void ScreenPlayerOptions::UpdateDisqualified( int row, PlayerNumber pn )
 	vector<PlayerNumber> v;
 	v.push_back( pn );
 	ExportOptions( row, v );
+	GAMESTATE->StoreSelectedOptions();
 	bool bRowCausesDisqualified = GAMESTATE->IsDisqualified( pn );
 	m_bRowCausesDisqualified[pn][row] = bRowCausesDisqualified;
 

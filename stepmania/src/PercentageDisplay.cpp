@@ -8,7 +8,6 @@
 #include "RageLog.h"
 #include "StageStats.h"
 #include "PlayerState.h"
-#include "LuaFunctions.h"
 #include "XmlFile.h"
 
 ThemeMetric<int> PERCENT_DECIMAL_PLACES	( "PercentageDisplay", "PercentDecimalPlaces" );
@@ -23,20 +22,23 @@ PercentageDisplay::PercentageDisplay()
 
 	m_Last = -1;
 	m_LastMax = -1;
+
+	m_Format.SetFromExpression( THEME->GetMetric("MultiplayerEvalScoreRow","NumberOnCommandFunction") );
 }
 
-void PercentageDisplay::LoadFromNode( const CString& sDir, const XNode* pNode )
+void PercentageDisplay::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
-	ActorFrame::LoadFromNode( sDir, pNode );
-
 	pNode->GetAttrValue( "DancePointsDigits", m_iDancePointsDigits );
 	pNode->GetAttrValue( "PercentUseRemainder", m_bUseRemainder );
 	pNode->GetAttrValue( "ApplyScoreDisplayOptions", m_bApplyScoreDisplayOptions );
 	pNode->GetAttrValue( "AutoRefresh", m_bAutoRefresh );
+	RString sStr = "FormatPercentScore";
+	pNode->GetAttrValue( "Format", sStr );
+	m_Format.SetFromExpression( sStr );
 
 	const XNode *pChild = pNode->GetChild( "Percent" );
 	if( pChild == NULL )
-		RageException::Throw( ssprintf("ComboGraph in \"%s\" is missing the node \"Percent\"", sDir.c_str()) );
+		RageException::Throw( ssprintf("PercentageDisplay in \"%s\" is missing the node \"Percent\"", sDir.c_str()) );
 	m_textPercent.LoadFromNode( sDir, pChild );
 	this->AddChild( &m_textPercent );
 
@@ -48,6 +50,9 @@ void PercentageDisplay::LoadFromNode( const CString& sDir, const XNode* pNode )
 		m_textPercentRemainder.LoadFromNode( sDir, pChild );
 		this->AddChild( &m_textPercentRemainder );
 	}
+
+	// only run the Init command after we load Fonts.
+	ActorFrame::LoadFromNode( sDir, pNode );
 }
 
 void PercentageDisplay::Load( const PlayerState *pPlayerState, const PlayerStageStats *pPlayerStageStats )
@@ -58,7 +63,7 @@ void PercentageDisplay::Load( const PlayerState *pPlayerState, const PlayerStage
 	Refresh();
 }
 
-void PercentageDisplay::Load( const PlayerState *pPlayerState, const PlayerStageStats *pPlayerStageStats, const CString &sMetricsGroup, bool bAutoRefresh )
+void PercentageDisplay::Load( const PlayerState *pPlayerState, const PlayerStageStats *pPlayerStageStats, const RString &sMetricsGroup, bool bAutoRefresh )
 {
 	m_pPlayerState = pPlayerState;
 	m_pPlayerStageStats = pPlayerStageStats;
@@ -67,6 +72,7 @@ void PercentageDisplay::Load( const PlayerState *pPlayerState, const PlayerStage
 	m_iDancePointsDigits = THEME->GetMetricI( sMetricsGroup, "DancePointsDigits" );
 	m_bUseRemainder = THEME->GetMetricB( sMetricsGroup, "PercentUseRemainder" );
 	m_bApplyScoreDisplayOptions = THEME->GetMetricB( sMetricsGroup, "ApplyScoreDisplayOptions" );
+	m_Format.SetFromExpression( THEME->GetMetric(sMetricsGroup,"Format") );
 
 
 	if( PREFSMAN->m_bDancePointsForOni )
@@ -111,7 +117,7 @@ void PercentageDisplay::Refresh()
 	m_Last = iActualDancePoints;
 	m_LastMax = iCurPossibleDancePoints;
 
-	CString sNumToDisplay;
+	RString sNumToDisplay;
 
 	if( PREFSMAN->m_bDancePointsForOni )
 	{
@@ -153,7 +159,14 @@ void PercentageDisplay::Refresh()
 		}
 		else
 		{		
-			sNumToDisplay = FormatPercentScore( fPercentDancePoints );
+			Lua *L = LUA->Get();
+			m_Format.PushSelf( L );
+			ASSERT( !lua_isnil(L, -1) );
+			LuaHelpers::Push( fPercentDancePoints, L );
+			lua_call( L, 1, 1 ); // 1 args, 1 result
+			sNumToDisplay = lua_tostring( L, -1 );
+			lua_pop( L, 1 );
+			LUA->Release(L);
 			
 			// HACK: Use the last frame in the numbers texture as '-'
 			sNumToDisplay.Replace('-','x');
@@ -163,7 +176,7 @@ void PercentageDisplay::Refresh()
 	m_textPercent.SetText( sNumToDisplay );
 }
 
-CString PercentageDisplay::FormatPercentScore( float fPercentDancePoints )
+RString PercentageDisplay::FormatPercentScore( float fPercentDancePoints )
 {
 	// TRICKY: printf will round, but we want to truncate.  Otherwise, we may display a percent
 	// score that's too high and doesn't match up with the calculated grade.
@@ -175,11 +188,13 @@ CString PercentageDisplay::FormatPercentScore( float fPercentDancePoints )
 
 	fPercentDancePoints = ftruncf( fPercentDancePoints, fTruncInterval );
 	
-	CString s = ssprintf( "%*.*f%%", (int)PERCENT_TOTAL_SIZE, (int)PERCENT_DECIMAL_PLACES, fPercentDancePoints*100 );
+	RString s = ssprintf( "%*.*f%%", (int)PERCENT_TOTAL_SIZE, (int)PERCENT_DECIMAL_PLACES, fPercentDancePoints*100 );
 	return s;
 }
 
 // lua start
+#include "LuaFunctions.h"
+
 LuaFunction( FormatPercentScore,	PercentageDisplay::FormatPercentScore( FArg(1) ) )
 
 #include "LuaBinding.h"

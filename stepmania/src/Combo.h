@@ -33,11 +33,11 @@ protected:
 	ThemeMetric<float>				NUMBER_MAX_ZOOM_AT;
 	ThemeMetric<apActorCommands>	PULSE_COMMAND;
 	ThemeMetric<float>				TWEEN_SECONDS;
-	ThemeMetric<apActorCommands>	FULL_COMBO_GREATS_COMMAND;
-	ThemeMetric<apActorCommands>	FULL_COMBO_PERFECTS_COMMAND;
-	ThemeMetric<apActorCommands>	FULL_COMBO_MARVELOUSES_COMMAND;
+	ThemeMetric<apActorCommands>	FULL_COMBO_W3_COMMAND;
+	ThemeMetric<apActorCommands>	FULL_COMBO_W2_COMMAND;
+	ThemeMetric<apActorCommands>	FULL_COMBO_W1_COMMAND;
 	ThemeMetric<apActorCommands>	FULL_COMBO_BROKEN_COMMAND;
-	ThemeMetric<bool>				SHOW_MISS_COMBO;
+	ThemeMetric<apActorCommands>	MISS_COMBO_COMMAND;
 
 	PlayerState *m_pPlayerState;
 	PlayerStageStats *m_pPlayerStageStats;

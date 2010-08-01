@@ -9,24 +9,23 @@
 
 REGISTER_CLASS_TRAITS( LuaReference, new LuaReference(*pCopy) )
 
-template<>
-set<LuaReference*>* SubscriptionManager<LuaReference>::s_pSubscribers = NULL;
+static SubscriptionManager<LuaReference> g_Subscribers;
 
 LuaReference::LuaReference()
 {
 	m_iReference = LUA_NOREF;
-	SubscriptionManager<LuaReference>::Subscribe( this );
+	g_Subscribers.Subscribe( this );
 }
 
 LuaReference::~LuaReference()
 {
 	Unregister();
-	SubscriptionManager<LuaReference>::Unsubscribe( this );
+	g_Subscribers.Unsubscribe( this );
 }
 
 LuaReference::LuaReference( const LuaReference &cpy )
 {
-	SubscriptionManager<LuaReference>::Subscribe( this );
+	g_Subscribers.Subscribe( this );
 
 	if( cpy.m_iReference == LUA_NOREF )
 		m_iReference = LUA_NOREF;
@@ -135,17 +134,17 @@ void LuaReference::Unregister()
 
 void LuaReference::BeforeResetAll()
 {
-	if( SubscriptionManager<LuaReference>::s_pSubscribers == NULL )
+	if( g_Subscribers.m_pSubscribers == NULL )
 		return;
-	FOREACHS( LuaReference*, *SubscriptionManager<LuaReference>::s_pSubscribers, p )
+	FOREACHS( LuaReference*, *g_Subscribers.m_pSubscribers, p )
 		(*p)->BeforeReset();
 }
 
 void LuaReference::AfterResetAll()
 {
-	if( SubscriptionManager<LuaReference>::s_pSubscribers == NULL )
+	if( g_Subscribers.m_pSubscribers == NULL )
 		return;
-	FOREACHS( LuaReference*, *SubscriptionManager<LuaReference>::s_pSubscribers, p )
+	FOREACHS( LuaReference*, *g_Subscribers.m_pSubscribers, p )
 		(*p)->ReRegister();
 }
 
@@ -160,7 +159,7 @@ void LuaReference::ReRegister()
 }
 
 
-void LuaExpression::SetFromExpression( const CString &sExpression )
+void LuaExpression::SetFromExpression( const RString &sExpression )
 {
 	m_sExpression = "return " + sExpression;
 	Register();
@@ -182,7 +181,7 @@ void LuaExpression::Register()
 	LUA->Release( L );
 }
 
-CString LuaData::Serialize() const
+RString LuaData::Serialize() const
 {
 	/* Call Serialize(t), where t is our referenced object. */
 	Lua *L = LUA->Get();
@@ -201,7 +200,7 @@ CString LuaData::Serialize() const
 	const char *pString = lua_tostring( L, -1 );
 	ASSERT_M( pString != NULL, "Serialize() didn't return a string" );
 
-	CString sRet = pString;
+	RString sRet = pString;
 	lua_pop( L, 1 );
 
 	LUA->Release( L );
@@ -209,12 +208,12 @@ CString LuaData::Serialize() const
 	return sRet;
 }
 
-void LuaData::LoadFromString( const CString &s )
+void LuaData::LoadFromString( const RString &s )
 {
 	Lua *L = LUA->Get();
 
 	/* Restore the serialized data by evaluating it. */
-	CString sError;
+	RString sError;
 	if( !LuaHelpers::RunScript( L, s, "serialization", sError, 1 ) )
 	{
 		/* Serialize() should never return an invalid script.  Drop the failed
@@ -253,7 +252,7 @@ LuaTable::LuaTable()
 	LUA->Release( L );
 }
 
-void LuaTable::Set( Lua *L, const CString &sKey )
+void LuaTable::Set( Lua *L, const RString &sKey )
 {
 	int iTop = lua_gettop( L );
 	this->PushSelf( L );
@@ -263,7 +262,7 @@ void LuaTable::Set( Lua *L, const CString &sKey )
 	lua_settop( L, iTop-1 ); // remove all of the above
 }
 
-void LuaTable::Unset( Lua *L, const CString &sKey )
+void LuaTable::Unset( Lua *L, const RString &sKey )
 {
 	lua_pushnil( L );
 	Set( L, sKey );

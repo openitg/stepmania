@@ -20,7 +20,6 @@
 #include "RageUtil.h"
 #include "RageLog.h"
 #include "NoteData.h"
-#include "RageException.h"
 #include "GameManager.h"
 #include "NoteDataUtil.h"
 #include "NotesLoaderSM.h"
@@ -29,7 +28,7 @@ Steps::Steps()
 {
 	m_bSavedToDisk = false;
 	m_StepsType = STEPS_TYPE_INVALID;
-	m_LoadedFromProfile = PROFILE_SLOT_INVALID;
+	m_LoadedFromProfile = ProfileSlot_INVALID;
 	m_uHash = 0;
 	m_Difficulty = DIFFICULTY_INVALID;
 	m_iMeter = 0;
@@ -74,7 +73,7 @@ void Steps::GetNoteData( NoteData& noteDataOut ) const
 	}
 }
 
-void Steps::SetSMNoteData( const CString &notes_comp_ )
+void Steps::SetSMNoteData( const RString &notes_comp_ )
 {
 	m_pNoteData->Init();
 	m_bNoteDataIsFilled = false;
@@ -84,7 +83,7 @@ void Steps::SetSMNoteData( const CString &notes_comp_ )
 }
 
 /* XXX: this function should pull data from m_sFilename, like Decompress() */
-void Steps::GetSMNoteData( CString &notes_comp_out ) const
+void Steps::GetSMNoteData( RString &notes_comp_out ) const
 {
 	if( m_sNoteDataCompressed.empty() )
 	{
@@ -105,23 +104,23 @@ float Steps::PredictMeter() const
 {
 	float pMeter = 0.775f;
 	
-	const float RadarCoeffs[NUM_RADAR_CATEGORIES] =
+	const float RadarCoeffs[NUM_RadarCategory] =
 	{
 		10.1f, 5.27f,-0.905f, -1.10f, 2.86f,
 		0,0,0,0,0,0
 	};
-	for( int r = 0; r < NUM_RADAR_CATEGORIES; ++r )
+	for( int r = 0; r < NUM_RadarCategory; ++r )
 		pMeter += this->GetRadarValues()[r] * RadarCoeffs[r];
 	
-	const float DifficultyCoeffs[NUM_DIFFICULTIES] =
+	const float DifficultyCoeffs[NUM_Difficulty] =
 	{
 		-0.877f, -0.877f, 0, 0.722f, 0.722f, 0
 	};
 	pMeter += DifficultyCoeffs[this->GetDifficulty()];
 	
 	// Init non-radar values
-	const float SV = this->GetRadarValues()[RADAR_STREAM] * this->GetRadarValues()[RADAR_VOLTAGE];
-	const float ChaosSquare = this->GetRadarValues()[RADAR_CHAOS] * this->GetRadarValues()[RADAR_CHAOS];
+	const float SV = this->GetRadarValues()[RadarCategory_Stream] * this->GetRadarValues()[RadarCategory_Voltage];
+	const float ChaosSquare = this->GetRadarValues()[RadarCategory_Chaos] * this->GetRadarValues()[RadarCategory_Chaos];
 	pMeter += -6.35f * SV;
 	pMeter += -2.58f * ChaosSquare;
 	if (pMeter < 1) pMeter = 1;	
@@ -135,10 +134,10 @@ void Steps::TidyUpData()
 	
 	if( GetDifficulty() == DIFFICULTY_INVALID )
 	{
-		if(		 GetMeter() == 1 )	SetDifficulty( DIFFICULTY_BEGINNER );
+		if(	 GetMeter() == 1 )	SetDifficulty( DIFFICULTY_BEGINNER );
 		else if( GetMeter() <= 3 )	SetDifficulty( DIFFICULTY_EASY );
 		else if( GetMeter() <= 6 )	SetDifficulty( DIFFICULTY_MEDIUM );
-		else						SetDifficulty( DIFFICULTY_HARD );
+		else				SetDifficulty( DIFFICULTY_HARD );
 	}
 
 	if( GetMeter() < 1) // meter is invalid
@@ -153,9 +152,13 @@ void Steps::CalculateRadarValues( float fMusicLengthSeconds )
 	if( parent != NULL )
 		return;
 
+	// Do write radar values, and leave it up to the reading app whether they want to trust
+	// the cached values without recalculating them.
+	/*
 	// If we're an edit, leave the RadarValues invalid.
 	if( IsAnEdit() )
 		return;
+	*/
 
 	NoteData tempNoteData;
 	this->GetNoteData( tempNoteData );
@@ -222,10 +225,11 @@ void Steps::Decompress() const
 	else
 	{
 		// load from compressed
+		bool bComposite = m_StepsType == STEPS_TYPE_DANCE_ROUTINE;
 		m_bNoteDataIsFilled = true;
 		m_pNoteData->SetNumTracks( GameManager::StepsTypeToNumTracks(m_StepsType) );
 
-		NoteDataUtil::LoadFromSMNoteDataString( *m_pNoteData, m_sNoteDataCompressed );
+		NoteDataUtil::LoadFromSMNoteDataString( *m_pNoteData, m_sNoteDataCompressed, bComposite );
 	}
 }
 
@@ -234,19 +238,26 @@ void Steps::Compress() const
 	/* Always leave lights data uncompressed. */
 	if( this->m_StepsType == STEPS_TYPE_LIGHTS_CABINET && m_bNoteDataIsFilled )
 	{
-		m_sNoteDataCompressed = CString("");
+		m_sNoteDataCompressed = RString("");
 		return;
 	}
 
-	if( !m_sFilename.empty() )
+	if( !m_sFilename.empty() && m_LoadedFromProfile == ProfileSlot_INVALID )
 	{
-		/* We have a file on disk; clear all data in memory. */
+		/*
+		 * We have a file on disk; clear all data in memory.
+		 *
+		 * Data on profiles can't be accessed normally (need to mount and time-out the
+		 * device), and when we start a game and load edits, we want to be sure that
+		 * it'll be available if the user picks it and pulls the device.  Also,
+		 * Decompress() doesn't know how to load .edits.
+		 */
 		m_pNoteData->Init();
 		m_bNoteDataIsFilled = false;
 
 		/* Be careful; 'x = ""', m_sNoteDataCompressed.clear() and m_sNoteDataCompressed.reserve(0)
-		 * don't always free the alocated memory. */
-		m_sNoteDataCompressed = CString("");
+		 * don't always free the allocated memory. */
+		m_sNoteDataCompressed = RString("");
 		return;
 	}
 
@@ -271,10 +282,10 @@ void Steps::DeAutogen()
 
 	Decompress();	// fills in m_pNoteData with sliding window transform
 
-	m_sDescription	= Real()->m_sDescription;
-	m_Difficulty	= Real()->m_Difficulty;
+	m_sDescription		= Real()->m_sDescription;
+	m_Difficulty		= Real()->m_Difficulty;
 	m_iMeter		= Real()->m_iMeter;
-	m_CachedRadarValues   = Real()->m_CachedRadarValues;
+	m_CachedRadarValues	= Real()->m_CachedRadarValues;
 
 	parent = NULL;
 
@@ -321,12 +332,7 @@ bool Steps::IsAutogen() const
 	return parent != NULL;
 }
 
-void Steps::SetFile( CString fn )
-{
-	m_sFilename = fn;
-}
-
-void Steps::SetDifficultyAndDescription( Difficulty dc, CString sDescription )
+void Steps::SetDifficultyAndDescription( Difficulty dc, RString sDescription )
 {
 	DeAutogen();
 	m_Difficulty = dc;
@@ -335,7 +341,7 @@ void Steps::SetDifficultyAndDescription( Difficulty dc, CString sDescription )
 		MakeValidEditDescription( m_sDescription );
 }
 
-bool Steps::MakeValidEditDescription( CString &sPreferredDescription )
+bool Steps::MakeValidEditDescription( RString &sPreferredDescription )
 {
 	if( int(sPreferredDescription.size()) > MAX_EDIT_STEPS_DESCRIPTION_LENGTH )
 	{
@@ -369,7 +375,8 @@ public:
 	static int GetStepsType( T* p, lua_State *L )	{ lua_pushnumber(L, p->m_StepsType ); return 1; }
 	static int GetDifficulty( T* p, lua_State *L )	{ lua_pushnumber(L, p->GetDifficulty() ); return 1; }
 	static int GetDescription( T* p, lua_State *L )	{ lua_pushstring(L, p->GetDescription() ); return 1; }
-	static int GetMeter( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetMeter() ); return 1; }
+	static int GetMeter( T* p, lua_State *L )	{ lua_pushnumber(L, p->GetMeter() ); return 1; }
+	static int GetFilename( T* p, lua_State *L )	{ lua_pushstring(L, p->GetFilename() ); return 1; }
 
 	static void Register(lua_State *L)
 	{
@@ -377,6 +384,7 @@ public:
 		ADD_METHOD( GetDifficulty );
 		ADD_METHOD( GetDescription );
 		ADD_METHOD( GetMeter );
+		ADD_METHOD( GetFilename );
 
 		Luna<T>::Register( L );
 	}

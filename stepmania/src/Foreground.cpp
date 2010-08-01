@@ -1,7 +1,6 @@
 #include "global.h"
 #include "Foreground.h"
 #include "RageUtil.h"
-#include "IniFile.h"
 #include "GameState.h"
 #include "RageTextureManager.h"
 #include "ActorUtil.h"
@@ -34,7 +33,7 @@ void Foreground::LoadFromSong( const Song *pSong )
 	FOREACH_CONST( BackgroundChange, pSong->GetForegroundChanges(), bgc )
 	{
 		const BackgroundChange &change = *bgc;
-		CString sBGName = change.m_def.m_sFile1;
+		RString sBGName = change.m_def.m_sFile1;
 		
 		LoadedBGA bga;
 		bga.m_bga = ActorUtil::MakeActor( pSong->GetSongDir() + sBGName );
@@ -89,6 +88,10 @@ void Foreground::Update( float fDeltaTime )
 		{
 			fDeltaTime = GAMESTATE->m_fMusicSeconds - m_fLastMusicSeconds;
 		}
+
+		/* This shouldn't go down, but be safe: */
+		fDeltaTime = max( fDeltaTime, 0 );
+
 		bga.m_bga->Update( fDeltaTime / fRate );
 
 		if( GAMESTATE->m_fSongBeat > bga.m_fStopBeat )

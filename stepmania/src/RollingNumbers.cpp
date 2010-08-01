@@ -4,6 +4,7 @@
 #include "XmlFile.h"
 #include "ActorUtil.h"
 #include "LuaManager.h"
+#include "ThemeManager.h"
 REGISTER_ACTOR_CLASS( RollingNumbers )
 
 RollingNumbers::RollingNumbers()
@@ -16,14 +17,15 @@ RollingNumbers::RollingNumbers()
 	m_fScoreVelocity = 0;
 }
 
-void RollingNumbers::LoadFromNode( const CString& sDir, const XNode* pNode )
+void RollingNumbers::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	BitmapText::LoadFromNode( sDir, pNode );
 
 	pNode->GetAttrValue( "Format", m_sFormat );
+	ThemeManager::EvaluateString( m_sFormat );
 	pNode->GetAttrValue( "ApproachSeconds", m_fApproachSeconds );
 	
-	CString sTargetNumber;
+	RString sTargetNumber;
 	if( pNode->GetAttrValue( "TargetNumber", sTargetNumber ) )
 	{
 		float fTargetNumber = LuaHelpers::RunExpressionF(sTargetNumber);

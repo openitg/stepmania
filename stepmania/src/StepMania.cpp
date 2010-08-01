@@ -15,6 +15,9 @@
 #include "RageMath.h"
 #include "RageDisplay.h"
 #include "RageThreads.h"
+#include "LocalizedString.h"
+#include "CommandLineActions.h"
+#include "SpecialFiles.h"
 
 #include "arch/ArchHooks/ArchHooks.h"
 #include "arch/LoadingWindow/LoadingWindow.h"
@@ -78,18 +81,14 @@
 #include <windows.h>
 #endif
 
-#define ZIPS_DIR "Packages/"
-
-int g_argc = 0;
-char **g_argv = NULL;
-
-static bool g_bHasFocus = true;
+static Preference<bool> g_bAllowMultipleInstances( "AllowMultipleInstances", false );
 
 void ReadGamePrefsFromDisk( bool bSwitchToLastPlayedGame );
 
-static RageDisplay::VideoModeParams GetCurVideoModeParams()
+
+void StepMania::GetPreferredVideoModeParams( VideoModeParams &paramsOut )
 {
-	return RageDisplay::VideoModeParams(
+	paramsOut = VideoModeParams(
 			PREFSMAN->m_bWindowed,
 			PREFSMAN->m_iDisplayWidth,
 			PREFSMAN->m_iDisplayHeight,
@@ -100,41 +99,56 @@ static RageDisplay::VideoModeParams GetCurVideoModeParams()
 			PREFSMAN->m_bSmoothLines,
 			PREFSMAN->m_bTrilinearFiltering,
 			PREFSMAN->m_bAnisotropicFiltering,
-			WINDOW_TITLE,
+			CommonMetrics::WINDOW_TITLE,
 			THEME->GetPathG("Common","window icon"),
 			PREFSMAN->m_bPAL,
 			PREFSMAN->m_fDisplayAspectRatio
 	);
 }
 
-static void StoreActualGraphicOptions( bool initial )
+static LocalizedString COLOR		("StepMania","color");
+static LocalizedString TEXTURE		("StepMania","texture");
+static LocalizedString WINDOWED		("StepMania","Windowed");
+static LocalizedString FULLSCREEN	("StepMania","Fullscreen");
+static LocalizedString ANNOUNCER_	("StepMania","Announcer");
+static LocalizedString VSYNC		("StepMania","Vsync");
+static LocalizedString NO_VSYNC		("StepMania","NoVsync");
+static LocalizedString SMOOTH_LINES	("StepMania","SmoothLines");
+static LocalizedString NO_SMOOTH_LINES	("StepMania","NoSmoothLines");
+
+static RString GetActualGraphicOptionsString()
 {
-	// find out what we actually have
-	PREFSMAN->m_bWindowed.Set( DISPLAY->GetVideoModeParams().windowed );
-	PREFSMAN->m_iDisplayWidth.Set( DISPLAY->GetVideoModeParams().width );
-	PREFSMAN->m_iDisplayHeight.Set( DISPLAY->GetVideoModeParams().height );
-	PREFSMAN->m_iDisplayColorDepth.Set( DISPLAY->GetVideoModeParams().bpp );
-	PREFSMAN->m_iRefreshRate.Set( DISPLAY->GetVideoModeParams().rate );
-	PREFSMAN->m_bVsync.Set( DISPLAY->GetVideoModeParams().vsync );
-
-	CString log = ssprintf("%s %dx%d %d color %d texture %dHz %s %s",
-		PREFSMAN->m_bWindowed ? "Windowed" : "Fullscreen",
-		(int)PREFSMAN->m_iDisplayWidth, 
-		(int)PREFSMAN->m_iDisplayHeight, 
-		(int)PREFSMAN->m_iDisplayColorDepth, 
+	const VideoModeParams &params = DISPLAY->GetActualVideoModeParams();
+	RString sFormat = "%s %s %dx%d %d "+COLOR.GetValue()+" %d "+TEXTURE.GetValue()+" %dHz %s %s";
+	RString sLog = ssprintf( sFormat,
+		DISPLAY->GetApiDescription().c_str(),
+		(params.windowed? WINDOWED : FULLSCREEN).GetValue().c_str(),
+		(int)params.width, 
+		(int)params.height, 
+		(int)params.bpp, 
 		(int)PREFSMAN->m_iTextureColorDepth, 
-		(int)PREFSMAN->m_iRefreshRate,
-		PREFSMAN->m_bVsync ? "Vsync" : "NoVsync",
-		PREFSMAN->m_bSmoothLines? "AA" : "NoAA" );
-	if( initial )
-		LOG->Info( "%s", log.c_str() );
-	else
-		SCREENMAN->SystemMessage( log );
-
-	Dialog::SetWindowed( DISPLAY->GetVideoModeParams().windowed );
+		(int)params.rate,
+		(params.vsync? VSYNC : NO_VSYNC).GetValue().c_str(),
+		(PREFSMAN->m_bSmoothLines? SMOOTH_LINES : NO_SMOOTH_LINES).GetValue().c_str() );
+	return sLog;
 }
 
-RageDisplay *CreateDisplay();
+static void StoreActualGraphicOptions()
+{
+	// find out what we actually have
+	const VideoModeParams &params = DISPLAY->GetActualVideoModeParams();
+	PREFSMAN->m_bWindowed		.Set( params.windowed );
+	PREFSMAN->m_iDisplayWidth	.Set( params.width );
+	PREFSMAN->m_iDisplayHeight	.Set( params.height );
+	PREFSMAN->m_iDisplayColorDepth	.Set( params.bpp );
+	if( PREFSMAN->m_iRefreshRate != REFRESH_DEFAULT )
+		PREFSMAN->m_iRefreshRate.Set( params.rate );
+	PREFSMAN->m_bVsync		.Set( params.vsync );
+
+	Dialog::SetWindowed( params.windowed );
+}
+
+static RageDisplay *CreateDisplay();
 
 static void StartDisplay()
 {
@@ -142,6 +156,7 @@ static void StartDisplay()
 		return; // already started
 
 	DISPLAY = CreateDisplay();
+
 
 	DISPLAY->ChangeCentering(
 		PREFSMAN->m_iCenterImageTranslateX, 
@@ -168,11 +183,13 @@ static void StartDisplay()
 		);
 }
 
-void ApplyGraphicOptions()
+void StepMania::ApplyGraphicOptions()
 { 
 	bool bNeedReload = false;
 
-	CString sError = DISPLAY->SetVideoMode( GetCurVideoModeParams(), bNeedReload );
+	VideoModeParams params;
+	GetPreferredVideoModeParams( params );
+	RString sError = DISPLAY->SetVideoMode( params, bNeedReload );
 	if( sError != "" )
 		RageException::Throw( sError );
 
@@ -201,10 +218,21 @@ void ApplyGraphicOptions()
 	if( bNeedReload )
 		TEXTUREMAN->ReloadAll();
 
-	StoreActualGraphicOptions( false );
+	StoreActualGraphicOptions();
+	SCREENMAN->SystemMessage( GetActualGraphicOptionsString() );
 
 	/* Give the input handlers a chance to re-open devices as necessary. */
 	INPUTMAN->WindowReset();
+}
+
+static bool CheckVideoDefaultSettings();
+
+void StepMania::ResetPreferences()
+{
+	PREFSMAN->ResetToFactoryDefaults();
+	SOUNDMAN->SetMixVolume( PREFSMAN->GetSoundVolume() );
+	CheckVideoDefaultSettings();
+	ApplyGraphicOptions();
 }
 
 /* Shutdown all global singletons.  Note that this may be called partway through
@@ -257,10 +285,14 @@ void ShutdownGame()
 	SAFE_DELETE( HOOKS );
 }
 
-/* Cleanly shut down, show a dialog and exit the game.  We don't go back
- * up the call stack, to avoid having to use exceptions. */
-void HandleException( CString error )
+static void HandleException( const RString &sError )
 {
+	if( SCREENMAN && SCREENMAN->IsConcurrentlyLoading() )
+	{
+		LOG->Trace( "HandleException: FinishConcurrentRendering" );
+		GameLoop::FinishConcurrentRendering();
+	}
+
 	if( g_bAutoRestart )
 		HOOKS->RestartProgram();
 
@@ -268,80 +300,28 @@ void HandleException( CString error )
 	ShutdownGame();
 
 	/* Throw up a pretty error dialog. */
-	Dialog::Error( error );
-
-	exit(1);
+	Dialog::Error( sError );
 }
 	
-void ResetGame()
+void StepMania::ResetGame()
 {
 	GAMESTATE->Reset();
 	
 	if( !THEME->DoesThemeExist( THEME->GetCurThemeName() ) )
 	{
-		CString sGameName = GAMESTATE->GetCurrentGame()->m_szName;
-		if( THEME->DoesThemeExist( sGameName ) )
-			THEME->SwitchThemeAndLanguage( sGameName, THEME->GetCurLanguage() );
-		else
-			THEME->SwitchThemeAndLanguage( "default", THEME->GetCurLanguage() );
+		RString sGameName = GAMESTATE->GetCurrentGame()->m_szName;
+		if( !THEME->DoesThemeExist(sGameName) )
+			sGameName = "default";
+		THEME->SwitchThemeAndLanguage( sGameName, THEME->GetCurLanguage(), PREFSMAN->m_bPseudoLocalize );
 		TEXTUREMAN->DoDelayedDelete();
 	}
-	SaveGamePrefsToDisk();
 
-
-	//
-	// update last seen joysticks
-	//
-	vector<InputDevice> vDevices;
-	vector<CString> vDescriptions;
-	INPUTMAN->GetDevicesAndDescriptions(vDevices,vDescriptions);
-	CString sInputDevices = join( ",", vDescriptions );
-
-	if( PREFSMAN->m_sLastSeenInputDevices.Get() != sInputDevices )
-	{
-		LOG->Info( "Input devices changed from '%s' to '%s'.", PREFSMAN->m_sLastSeenInputDevices.Get().c_str(), sInputDevices.c_str() );
-
-		if( PREFSMAN->m_bAutoMapOnJoyChange )
-		{
-			LOG->Info( "Remapping joysticks." );
-			INPUTMAPPER->AutoMapJoysticksForCurrentGame();
-			INPUTMAPPER->SaveMappingsToDisk();
-		}
-
-		PREFSMAN->m_sLastSeenInputDevices.Set( sInputDevices );
-	}
+	PREFSMAN->SavePrefsToDisk();
 }
 
-
-static bool ChangeAppPri()
-{
-	if( PREFSMAN->m_BoostAppPriority.Get() == PrefsManager::BOOST_NO )
-		return false;
-
-	// if using NTPAD don't boost or else input is laggy
-#if defined(_WINDOWS)
-	if( PREFSMAN->m_BoostAppPriority == PrefsManager::BOOST_AUTO )
-	{
-		vector<InputDevice> vDevices;
-		vector<CString> vDescriptions;
-		INPUTMAN->GetDevicesAndDescriptions(vDevices,vDescriptions);
-		CString sInputDevices = join( ",", vDescriptions );
-		if( sInputDevices.Find("NTPAD") != -1 )
-		{
-			LOG->Trace( "Using NTPAD.  Don't boost priority." );
-			return false;
-		}
-	}
+#if defined(WIN32)
+static Preference<int> g_iLastSeenMemory( "LastSeenMemory", 0 );
 #endif
-
-	/* If -1 and this is a debug build, don't.  It makes the debugger sluggish. */
-#ifdef DEBUG
-	if( PREFSMAN->m_BoostAppPriority == PrefsManager::BOOST_AUTO )
-		return false;
-#endif
-
-	return true;
-}
 
 static void CheckSettings()
 {
@@ -352,11 +332,11 @@ static void CheckSettings()
 
 	const int Memory = mem.dwTotalPhys / (1024*1024);
 
-	if( PREFSMAN->m_iLastSeenMemory == Memory )
+	if( g_iLastSeenMemory == Memory )
 		return;
 	
-	LOG->Trace( "Memory changed from %i to %i; settings changed", PREFSMAN->m_iLastSeenMemory, Memory );
-	PREFSMAN->m_iLastSeenMemory.Set( Memory );
+	LOG->Trace( "Memory changed from %i to %i; settings changed", g_iLastSeenMemory.Get(), Memory );
+	g_iLastSeenMemory.Set( Memory );
 
 	/* Let's consider 128-meg systems low-memory, and 256-meg systems high-memory.
 	 * Cut off at 192.  This is somewhat conservative; many 128-meg systems can
@@ -377,7 +357,7 @@ static void CheckSettings()
 	 * systems. */
 	PREFSMAN->m_BannerCache.Set( LowMemory ? PrefsManager::BNCACHE_OFF:PrefsManager::BNCACHE_LOW_RES_PRELOAD );
 
-	PREFSMAN->SaveGlobalPrefsToDisk();
+	PREFSMAN->SavePrefsToDisk();
 #endif
 }
 
@@ -396,8 +376,8 @@ static void CheckSettings()
 
 struct VideoCardDefaults
 {
-	const char *szDriverRegex;
-	const char *szVideoRenderers;
+	RString sDriverRegex;
+	RString sVideoRenderers;
 	int iWidth;
 	int iHeight;
 	int iDisplayColor;
@@ -405,257 +385,147 @@ struct VideoCardDefaults
 	int iMovieColor;
 	int iTextureSize;
 	bool bSmoothLines;
+
+	VideoCardDefaults() {}
+	VideoCardDefaults(
+		RString sDriverRegex_,
+		RString sVideoRenderers_,
+		int iWidth_,
+		int iHeight_,
+		int iDisplayColor_,
+		int iTextureColor_,
+		int iMovieColor_,
+		int iTextureSize_,
+		bool bSmoothLines_
+		)
+	{
+		sDriverRegex = sDriverRegex_;
+		sVideoRenderers = sVideoRenderers_;
+		iWidth = iWidth_;
+		iHeight = iHeight_;
+		iDisplayColor = iDisplayColor_;
+		iTextureColor = iTextureColor_;
+		iMovieColor = iMovieColor_;
+		iTextureSize = iTextureSize_;
+		bSmoothLines = bSmoothLines_;
+	}
 } const g_VideoCardDefaults[] = 
 {
-	{
+	VideoCardDefaults(
 		"Xbox",
-		"d3d,opengl",
+		"d3d",
 		600,400,
 		32,32,32,
 		2048,
 		true
-	},
-	{
-		"Voodoo *5",
-		"d3d,opengl",	// received 3 reports of opengl crashing. -Chris
-		640,480,
-		32,32,32,
-		2048,
-		true	// accelerated
-	},
-	{
-		"Voodoo|3dfx", /* all other Voodoos: some drivers don't identify which one */
-		"d3d,opengl",
-		640,480,
-		16,16,16,
-		256,
-		false	// broken, causes black screen
-	},
-	{
-		"Radeon.* 7|Wonder 7500|ArcadeVGA",	// Radeon 7xxx, RADEON Mobility 7500
-		"d3d,opengl",	// movie texture performance is terrible in OpenGL, but fine in D3D.
-		640,480,
-		16,16,16,
-		2048,
-		true	// accelerated
-	},
-	{
-		"GeForce|Radeon|Wonder 9",
+	),
+	VideoCardDefaults(
+		"GeForce|Radeon|Quadro",
 		"opengl,d3d",
 		640,480,
 		32,32,32,	// 32 bit textures are faster to load
 		2048,
 		true	// hardware accelerated
-	},
-	{
-		"TNT|Vanta|M64",
-		"opengl,d3d",
-		640,480,
-		16,16,16,	// Athlon 1.2+TNT demonstration w/ movies: 70fps w/ 32bit textures, 86fps w/ 16bit textures
-		2048,
-		true	// hardware accelerated
-	},
-	{
-		"G200|G250|G400",
-		"d3d,opengl",
-		640,480,
-		16,16,16,
-		2048,
-		false	// broken, causes black screen
-	},
-	{
-		"Savage",
-		"d3d",
-			// OpenGL is unusable on my Savage IV with even the latest drivers.  
-			// It draws 30 frames of gibberish then crashes.  This happens even with
-			// simple NeHe demos.  -Chris
-		640,480,
-		16,16,16,
-		2048,
-		false
-	},
-	{
-		"XPERT@PLAY|IIC|RAGE PRO|RAGE LT PRO",	// Rage Pro chip, Rage IIC chip
-		"d3d",
-			// OpenGL is not hardware accelerated, despite the fact that the 
-			// drivers come with an ICD.  Also, the WinXP driver performance 
-			// is terrible and supports only 640.  The ATI driver is usable.
-			// -Chris
-		320,240,	// lower resolution for 60fps.  In-box WinXP driver doesn't support 400x300.
-		16,16,16,
-		256,
-		false
-	},
-	{
-		"RAGE MOBILITY-M1",
-		"d3d,opengl",	// Vertex alpha is broken in OpenGL, but not D3D. -Chris
-		400,300,	// lower resolution for 60fps
-		16,16,16,
-		256,
-		false
-	},
-	{
-		"Mobility M3",	// ATI Rage Mobility 128 (AKA "M3")
-		"d3d,opengl",	// bad movie texture performance in opengl
-		640,480,
-		16,16,16,
-		1024,
-		false
-	},
-#if 0
-	{
-		/* success report:
-		 * Video driver: IntelR 82845G/GL/GE/PE/GV Graphics Controller [Intel Corporation]
-		 * 6.14.10.3865, 7-1-2004 [pci\ven_8086&dev_2562] */
-		/* 6.14.10.3889 failed (corrupted text); back to D3D */
-		"Intel.*82845.*",
-		"opengl,d3d",
-		640,480,
-		16,16,16,
-		1024,
-		true
-	},
-#endif
-	{
-		"Intel.*82810|Intel.*82815",
-		"opengl,d3d",// OpenGL is 50%+ faster than D3D w/ latest Intel drivers.  -Chris
-		512,384,	// lower resolution for 60fps
-		16,16,16,
-		512,
-		false
-	},
-	{
-		"Intel*Extreme Graphics",
-		"d3d",	// OpenGL blue screens w/ XP drivers from 6-21-2002
-		640,480,
-		16,16,16,	// slow at 32bpp
-		1024,
-		false
-	},
-	{
-		"Intel.*", /* fallback: all unknown Intel cards to D3D, since Intel is notoriously bad at OpenGL */
-		"d3d,opengl",
-		640,480,
-		16,16,16,
-		1024,
-		false
-	},
-	{
-		// Cards that have problems with OpenGL:
-		// ASSERT fail somewhere in RageDisplay_OpenGL "Trident Video Accelerator CyberBlade"
-		// bug 764499: ASSERT fail after glDeleteTextures for "SiS 650_651_740"
-		// bug 764830: ASSERT fail after glDeleteTextures for "VIA Tech VT8361/VT8601 Graphics Controller"
-		// bug 791950: AV in glsis630!DrvSwapBuffers for "SiS 630/730"
-		"Trident Video Accelerator CyberBlade|VIA.*VT|SiS 6*",
-		"d3d,opengl",
-		640,480,
-		16,16,16,
-		2048,
-		false
-	},
-	{
-		/* Unconfirmed texture problems on this; let's try D3D, since it's a VIA/S3
-		 * chipset. */
-		"VIA/S3G KM400/KN400",
-		"d3d,opengl",
-		640,480,
-		16,16,16,
-		2048,
-		false
-	},
-	{
+	),
+	VideoCardDefaults(
 		"OpenGL",	// This matches all drivers in Mac and Linux. -Chris
 		"opengl",
 		640,480,
-		16,16,16,
+		32,32,32,
 		2048,
 		true		// Right now, they've got to have NVidia or ATi Cards anyway..
-	},
-	{
+	),
+	VideoCardDefaults(
 		// Default graphics settings used for all cards that don't match above.
 		// This must be the very last entry!
 		"",
-		"opengl,d3d",
+		"d3d,opengl",
 		640,480,
-		16,16,16,
+		32,32,32,
 		2048,
 		false  // AA is slow on some cards, so let's selectively enable HW accelerated cards.
-	},
+	),
 };
 
 
-static CString GetVideoDriverName()
+static RString GetVideoDriverName()
 {
 #if defined(_WINDOWS)
 	return GetPrimaryVideoDriverName();
 #elif defined(_XBOX)
 	return "Xbox";
 #else
-    return "OpenGL";
+	return "OpenGL";
 #endif
 }
 
-static void CheckVideoDefaultSettings()
+bool CheckVideoDefaultSettings()
 {
 	// Video card changed since last run
-	CString sVideoDriver = GetVideoDriverName();
+	RString sVideoDriver = GetVideoDriverName();
 	
 	LOG->Trace( "Last seen video driver: " + PREFSMAN->m_sLastSeenVideoDriver.Get() );
 
-	const VideoCardDefaults* pDefaults = NULL;
+	VideoCardDefaults defaults;
 	
 	for( unsigned i=0; i<ARRAYSIZE(g_VideoCardDefaults); i++ )
 	{
-		pDefaults = &g_VideoCardDefaults[i];
+		defaults = g_VideoCardDefaults[i];
 
-		CString sDriverRegex = pDefaults->szDriverRegex;
+		RString sDriverRegex = defaults.sDriverRegex;
 		Regex regex( sDriverRegex );
 		if( regex.Compare(sVideoDriver) )
 		{
 			LOG->Trace( "Card matches '%s'.", sDriverRegex.size()? sDriverRegex.c_str():"(unknown card)" );
-			break;
+			goto found_defaults;
 		}
 	}
+	ASSERT( 0 );	// we must have matched at least one above
 
-	ASSERT( pDefaults );	// we must have matched at least one
+found_defaults:
 
-	CString sVideoRenderers = pDefaults->szVideoRenderers;
-
-	bool SetDefaultVideoParams=false;
+	bool bSetDefaultVideoParams = false;
 	if( PREFSMAN->m_sVideoRenderers.Get() == "" )
 	{
-		SetDefaultVideoParams = true;
+		bSetDefaultVideoParams = true;
 		LOG->Trace( "Applying defaults for %s.", sVideoDriver.c_str() );
 	}
 	else if( PREFSMAN->m_sLastSeenVideoDriver.Get() != sVideoDriver ) 
 	{
-		SetDefaultVideoParams = true;
+		bSetDefaultVideoParams = true;
 		LOG->Trace( "Video card has changed from %s to %s.  Applying new defaults.", PREFSMAN->m_sLastSeenVideoDriver.Get().c_str(), sVideoDriver.c_str() );
 	}
 		
-	if( SetDefaultVideoParams )
+	if( bSetDefaultVideoParams )
 	{
-		PREFSMAN->m_sVideoRenderers.Set( pDefaults->szVideoRenderers );
-		PREFSMAN->m_iDisplayWidth.Set( pDefaults->iWidth );
-		PREFSMAN->m_iDisplayHeight.Set( pDefaults->iHeight );
-		PREFSMAN->m_iDisplayColorDepth.Set( pDefaults->iDisplayColor );
-		PREFSMAN->m_iTextureColorDepth.Set( pDefaults->iTextureColor );
-		PREFSMAN->m_iMovieColorDepth.Set( pDefaults->iMovieColor );
-		PREFSMAN->m_iMaxTextureResolution.Set( pDefaults->iTextureSize );
-		PREFSMAN->m_bSmoothLines.Set( pDefaults->bSmoothLines );
+		PREFSMAN->m_sVideoRenderers.Set( defaults.sVideoRenderers );
+		PREFSMAN->m_iDisplayWidth.Set( defaults.iWidth );
+		PREFSMAN->m_iDisplayHeight.Set( defaults.iHeight );
+		PREFSMAN->m_iDisplayColorDepth.Set( defaults.iDisplayColor );
+		PREFSMAN->m_iTextureColorDepth.Set( defaults.iTextureColor );
+		PREFSMAN->m_iMovieColorDepth.Set( defaults.iMovieColor );
+		PREFSMAN->m_iMaxTextureResolution.Set( defaults.iTextureSize );
+		PREFSMAN->m_bSmoothLines.Set( defaults.bSmoothLines );
 
 		// Update last seen video card
 		PREFSMAN->m_sLastSeenVideoDriver.Set( GetVideoDriverName() );
 	}
-	else if( PREFSMAN->m_sVideoRenderers.Get().CompareNoCase(sVideoRenderers) )
+	else if( PREFSMAN->m_sVideoRenderers.Get().CompareNoCase(defaults.sVideoRenderers) )
 	{
 		LOG->Warn("Video renderer list has been changed from '%s' to '%s'",
-				sVideoRenderers.c_str(), PREFSMAN->m_sVideoRenderers.Get().c_str() );
-		return;
+				defaults.sVideoRenderers.c_str(), PREFSMAN->m_sVideoRenderers.Get().c_str() );
 	}
 
 	LOG->Info( "Video renderers: '%s'", PREFSMAN->m_sVideoRenderers.Get().c_str() );
+	return bSetDefaultVideoParams;
 }
+
+static LocalizedString ERROR_INITIALIZING_CARD		( "StepMania", "There was an error while initializing your video card." );
+static LocalizedString ERROR_DONT_FILE_BUG		( "StepMania", "Please do not file this error as a bug!  Use the web page below to troubleshoot this problem." );
+static LocalizedString ERROR_VIDEO_DRIVER		( "StepMania", "Video Driver: %s" );
+static LocalizedString ERROR_NO_VIDEO_RENDERERS		( "StepMania", "No video renderers attempted." );
+static LocalizedString ERROR_INITIALIZING		( "StepMania", "Initializing %s..." );
+static LocalizedString ERROR_UNKNOWN_VIDEO_RENDERER	( "StepMania", "Unknown video renderer value: %s" );
 
 RageDisplay *CreateDisplay()
 {
@@ -682,73 +552,80 @@ RageDisplay *CreateDisplay()
 	 * Actually, right now we're falling back.  I'm not sure which behavior is better.
 	 */
 
+	//bool bAppliedDefaults = CheckVideoDefaultSettings();
 	CheckVideoDefaultSettings();
 
-	RageDisplay::VideoModeParams params(GetCurVideoModeParams());
+	VideoModeParams params;
+	StepMania::GetPreferredVideoModeParams( params );
 
-	CString error = "There was an error while initializing your video card.\n\n"
-		"   PLEASE DO NOT FILE THIS ERROR AS A BUG!\n\n"
-		"Video Driver: "+GetVideoDriverName()+"\n\n";
+	RString error = ERROR_INITIALIZING_CARD.GetValue()+"\n\n"+ 
+		ERROR_DONT_FILE_BUG.GetValue()+"\n\n"
+		VIDEO_TROUBLESHOOTING_URL "\n\n"+
+		ssprintf(ERROR_VIDEO_DRIVER.GetValue(), GetVideoDriverName().c_str())+"\n\n";
 
-	CStringArray asRenderers;
+	vector<RString> asRenderers;
 	split( PREFSMAN->m_sVideoRenderers, ",", asRenderers, true );
 
 	if( asRenderers.empty() )
-		RageException::Throw("No video renderers attempted.");
+		RageException::Throw( ERROR_NO_VIDEO_RENDERERS.GetValue() );
 
+	RageDisplay *pRet = NULL;
 	for( unsigned i=0; i<asRenderers.size(); i++ )
 	{
-		CString sRenderer = asRenderers[i];
+		RString sRenderer = asRenderers[i];
 
 		if( sRenderer.CompareNoCase("opengl")==0 )
 		{
 #if defined(SUPPORT_OPENGL)
-			RageDisplay_OGL *pRet = new RageDisplay_OGL;
-			CString sError = pRet->Init( params, PREFSMAN->m_bAllowUnacceleratedRenderer );
-			if( sError == "" )
-				return pRet;
-			error += "Initializing OpenGL...\n" + sError;
-			delete pRet;
+			pRet = new RageDisplay_OGL;
 #endif
 		}
 		else if( sRenderer.CompareNoCase("d3d")==0 )
 		{
 #if defined(SUPPORT_D3D)
-			RageDisplay_D3D *pRet = new RageDisplay_D3D;
-			CString sError = pRet->Init( params );
-			if( sError == "" )
-				return pRet;
-			error += "Initializing Direct3D...\n" + sError;
-			delete pRet;
+			pRet = new RageDisplay_D3D;
 #endif
 		}
 		else if( sRenderer.CompareNoCase("null")==0 )
-			return new RageDisplay_Null( params );
+		{
+			return new RageDisplay_Null();
+		}
 		else
-			RageException::Throw("Unknown video renderer value: %s", sRenderer.c_str() );
+		{
+			RageException::Throw( ERROR_UNKNOWN_VIDEO_RENDERER.GetValue(), sRenderer.c_str() );
+		}
+
+		if( pRet == NULL )
+			continue;
+
+		RString sError = pRet->Init( params, PREFSMAN->m_bAllowUnacceleratedRenderer );
+		if( !sError.empty() )
+		{
+			error += ssprintf(ERROR_INITIALIZING.GetValue(), sRenderer.c_str())+"\n" + sError;
+			SAFE_DELETE( pRet );
+			error += "\n\n\n";
+			continue;
+		}
+
+		break;	// the display is ready to go
 	}
 
-	RageException::Throw( error );
+	if( pRet == NULL)
+		RageException::Throw( error );
+
+	return pRet;
 }
 
-#define GAMEPREFS_INI_PATH "Data/GamePrefs.ini"
-#define STATIC_INI_PATH "Data/Static.ini"
+extern const RString STATIC_INI_PATH;
 
-void ChangeCurrentGame( const Game* g )
+void StepMania::ChangeCurrentGame( const Game* g )
 {
 	ASSERT( g );
 
-	SaveGamePrefsToDisk();
-	INPUTMAPPER->SaveMappingsToDisk();	// save mappings before switching the game
-
-	GAMESTATE->m_pCurGame = g;
-
-	/* Load this game's preferences.  If we just set an unavailable game type, this
-	 * will change it back to the default. */
-	ReadGamePrefsFromDisk( false );
+	GAMESTATE->SetCurGame( g );
 
 	/* Save the newly-selected game. */
-	SaveGamePrefsToDisk();
+	PREFSMAN->SavePrefsToDisk();
 
 	/* Load keymaps for the new game. */
 	INPUTMAPPER->ReadMappingsFromDisk();
@@ -761,26 +638,27 @@ void ReadGamePrefsFromDisk( bool bSwitchToLastPlayedGame )
 	ASSERT( THEME );
 	ASSERT( GAMESTATE );
 
-	IniFile ini;
-	ini.ReadFile( GAMEPREFS_INI_PATH );	// it's OK if this fails
-	ini.ReadFile( STATIC_INI_PATH );	// it's OK if this fails, too
-
 	if( bSwitchToLastPlayedGame )
 	{
 		ASSERT( GAMEMAN != NULL );
-		CString sGame;
-		GAMESTATE->m_pCurGame = NULL;
-		if( ini.GetValue("Options", "Game", sGame) )
-			GAMESTATE->m_pCurGame = GAMEMAN->StringToGameType( sGame );
+		RString sGame = PREFSMAN->GetCurrentGame();
+		if( !sGame.empty() )
+		{
+			const Game *pGame = GAMEMAN->StringToGameType(sGame);
+			GAMESTATE->SetCurGame( pGame );
+		}
 	}
 
 	/* If the active game type isn't actually available, revert to the default. */
-	if( GAMESTATE->m_pCurGame == NULL || !GAMEMAN->IsGameEnabled( GAMESTATE->m_pCurGame ) )
+	if( GAMESTATE->m_pCurGame == NULL )
 	{
-		if( GAMESTATE->m_pCurGame != NULL )
-			LOG->Warn( "Default note skin for \"%s\" missing, reverting to \"%s\"",
-				GAMESTATE->m_pCurGame->m_szName, GAMEMAN->GetDefaultGame()->m_szName );
-		GAMESTATE->m_pCurGame = GAMEMAN->GetDefaultGame();
+		GAMESTATE->SetCurGame( GAMEMAN->GetDefaultGame() );
+	}
+	else if( !GAMEMAN->IsGameEnabled( GAMESTATE->m_pCurGame )  &&  GAMESTATE->m_pCurGame != GAMEMAN->GetDefaultGame() )
+	{
+		LOG->Warn( "Default NoteSkin for \"%s\" missing, reverting to \"%s\"",
+			GAMESTATE->m_pCurGame->m_szName, GAMEMAN->GetDefaultGame()->m_szName );
+		GAMESTATE->SetCurGame( GAMEMAN->GetDefaultGame() );
 	}
 
 	/* Load keymaps for the new game. */
@@ -789,53 +667,32 @@ void ReadGamePrefsFromDisk( bool bSwitchToLastPlayedGame )
 
 	/* If the default isn't available, our default note skin is messed up. */
 	if( !GAMEMAN->IsGameEnabled( GAMESTATE->m_pCurGame ) )
-		RageException::Throw( "Default note skin for \"%s\" missing", GAMESTATE->m_pCurGame->m_szName );
+		RageException::Throw( "Default NoteSkin for \"%s\" missing", GAMESTATE->m_pCurGame->m_szName );
 
-	CString sGameName = GAMESTATE->GetCurrentGame()->m_szName;
-	CString sAnnouncer = sGameName;
-	CString sTheme = sGameName;
-	CString sNoteSkin = sGameName;
-	CString sDefaultModifiers;
+	RString sGameName = GAMESTATE->GetCurrentGame()->m_szName;
+	RString sAnnouncer = sGameName;
+	RString sTheme = sGameName;
 
 	// if these calls fail, the three strings will keep the initial values set above.
-	ini.GetValue( sGameName, "Announcer",			sAnnouncer );
-	ini.GetValue( sGameName, "Theme",				sTheme );
-	ini.GetValue( sGameName, "DefaultModifiers",	sDefaultModifiers );
-	PREFSMAN->m_sDefaultModifiers.Set( sDefaultModifiers );
+	if( !PREFSMAN->m_sAnnouncer.Get().empty() )
+		sAnnouncer = PREFSMAN->m_sAnnouncer;
+	if( !PREFSMAN->m_sTheme.Get().empty() )
+		sTheme = PREFSMAN->m_sTheme;
 
 	// it's OK to call these functions with names that don't exist.
 	ANNOUNCER->SwitchAnnouncer( sAnnouncer );
-	THEME->SwitchThemeAndLanguage( sTheme, PREFSMAN->m_sLanguage );
-
-//	NOTESKIN->SwitchNoteSkin( sNoteSkin );
+	THEME->SwitchThemeAndLanguage( sTheme, PREFSMAN->m_sLanguage, PREFSMAN->m_bPseudoLocalize );
 }
 
 
-void SaveGamePrefsToDisk()
+static void MountTreeOfZips( const RString &dir )
 {
-	if( !GAMESTATE )
-		return;
-
-	CString sGameName = GAMESTATE->GetCurrentGame()->m_szName;
-	IniFile ini;
-	ini.ReadFile( GAMEPREFS_INI_PATH );	// it's OK if this fails
-
-	ini.SetValue( sGameName, "Announcer",			ANNOUNCER->GetCurAnnouncerName() );
-	ini.SetValue( sGameName, "Theme",				THEME->GetCurThemeName() );
-	ini.SetValue( sGameName, "DefaultModifiers",	PREFSMAN->m_sDefaultModifiers );
-	ini.SetValue( "Options", "Game",				(CString)GAMESTATE->GetCurrentGame()->m_szName );
-
-	ini.WriteFile( GAMEPREFS_INI_PATH );
-}
-
-static void MountTreeOfZips( const CString &dir )
-{
-	vector<CString> dirs;
+	vector<RString> dirs;
 	dirs.push_back( dir );
 
 	while( dirs.size() )
 	{
-		CString path = dirs.back();
+		RString path = dirs.back();
 		dirs.pop_back();
 
 #if !defined(XBOX)
@@ -844,7 +701,7 @@ static void MountTreeOfZips( const CString &dir )
 			continue;
 #endif
 
-		vector<CString> zips;
+		vector<RString> zips;
 		GetDirListing( path + "/*.zip", zips, false, true );
 		GetDirListing( path + "/*.smzip", zips, false, true );
 
@@ -868,7 +725,7 @@ extern const char *version_time;
 
 static void WriteLogHeader()
 {
-	LOG->Info( PRODUCT_NAME_VER );
+	LOG->Info( PRODUCT_DISPLAY );
 
 #if defined(HAVE_VERSION_INFO)
 	LOG->Info( "Compiled %s (build %lu)", version_time, version_num );
@@ -885,7 +742,7 @@ static void WriteLogHeader()
 
 	if( g_argc > 1 )
 	{
-		CString args;
+		RString args;
 		for( int i = 1; i < g_argc; ++i )
 		{
 			if( i>1 )
@@ -908,58 +765,14 @@ static void ApplyLogPreferences()
 	Checkpoints::LogCheckpoints( PREFSMAN->m_bLogCheckpoints );
 }
 
-/* Search for the commandline argument given; eg. "test" searches for
- * the option "--test".  All commandline arguments are getopt_long style:
- * --foo; short arguments (-x) are not supported.  (As commandline arguments
- * are not intended for common, general use, having short options isn't
- * needed.)  If argument is non-NULL, accept an argument. */
-bool GetCommandlineArgument( const CString &option, CString *argument, int iIndex )
-{
-	const CString optstr = "--" + option;
-	
-	for( int arg = 1; arg < g_argc; ++arg )
-	{
-		const CString CurArgument = g_argv[arg];
+static LocalizedString COULDNT_OPEN_LOADING_WINDOW( "StepMania", "Couldn't open any loading windows." );
 
-		const size_t i = CurArgument.find( "=" );
-		CString CurOption = CurArgument.substr(0,i);
-		if( CurOption.CompareNoCase(optstr) )
-			continue; /* no match */
-
-		/* Found it. */
-		if( iIndex )
-		{
-			--iIndex;
-			continue;
-		}
-
-		if( argument )
-		{
-			if( i != CString::npos )
-				*argument = CurArgument.substr( i+1 );
-			else
-				*argument = "";
-		}
-		
-		return true;
-	}
-
-	return false;
-}
-
-#ifdef _XBOX
-void __cdecl main()
-#else
 int main(int argc, char* argv[])
-#endif
-{
-#if defined(XBOX)
-	int argc = 1;
-	char *argv[] = {"default.xbe"};
-#endif
+{	
+	RageThreadRegister thread( "Main thread" );
+	RageException::SetCleanupHandler( HandleException );
 	
-	g_argc = argc;
-	g_argv = argv;
+	SetCommandlineArguments( argc, argv );
 
 	/* Set up arch hooks first.  This may set up crash handling. */
 	HOOKS = MakeArchHooks();
@@ -982,7 +795,7 @@ int main(int argc, char* argv[])
 	FILEMAN->MountInitialFilesystems();
 
 	/* Set this up next.  Do this early, since it's needed for RageException::Throw. */
-	LOG			= new RageLog();
+	LOG			= new RageLog;
 
 	/* Whew--we should be able to crash safely now! */
 
@@ -991,18 +804,20 @@ int main(int argc, char* argv[])
 	//
 	PREFSMAN	= new PrefsManager;
 
+	/* Allow HOOKS to check for multiple instances.  We need to do this after PREFS is initialized,
+	 * so ArchHooks can use a preference to turn this off.  We want to do this before ApplyLogPreferences,
+	 * so if we exit because of another instance, we don't try to clobber its log.  We also want to
+	 * do this before opening the loading window, so if we give focus away, we don't flash the window. */
+	if( !g_bAllowMultipleInstances.Get() && HOOKS->CheckForMultipleInstances() )
+	{
+		ShutdownGame();
+		return 0;
+	}
+
 	ApplyLogPreferences();
 
 #if defined(XBOX)
-	if(PREFSMAN->m_bEnableVirtualMemory)
-	{
-		if(!vmem_Manager.Init(1024 * 1024 * PREFSMAN->m_iPageFileSize, 1024 * PREFSMAN->m_iPageSize, 1024 * PREFSMAN->m_iPageThreshold))
-			return;
-	}
-
-	/* Logging the virtual memory manager seems to crash on exit, so it should be enabled only
-	 * for debugging. */
-	vmem_Manager.SetLogging(PREFSMAN->m_bLogVirtualMemory);
+	vmem_Manager.Init();
 #endif
 
 	WriteLogHeader();
@@ -1010,23 +825,23 @@ int main(int argc, char* argv[])
 	/* Set up alternative filesystem trees. */
 	if( PREFSMAN->m_sAdditionalFolders.Get() != "" )
 	{
-		CStringArray dirs;
+		vector<RString> dirs;
 		split( PREFSMAN->m_sAdditionalFolders, ",", dirs, true );
 		for( unsigned i=0; i < dirs.size(); i++)
 			FILEMAN->Mount( "dir", dirs[i], "/" );
 	}
 	if( PREFSMAN->m_sAdditionalSongFolders.Get() != "" )
 	{
-		CStringArray dirs;
+		vector<RString> dirs;
 		split( PREFSMAN->m_sAdditionalSongFolders, ",", dirs, true );
 		for( unsigned i=0; i < dirs.size(); i++)
-			FILEMAN->Mount( "dir", dirs[i], "/Songs" );
+			FILEMAN->Mount( "dir", dirs[i], "/AdditionalSongs" );
 	}
-	MountTreeOfZips( ZIPS_DIR );
+	MountTreeOfZips( SpecialFiles::PACKAGES_DIR );
 
 	/* One of the above filesystems might contain files that affect preferences, eg Data/Static.ini.
 	 * Re-read preferences. */
-	PREFSMAN->ReadGlobalPrefsFromDisk();
+	PREFSMAN->ReadPrefsFromDisk();
 	ApplyLogPreferences();
 	
 #if defined(HAVE_SDL)
@@ -1040,13 +855,13 @@ int main(int argc, char* argv[])
 	// Create game objects
 	//
 
-	LUA			= new LuaManager;
+	LUA		= new LuaManager;
 	GAMESTATE	= new GameState;
 
 	/* This requires PREFSMAN, for PREFSMAN->m_bShowLoadingWindow. */
 	LoadingWindow *loading_window = MakeLoadingWindow();
 	if( loading_window == NULL )
-		RageException::Throw( "Couldn't open any loading windows." );
+		RageException::Throw( COULDNT_OPEN_LOADING_WINDOW.GetValue() );
 
 	srand( time(NULL) );	// seed number generator	
 	
@@ -1070,88 +885,87 @@ int main(int argc, char* argv[])
 	/* Set up the theme and announcer, and switch to the last game type. */
 	ReadGamePrefsFromDisk( true );
 
-	{
-		CString sSection = "Preferences";
-		GetCommandlineArgument( "Type", &sSection );
-		THEME->LoadPreferencesFromSection( sSection );
-	}
+	CommandLineActions::Handle(loading_window);
 
 	{
 		/* Now that THEME is loaded, load the icon for the current theme into the
 		 * loading window. */
-		CString sError;
+		RString sError;
 		RageSurface *pIcon = RageSurfaceUtils::LoadFile( THEME->GetPathG( "Common", "window icon" ), sError );
 		if( pIcon )
 			loading_window->SetIcon( pIcon );
 		delete pIcon;
 	}
 
+
 	if( PREFSMAN->m_iSoundWriteAhead )
 		LOG->Info( "Sound writeahead has been overridden to %i", PREFSMAN->m_iSoundWriteAhead.Get() );
 	SOUNDMAN	= new RageSoundManager;
-	SOUNDMAN->Init( PREFSMAN->GetSoundDrivers() );
-	SOUNDMAN->SetPrefs( PREFSMAN->GetSoundVolume() );
+	SOUNDMAN->Init();
+	SOUNDMAN->SetMixVolume( PREFSMAN->GetSoundVolume() );
 	SOUND		= new GameSoundManager;
 	BOOKKEEPER	= new Bookkeeper;
-	LIGHTSMAN	= new LightsManager( PREFSMAN->GetLightsDriver() );
+	LIGHTSMAN	= new LightsManager;
 	INPUTFILTER	= new InputFilter;
 	INPUTMAPPER	= new InputMapper;
 	INPUTQUEUE	= new InputQueue;
 	SONGINDEX	= new SongCacheIndex;
-	BANNERCACHE = new BannerCache;
+	BANNERCACHE	= new BannerCache;
 	
 	/* depends on SONGINDEX: */
 	SONGMAN		= new SongManager();
 	SONGMAN->InitAll( loading_window );		// this takes a long time
-	CRYPTMAN	= new CryptManager;	// need to do this before ProfileMan
+	CRYPTMAN	= new CryptManager;		// need to do this before ProfileMan
 	MEMCARDMAN	= new MemoryCardManager;
 	CHARMAN		= new CharacterManager;
 	PROFILEMAN	= new ProfileManager;
 	PROFILEMAN->Init();				// must load after SONGMAN
 	UNLOCKMAN	= new UnlockManager;
+	SONGMAN->UpdatePopular();
+	SONGMAN->UpdatePreferredSort();
 
 	/* This shouldn't need to be here; if it's taking long enough that this is
 	 * even visible, we should be fixing it, not showing a progress display. */
-	SaveCatalogXml( loading_window );
+	CatalogXml::Save( loading_window );
 	
 	NSMAN 		= new NetworkSyncManager( loading_window ); 
 	MESSAGEMAN	= new MessageManager;
 	STATSMAN	= new StatsManager;
 
 	SAFE_DELETE( loading_window );		// destroy this before init'ing Display
-    
+
 	StartDisplay();
 
-	StoreActualGraphicOptions( true );
+	StoreActualGraphicOptions();
+	LOG->Info( "%s", GetActualGraphicOptionsString().c_str() );
 
 	SONGMAN->PreloadSongImages();
 
 	/* This initializes objects that change the SDL event mask, and has other
 	 * dependencies on the SDL video subsystem, so it must be initialized after DISPLAY. */
-	INPUTMAN	= new RageInput( PREFSMAN->GetInputDrivers() );
+	INPUTMAN	= new RageInput;
 
 	// These things depend on the TextureManager, so do them after!
 	FONT		= new FontManager;
 	SCREENMAN	= new ScreenManager;
 
-	// UGLY: Now that all global singletons are constructed so that they, let them
-	// all register with Lua.
+	// UGLY: Now that all global singletons are constructed, let them all register with Lua.
 	//
 	// ResetState wipes out method tables.   We need to call UpdateLuaGlobals, so
 	// we re-run scripts that may add to them.
 	THEME->UpdateLuaGlobals();
 
-	/* People may want to do something else while songs are loading, so do
-	 * this after loading songs. */
-	if( ChangeAppPri() )
-		HOOKS->BoostPriority();
-
-	ResetGame();
+	StepMania::ResetGame();
 
 	/* Now that GAMESTATE is reset, tell SCREENMAN to update the theme (load
 	 * overlay screens and global sounds), and load the initial screen. */
 	SCREENMAN->ThemeChanged();
-	SCREENMAN->SetNewScreen( INITIAL_SCREEN );
+	SCREENMAN->SetNewScreen( CommonMetrics::INITIAL_SCREEN );
+
+	// Do this after ThemeChanged so that we can show a system message
+	RString sMessage;
+	if( INPUTMAPPER->CheckForChangedInputDevicesAndRemap(sMessage) )
+		SCREENMAN->SystemMessage( sMessage );
 
 	CodeDetector::RefreshCacheItems();
 
@@ -1162,13 +976,12 @@ int main(int argc, char* argv[])
 		NSMAN->DisplayStartupStatus();	// If we're using networking show what happened
 
 	/* Run the main loop. */
-	GameLoop();
+	GameLoop::RunGameLoop();
 
 	/* If we ended mid-game, finish up. */
 	GAMESTATE->EndGame();
 
-	PREFSMAN->SaveGlobalPrefsToDisk();
-	SaveGamePrefsToDisk();
+	PREFSMAN->SavePrefsToDisk();
 
 	ShutdownGame();
 
@@ -1181,19 +994,17 @@ int main(int argc, char* argv[])
 	}
 #endif
 	
-#ifndef _XBOX
 	return 0;
-#endif
 }
 
-CString SaveScreenshot( CString sDir, bool bSaveCompressed, bool bMakeSignature, int iIndex )
+RString StepMania::SaveScreenshot( RString sDir, bool bSaveCompressed, bool bMakeSignature, int iIndex )
 {
 	//
 	// Find a file name for the screenshot
 	//
 	FlushDirCache();
 
-	vector<CString> files;
+	vector<RString> files;
 	GetDirListing( sDir + "screen*", files, false, false );
 	sort( files.begin(), files.end() );
 
@@ -1209,7 +1020,7 @@ CString SaveScreenshot( CString sDir, bool bSaveCompressed, bool bMakeSignature,
 		for( int i = files.size()-1; i >= 0; --i )
 		{
 			static Regex re( "^screen([0-9]{5})\\....$" );
-			vector<CString> matches;
+			vector<RString> matches;
 			if( !re.Compare( files[i], matches ) )
 				continue;
 
@@ -1231,13 +1042,13 @@ CString SaveScreenshot( CString sDir, bool bSaveCompressed, bool bMakeSignature,
 	else
 		fmt = RageDisplay::SAVE_LOSSLESS;
 
-	CString sFileName = ssprintf( "screen%05d.%s",iIndex,bSaveCompressed ? "jpg" : "bmp" );
-	CString sPath = sDir+sFileName;
+	RString sFileName = ssprintf( "screen%05d.%s",iIndex,bSaveCompressed ? "jpg" : "bmp" );
+	RString sPath = sDir+sFileName;
 	bool bResult = DISPLAY->SaveScreenshot( sPath, fmt );
 	if( !bResult )
 	{
 		SCREENMAN->PlayInvalidSound();
-		return CString();
+		return RString();
 	}
 
 	SCREENMAN->PlayScreenshotSound();
@@ -1255,7 +1066,7 @@ CString SaveScreenshot( CString sDir, bool bSaveCompressed, bool bMakeSignature,
 
 static Preference<float> g_iCoinSettleTime( "CoinSettleTime", 0.03f );
 
-void InsertCoin( int iNum, const RageTimer *pTime )
+void StepMania::InsertCoin( int iNum, const RageTimer *pTime )
 {
 	if( pTime != NULL )
 	{
@@ -1283,13 +1094,14 @@ void InsertCoin( int iNum, const RageTimer *pTime )
 	MESSAGEMAN->Broadcast( Message_CoinInserted );
 }
 
-void InsertCredit()
+void StepMania::InsertCredit()
 {
 	InsertCoin( PREFSMAN->m_iCoinsPerCredit );
 }
 
 /* Returns true if the key has been handled and should be discarded, false if
  * the key should be sent on to screens. */
+static LocalizedString SERVICE_SWITCH_PRESSED ( "StepMania", "Service switch pressed" );
 bool HandleGlobalInputs( const InputEventPlus &input )
 {
 	/* None of the globals keys act on types other than FIRST_PRESS */
@@ -1303,9 +1115,9 @@ bool HandleGlobalInputs( const InputEventPlus &input )
 		/* Global operator key, to get quick access to the options menu. Don't
 		 * do this if we're on a "system menu", which includes the editor
 		 * (to prevent quitting without storing changes). */
-		if( SCREENMAN->GetTopScreen()->GetScreenType() != system_menu )
+		if( SCREENMAN->AllowOperatorMenuButton() )
 		{
-			SCREENMAN->SystemMessage( "Service switch pressed" );
+			SCREENMAN->SystemMessage( SERVICE_SWITCH_PRESSED );
 			GAMESTATE->Reset();
 			SCREENMAN->PopAllScreens();
 			SCREENMAN->SetNewScreen( "ScreenOptionsService" );
@@ -1319,40 +1131,42 @@ bool HandleGlobalInputs( const InputEventPlus &input )
 			LOG->Trace( "Ignored coin insertion (editing)" );
 			break;
 		}
-		InsertCoin( 1, &input.DeviceI.ts );
+		StepMania::InsertCoin( 1, &input.DeviceI.ts );
 		return false;	// Attract need to know because they go to TitleMenu on > 1 credit
 	}
 
-#ifndef __MACOSX__
+#if !defined(MACOSX)
 	if( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_F4) )
 	{
 		if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_RALT)) ||
 			INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_LALT)) )
 		{
 			// pressed Alt+F4
-			ExitGame();
+			ArchHooks::SetUserQuit();
 			return true;
 		}
 	}
 #else
-	if( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_Cq) )
+	if( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_Cq) &&
+	    (INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_LMETA) ) ||
+	     INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_RMETA) )) )
 	{
-		if(INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RMETA)) ||
-			INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LMETA)))
-		{
-			// pressed CMD-Q
-			ExitGame();
-			return true;
-		}
+		/* The user quit is handled by the menu item so we don't need to set it here;
+		 * however, we do want to return that it has been handled since this will happen
+		 * first. */
+		return true;
 	}
 #endif
 
 	bool bDoScreenshot = 
-#if defined(__MACOSX__)
-	/* Pressing F13 on an Apple keyboard sends KEY_PRINT.
-	 * However, notebooks don't have F13. Use cmd-F12 then*/
-		input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_F12) && 
-		( INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LMETA)) || INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RMETA)) );
+#if defined(MACOSX)
+	/* Notebooks don't have F13. Use cmd-F12 as well. */
+		input.DeviceI == DeviceInput( DEVICE_KEYBOARD, KEY_PRTSC ) ||
+		input.DeviceI == DeviceInput( DEVICE_KEYBOARD, KEY_F13 ) ||
+		( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_F12) && 
+		  (INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LMETA)) ||
+		   INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RMETA))) );
+
 #else
 	/* The default Windows message handler will capture the desktop window upon
 	 * pressing PrntScrn, or will capture the foregroud with focus upon pressing
@@ -1367,20 +1181,24 @@ bool HandleGlobalInputs( const InputEventPlus &input )
 	{
 		// If holding LShift save uncompressed, else save compressed
 		bool bSaveCompressed = !INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_LSHIFT) );
-		SaveScreenshot( "Screenshots/", bSaveCompressed, false );
+		StepMania::SaveScreenshot( "Screenshots/", bSaveCompressed, false );
 		return true;	// handled
 	}
-
-	if( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_ENTER) )
+	
+	if( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_ENTER) &&
+		(INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RALT)) ||
+		 INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LALT))) )
 	{
-		if( INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RALT)) ||
-			INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LALT)) )
-		{
-			/* alt-enter */
-			PREFSMAN->m_bWindowed.Set( !PREFSMAN->m_bWindowed );
-			ApplyGraphicOptions();
-			return true;
-		}
+		/* alt-enter */
+		/* In OS X, this is a menu item and will be handled as such. This will happen
+		 * first and then the lower priority GUI thread will happen second causing the
+		 * window to toggle twice. Another solution would be to put a timer in
+		 * ArchHooks::SetToggleWindowed() and just not set the bool it if it's been less
+		 * than, say, half a second. */
+#if !defined(MACOSX)
+		ArchHooks::SetToggleWindowed();
+#endif
+		return true;
 	}
 
 	return false;
@@ -1402,7 +1220,7 @@ void HandleInputEvents(float fDeltaTime)
 	INPUTFILTER->GetInputEvents( ieArray );
 
 	/* If we don't have focus, discard input. */
-	if( !g_bHasFocus )
+	if( !HOOKS->AppHasFocus() )
 		return;
 
 	for( unsigned i=0; i<ieArray.size(); i++ )
@@ -1410,6 +1228,21 @@ void HandleInputEvents(float fDeltaTime)
 		InputEventPlus input;
 		input.DeviceI = (DeviceInput)ieArray[i];
 		input.type = ieArray[i].type;
+
+		// hack for testing with only one joytick
+		if( input.DeviceI.IsJoystick() )
+		{
+			if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_LSHIFT) ) )
+				input.DeviceI.device = (InputDevice)(input.DeviceI.device + 1);
+			if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_LCTRL) ) )
+				input.DeviceI.device = (InputDevice)(input.DeviceI.device + 2);
+			if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_LALT) ) )
+				input.DeviceI.device = (InputDevice)(input.DeviceI.device + 4);
+			if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_RALT) ) )
+				input.DeviceI.device = (InputDevice)(input.DeviceI.device + 8);
+			if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_RCTRL) ) )
+				input.DeviceI.device = (InputDevice)(input.DeviceI.device + 16);
+		}
 
 		INPUTMAPPER->DeviceToGame( input.DeviceI, input.GameI );
 		
@@ -1421,46 +1254,32 @@ void HandleInputEvents(float fDeltaTime)
 			INPUTMAPPER->GameToStyle( input.GameI, input.StyleI );
 		}
 
-		if( !GAMESTATE->m_bMultiplayer )
+		input.mp = MultiPlayer_INVALID;
+		
 		{
-			input.mp = MultiPlayer_INVALID;
-		}
-		else
-		{
-			// Translate input and sent to the appropriate player.  Assume that all 
+			// Translate input to the appropriate MultiPlayer.  Assume that all
 			// joystick devices are mapped the same as the master player.
 			if( input.DeviceI.IsJoystick() )
 			{
-				DeviceInput _DeviceI = input.DeviceI;
-				_DeviceI.device = DEVICE_JOY1;
-				GameInput _GameI;
-				INPUTMAPPER->DeviceToGame( _DeviceI, _GameI );
+				DeviceInput diTemp = input.DeviceI;
+				diTemp.device = DEVICE_JOY1;
 
-				if( input.GameI.IsValid() )
+				//LOG->Trace( "device %d, %d", diTemp.device, diTemp.button );
+				if( INPUTMAPPER->DeviceToGame(diTemp, input.GameI) )
 				{
-					StyleInput _StyleI;
-					INPUTMAPPER->GameToStyle( _GameI, _StyleI );
-					input.mp = InputMapper::InputDeviceToMultiPlayer( input.DeviceI.device );
-				}
+					//LOG->Trace( "game %d %d", input.GameI.controller, input.GameI.button );
+					INPUTMAPPER->GameToStyle( input.GameI, input.StyleI );
+					INPUTMAPPER->GameToMenu( input.GameI, input.MenuI );
 
-				/*
-				// hack for testing with only one joytick
-				if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_LSHIFT) ) )
-					p = (MultiPlayer)(p + 1);
-				if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_LCTRL) ) )
-					p = (MultiPlayer)(p + 2);
-				if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD,KEY_LALT) ) )
-					p = (MultiPlayer)(p + 4);
-				*/
+					//LOG->Trace( "style %d %d", input.StyleI.player, input.StyleI.col );
+					//LOG->Trace( "menu %d %d", input.MenuI.player, input.MenuI.button );
+
+					input.mp = InputMapper::InputDeviceToMultiPlayer( input.DeviceI.device );
+					//LOG->Trace( "multiplayer %d", input.mp );
+					ASSERT( input.mp >= 0 && input.mp < NUM_MultiPlayer );					
+				}
 			}
 		}
-
-		// HACK:  Numlock is read is being pressed if the NumLock light is on.
-		// Filter out all NumLock repeat messages
-		/* XXX: Is this still needed?  If so, it should probably be done in the
-		 * affected input driver. */
-//		if( DeviceI.device == DEVICE_KEYBOARD && DeviceI.button == KEY_NUMLOCK && type != IET_FIRST_PRESS )
-//			continue;	// skip
 
 		if( HandleGlobalInputs(input) )
 			continue;	// skip
@@ -1475,32 +1294,12 @@ void HandleInputEvents(float fDeltaTime)
 
 		SCREENMAN->Input( input );
 	}
-}
-
-void FocusChanged( bool bHasFocus )
-{
-	if( g_bHasFocus == bHasFocus )
-		return;
-
-	g_bHasFocus = bHasFocus;
-
-	LOG->Trace( "App %s focus", g_bHasFocus? "has":"doesn't have" );
-
-	/* If we lose focus, we may lose input events, especially key releases. */
-	INPUTFILTER->Reset();
-
-	if( ChangeAppPri() )
+	
+	if( ArchHooks::GetAndClearToggleWindowed() )
 	{
-		if( g_bHasFocus )
-			HOOKS->BoostPriority();
-		else
-			HOOKS->UnBoostPriority();
-	}
-}
-
-bool AppHasFocus()
-{
-	return g_bHasFocus;
+		PREFSMAN->m_bWindowed.Set( !PREFSMAN->m_bWindowed );
+		StepMania::ApplyGraphicOptions();
+	}	
 }
 
 /*

@@ -14,17 +14,14 @@
 #define TEXT_ZOOM			THEME->GetMetricF("ScreenMusicScroll","TextZoom")
 
 
-const CString CREDIT_LINES[] = 
+const RString CREDIT_LINES[] = 
 {
 ""
 };
-const unsigned NUM_CREDIT_LINES = sizeof(CREDIT_LINES) / sizeof(CString);
+const unsigned NUM_CREDIT_LINES = sizeof(CREDIT_LINES) / sizeof(RString);
 
 
 REGISTER_SCREEN_CLASS( ScreenMusicScroll );
-ScreenMusicScroll::ScreenMusicScroll( CString sClassName ) : ScreenAttract( sClassName )
-{
-}
 
 void ScreenMusicScroll::Init()
 {

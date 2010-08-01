@@ -26,10 +26,12 @@ public:
 	 * start sounds will do nothing, and threads may be shut down. */
 	void Shutdown();
 
-	void Init( CString sDrivers );
+	void Init();
 
 	float GetMixVolume() const { return m_fMixVolume; }
-	void SetPrefs( float fMixVol );
+	void SetMixVolume( float fMixVol );
+	bool GetPlayOnlyCriticalSounds() const { return m_bPlayOnlyCriticalSounds; }
+	void SetPlayOnlyCriticalSounds( bool bPlayOnlyCriticalSounds );
 
 	void Update( float fDeltaTime );
 	void StartMixing( RageSoundBase *snd );	/* used by RageSound */
@@ -48,15 +50,13 @@ public:
 	void DeleteSound( RageSound *pSound );
 	void DeleteSoundWhenFinished( RageSound *pSound );
 
-	SoundReader *GetLoadedSound( const CString &sPath );
-	void AddLoadedSound( const CString &sPath, RageSoundReader_Preload *pSound );
+	SoundReader *GetLoadedSound( const RString &sPath );
+	void AddLoadedSound( const RString &sPath, RageSoundReader_Preload *pSound );
 
-	void PlayOnce( CString sPath );
+	void PlayOnce( RString sPath );
 
 	RageSound *PlaySound( RageSound &snd, const RageSoundParams *params = NULL );
 	RageSound *PlayCopyOfSound( RageSound &snd, const RageSoundParams *params = NULL );
-
-	static void AttenuateBuf( int16_t *pBuf, int iSamples, float fVolume );
 
 private:
 	/* Set of sounds that we've taken over (and are responsible for deleting
@@ -66,12 +66,14 @@ private:
 	/* A list of all sounds that currently exist, by ID. */
 	map<int,RageSound *> all_sounds;
 
-	map<CString, RageSoundReader_Preload *> m_mapPreloadedSounds;
+	map<RString, RageSoundReader_Preload *> m_mapPreloadedSounds;
 
 	RageSoundDriver *m_pDriver;
 
 	/* Prefs: */
 	float m_fMixVolume;
+	bool m_bPlayOnlyCriticalSounds;
+
 	struct queued_pos_map_t
 	{
 		int ID, pos, got_frames;

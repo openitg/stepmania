@@ -5,39 +5,49 @@
 #include "ThemeMetric.h"
 #include "EnumHelper.h"
 #include "Foreach.h"
-#include "PrefsManager.h"
 #include "LuaManager.h"
 #include "GameManager.h"
 #include <float.h>
 
 #include "LuaFunctions.h"
+#include "LocalizedString.h"
 
-const CString RANKING_TO_FILL_IN_MARKER[NUM_PLAYERS] = {"#P1#","#P2#"};
+const RString RANKING_TO_FILL_IN_MARKER[NUM_PLAYERS] = {"#P1#","#P2#"};
 
-extern const CString GROUP_ALL = "---Group All---";
+extern const RString GROUP_ALL = "---Group All---";
 
-static const CString RadarCategoryNames[] = {
+static const char *RadarCategoryNames[] = {
 	"Stream",
 	"Voltage",
 	"Air",
 	"Freeze",
 	"Chaos",
-	"Taps",
+	"TapsAndHolds",
 	"Jumps",
 	"Holds",
 	"Mines",
 	"Hands",
 	"Rolls"
 };
-XToString( RadarCategory, NUM_RADAR_CATEGORIES );
-XToThemedString( RadarCategory, NUM_RADAR_CATEGORIES );
+XToString( RadarCategory, NUM_RadarCategory );
+XToLocalizedString( RadarCategory );
+LuaFunction( RadarCategoryToLocalizedString, RadarCategoryToLocalizedString((RadarCategory) IArg(1)) );
 
+static void LuaRadarCategory(lua_State* L)
+{
+	FOREACH_RadarCategory( rc )
+	{
+		RString s = RadarCategoryToString( rc );
+		LUA->SetGlobal( "RadarCategory_"+s, rc );
+	}
+}
+REGISTER_WITH_LUA_FUNCTION( LuaRadarCategory );
 
 static void LuaStepsType(lua_State* L)
 {
 	FOREACH_StepsType( st )
 	{
-		CString s = GAMEMAN->StepsTypeToString( st );
+		RString s = GAMEMAN->StepsTypeToString( st );
 		s.MakeUpper();
 		s.Replace('-','_');
 		LUA->SetGlobal( "STEPS_TYPE_"+s, st );
@@ -47,7 +57,7 @@ static void LuaStepsType(lua_State* L)
 REGISTER_WITH_LUA_FUNCTION( LuaStepsType );
 
 
-static const CString PlayModeNames[] = {
+static const char *PlayModeNames[] = {
 	"Regular",
 	"Nonstop",
 	"Oni",
@@ -55,11 +65,12 @@ static const CString PlayModeNames[] = {
 	"Battle",
 	"Rave",
 };
-XToString( PlayMode, NUM_PLAY_MODES );
-XToThemedString( PlayMode, NUM_PLAY_MODES );
+XToString( PlayMode, NUM_PlayMode );
+XToLocalizedString( PlayMode );
 StringToX( PlayMode );
 LuaXToString( PlayMode );
-LuaXType( PlayMode, NUM_PLAY_MODES, "PLAY_MODE_" )
+LuaFunction( PlayModeToLocalizedString, PlayModeToLocalizedString((PlayMode) IArg(1)) );
+LuaXType( PlayMode, NUM_PlayMode, "PLAY_MODE_", true )
 
 RankingCategory AverageMeterToRankingCategory( int iAverageMeter )
 {
@@ -70,7 +81,7 @@ RankingCategory AverageMeterToRankingCategory( int iAverageMeter )
 }
 
 
-static const CString RankingCategoryNames[] = {
+static const char *RankingCategoryNames[] = {
 	"a",
 	"b",
 	"c",
@@ -80,15 +91,16 @@ XToString( RankingCategory, NUM_RANKING_CATEGORIES );
 StringToX( RankingCategory );
 
 
-static const CString PlayerControllerNames[] = {
+static const char *PlayerControllerNames[] = {
 	"Human",
 	"Autoplay",
 	"Cpu",
 };
-XToString( PlayerController, NUM_PLAYER_CONTROLLERS );
+XToString( PlayerController, NUM_PlayerController );
+XToLocalizedString( PlayerController );
 
 
-static const CString CoinModeNames[] = {
+static const char *CoinModeNames[] = {
 	"home",
 	"pay",
 	"free",
@@ -98,7 +110,7 @@ static void LuaCoinMode(lua_State* L)
 {
 	FOREACH_CoinMode( i )
 	{
-		CString s = CoinModeNames[i];
+		RString s = CoinModeNames[i];
 		s.MakeUpper();
 		LUA->SetGlobal( "COIN_MODE_"+s, i );
 	}
@@ -106,7 +118,7 @@ static void LuaCoinMode(lua_State* L)
 REGISTER_WITH_LUA_FUNCTION( LuaCoinMode );
 
 
-static const CString PremiumNames[] = {
+static const char *PremiumNames[] = {
 	"none",
 	"double",
 	"joint",
@@ -116,7 +128,7 @@ static void LuaPremium(lua_State* L)
 {
 	FOREACH_Premium( i )
 	{
-		CString s = PremiumNames[i];
+		RString s = PremiumNames[i];
 		s.MakeUpper();
 		LUA->SetGlobal( "PREMIUM_"+s, i );
 	}
@@ -124,7 +136,7 @@ static void LuaPremium(lua_State* L)
 REGISTER_WITH_LUA_FUNCTION( LuaPremium );
 
 
-static const CString SortOrderNames[] = {
+static const char *SortOrderNames[] = {
 	"Preferred",
 	"Group",
 	"Title",
@@ -151,7 +163,7 @@ static void LuaSortOrder(lua_State* L)
 {
 	FOREACH_SortOrder( so )
 	{
-		CString s = SortOrderToString( so );
+		RString s = SortOrderToString( so );
 		
 		// [uppercase] -> _[uppercase]
 		for( unsigned i=0; i<s.size(); i++ )
@@ -170,53 +182,89 @@ static void LuaSortOrder(lua_State* L)
 REGISTER_WITH_LUA_FUNCTION( LuaSortOrder );
 
 
-static const CString TapNoteScoreNames[] = {
+static const char *TapNoteScoreNames[] = {
 	"None",
 	"HitMine",
 	"AvoidMine",
 	"Miss",
-	"Boo",
-	"Good",
-	"Great",
-	"Perfect",
-	"Marvelous",
+	"W5",
+	"W4",
+	"W3",
+	"W2",
+	"W1",
 };
-XToString( TapNoteScore, NUM_TAP_NOTE_SCORES );
-StringToX( TapNoteScore );
-XToThemedString( TapNoteScore, NUM_TAP_NOTE_SCORES );
+XToString( TapNoteScore, NUM_TapNoteScore );
+TapNoteScore StringToTapNoteScore( const RString &s )
+{
+	// new style
+	if	   ( s == "None" )		return TNS_None;
+	else if( s == "HitMine" )	return TNS_HitMine;
+	else if( s == "AvoidMine" )	return TNS_AvoidMine;
+	else if( s == "Miss" )		return TNS_Miss;
+	else if( s == "W5" )		return TNS_W5;
+	else if( s == "W4" )		return TNS_W4;
+	else if( s == "W3" )		return TNS_W3;
+	else if( s == "W2" )		return TNS_W2;
+	else if( s == "W1" )		return TNS_W1;
+
+	// for backward compatibility
+	else if( s == "Boo" )		return TNS_W5;
+	else if( s == "Good" )		return TNS_W4;
+	else if( s == "Great" )		return TNS_W3;
+	else if( s == "Perfect" )	return TNS_W2;
+	else if( s == "Marvelous" )	return TNS_W1;
+
+	return TNS_INVALID;
+}
+template<> void StringTo<TapNoteScore>( const RString &s, TapNoteScore &out )
+{
+	out = StringToTapNoteScore( s );
+}
+XToLocalizedString( TapNoteScore );
+LuaFunction( TapNoteScoreToLocalizedString, TapNoteScoreToLocalizedString((TapNoteScore) IArg(1)) );
 static void LuaTapNoteScores( lua_State* L )
 {
 	FOREACH_TapNoteScore( i )
 	{
-		CString s = TapNoteScoreNames[i];
-		s.MakeUpper();
+		RString s = TapNoteScoreNames[i];
 		LUA->SetGlobal( "TNS_"+s, i );
 	}
 }
 REGISTER_WITH_LUA_FUNCTION( LuaTapNoteScores );
 
 
-static const CString HoldNoteScoreNames[] = {
+static const char *HoldNoteScoreNames[] = {
 	"None",
-	"NG",
-	"OK",
+	"LetGo",
+	"Held",
 };
-XToString( HoldNoteScore, NUM_HOLD_NOTE_SCORES );
-StringToX( HoldNoteScore );
-XToThemedString( HoldNoteScore, NUM_HOLD_NOTE_SCORES );
+XToString( HoldNoteScore, NUM_HoldNoteScore );
+HoldNoteScore StringToHoldNoteScore( const RString &s )
+{
+	// for backward compatibility
+	if     ( s == "NG" )	return HNS_LetGo;
+	else if( s == "OK" )	return HNS_Held;
+
+	// new style
+	else if( s == "None" )	return HNS_None;
+	else if( s == "LetGo" )	return HNS_LetGo;
+	else if( s == "Held" )	return HNS_Held;
+
+	return HNS_INVALID;
+}
+XToLocalizedString( HoldNoteScore );
 static void LuaHoldNoteScores( lua_State* L )
 {
 	FOREACH_HoldNoteScore( i )
 	{
-		CString s = HoldNoteScoreNames[i];
-		s.MakeUpper();
+		RString s = HoldNoteScoreNames[i];
 		LUA->SetGlobal( "HNS_"+s, i );
 	}
 }
 REGISTER_WITH_LUA_FUNCTION( LuaHoldNoteScores );
 
 
-static const CString MemoryCardStateNames[] = {
+static const char *MemoryCardStateNames[] = {
 	"ready",
 	"checking",
 	"late",
@@ -224,24 +272,25 @@ static const CString MemoryCardStateNames[] = {
 	"removed",
 	"none",
 };
-XToString( MemoryCardState, NUM_MEMORY_CARD_STATES );
+XToString( MemoryCardState, NUM_MemoryCardState );
 
 
-static const CString PerDifficultyAwardNames[] = {
-	"FullComboGreats",
-	"SingleDigitGreats",
-	"OneGreat",
-	"FullComboPerfects",
-	"SingleDigitPerfects",
-	"OnePerfect",
-	"FullComboMarvelouses",
-	"Greats80Percent",
-	"Greats90Percent",
-	"Greats100Percent",
+static const char *PerDifficultyAwardNames[] = {
+	"FullComboW3",
+	"SingleDigitW3",
+	"OneW3",
+	"FullComboW2",
+	"SingleDigitW2",
+	"OneW2",
+	"FullComboW1",
+	"Percent80W3",
+	"Percent90W3",
+	"Percent100W3",
 };
-XToString( PerDifficultyAward, NUM_PER_DIFFICULTY_AWARDS );
-XToThemedString( PerDifficultyAward, NUM_PER_DIFFICULTY_AWARDS );
+XToString( PerDifficultyAward, NUM_PerDifficultyAward );
+XToLocalizedString( PerDifficultyAward );
 StringToX( PerDifficultyAward );
+LuaFunction( PerDifficultyAwardToLocalizedString, PerDifficultyAwardToLocalizedString((PerDifficultyAward) IArg(1)) );
 static void LuaPerDifficultyAward( lua_State* L )
 {
 	FOREACH_PerDifficultyAward( i )
@@ -253,7 +302,7 @@ REGISTER_WITH_LUA_FUNCTION( LuaPerDifficultyAward );
 // strings can be used as XML entity names.
 // Numbers are intentially not at the back so that "1000" and "10000" don't 
 // conflict when searching for theme elements.
-static const CString PeakComboAwardNames[] = {
+static const char *PeakComboAwardNames[] = {
 	"Peak1000Combo",
 	"Peak2000Combo",
 	"Peak3000Combo",
@@ -265,9 +314,10 @@ static const CString PeakComboAwardNames[] = {
 	"Peak9000Combo",
 	"Peak10000Combo",
 };
-XToString( PeakComboAward, NUM_PEAK_COMBO_AWARDS );
-XToThemedString( PeakComboAward, NUM_PEAK_COMBO_AWARDS );
+XToString( PeakComboAward, NUM_PeakComboAward );
+XToLocalizedString( PeakComboAward );
 StringToX( PeakComboAward );
+LuaFunction( PeakComboAwardToLocalizedString, PeakComboAwardToLocalizedString((PeakComboAward) IArg(1)) );
 static void LuaPeakComboAward( lua_State* L )
 {
 	FOREACH_PeakComboAward( i )
@@ -324,45 +374,44 @@ bool DisplayBpms::IsSecret() const
 	return false;
 }
 
-static const CString StyleTypeNames[] = {
+static const char *StyleTypeNames[] = {
 	"OnePlayerOneSide",
 	"TwoPlayersTwoSides",
 	"OnePlayerTwoSides",
+	"TwoPlayersSharedSides",
 };
 XToString( StyleType, NUM_STYLE_TYPES );
 StringToX( StyleType );
 
 
-static const CString MenuDirNames[] = {
-	"Up",
-	"Down",
-	"Left",
-	"Right",
-	"Auto",
-};
-XToString( MenuDir, NUM_MENU_DIRS );
-
-
-static const CString GoalTypeNames[] = {
+static const char *GoalTypeNames[] = {
 	"Calories",
 	"Time",
 	"None",
 };
-XToString( GoalType, NUM_GOAL_TYPES );
+XToString( GoalType, NUM_GoalType );
 StringToX( GoalType );
 static void LuaGoalType(lua_State* L)
 {
 	FOREACH_GoalType( gt )
 	{
-		CString s = GoalTypeNames[gt];
+		RString s = GoalTypeNames[gt];
 		s.MakeUpper();
 		LUA->SetGlobal( "GOAL_"+s, gt );
 	}
 }
 REGISTER_WITH_LUA_FUNCTION( LuaGoalType );
 
+static const char *EditModeNames[] = {
+	"Practice",
+	"CourseMods",
+	"Home",
+	"Full"
+};
+XToString( EditMode, EditMode_INVALID );
+StringToX( EditMode );
 
-static const CString StageNames[] = {
+static const char *StageNames[] = {
 	"1",
 	"2",
 	"3",
@@ -383,13 +432,22 @@ static void LuaStage(lua_State* L)
 {
 	FOREACH_Stage( st )
 	{
-		CString s = StageNames[st];
+		RString s = StageNames[st];
 		s.MakeUpper();
 		LUA->SetGlobal( "STAGE_"+s, st );
 	}
 }
 REGISTER_WITH_LUA_FUNCTION( LuaStage );
 LuaXToString( Stage );
+
+
+static const char *MultiPlayerStatusNames[] = {
+	"Joined",
+	"NotJoined",
+	"Unplugged",
+	"MissingMultitap",
+};
+XToString( MultiPlayerStatus, NUM_MultiPlayerStatus );
 
 
 /*

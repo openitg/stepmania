@@ -4,8 +4,7 @@
 #include "PrefsManager.h"
 
 
-InputHandler_MonkeyKeyboard::InputHandler_MonkeyKeyboard() :
-	m_diLast(DEVICE_KEYBOARD,KEY_SPACE)
+InputHandler_MonkeyKeyboard::InputHandler_MonkeyKeyboard()
 {
 }
 
@@ -13,13 +12,12 @@ InputHandler_MonkeyKeyboard::~InputHandler_MonkeyKeyboard()
 {
 }
 
-void InputHandler_MonkeyKeyboard::GetDevicesAndDescriptions(vector<InputDevice>& vDevicesOut, vector<CString>& vDescriptionsOut)
+void InputHandler_MonkeyKeyboard::GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut )
 {
-	vDevicesOut.push_back( InputDevice(DEVICE_KEYBOARD) );
-	vDescriptionsOut.push_back( "MonkeyKeyboard" );
+	vDevicesOut.push_back( InputDeviceInfo(DEVICE_KEYBOARD,"MonkeyKeyboard") );
 }
 
-static const int g_keys[] =
+static const DeviceButton g_keys[] =
 {
 	// Some of the default keys for the dance game type
 	KEY_LEFT,				// DANCE_BUTTON_LEFT,
@@ -50,23 +48,27 @@ static const int g_keys[] =
 	KEY_KP_PLUS,			// DANCE_BUTTON_MENUDOWN
 };
 
-int GetRandomKeyboadKey()
+static DeviceButton GetRandomKeyboardKey()
 {
-	int index = rand()%ARRAYSIZE(g_keys);
+	int index = RandomInt( ARRAYSIZE(g_keys) );
 	return g_keys[index];
 }
 
 
-void InputHandler_MonkeyKeyboard::Update(float fDeltaTime)
+void InputHandler_MonkeyKeyboard::Update()
 {
 	if( !PREFSMAN->m_bMonkeyInput )
 	{
-		// End the previous key
-		ButtonPressed(m_diLast, false);
+		if( m_diLast.IsValid() )
+		{
+			// End the previous key
+			ButtonPressed(m_diLast, false);
+			m_diLast.MakeInvalid();
+		}
 		InputHandler::UpdateTimer();
 		return;
 	}
-
+	
 	float fSecsAgo = m_timerPressButton.Ago();
 
 	if( fSecsAgo > 0.5 )
@@ -75,7 +77,7 @@ void InputHandler_MonkeyKeyboard::Update(float fDeltaTime)
 		ButtonPressed(m_diLast, false);
 
 		// Choose a new key and send it.
-		m_diLast = DeviceInput(DEVICE_KEYBOARD,GetRandomKeyboadKey());
+		m_diLast = DeviceInput(DEVICE_KEYBOARD,GetRandomKeyboardKey());
 		ButtonPressed(m_diLast, true);
 
 		m_timerPressButton.Touch();

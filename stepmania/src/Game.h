@@ -6,6 +6,7 @@
 #include "GameInput.h"
 #include "MenuInput.h"
 #include "GameConstantsAndTypes.h"
+#include "RageInputDevice.h"
 
 struct lua_State;
 
@@ -15,18 +16,16 @@ const int MAX_STYLES_PER_GAME = 10;
 // PrimaryMenuButton and SecondaryMenuButton are used to support using DeviceInputs that only 
 // navigate the menus.
 // 
-// A button being a primary menu button means that this GameButton will generate a the 
-// corresponding MenuInput.
 // A button being a primary menu button means that this GameButton will generate a the
 // corresponding MenuInput IF AND ONLY IF the GameButton corresponding to the pimary input 
 // is not mapped.
 //
-// Example 1:  A user is using a an arcade DDR machine as their controllre.  This machine has 
+// Example 1:  A user is using an arcade machine as their controller.  Most machines have
 // MenuLeft, MenuStart, and MenuRight buttons on the cabinet, so they should be used to navigate menus.
 // The user will map these DeviceInputs to the GameButtons "MenuLeft (optional)", "MenuStart", and 
 // "MenuRight (optional)".
 //
-// Example 2:  A user is using PlayStation DDR soft pads to play.  His controller doesn't have dedicated
+// Example 2:  A user is using PlayStation dance pads to play.  These controllers don't have dedicated
 // DeviceInputs for MenuLeft and MenuRight.  The user maps Up, Down, Left, and Right as normal.
 // Since the Left and Right GameButtons have the flag FLAG_SECONDARY_MENU_*, they will function as 
 // MenuLeft and MenuRight as long as "MenuLeft (optional)" and "MenuRight (optional)" are not mapped.
@@ -34,34 +33,34 @@ const int MAX_STYLES_PER_GAME = 10;
 
 class Style;
 
-#define NO_DEFAULT_KEY -1
+#define NO_DEFAULT_KEY DeviceButton_Invalid
 
 class Game
 {
 public:
-	const char *m_szName;
-	const char *m_szDescription;
+	const char	*m_szName;
+	const char	*m_szDescription;
 
 	int		m_iNumControllers;
-	bool	m_bCountNotesSeparately;	// Count multiple notes in a row as separate notes or as one note
+	bool		m_bCountNotesSeparately;	// Count multiple notes in a row as separate notes or as one note
 	int		m_iButtonsPerController;
 	int		GetNumGameplayButtons() const;
-	char	m_szButtonNames[MAX_GAME_BUTTONS][60];	// The name used by the button graphics system.  e.g. "left", "right", "middle C", "snare"
-	GameButton	m_DedicatedMenuButton[NUM_MENU_BUTTONS];
-	GameButton	m_SecondaryMenuButton[NUM_MENU_BUTTONS];
-	int		m_iDefaultKeyboardKey[MAX_GAME_CONTROLLERS][MAX_GAME_BUTTONS];	// default keyboard keys only have an effect the current game is this game
+	char		m_szButtonNames[MAX_GAME_BUTTONS][60];	// The name used by the button graphics system.  e.g. "left", "right", "middle C", "snare"
+	GameButton	m_DedicatedMenuButton[NUM_MenuButton];
+	GameButton	m_SecondaryMenuButton[NUM_MenuButton];
+	DeviceButton	m_iDefaultKeyboardKey[MAX_GAME_CONTROLLERS][MAX_GAME_BUTTONS];	// default keyboard keys only have an effect the current game is this game
 
-	GameButton ButtonNameToIndex( const CString &sButtonName ) const;
+	GameButton ButtonNameToIndex( const RString &sButtonName ) const;
 	MenuInput GameInputToMenuInput( GameInput GameI ) const;	// looks up current style in GAMESTATE.  Yuck.
 	void MenuInputToGameInput( MenuInput MenuI, GameInput GameIout[4] ) const;	// looks up current style in GAMESTATE.  Yuck.
-	CString ColToButtonName( int col ) const;	// looks up current style.  Yuck.
+	RString ColToButtonName( int col ) const;	// looks up current style.  Yuck.
 
 	TapNoteScore MapTapNoteScore( TapNoteScore tns ) const;
-	TapNoteScore m_mapMarvelousTo;
-	TapNoteScore m_mapPerfectTo;
-	TapNoteScore m_mapGreatTo;
-	TapNoteScore m_mapGoodTo;
-	TapNoteScore m_mapBooTo;
+	TapNoteScore	m_mapW1To;
+	TapNoteScore	m_mapW2To;
+	TapNoteScore	m_mapW3To;
+	TapNoteScore	m_mapW4To;
+	TapNoteScore	m_mapW5To;
 
 	//
 	// Lua

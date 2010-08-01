@@ -8,111 +8,172 @@
 #include "RageUtil.h"
 #include "EnumHelper.h"
 
-
-CString RageKeySymToString( RageKeySym key )
+static map<DeviceButton,RString> g_mapNamesToString;
+static map<RString,DeviceButton> g_mapStringToNames;
+static void InitNames()
 {
-	if( key >= 33 && key < 127 &&
-		!(key >= 'A' && key <= 'Z' ) )
-	{
-		/* All printable ASCII except for uppercase alpha characters line up. */
-		return ssprintf( "%c", key );
-	}
+	if( !g_mapNamesToString.empty() )
+		return;
 
-	if( key >= KEY_OTHER_0 && key < KEY_LAST_OTHER )
-	{
-		return ssprintf( "unk %i", key-KEY_OTHER_0 );
-		
-	}
+	g_mapNamesToString[KEY_PERIOD] = "period"; 
+	g_mapNamesToString[KEY_COMMA] = "comma"; 
+	g_mapNamesToString[KEY_SPACE] = "space"; 
+	g_mapNamesToString[KEY_DEL] = "delete"; 
 
-	switch( key )
-	{
-	case KEY_SPACE:			return "space"; 
-	case KEY_DEL:			return "delete"; 
+	g_mapNamesToString[KEY_BACK] = "backspace"; 
+	g_mapNamesToString[KEY_TAB] = "tab"; 
+	g_mapNamesToString[KEY_ENTER] = "enter"; 
+	g_mapNamesToString[KEY_PAUSE] = "pause"; 
+	g_mapNamesToString[KEY_ESC] = "escape"; 
 
-	case KEY_BACK:			return "backspace"; 
-	case KEY_TAB:			return "tab"; 
-	case KEY_ENTER:			return "enter"; 
-	case KEY_PAUSE:			return "pause"; 
-	case KEY_ESC:			return "escape"; 
+	g_mapNamesToString[KEY_F1] = "F1"; 
+	g_mapNamesToString[KEY_F2] = "F2"; 
+	g_mapNamesToString[KEY_F3] = "F3"; 
+	g_mapNamesToString[KEY_F4] = "F4"; 
+	g_mapNamesToString[KEY_F5] = "F5"; 
+	g_mapNamesToString[KEY_F6] = "F6"; 
+	g_mapNamesToString[KEY_F7] = "F7"; 
+	g_mapNamesToString[KEY_F8] = "F8"; 
+	g_mapNamesToString[KEY_F9] = "F9"; 
+	g_mapNamesToString[KEY_F10] = "F10"; 
+	g_mapNamesToString[KEY_F11] = "F11"; 
+	g_mapNamesToString[KEY_F12] = "F12"; 
+	g_mapNamesToString[KEY_F13] = "F13"; 
+	g_mapNamesToString[KEY_F14] = "F14"; 
+	g_mapNamesToString[KEY_F15] = "F15"; 
+	g_mapNamesToString[KEY_F16] = "F16"; 
 
-	case KEY_F1:			return "F1"; 
-	case KEY_F2:			return "F2"; 
-	case KEY_F3:			return "F3"; 
-	case KEY_F4:			return "F4"; 
-	case KEY_F5:			return "F5"; 
-	case KEY_F6:			return "F6"; 
-	case KEY_F7:			return "F7"; 
-	case KEY_F8:			return "F8"; 
-	case KEY_F9:			return "F9"; 
-	case KEY_F10:			return "F10"; 
-	case KEY_F11:			return "F11"; 
-	case KEY_F12:			return "F12"; 
-	case KEY_F13:			return "F13"; 
-	case KEY_F14:			return "F14"; 
-	case KEY_F15:			return "F15"; 
-	case KEY_F16:			return "F16"; 
+	g_mapNamesToString[KEY_LCTRL] = "left ctrl"; 
+	g_mapNamesToString[KEY_RCTRL] = "right ctrl"; 
+	g_mapNamesToString[KEY_LSHIFT] = "left shift"; 
+	g_mapNamesToString[KEY_RSHIFT] = "right shift"; 
+	g_mapNamesToString[KEY_LALT] = "left alt"; 
+	g_mapNamesToString[KEY_RALT] = "right alt"; 
+	g_mapNamesToString[KEY_LMETA] = "left meta"; 
+	g_mapNamesToString[KEY_RMETA] = "right meta"; 
+	g_mapNamesToString[KEY_LSUPER] = "left wnd"; 
+	g_mapNamesToString[KEY_RSUPER] = "right wnd"; 
+	g_mapNamesToString[KEY_MENU] = "menu"; 
 
-	case KEY_LCTRL:			return "left ctrl"; 
-	case KEY_RCTRL:			return "right ctrl"; 
-	case KEY_LSHIFT:		return "left shift"; 
-	case KEY_RSHIFT:		return "right shift"; 
-	case KEY_LALT:			return "left alt"; 
-	case KEY_RALT:			return "right alt"; 
-	case KEY_LMETA:			return "left meta"; 
-	case KEY_RMETA:			return "right meta"; 
-	case KEY_LSUPER:		return "left wnd"; 
-	case KEY_RSUPER:		return "right wnd"; 
-	case KEY_MENU:			return "menu"; 
+	g_mapNamesToString[KEY_NUMLOCK] = "num lock"; 
+	g_mapNamesToString[KEY_SCRLLOCK] = "scroll lock"; 
+	g_mapNamesToString[KEY_CAPSLOCK] = "caps lock"; 
+	g_mapNamesToString[KEY_PRTSC] = "prtsc"; 
 
-	case KEY_NUMLOCK:		return "num lock"; 
-	case KEY_SCRLLOCK:		return "scroll lock"; 
-	case KEY_CAPSLOCK:		return "caps lock"; 
-	case KEY_PRTSC:			return "prtsc"; 
+	g_mapNamesToString[KEY_UP] = "up"; 
+	g_mapNamesToString[KEY_DOWN] = "down"; 
+	g_mapNamesToString[KEY_LEFT] = "left"; 
+	g_mapNamesToString[KEY_RIGHT] = "right"; 
 
-	case KEY_UP:			return "up"; 
-	case KEY_DOWN:			return "down"; 
-	case KEY_LEFT:			return "left"; 
-	case KEY_RIGHT:			return "right"; 
+	g_mapNamesToString[KEY_INSERT] = "insert"; 
+	g_mapNamesToString[KEY_HOME] = "home"; 
+	g_mapNamesToString[KEY_END] = "end"; 
+	g_mapNamesToString[KEY_PGUP] = "pgup"; 
+	g_mapNamesToString[KEY_PGDN] = "pgdn"; 
 
-	case KEY_INSERT:		return "insert"; 
-	case KEY_HOME:			return "home"; 
-	case KEY_END:			return "end"; 
-	case KEY_PGUP:			return "pgup"; 
-	case KEY_PGDN:			return "pgdn"; 
+	g_mapNamesToString[KEY_KP_C0] = "KP 0"; 
+	g_mapNamesToString[KEY_KP_C1] = "KP 1"; 
+	g_mapNamesToString[KEY_KP_C2] = "KP 2"; 
+	g_mapNamesToString[KEY_KP_C3] = "KP 3"; 
+	g_mapNamesToString[KEY_KP_C4] = "KP 4"; 
+	g_mapNamesToString[KEY_KP_C5] = "KP 5"; 
+	g_mapNamesToString[KEY_KP_C6] = "KP 6"; 
+	g_mapNamesToString[KEY_KP_C7] = "KP 7"; 
+	g_mapNamesToString[KEY_KP_C8] = "KP 8"; 
+	g_mapNamesToString[KEY_KP_C9] = "KP 9"; 
+	g_mapNamesToString[KEY_KP_SLASH] = "KP /"; 
+	g_mapNamesToString[KEY_KP_ASTERISK] = "KP *"; 
+	g_mapNamesToString[KEY_KP_HYPHEN] = "KP -"; 
+	g_mapNamesToString[KEY_KP_PLUS] = "KP +"; 
+	g_mapNamesToString[KEY_KP_PERIOD] = "KP ."; 
+	g_mapNamesToString[KEY_KP_EQUAL] = "KP ="; 
+	g_mapNamesToString[KEY_KP_ENTER] = "KP enter"; 
 
-	case KEY_KP_C0:			return "KP 0"; 
-	case KEY_KP_C1:			return "KP 1"; 
-	case KEY_KP_C2:			return "KP 2"; 
-	case KEY_KP_C3:			return "KP 3"; 
-	case KEY_KP_C4:			return "KP 4"; 
-	case KEY_KP_C5:			return "KP 5"; 
-	case KEY_KP_C6:			return "KP 6"; 
-	case KEY_KP_C7:			return "KP 7"; 
-	case KEY_KP_C8:			return "KP 8"; 
-	case KEY_KP_C9:			return "KP 9"; 
-	case KEY_KP_SLASH:		return "KP /"; 
-	case KEY_KP_ASTERISK:	return "KP *"; 
-	case KEY_KP_HYPHEN:		return "KP -"; 
-	case KEY_KP_PLUS:		return "KP +"; 
-	case KEY_KP_PERIOD:		return "KP ."; 
-	case KEY_KP_EQUAL:		return "KP ="; 
-	case KEY_KP_ENTER:		return "KP enter"; 
-	default:				return "unknown";
-	}
+	g_mapNamesToString[JOY_LEFT] = "Left1";
+	g_mapNamesToString[JOY_RIGHT] = "Right1";
+	g_mapNamesToString[JOY_UP] = "Up1";
+	g_mapNamesToString[JOY_DOWN] = "Down1";
+
+	/* Secondary sticks: */
+	g_mapNamesToString[JOY_LEFT_2] = "Left2";
+	g_mapNamesToString[JOY_RIGHT_2] = "Right2";
+	g_mapNamesToString[JOY_UP_2] = "Up2";
+	g_mapNamesToString[JOY_DOWN_2] = "Down2";
+
+
+	g_mapNamesToString[JOY_Z_UP] = "Z-Up";
+	g_mapNamesToString[JOY_Z_DOWN] = "Z-Down";
+	g_mapNamesToString[JOY_ROT_UP] = "R-Up";
+	g_mapNamesToString[JOY_ROT_DOWN] = "R-Down";
+	g_mapNamesToString[JOY_ROT_LEFT] = "R-Left";
+	g_mapNamesToString[JOY_ROT_RIGHT] = "R-Right";
+	g_mapNamesToString[JOY_ROT_Z_UP] = "ZR-Up";
+	g_mapNamesToString[JOY_ROT_Z_DOWN] = "ZR-Down";
+	g_mapNamesToString[JOY_HAT_LEFT] = "H-Left";
+	g_mapNamesToString[JOY_HAT_RIGHT] = "H-Right";
+	g_mapNamesToString[JOY_HAT_UP] = "H-Up";
+	g_mapNamesToString[JOY_HAT_DOWN] = "H-Down";
+	g_mapNamesToString[JOY_AUX_1] = "Aux1";
+	g_mapNamesToString[JOY_AUX_2] = "Aux2";
+	g_mapNamesToString[JOY_AUX_3] = "Aux3";
+	g_mapNamesToString[JOY_AUX_4] = "Aux4";
+	FOREACHM( DeviceButton, RString, g_mapNamesToString, m )
+		g_mapStringToNames[m->second] = m->first;
 }
 
-RageKeySym StringToRageKeySym( const CString& s )
+/* Return a reversible representation of a DeviceButton.  This is not affected by InputDrivers,
+ * localization or the keyboard language. */
+RString DeviceButtonToString( DeviceButton key )
 {
-	for( int i=0; i<NUM_KEYS; i++ )
-	{
-		if( RageKeySymToString((RageKeySym)i) == s )
-			return (RageKeySym)i;
-	}
-	return KEY_INVALID;
+	InitNames();
+
+	/* All printable ASCII except for uppercase alpha characters line up. */
+	if( key >= 33 && key < 127 &&
+		!(key >= 'A' && key <= 'Z' ) )
+		return ssprintf( "%c", key );
+
+	if( key >= KEY_OTHER_0 && key < KEY_LAST_OTHER )
+		return ssprintf( "unk %i", key-KEY_OTHER_0 );
+
+	if( key >= JOY_BUTTON_1 && key <= JOY_BUTTON_32 )
+		return ssprintf( "B%i", key-JOY_BUTTON_1+1 );
+
+	if( key >= MIDI_FIRST && key <= MIDI_LAST )
+		return ssprintf( "Midi %d", key-MIDI_FIRST );
+
+	map<DeviceButton,RString>::const_iterator it = g_mapNamesToString.find( key );
+	if( it != g_mapNamesToString.end() )
+		return it->second;
+
+	return "unknown";
+}
+
+DeviceButton StringToDeviceButton( const RString& s )
+{
+	InitNames();
+
+	if( s.size() == 1 )
+		return (DeviceButton) s[0];
+
+	int i;
+	if( sscanf(s, "unk %i", &i) == 1 )
+		return enum_add2( KEY_OTHER_0, i );
+
+	if( sscanf(s, "B%i", &i) == 1 )
+		return enum_add2( JOY_BUTTON_1, i-1 );
+
+	if( sscanf(s, "Midi %i", &i) == 1 )
+		return enum_add2( MIDI_FIRST, i );
+
+	map<RString,DeviceButton>::const_iterator it = g_mapStringToNames.find( s );
+	if( it != g_mapStringToNames.end() )
+		return it->second;
+
+	return DeviceButton_Invalid;
 }
 
 	
-static const CString InputDeviceNames[] = {
+static const char *InputDeviceNames[] = {
 	"Key",
 	"Joy1",
 	"Joy2",
@@ -130,220 +191,41 @@ static const CString InputDeviceNames[] = {
 	"Joy14",
 	"Joy15",
 	"Joy16",
+	"Joy17",
+	"Joy18",
+	"Joy19",
+	"Joy20",
+	"Joy21",
+	"Joy22",
+	"Joy23",
+	"Joy24",
+	"Joy25",
+	"Joy26",
+	"Joy27",
+	"Joy28",
+	"Joy29",
+	"Joy30",
+	"Joy31",
+	"Joy32",
 	"Pump1",
 	"Pump2",
 	"Midi",
-	"Para1",
 };
 XToString( InputDevice, NUM_INPUT_DEVICES );
 StringToX( InputDevice );
 
-
-static const CString JoystickButtonNames[] = {
-	"Left",
-	"Right",
-	"Up",
-	"Down",
-	"Left2",
-	"Right2",	
-	"Up2",		
-	"Down2",		
-	"Z-Up",		
-	"Z-Down",	
-	"R-Up",		
-	"R-Down",	
-	"R-Left",	
-	"R-Right",	
-	"ZR-Up",		
-	"ZR-Down",	
-	"H-Left",	
-	"H-Right",	
-	"H-Up",		
-	"H-Down",	
-	"Aux1",		
-	"Aux2",	
-	"Aux3",	
-	"Aux4",	
-	"1",		
-	"2",		
-	"3",		
-	"4",		
-	"5",		
-	"6",		
-	"7",		
-	"8",		
-	"9",		
-	"10",	
-	"11",	
-	"12",	
-	"13",	
-	"14",	
-	"15",	
-	"16",	
-	"17",	
-	"18",	
-	"19",	
-	"20",	
-	"21",	
-	"22",	
-	"23",	
-	"24",	
-	"25",	
-	"26",	
-	"27",	
-	"28",	
-	"29",	
-	"30",	
-	"31",	
-	"32",
-};
-XToString( JoystickButton, NUM_JOYSTICK_BUTTONS );
-StringToX( JoystickButton );
-	
-	
-static const CString PumpPadButtonNames[] = {
-	"UL",
-	"UR",
-	"MID",
-	"DL",
-	"DR",
-	"Esc",
-	"P2 UL",
-	"P2 UR",
-	"P2 MID",
-	"P2 DL",
-	"P2 DR"
-};
-XToString( PumpPadButton, NUM_PUMP_PAD_BUTTONS );
-StringToX( PumpPadButton );
-
-
-static const CString ParaPadButtonNames[] = {
-	"L",
-	"UL",
-	"U",
-	"UR",
-	"R",
-	"SELECT",
-	"START",
-	"MENU_LEFT",
-	"MENU_RIGHT",
-};
-XToString( ParaPadButton, NUM_PARA_PAD_BUTTONS );
-StringToX( ParaPadButton );
-
-
-CString MidiButtonToString( DeviceButton i )
-{
-	return ssprintf( "Midi %d", i );
-}
-
-DeviceButton StringToMidiButton( const CString &s )
-{
-	DeviceButton ret;
-	sscanf( s, "Midi %d", &ret );
-	return ret;
-}
-
-CString DeviceButtonToString( InputDevice device, DeviceButton i )
-{
-	switch( device )
-	{
-	case DEVICE_KEYBOARD:	return RageKeySymToString( (RageKeySym)i );
-	case DEVICE_JOY1:
-	case DEVICE_JOY2:
-	case DEVICE_JOY3:
-	case DEVICE_JOY4:
-	case DEVICE_JOY5:
-	case DEVICE_JOY6:
-	case DEVICE_JOY7:
-	case DEVICE_JOY8:
-	case DEVICE_JOY9:
-	case DEVICE_JOY10:
-	case DEVICE_JOY11:
-	case DEVICE_JOY12:
-	case DEVICE_JOY13:
-	case DEVICE_JOY14:
-	case DEVICE_JOY15:
-	case DEVICE_JOY16:		return JoystickButtonToString( (JoystickButton)i );
-	case DEVICE_PUMP1:
-	case DEVICE_PUMP2:		return PumpPadButtonToString( (PumpPadButton)i );
-	case DEVICE_MIDI:		return MidiButtonToString( i );
-	case DEVICE_PARA1:		return ParaPadButtonToString( (ParaPadButton)i );
-	case DEVICE_NONE:		return CString();
-	default:	ASSERT(0);	return CString();
-	}
-}
-
-DeviceButton StringToDeviceButton( InputDevice device, const CString& s )
-{
-	switch( device )
-	{
-	case DEVICE_KEYBOARD:	return (DeviceButton)StringToRageKeySym( s );
-	case DEVICE_JOY1:
-	case DEVICE_JOY2:
-	case DEVICE_JOY3:
-	case DEVICE_JOY4:
-	case DEVICE_JOY5:
-	case DEVICE_JOY6:
-	case DEVICE_JOY7:
-	case DEVICE_JOY8:
-	case DEVICE_JOY9:
-	case DEVICE_JOY10:
-	case DEVICE_JOY11:
-	case DEVICE_JOY12:
-	case DEVICE_JOY13:
-	case DEVICE_JOY14:
-	case DEVICE_JOY15:
-	case DEVICE_JOY16:		return (DeviceButton)StringToJoystickButton( s );
-	case DEVICE_PUMP1:
-	case DEVICE_PUMP2:		return (DeviceButton)StringToPumpPadButton( s );
-	case DEVICE_MIDI:		return (DeviceButton)StringToMidiButton( s );
-	case DEVICE_PARA1:		return (DeviceButton)StringToParaPadButton( s );
-	case DEVICE_NONE:		return DEVICE_BUTTON_INVALID;
-	default:	ASSERT(0);	return DEVICE_BUTTON_INVALID;
-	}
-}
-
-int GetNumDeviceButtons( InputDevice device )
-{
-	switch( device )
-	{
-	case DEVICE_KEYBOARD:	return NUM_KEYS;
-	case DEVICE_JOY1:
-	case DEVICE_JOY2:
-	case DEVICE_JOY3:
-	case DEVICE_JOY4:
-	case DEVICE_JOY5:
-	case DEVICE_JOY6:
-	case DEVICE_JOY7:
-	case DEVICE_JOY8:
-	case DEVICE_JOY9:
-	case DEVICE_JOY10:
-	case DEVICE_JOY11:
-	case DEVICE_JOY12:
-	case DEVICE_JOY13:
-	case DEVICE_JOY14:
-	case DEVICE_JOY15:
-	case DEVICE_JOY16:	return NUM_JOYSTICK_BUTTONS;
-	case DEVICE_PUMP1:
-	case DEVICE_PUMP2:	return NUM_PUMP_PAD_BUTTONS;
-	case DEVICE_MIDI:	return NUM_MIDI_CHANNELS;
-	case DEVICE_PARA1:	return NUM_PARA_PAD_BUTTONS;
-	default:	ASSERT_M(0,ssprintf("%d",device));	return 0;
-	}
-};
-
-CString DeviceInput::toString() const
+/* Return a reversible representation of a DeviceInput.  This is not affected by InputDrivers,
+ * localization or the keyboard language. */
+RString DeviceInput::ToString() const
 {
 	if( device == DEVICE_NONE )
-		return CString();
+		return RString();
 
-	CString s = InputDeviceToString(device) + "_" + DeviceButtonToString(device,button);
+	RString s = InputDeviceToString(device) + "_" + DeviceButtonToString(button);
 	return s;
 }
 
-bool DeviceInput::fromString( const CString &s )
+bool DeviceInput::FromString( const RString &s )
 {
 	char szDevice[32] = "";
 	char szButton[32] = "";
@@ -355,36 +237,8 @@ bool DeviceInput::fromString( const CString &s )
 	}
 
 	device = StringToInputDevice( szDevice );
-	button = StringToDeviceButton( device, szButton );
+	button = StringToDeviceButton( szButton );
 	return true;
-}
-
-
-char DeviceInput::ToChar() const
-{
-	switch( device )
-	{
-	case DEVICE_KEYBOARD:
-		if( button < 128 )
-			return (char) button;
-
-		if( button >= KEY_KP_C0 && button <= KEY_KP_C9 )
-			return (char) (button - KEY_KP_C0) + '0';
-
-		switch( button )
-		{
-		case KEY_KP_SLASH: return '/';
-		case KEY_KP_ASTERISK: return '*';
-		case KEY_KP_HYPHEN: return '-';
-		case KEY_KP_PLUS: return '+';
-		case KEY_KP_PERIOD: return '.';
-		case KEY_KP_EQUAL: return '=';
-		}
-
-		return '\0';
-	default:
-		return '\0';
-	}
 }
 
 /*

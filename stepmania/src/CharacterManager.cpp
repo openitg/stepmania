@@ -14,14 +14,14 @@ CharacterManager::CharacterManager()
 		SAFE_DELETE( m_pCharacters[i] );
 	m_pCharacters.clear();
 
-	CStringArray as;
+	vector<RString> as;
 	GetDirListing( CHARACTERS_DIR "*", as, true, true );
 	StripCvs( as );
 
 	bool FoundDefault = false;
 	for( unsigned i=0; i<as.size(); i++ )
 	{
-		CString sCharName, sDummy;
+		RString sCharName, sDummy;
 		splitpath(as[i], sDummy, sCharName, sDummy);
 		sCharName.MakeLower();
 
@@ -61,7 +61,7 @@ Character* CharacterManager::GetRandomCharacter()
 	vector<Character*> apCharacters;
 	GetCharacters( apCharacters );
 	if( apCharacters.size() )
-		return apCharacters[rand()%apCharacters.size()];
+		return apCharacters[RandomInt(apCharacters.size())];
 	else
 		return GetDefaultCharacter();
 }
@@ -91,7 +91,7 @@ void CharacterManager::UndemandGraphics()
 		(*c)->UndemandGraphics();
 }
 
-Character* CharacterManager::GetCharacterFromID( CString sCharacterID )
+Character* CharacterManager::GetCharacterFromID( RString sCharacterID )
 {
 	for( unsigned i=0; i<m_pCharacters.size(); i++ )
 	{

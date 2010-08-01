@@ -19,12 +19,12 @@ void StatsManager::Reset()
 {
 	m_CurStageStats.Init();
 	m_vPlayedStageStats.clear();
-	m_AccumStageStats.Init();
+	m_AccumPlayedStageStats.Init();
 	
-	CalcAccumStageStats();
+	CalcAccumPlayedStageStats();
 }
 
-StageStats AccumStageStats( const vector<StageStats>& vss )
+static StageStats AccumPlayedStageStats( const vector<StageStats>& vss )
 {
 	StageStats ssreturn;
 
@@ -42,13 +42,13 @@ StageStats AccumStageStats( const vector<StageStats>& vss )
 	if( uNumSongs == 0 )
 		return ssreturn;	// don't divide by 0 below
 
-	/* Scale radar percentages back down to roughly 0..1.  Don't scale RADAR_NUM_TAPS_AND_HOLDS
+	/* Scale radar percentages back down to roughly 0..1.  Don't scale RadarCategory_TapsAndHolds
 	 * and the rest, which are counters. */
 	// FIXME: Weight each song by the number of stages it took to account for 
 	// long, marathon.
 	FOREACH_EnabledPlayer( p )
 	{
-		for( int r = 0; r < RADAR_NUM_TAPS_AND_HOLDS; r++)
+		for( int r = 0; r < RadarCategory_TapsAndHolds; r++)
 		{
 			ssreturn.m_player[p].radarPossible[r] /= uNumSongs;
 			ssreturn.m_player[p].radarActual[r] /= uNumSongs;
@@ -56,7 +56,7 @@ StageStats AccumStageStats( const vector<StageStats>& vss )
 	}
 	FOREACH_EnabledMultiPlayer( p )
 	{
-		for( int r = 0; r < RADAR_NUM_TAPS_AND_HOLDS; r++)
+		for( int r = 0; r < RadarCategory_TapsAndHolds; r++)
 		{
 			ssreturn.m_multiPlayer[p].radarPossible[r] /= uNumSongs;
 			ssreturn.m_multiPlayer[p].radarActual[r] /= uNumSongs;
@@ -91,13 +91,13 @@ void StatsManager::GetFinalEvalStageStats( StageStats& statsOut ) const
 		vssToCount.push_back( ss );
 	}
 
-	statsOut = AccumStageStats( vssToCount );
+	statsOut = AccumPlayedStageStats( vssToCount );
 }
 
 
-void StatsManager::CalcAccumStageStats()
+void StatsManager::CalcAccumPlayedStageStats()
 {
-	m_AccumStageStats = AccumStageStats( m_vPlayedStageStats );
+	m_AccumPlayedStageStats = AccumPlayedStageStats( m_vPlayedStageStats );
 }
 
 /* This data is added to each player profile, and to the machine profile per-player. */
@@ -151,12 +151,12 @@ void StatsManager::CommitStatsToProfiles()
 	//
 	FOREACH_HumanPlayer( pn )
 	{
-		int iNumTapsAndHolds	= (int) m_CurStageStats.m_player[pn].radarActual[RADAR_NUM_TAPS_AND_HOLDS];
-		int iNumJumps			= (int) m_CurStageStats.m_player[pn].radarActual[RADAR_NUM_JUMPS];
-		int iNumHolds			= (int) m_CurStageStats.m_player[pn].radarActual[RADAR_NUM_HOLDS];
-		int iNumRolls			= (int) m_CurStageStats.m_player[pn].radarActual[RADAR_NUM_ROLLS];
-		int iNumMines			= (int) m_CurStageStats.m_player[pn].radarActual[RADAR_NUM_MINES];
-		int iNumHands			= (int) m_CurStageStats.m_player[pn].radarActual[RADAR_NUM_HANDS];
+		int iNumTapsAndHolds	= (int) m_CurStageStats.m_player[pn].radarActual[RadarCategory_TapsAndHolds];
+		int iNumJumps		= (int) m_CurStageStats.m_player[pn].radarActual[RadarCategory_Jumps];
+		int iNumHolds		= (int) m_CurStageStats.m_player[pn].radarActual[RadarCategory_Holds];
+		int iNumRolls		= (int) m_CurStageStats.m_player[pn].radarActual[RadarCategory_Rolls];
+		int iNumMines		= (int) m_CurStageStats.m_player[pn].radarActual[RadarCategory_Mines];
+		int iNumHands		= (int) m_CurStageStats.m_player[pn].radarActual[RadarCategory_Hands];
 		float fCaloriesBurned	= m_CurStageStats.m_player[pn].fCaloriesBurned;
 		PROFILEMAN->AddStepTotals( pn, iNumTapsAndHolds, iNumJumps, iNumHolds, iNumRolls, iNumMines, iNumHands, fCaloriesBurned );
 	}
@@ -205,8 +205,8 @@ public:
 	LunaStatsManager() { LUA->Register( Register ); }
 
 	static int GetCurStageStats( T* p, lua_State *L )	{ p->m_CurStageStats.PushSelf(L); return 1; }
-	static int GetAccumStageStats( T* p, lua_State *L )	{ p->GetAccumStageStats().PushSelf(L); return 1; }
-	static int Reset( T* p, lua_State *L )				{ p->Reset(); return 0; }
+	static int GetAccumPlayedStageStats( T* p, lua_State *L )	{ p->GetAccumPlayedStageStats().PushSelf(L); return 1; }
+	static int Reset( T* p, lua_State *L )			{ p->Reset(); return 0; }
 	static int GetFinalGrade( T* p, lua_State *L )
 	{
 		PlayerNumber pn = (PlayerNumber)IArg(1);
@@ -245,7 +245,7 @@ public:
 	static void Register(lua_State *L)
 	{
 		ADD_METHOD( GetCurStageStats );
-		ADD_METHOD( GetAccumStageStats );
+		ADD_METHOD( GetAccumPlayedStageStats );
 		ADD_METHOD( Reset );
 		ADD_METHOD( GetFinalGrade );
 		ADD_METHOD( GetStagesPlayed );

@@ -4,19 +4,19 @@
 
 #pragma once
 
-#include "RageDisplay.h" // for RageDisplay::VideoModeParams
+class VideoModeParams;
 
 namespace GraphicsWindow
 {
-	void Initialize();
+	void Initialize( bool bD3D );
 	void Shutdown();
-	void SetVideoModeParams( const RageDisplay::VideoModeParams &p );
-	CString SetScreenMode( const RageDisplay::VideoModeParams &p );
-	void CreateGraphicsWindow( const RageDisplay::VideoModeParams &p );
-	void RecreateGraphicsWindow( const RageDisplay::VideoModeParams &p );
+	void SetVideoModeParams( const VideoModeParams &p );
+	RString SetScreenMode( const VideoModeParams &p );
+	void CreateGraphicsWindow( const VideoModeParams &p );
+	void RecreateGraphicsWindow( const VideoModeParams &p );
 	void DestroyGraphicsWindow();
-	void ConfigureGraphicsWindow( const RageDisplay::VideoModeParams &p );
-	RageDisplay::VideoModeParams GetParams();
+	void ConfigureGraphicsWindow( const VideoModeParams &p );
+	const VideoModeParams &GetParams();
 	void Update();
 };
 

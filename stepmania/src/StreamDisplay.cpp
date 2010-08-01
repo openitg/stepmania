@@ -22,9 +22,9 @@ void StreamDisplay::Load(
 	float fMeterHeight,
 	int iNumStrips,
 	int iNumChambers, 
-	const CString &sNormalPath, 
-	const CString &sHotPath, 
-	const CString &sPassingPath,
+	const RString &sNormalPath, 
+	const RString &sHotPath, 
+	const RString &sPassingPath,
 	const apActorCommands &acNormalOnCommand,
 	const apActorCommands &acHotOnCommand,
 	const apActorCommands &acPassingOnCommand
@@ -40,7 +40,7 @@ void StreamDisplay::Load(
 	m_quadMask.SetBlendMode( BLEND_NO_EFFECT );
 	m_quadMask.SetUseZBuffer( true );
 
-	CString sGraphicPath;
+	RString sGraphicPath;
 	RageTextureID ID;
 	ID.bStretch = true;
 
@@ -134,7 +134,7 @@ void StreamDisplay::SetPercent( float fPercent )
 		DEBUG_ASSERT_M( 0, "fPercent is NaN" );
 		fPercent = 1;
 	}
-	if( !finite(fPercent) )
+	if( !isfinite(fPercent) )
 	{
 		DEBUG_ASSERT_M( 0, "fPercent is infinite" );
 		fPercent = 1;
@@ -260,8 +260,8 @@ void StreamDisplay::DrawMask( float fPercent )
 	rect.right	= -m_fMeterWidth/2 + fChamberRightPercent*m_fMeterWidth+1;
 	rect.bottom	= -m_fMeterHeight/2 + fHeightPercent*m_fMeterHeight;
 
-	rect.left  = MIN( rect.left,  + m_fMeterWidth/2 );
-	rect.right = MIN( rect.right, + m_fMeterWidth/2 );
+	rect.left  = min( rect.left,  + m_fMeterWidth/2 );
+	rect.right = min( rect.right, + m_fMeterWidth/2 );
 
 	m_quadMask.StretchTo( rect );
 	m_quadMask.Draw();
@@ -272,8 +272,8 @@ void StreamDisplay::DrawMask( float fPercent )
 	rect.right	= +m_fMeterWidth/2;
 	rect.bottom	= +m_fMeterHeight/2;
 
-	rect.left  = MIN( rect.left,  + m_fMeterWidth/2 );
-	rect.right = MIN( rect.right, + m_fMeterWidth/2 );
+	rect.left  = min( rect.left,  + m_fMeterWidth/2 );
+	rect.right = min( rect.right, + m_fMeterWidth/2 );
 
 	m_quadMask.StretchTo( rect );
 	m_quadMask.Draw();

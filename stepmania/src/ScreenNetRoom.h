@@ -10,40 +10,39 @@
 
 class RoomData {
 public:
-	void SetName( const CString& name ) { m_name = name; }
-	void SetDescription( const CString& desc ) { m_description = desc; }
+	void SetName( const RString& name ) { m_name = name; }
+	void SetDescription( const RString& desc ) { m_description = desc; }
 	void SetState(unsigned int state) { m_state = state; }
-	inline CString Name() { return m_name; }
-	inline CString Description() { return m_description; }
+	inline RString Name() { return m_name; }
+	inline RString Description() { return m_description; }
 	inline unsigned int State() { return m_state; }
 private:
-	CString m_name;
-	CString m_description;
+	RString m_name;
+	RString m_description;
 	unsigned int m_state;
 };
 
 class ScreenNetRoom : public ScreenNetSelectBase
 {
 public:
-	ScreenNetRoom( const CString& sName );
 	virtual void Init();
 	virtual void Input( const InputEventPlus &input );
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
 protected:
 	virtual void MenuStart( PlayerNumber pn );
-	virtual void MenuUp( PlayerNumber pn, const InputEventType type );
-	virtual void MenuDown( PlayerNumber pn, const InputEventType type );
+	virtual void MenuUp( const InputEventPlus &input );
+	virtual void MenuDown( const InputEventPlus &input );
 	virtual void MenuBack( PlayerNumber pn );
 
 	virtual void TweenOffScreen( );
-	virtual void Update( float fDeltaTime );
+//	virtual void Update( float fDeltaTime );
 
 private:
 	void UpdateRoomsList();
-	void MenuLeft( PlayerNumber pn, const InputEventType type );
-	void MenuRight( PlayerNumber pn, const InputEventType type );
-	void CreateNewRoom( const CString& rName,  const CString& rDesc );
+	void MenuLeft( const InputEventPlus &input );
+	void MenuRight( const InputEventPlus &input );
+	void CreateNewRoom( const RString& rName,  const RString& rDesc );
 		
 	RageSound m_soundChangeSel;
 	
@@ -54,7 +53,7 @@ private:
 	vector < RoomData > m_Rooms;
 	int m_iRoomPlace;
 
-	CString m_newRoomName, m_newRoomDesc;
+	RString m_newRoomName, m_newRoomDesc;
 
 	RoomWheel m_RoomWheel;
 };

@@ -5,11 +5,14 @@
 
 class LoadingWindow;
 
-extern const CString CATALOG_XML;
-extern const CString CATALOG_XSL;
-extern const CString CATALOG_XML_FILE;
+extern const RString CATALOG_XML;
+extern const RString CATALOG_XSL;
+extern const RString CATALOG_XML_FILE;
 
-void SaveCatalogXml( LoadingWindow *ld );
+namespace CatalogXml
+{
+	void Save( LoadingWindow *ld );
+};
 
 #endif
 

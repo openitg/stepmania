@@ -3,12 +3,12 @@
 
 #include "Sprite.h"
 #include "RageTextureManager.h"
-#include "IniFile.h"
+#include "XmlFile.h"
 #include "RageLog.h"
 #include "RageException.h"
-#include "PrefsManager.h"
 #include "RageDisplay.h"
 #include "RageTexture.h"
+#include "RageUtil.h"
 #include "ActorUtil.h"
 #include "arch/Dialog/Dialog.h"
 #include "Foreach.h"
@@ -103,41 +103,56 @@ RageTextureID Sprite::SongBannerTexture( RageTextureID ID )
 }
 
 /* deprecated */
-bool Sprite::LoadBG( RageTextureID ID )
+void Sprite::LoadBG( RageTextureID ID )
 {
-	return Load( SongBGTexture(ID) );
+	Load( SongBGTexture(ID) );
 }
 
-bool Sprite::Load( RageTextureID ID )
+void Sprite::Load( RageTextureID ID )
 {
-	bool result;
-	if( ID.filename == "" ) 
-		result = true;
-	else 
-		result = LoadFromTexture( ID );
-
-	return result;
+	if( !ID.filename.empty() ) 
+		LoadFromTexture( ID );
 };
 
-void Sprite::LoadFromNode( const CString& sDir, const XNode* pNode )
+void Sprite::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 retry:
 
-	CString sTextureFile;
-	CString sPath;
+	RString sTextureFile;
+	RString sPath;
 	if( pNode->GetAttrValue( "Texture", sTextureFile ) )
 	{
-		sPath = sDir + sTextureFile;
+		LuaHelpers::RunAtExpressionS( sTextureFile );
+
+		bool bIsAbsolutePath = sTextureFile.Left(1) == "/";
+		sPath = bIsAbsolutePath ? sTextureFile : sDir+sTextureFile;
+
 		CollapsePath( sPath );
+	}
+	if( sPath == sDir )
+	{
+		RString sMessage = ssprintf( "'%s' has a texture '%s' that collapses to './'.",
+					     m_sSpritePath.c_str(), sTextureFile.c_str() );
+		switch( Dialog::AbortRetryIgnore(sMessage) )
+		{
+		case Dialog::abort:
+			RageException::Throw( sMessage );
+		case Dialog::retry:
+			goto retry;
+		case Dialog::ignore:
+			return;
+		default:
+			ASSERT(0);
+		}
 	}
 
 	if( !sPath.empty() )
 	{
-		vector<CString> asElementPaths;
+		vector<RString> asElementPaths;
 		GetDirListing( sPath + "*", asElementPaths, false, true );
 		if( asElementPaths.size() == 0 )
 		{
-			CString sMessage = ssprintf( "A Sprite in '%s' points to a texture '%s' which doesn't exist.", sDir.c_str(), sPath.c_str() );
+			RString sMessage = ssprintf( "A xml Sprite in '%s' points to a texture '%s' which doesn't exist.", sDir.c_str(), sPath.c_str() );
 			switch( Dialog::AbortRetryIgnore(sMessage) )
 			{
 			case Dialog::abort:	
@@ -152,12 +167,24 @@ retry:
 		}
 		if( asElementPaths.size() > 1 )
 		{
-			CString message = ssprintf( 
+			RString message = ssprintf( 
 				"There is more than one file that matches "
 				"'%s'.  Please remove all but one of these matches.",
 				sPath.c_str() );
-
-			RageException::Throw( message ); 
+#ifdef DEBUG
+			message += "\n" + join( "\n", asElementPaths );
+#endif
+			switch( Dialog::AbortRetryIgnore(message) )
+			{
+			case Dialog::abort:
+				RageException::Throw( message );
+			case Dialog::retry:
+				goto retry;
+			case Dialog::ignore:
+				return;
+			default:
+				ASSERT(0);
+			}
 		}
 		sPath = asElementPaths[0];
 
@@ -171,17 +198,17 @@ retry:
 		// frames and delays created during LoadFromTexture().
 		for( int i=0; true; i++ )
 		{
-			CString sFrameKey = ssprintf( "Frame%04d", i );
-			CString sDelayKey = ssprintf( "Delay%04d", i );
+			RString sFrameKey = ssprintf( "Frame%04d", i );
+			RString sDelayKey = ssprintf( "Delay%04d", i );
 			State newState;
 
-			if( !pNode->GetAttrValue( sFrameKey, newState.iFrameIndex ) )
+			if( !pNode->GetAttrValue(sFrameKey, newState.iFrameIndex) )
 				break;
 			if( newState.iFrameIndex >= m_pTexture->GetNumFrames() )
 				RageException::Throw( "In '%s', %s is %d, but the texture %s only has %d frames.",
 					m_sSpritePath.c_str(), sFrameKey.c_str(), newState.iFrameIndex, sPath.c_str(), m_pTexture->GetNumFrames() );
 
-			if( !pNode->GetAttrValue( sDelayKey, newState.fDelay ) )
+			if( !pNode->GetAttrValue(sDelayKey, newState.fDelay) )
 				break;
 
 			if( i == 0 )	// the ini file defines at least one frame
@@ -237,7 +264,7 @@ void Sprite::EnableAnimation( bool bEnable )
 	}
 }
 
-bool Sprite::LoadFromTexture( RageTextureID ID )
+void Sprite::LoadFromTexture( RageTextureID ID )
 {
 	LOG->Trace( "Sprite::LoadFromTexture( %s )", ID.filename.c_str() );
 
@@ -265,7 +292,7 @@ bool Sprite::LoadFromTexture( RageTextureID ID )
 
 	// Assume the frames of this animation play in sequential order with 0.1 second delay.
 	m_States.clear();
-	for( int i=0; i<m_pTexture->GetNumFrames(); i++ )
+	for( int i=0; i<m_pTexture->GetNumFrames(); ++i )
 	{
 		State newState = { i, 0.1f };
 		m_States.push_back( newState );
@@ -274,8 +301,6 @@ bool Sprite::LoadFromTexture( RageTextureID ID )
 	// apply clipping (if any)
 	if( m_fRememberedClipWidth != -1 && m_fRememberedClipHeight != -1 )
 		ScaleToClipped( m_fRememberedClipWidth, m_fRememberedClipHeight );
-
-	return true;
 }
 
 void Sprite::UpdateAnimationState()
@@ -284,7 +309,7 @@ void Sprite::UpdateAnimationState()
 	// We already know what's going to show.
 	if( m_States.size() > 1 )
 	{
-		while( m_fSecsIntoState > m_States[m_iCurState].fDelay )	// it's time to switch frames
+		while( m_fSecsIntoState+0.0001f > m_States[m_iCurState].fDelay )	// it's time to switch frames
 		{
 			// increment frame and reset the counter
 			m_fSecsIntoState -= m_States[m_iCurState].fDelay;		// leave the left over time for the next frame
@@ -294,7 +319,7 @@ void Sprite::UpdateAnimationState()
 }
 
 /*
- * We treat .sprite/frame animation and movie animation slightly differently.
+ * We treat frame animation and movie animation slightly differently.
  *
  * Sprite animation is always tied directly to the effect timer.  If you pause
  * animation, wait a while and restart it, sprite animations will snap back to the
@@ -354,7 +379,7 @@ void Sprite::Update( float fDelta )
 
 		/* When wrapping, avoid gradual loss of precision and sending unreasonably large
 		 * texture coordinates to the renderer by pushing texture coordinates back to 0.
-		 * As long as we adjust all four coordinates by the same amount,this won't be visible. */
+		 * As long as we adjust all four coordinates by the same amount, this won't be visible. */
 		if( m_bTextureWrapping )
 		{
 			const float fXAdjust = floorf( fTexCoords[0] );
@@ -373,15 +398,7 @@ void Sprite::Update( float fDelta )
 	}
 }
 
-static void TexCoordsFromArray(RageSpriteVertex *v, const float *f)
-{
-	v[0].t = RageVector2( f[0], f[1] );	// top left
-	v[1].t = RageVector2( f[2],	f[3] );	// bottom left
-	v[2].t = RageVector2( f[4],	f[5] );	// bottom right
-	v[3].t = RageVector2( f[6],	f[7] );	// top right
-}
-
-void TexCoordArrayFromRect(float fImageCoords[8], const RectF &rect)
+void TexCoordArrayFromRect( float fImageCoords[8], const RectF &rect )
 {
 	fImageCoords[0] = rect.left;	fImageCoords[1] = rect.top;		// top left
 	fImageCoords[2] = rect.left;	fImageCoords[3] = rect.bottom;	// bottom left
@@ -394,7 +411,7 @@ void Sprite::DrawTexture( const TweenState *state )
 	Actor::SetGlobalRenderStates();	// set Actor-specified render states
 
 	// bail if cropped all the way 
-    if( state->crop.left + state->crop.right >= 1  || 
+	if( state->crop.left + state->crop.right >= 1  || 
 		state->crop.top + state->crop.bottom >= 1 ) 
 		return; 
 
@@ -432,7 +449,7 @@ void Sprite::DrawTexture( const TweenState *state )
 #define IF_CROP_POS(side,opp_side) \
 	if(state->crop.side!=0) \
 		croppedQuadVerticies.side = \
-			SCALE( crop.side, 0.f, 1.f, quadVerticies.side, quadVerticies.opp_side ); 
+			SCALE( crop.side, 0.f, 1.f, quadVerticies.side, quadVerticies.opp_side )
 	IF_CROP_POS( left, right ); 
 	IF_CROP_POS( top, bottom ); 
 	IF_CROP_POS( right, left ); 
@@ -445,7 +462,7 @@ void Sprite::DrawTexture( const TweenState *state )
 	v[3].p = RageVector3( croppedQuadVerticies.right,	croppedQuadVerticies.top,		0 );	// top right
 
 	DISPLAY->ClearAllTextures();
-	DISPLAY->SetTexture( 0, m_pTexture );
+	DISPLAY->SetTexture( TextureUnit_1, m_pTexture );
 
 	// Must call this after setting the texture or else texture 
 	// parameters have no effect.
@@ -454,37 +471,36 @@ void Sprite::DrawTexture( const TweenState *state )
 	if( m_pTexture )
 	{
 		float f[8];
-		GetActiveTextureCoords(f);
-		TexCoordsFromArray(v, f);
+		GetActiveTextureCoords( f );
 
+		if( state->crop.left || state->crop.right || state->crop.top || state->crop.bottom )
+		{
+			RageVector2 texCoords[4] = {
+				RageVector2( f[0], f[1] ),	// top left
+				RageVector2( f[2], f[3] ),	// bottom left
+				RageVector2( f[4], f[5] ),	// bottom right
+				RageVector2( f[6], f[7] ) 	// top right
+			};
 
-		RageVector2 texCoords[4] = {
-			RageVector2( f[0], f[1] ),	// top left
-			RageVector2( f[2],	f[3] ),	// bottom left
-			RageVector2( f[4],	f[5] ),	// bottom right
-			RageVector2( f[6],	f[7] ) 	// top right
-		};
-	
+			for( int i = 0; i < 4; ++i )
+			{
+				RageSpriteVertex *pVert = &v[i];
 
-		if( crop.left!=0 )
-		{
-			v[0].t.x = SCALE( crop.left, 0.f, 1.f, texCoords[0].x, texCoords[3].x );
-			v[1].t.x = SCALE( crop.left, 0.f, 1.f, texCoords[1].x, texCoords[2].x );
+				float fTopX = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, texCoords[0].x, texCoords[3].x );
+				float fBottomX = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, texCoords[1].x, texCoords[2].x );
+				pVert->t.x = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, fTopX, fBottomX );
+
+				float fLeftY = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, texCoords[0].y, texCoords[1].y );
+				float fRightY = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, texCoords[3].y, texCoords[2].y );
+				pVert->t.y = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, fLeftY, fRightY );
+			}
 		}
-		if( crop.right!=0 )
+		else
 		{
-			v[2].t.x = SCALE( crop.right, 0.f, 1.f, texCoords[2].x, texCoords[1].x );
-			v[3].t.x = SCALE( crop.right, 0.f, 1.f, texCoords[3].x, texCoords[0].x );
-		}
-		if( crop.top!=0 )
-		{
-			v[0].t.y = SCALE( crop.top, 0.f, 1.f, texCoords[0].y, texCoords[1].y );
-			v[3].t.y = SCALE( crop.top, 0.f, 1.f, texCoords[3].y, texCoords[2].y );
-		}
-		if( crop.bottom!=0 )
-		{
-			v[1].t.y = SCALE( crop.bottom, 0.f, 1.f, texCoords[1].y, texCoords[0].y );
-			v[2].t.y = SCALE( crop.bottom, 0.f, 1.f, texCoords[2].y, texCoords[3].y );
+			v[0].t = RageVector2( f[0], f[1] );	// top left
+			v[1].t = RageVector2( f[2],	f[3] );	// bottom left
+			v[2].t = RageVector2( f[4],	f[5] );	// bottom right
+			v[3].t = RageVector2( f[6],	f[7] );	// top right
 		}
 	}
 	else
@@ -509,7 +525,7 @@ void Sprite::DrawTexture( const TweenState *state )
 		{
 			DISPLAY->PushMatrix();
 			DISPLAY->TranslateWorld( m_fShadowLength, m_fShadowLength, 0 );	// shift by 5 units
-			v[0].c = v[1].c = v[2].c = v[3].c = RageColor(0,0,0,0.5f*state->diffuse[0].a);	// semi-transparent black
+			v[0].c = v[1].c = v[2].c = v[3].c = RageColor( 0, 0, 0, 0.5f*state->diffuse[0].a );	// semi-transparent black
 			DISPLAY->DrawQuad( v );
 			DISPLAY->PopMatrix();
 		}
@@ -697,9 +713,9 @@ void Sprite::SetState( int iNewState )
 	if( iNewState != 0 && (iNewState < 0  ||  iNewState >= (int)m_States.size()) )
 	{
 		// Don't warn about number of states in "_blank".
-		if( !m_pTexture || m_pTexture->GetID().filename.Find("_blank") == -1 )
+		if( !m_pTexture || m_pTexture->GetID().filename.find("_blank") == string::npos )
 		{
-			CString sError;
+			RString sError;
 			if( m_pTexture )
 				sError = ssprintf("A Sprite '%s' (\"%s\") tried to set state index %d, but it has only %u states.",
 					m_pTexture->GetID().filename.c_str(), this->m_sName.c_str(), iNewState, unsigned(m_States.size()));
@@ -730,10 +746,10 @@ void Sprite::SetSecondsIntoAnimation( float fSeconds )
 	UpdateAnimationState();
 }
 
-CString	Sprite::GetTexturePath() const
+RString	Sprite::GetTexturePath() const
 {
 	if( m_pTexture==NULL )
-		return CString();
+		return RString();
 
 	return m_pTexture->GetID().filename;
 }
@@ -742,7 +758,7 @@ void Sprite::SetCustomTextureRect( const RectF &new_texcoord_frect )
 { 
 	m_bUsingCustomTexCoords = true;
 	m_bTextureWrapping = true;
-	TexCoordArrayFromRect(m_CustomTexCoords, new_texcoord_frect);
+	TexCoordArrayFromRect( m_CustomTexCoords, new_texcoord_frect );
 }
 
 void Sprite::SetCustomTextureCoords( float fTexCoords[8] ) // order: top left, bottom left, bottom right, top right
@@ -787,7 +803,7 @@ const RectF *Sprite::GetCurrentTextureCoordRect() const
 
 /* If we're using custom coordinates, return them; otherwise return the coordinates
  * for the current state. */
-void Sprite::GetActiveTextureCoords(float fTexCoordsOut[8]) const
+void Sprite::GetActiveTextureCoords( float fTexCoordsOut[8] ) const
 {
 	if(m_bUsingCustomTexCoords) 
 	{
@@ -799,7 +815,7 @@ void Sprite::GetActiveTextureCoords(float fTexCoordsOut[8]) const
 	{
 		// GetCurrentTextureCoords
 		const RectF *pTexCoordRect = GetCurrentTextureCoordRect();
-		TexCoordArrayFromRect(fTexCoordsOut, *pTexCoordRect);
+		TexCoordArrayFromRect( fTexCoordsOut, *pTexCoordRect );
 	}
 }
 
@@ -809,6 +825,11 @@ void Sprite::StopUsingCustomCoords()
 	m_bUsingCustomTexCoords = false;
 }
 
+void Sprite::SetTexCoordVelocity(float fVelX, float fVelY)
+{
+	m_fTexCoordVelocityX = fVelX;
+	m_fTexCoordVelocityY = fVelY;
+}
 
 void Sprite::ScaleToClipped( float fWidth, float fHeight )
 {
@@ -835,18 +856,20 @@ void Sprite::ScaleToClipped( float fWidth, float fHeight )
 		};
 		Sprite::SetCustomImageCoords( fCustomImageCoords );
 
-		if( fWidth != -1 && fHeight != -1)
+		if( fWidth != -1 && fHeight != -1 )
+		{
 			m_size = RageVector2( fWidth, fHeight );
+		}
 		else
 		{
 			/* If no crop size is set, then we're only being used to crop diagonal
 			 * banners so they look like regular ones. We don't actually care about
 			 * the size of the image, only that it has an aspect ratio of 4:1.  */
-			m_size = RageVector2(256, 64);
+			m_size = RageVector2( 256, 64 );
 		}
 		SetZoom( 1 );
 	}
-	else if( m_pTexture->GetID().filename.find( "(was rotated)" ) != m_pTexture->GetID().filename.npos && 
+	else if( m_pTexture->GetID().filename.find("(was rotated)") != string::npos && 
 			 fWidth != -1 && fHeight != -1 )
 	{
 		/* Dumb hack.  Normally, we crop all sprites except for diagonal banners,
@@ -866,7 +889,7 @@ void Sprite::ScaleToClipped( float fWidth, float fHeight )
 		Sprite::StopUsingCustomCoords();
 
 		// first find the correct zoom
-		Sprite::ScaleToCover( RectF(0,0,fWidth,fHeight) );
+		Sprite::ScaleToCover( RectF(0, 0, fWidth, fHeight) );
 		// find which dimension is larger
 		bool bXDimNeedsToBeCropped = GetZoomedWidth() > fWidth+0.01;
 		
@@ -924,9 +947,9 @@ void Sprite::StretchTexCoords( float fX, float fY )
 	SetCustomTextureCoords( fTexCoords );
 }
 
-void Sprite::SetPosition( float f )			{ GetTexture()->SetPosition(f); }
-void Sprite::SetLooping( bool b )			{ GetTexture()->SetLooping(b); }
-void Sprite::SetPlaybackRate( float f )		{ GetTexture()->SetPlaybackRate(f); }
+void Sprite::SetPosition( float f )			{ GetTexture()->SetPosition( f ); }
+void Sprite::SetLooping( bool b )			{ GetTexture()->SetLooping( b ); }
+void Sprite::SetPlaybackRate( float f )		{ GetTexture()->SetPlaybackRate( f ); }
 
 
 // lua start
@@ -940,19 +963,19 @@ public:
 	static int Load( T* p, lua_State *L )
 	{
 		RageTextureID ID( SArg(1) );
-		lua_pushboolean( L, p->Load(ID) );
-		return 1;
+		p->Load( ID );
+		return 0;
 	}
 	static int LoadBackground( T* p, lua_State *L )
 	{
 		RageTextureID ID( SArg(1) );
-		lua_pushboolean( L, p->Load(Sprite::SongBGTexture(ID)) );
+		p->Load( Sprite::SongBGTexture(ID) );
 		return 1;
 	}
 	static int LoadBanner( T* p, lua_State *L )
 	{
 		RageTextureID ID( SArg(1) );
-		lua_pushboolean( L, p->Load(Sprite::SongBannerTexture(ID)) );
+		p->Load( Sprite::SongBannerTexture(ID) );
 		return 1;
 	}
 
@@ -963,13 +986,15 @@ public:
 	static int scaletoclipped( T* p, lua_State *L )		{ p->ScaleToClipped( FArg(1),FArg(2) ); return 0; }
 	static int stretchtexcoords( T* p, lua_State *L )	{ p->StretchTexCoords( FArg(1),FArg(2) ); return 0; }
 	static int setstate( T* p, lua_State *L )			{ p->SetState( IArg(1) ); return 0; }
+	static int GetAnimationLengthSeconds( T* p, lua_State *L ) { lua_pushnumber( L, p->GetAnimationLengthSeconds() ); return 1; }
+
 	/* Texture commands; these could be moved to RageTexture* (even though that's
 	 * not an Actor) if these are needed for other things that use textures.
 	 * We'd need to break the command helpers into a separate function; RageTexture
 	 * shouldn't depend on Actor. */
-	static int position( T* p, lua_State *L )			{ p->SetPosition(FArg(1)); return 0; }
-	static int loop( T* p, lua_State *L )				{ p->SetLooping(!!IArg(1)); return 0; }
-	static int rate( T* p, lua_State *L )				{ p->SetPlaybackRate(FArg(1)); return 0; }
+	static int position( T* p, lua_State *L )			{ p->SetPosition( FArg(1) ); return 0; }
+	static int loop( T* p, lua_State *L )				{ p->SetLooping( !!IArg(1) ); return 0; }
+	static int rate( T* p, lua_State *L )				{ p->SetPlaybackRate( FArg(1) ); return 0; }
 
 	static void Register(lua_State *L) {
 		ADD_METHOD( Load );
@@ -980,6 +1005,7 @@ public:
 		ADD_METHOD( scaletoclipped );
 		ADD_METHOD( stretchtexcoords );
 		ADD_METHOD( setstate );
+		ADD_METHOD( GetAnimationLengthSeconds );
 		ADD_METHOD( position );
 		ADD_METHOD( loop );
 		ADD_METHOD( rate );

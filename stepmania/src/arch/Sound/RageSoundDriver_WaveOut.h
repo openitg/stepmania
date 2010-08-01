@@ -11,10 +11,11 @@ class RageSound_WaveOut: public RageSound_Generic_Software
 public:
 	RageSound_WaveOut();
 	~RageSound_WaveOut();
-	CString Init();
+	RString Init();
 
 	int64_t GetPosition( const RageSoundBase *pSound ) const;
 	float GetPlayLatency() const;
+	int GetSampleRate( int rate ) const { return m_iSampleRate; }
 
 private:
 	static int MixerThread_start( void *p );
@@ -26,6 +27,7 @@ private:
 	HWAVEOUT m_hWaveOut;
 	HANDLE m_hSoundEvent;
 	WAVEHDR m_aBuffers[8];
+	int m_iSampleRate;
 	bool m_bShutdown;
 	int m_iLastCursorPos;
 };

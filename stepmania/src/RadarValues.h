@@ -7,7 +7,7 @@
 
 #define RADAR_VAL_UNKNOWN -1
 
-struct XNode;
+class XNode;
 
 struct RadarValues
 {
@@ -27,11 +27,11 @@ struct RadarValues
 			float fNumHands;
 			float fNumRolls;
 		} v;
-		float f[NUM_RADAR_CATEGORIES];
+		float f[NUM_RadarCategory];
 	} m_Values;
 
-    operator const float* () const	{ return m_Values.f; };
-    operator float* ()				{ return m_Values.f; };
+	operator const float* () const	{ return m_Values.f; };
+	operator float* ()		{ return m_Values.f; };
 
 	RadarValues();
 	void MakeUnknown();
@@ -61,8 +61,8 @@ struct RadarValues
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
 
-	CString ToString( int iMaxValues = -1 ) const; // default = all
-	void FromString( CString sValues );
+	RString ToString( int iMaxValues = -1 ) const; // default = all
+	void FromString( RString sValues );
 };
 
 

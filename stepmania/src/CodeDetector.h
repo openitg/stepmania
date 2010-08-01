@@ -39,8 +39,6 @@ enum Code {
 	CODE_NEXT_THEME2,
 	CODE_NEXT_ANNOUNCER,
 	CODE_NEXT_ANNOUNCER2,
-	CODE_NEXT_GAME,
-	CODE_NEXT_GAME2,
 	CODE_BW_NEXT_GROUP,
 	CODE_BW_NEXT_GROUP2,
 	CODE_SAVE_SCREENSHOT1,
@@ -54,7 +52,7 @@ enum Code {
 struct CodeItem
 {
 public:
-	bool Load( CString sButtonsNames );
+	bool Load( RString sButtonsNames );
 	bool EnteredCode( GameController controller ) const;
 
 private:
@@ -72,7 +70,7 @@ private:
 class CodeDetector
 {
 public:
-	static void RefreshCacheItems( CString sClass="" );	// call this before checking codes, but call infrequently
+	static void RefreshCacheItems( RString sClass="" );	// call this before checking codes, but call infrequently
 	static bool EnteredEasierDifficulty( GameController controller );
 	static bool EnteredHarderDifficulty( GameController controller );
 	static bool EnteredNextSort( GameController controller );

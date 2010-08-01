@@ -37,18 +37,21 @@ public:
 
 	bool DescribesCurrentMode( PlayerNumber pn ) const;
 	bool DescribesCurrentModeForAllPlayers() const;
-	bool IsPlayable( CString *why = NULL ) const;
+	bool IsPlayable( RString *why = NULL ) const;
 	bool IsZero() const;
-	CString GetAndClearScreen();
+	
+	/* If true, Apply() will apply m_sScreen.  If false, it won't, and you need
+	 * to do it yourself. */
+	void ApplyCommitsScreens( bool bOn ) { m_bApplyCommitsScreens = bOn; }
 
 	// Same as what was passed to Load.  We need to keep the original commands
 	// so that we know the order of commands when it comes time to Apply.
 	Commands	m_Commands;
 
-	CString		m_sName;	// choice name
-	CString		m_sText;	// display text
+	RString		m_sName;	// choice name
+	RString		m_sText;	// display text
 	bool		m_bInvalid;
-	CString		m_sInvalidReason;
+	RString		m_sInvalidReason;
 	int			m_iIndex;
 	MultiPlayer	m_MultiPlayer;
 	const Game*	m_pGame;
@@ -56,41 +59,36 @@ public:
 	PlayMode	m_pm;
 	Difficulty	m_dc;
 	CourseDifficulty	m_CourseDifficulty;
-	CString		m_sAnnouncer;
-	CString		m_sModifiers;
-	CString		m_sScreen;
+	RString		m_sAnnouncer;
+	RString		m_sModifiers;
+	RString		m_sScreen;
 	LuaExpression	m_LuaFunction;
 	Song*		m_pSong;
 	Steps*		m_pSteps;
 	Course*		m_pCourse;
 	Trail*		m_pTrail;
 	Character*	m_pCharacter;
-	std::map<CString,CString> m_SetEnv;
-	CString		m_sSongGroup;
+	std::map<RString,RString> m_SetEnv;
+	RString		m_sSongGroup;
 	SortOrder	m_SortOrder;
-	int			m_iUnlockIndex;	// -1 for no unlock
-	CString		m_sSoundPath;	// "" for no sound
-	vector<CString>	m_vsScreensToPrepare;
-	int			m_iWeightPounds;	// -1 == none specified
-	int			m_iGoalCalories;	// -1 == none specified
+	RString		m_sUnlockEntryID;	// "" for no unlock
+	RString		m_sSoundPath;	// "" for no sound
+	vector<RString>	m_vsScreensToPrepare;
+	int		m_iWeightPounds;	// -1 == none specified
+	int		m_iGoalCalories;	// -1 == none specified
 	GoalType	m_GoalType;
-	CString		m_sProfileID;
+	RString		m_sProfileID;
+	RString		m_sUrl;
 
-	bool m_bClearBookkeepingData;
-	bool m_bClearMachineStats;
-	bool m_bClearMachineEdits;
-	bool m_bFillMachineStats;	// for testing
-	bool m_bTransferStatsFromMachine;
-	bool m_bTransferStatsToMachine;
-	bool m_bCopyEditsFromMachine;
-	bool m_bCopyEditsToMachine;
 	bool m_bInsertCredit;
-	bool m_bResetToFactoryDefaults;
 	bool m_bStopMusic;
 	bool m_bApplyDefaultOptions;
 
 	// Lua
 	void PushSelf( lua_State *L );
+
+private:
+	bool		m_bApplyCommitsScreens;
 };
 
 #endif

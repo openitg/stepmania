@@ -9,8 +9,9 @@
 #include "ScreenTextEntry.h"
 #include "Command.h"
 #include "WheelItemBase.h"
-#include "RageLog.h"
+//#include "RageLog.h"
 #include "InputEventPlus.h"
+#include "LocalizedString.h"
 
 #define TITLEBG_WIDTH				THEME->GetMetricF(m_sName,"TitleBGWidth")
 #define TITLEBG_HEIGHT				THEME->GetMetricF(m_sName,"TitleBGHeight")
@@ -28,13 +29,11 @@ AutoScreenMessage( SM_BackFromRoomName )
 AutoScreenMessage( SM_BackFromRoomDesc )
 
 REGISTER_SCREEN_CLASS( ScreenNetRoom );
-ScreenNetRoom::ScreenNetRoom( const CString& sName ) : ScreenNetSelectBase( sName )
-{
-	GAMESTATE->FinishStage();
-}
 
 void ScreenNetRoom::Init()
 {
+	GAMESTATE->FinishStage();
+
 	ScreenNetSelectBase::Init();
 
 	m_soundChangeSel.Load( THEME->GetPathS("ScreenNetRoom","change sel"));
@@ -75,6 +74,7 @@ void ScreenNetRoom::Input( const InputEventPlus &input )
 	ScreenNetSelectBase::Input( input );
 }
 
+static LocalizedString ENTER_ROOM_DESCRIPTION ("ScreenNetRoom","Enter a description for the room:");
 void ScreenNetRoom::HandleScreenMessage( const ScreenMessage SM )
 {
 	if( SM == SM_GoToPrevScreen )
@@ -87,19 +87,20 @@ void ScreenNetRoom::HandleScreenMessage( const ScreenMessage SM )
 	}
 	else if( SM == SM_SMOnlinePack )
 	{
-		if ( NSMAN->m_SMOnlinePacket.Read1() == 1 )
+		switch(NSMAN->m_SMOnlinePacket.Read1())
 		{
+		case 1:
 			switch ( NSMAN->m_SMOnlinePacket.Read1() )
 			{
 			case 0: //Room title Change
 				{
-					CString titleSub;
+					RString titleSub;
 					titleSub = NSMAN->m_SMOnlinePacket.ReadNT() + "\n";
 					titleSub += NSMAN->m_SMOnlinePacket.ReadNT();
 					m_textTitle.SetText( titleSub );
 					if ( NSMAN->m_SMOnlinePacket.Read1() != 0 )
 					{
-						CString SMOnlineSelectScreen;
+						RString SMOnlineSelectScreen;
 						THEME->GetMetric( m_sName, "MusicSelectScreen", SMOnlineSelectScreen );
 						SCREENMAN->SetNewScreen( SMOnlineSelectScreen );
 					}
@@ -126,6 +127,20 @@ void ScreenNetRoom::HandleScreenMessage( const ScreenMessage SM )
 					UpdateRoomsList();
 				}
 			}
+			break;
+		case 3:
+			RoomInfo info;
+			info.songTitle = NSMAN->m_SMOnlinePacket.ReadNT();
+			info.songSubTitle = NSMAN->m_SMOnlinePacket.ReadNT();
+			info.songArtist = NSMAN->m_SMOnlinePacket.ReadNT();
+			info.numPlayers = NSMAN->m_SMOnlinePacket.Read1();
+			info.maxPlayers = NSMAN->m_SMOnlinePacket.Read1();
+			info.players.resize(info.numPlayers);
+			for (int i = 0; i < info.numPlayers; i++)
+				info.players[i] = NSMAN->m_SMOnlinePacket.ReadNT();
+
+			m_RoomWheel.SetRoomInfo(info);
+			break;
 		}
 	}
 	else if ( SM == SM_BackFromRoomName )
@@ -133,7 +148,7 @@ void ScreenNetRoom::HandleScreenMessage( const ScreenMessage SM )
 		if ( !ScreenTextEntry::s_bCancelledLast )
 		{
 			m_newRoomName = ScreenTextEntry::s_sLastAnswer;
-			ScreenTextEntry::TextEntry( SM_BackFromRoomDesc, "Enter Room Description:", "", 255 );
+			ScreenTextEntry::TextEntry( SM_BackFromRoomDesc, ENTER_ROOM_DESCRIPTION, "", 255 );
 		}
 	}
 	else if( SM == SM_BackFromRoomDesc )
@@ -155,10 +170,12 @@ void ScreenNetRoom::TweenOffScreen()
 	NSMAN->ReportNSSOnOff(6);
 }
 
+/*
 void ScreenNetRoom::Update( float fDeltaTime )
 {
 	ScreenNetSelectBase::Update( fDeltaTime );
 }
+*/
 
 void ScreenNetRoom::MenuStart( PlayerNumber pn )
 {
@@ -181,29 +198,32 @@ void ScreenNetRoom::MenuBack( PlayerNumber pn )
 	ScreenNetSelectBase::MenuBack( pn );
 }
 
-void ScreenNetRoom::MenuUp( PlayerNumber pn, const InputEventType type )
+void ScreenNetRoom::MenuUp( const InputEventPlus &input )
 {
-	ScreenNetSelectBase::MenuUp( pn );
+	ScreenNetSelectBase::MenuUp( input.MenuI.player );
 }
 
-void ScreenNetRoom::MenuDown( PlayerNumber pn, const InputEventType type )
+void ScreenNetRoom::MenuDown( const InputEventPlus &input )
 {
-	ScreenNetSelectBase::MenuDown( pn );
+	ScreenNetSelectBase::MenuDown( input.MenuI.player );
 }
 
-void ScreenNetRoom::MenuLeft( PlayerNumber pn, const InputEventType type )
+void ScreenNetRoom::MenuLeft( const InputEventPlus &input )
 {
-	if (type == IET_FIRST_PRESS)
+	if( input.type == IET_FIRST_PRESS )
 		m_RoomWheel.Move(-1);
-	ScreenNetSelectBase::MenuLeft( pn );
+
+	ScreenNetSelectBase::MenuLeft( input.MenuI.player );
 }
 
-void ScreenNetRoom::MenuRight( PlayerNumber pn, const InputEventType type )
+void ScreenNetRoom::MenuRight( const InputEventPlus &input )
 {
-	if (type == IET_FIRST_PRESS)
+	if( input.type == IET_FIRST_PRESS )
+	{
 		m_RoomWheel.Move(1);
+	}
 
-	ScreenNetSelectBase::MenuRight( pn );
+	ScreenNetSelectBase::MenuRight( input.MenuI.player );
 }
 
 void ScreenNetRoom::UpdateRoomsList()
@@ -258,7 +278,7 @@ void ScreenNetRoom::UpdateRoomsList()
 	m_RoomWheel.RebuildWheelItems();
 }
 
-void ScreenNetRoom::CreateNewRoom( const CString& rName,  const CString& rDesc ) {
+void ScreenNetRoom::CreateNewRoom( const RString& rName,  const RString& rDesc ) {
 	NSMAN->m_SMOnlinePacket.ClearPacket();
 	NSMAN->m_SMOnlinePacket.Write1((uint8_t)2); //Create room command
 	NSMAN->m_SMOnlinePacket.Write1(1);  //Type game room

@@ -2,8 +2,6 @@
 #include "ScoreDisplayOni.h"
 #include "RageUtil.h"
 #include "RageLog.h"
-#include "PrefsManager.h"
-#include "RageLog.h"
 #include "GameState.h"
 #include "ThemeManager.h"
 #include "StatsManager.h"
@@ -31,7 +29,7 @@ void ScoreDisplayOni::Init( const PlayerState* pPlayerState, const PlayerStageSt
 	// TODO: Remove use of PlayerNumber.
 	PlayerNumber pn = pPlayerState->m_PlayerNumber;
 
-	m_text.RunCommands( PLAYER_COLOR.GetValue(pn) );
+	m_text.RunCommands( CommonMetrics::PLAYER_COLOR.GetValue(pn) );
 }
 
 

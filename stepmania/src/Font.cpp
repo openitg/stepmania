@@ -13,9 +13,6 @@
 #include "FontCharmaps.h"
 #include "FontCharAliases.h"
 
-/* Last private-use Unicode character: */
-const wchar_t Font::DEFAULT_GLYPH = 0xF8FF;
-
 FontPage::FontPage()
 {
 	m_pTexture = NULL;
@@ -192,13 +189,6 @@ int Font::GetLineWidthInSourcePixels( const wstring &szLine ) const
 	for( unsigned i=0; i<szLine.size(); i++ )
 		iLineWidth += GetGlyph(szLine[i]).m_iHadvance;
 
-	if( szLine.size() > 0 )
-	{
-		/* Add overdraw. */
-		iLineWidth += GetGlyph(szLine[0]).m_pPage->m_iDrawExtraPixelsLeft;
-		iLineWidth += GetGlyph(szLine[szLine.size()-1]).m_pPage->m_iDrawExtraPixelsRight;
-	}
-
 	return iLineWidth;
 }
 
@@ -220,6 +210,7 @@ Font::Font()
 
 	m_iRefCount = 1;
 	m_pDefault = NULL;
+	m_bRightToLeft = false;
 }
 
 Font::~Font()
@@ -291,7 +282,8 @@ const glyph &Font::GetGlyph( wchar_t c ) const
 	map<longchar,glyph*>::const_iterator it = m_iCharToGlyph.find(c);
 
 	/* If that's missing, use the default glyph. */
-	if(it == m_iCharToGlyph.end()) it = m_iCharToGlyph.find(DEFAULT_GLYPH);
+	if(it == m_iCharToGlyph.end()) 
+		it = m_iCharToGlyph.find(FONT_DEFAULT_GLYPH);
 
 	if(it == m_iCharToGlyph.end()) 
 		RageException::Throw( "The default glyph is missing from the font '%s'", path.c_str() );
@@ -301,7 +293,7 @@ const glyph &Font::GetGlyph( wchar_t c ) const
 
 bool Font::FontCompleteForString( const wstring &str ) const
 {
-	map<longchar,glyph*>::const_iterator m_pDefault = m_iCharToGlyph.find( DEFAULT_GLYPH );
+	map<longchar,glyph*>::const_iterator m_pDefault = m_iCharToGlyph.find( FONT_DEFAULT_GLYPH );
 	if( m_pDefault == m_iCharToGlyph.end() )
 		RageException::Throw( "The default glyph is missing from the font '%s'", path.c_str() );
 
@@ -318,8 +310,8 @@ bool Font::FontCompleteForString( const wstring &str ) const
 void Font::CapsOnly()
 {
 	/* For each uppercase character that we have a mapping for, add
-     * a lowercase one. */
-	for(char c = 'A'; c <= 'Z'; ++c)
+	 * a lowercase one. */
+	for( char c = 'A'; c <= 'Z'; ++c )
 	{
 		map<longchar,glyph*>::const_iterator it = m_iCharToGlyph.find(c);
 
@@ -339,10 +331,10 @@ void Font::SetDefaultGlyph( FontPage *pPage )
 
 
 /* Given the INI for a font, find all of the texture pages for the font. */
-void Font::GetFontPaths( const CString &sFontIniPath, CStringArray &asTexturePathsOut )
+void Font::GetFontPaths( const RString &sFontIniPath, vector<RString> &asTexturePathsOut )
 {
-	CString sPrefix = SetExtension( sFontIniPath, "" );
-	CStringArray asFiles;
+	RString sPrefix = SetExtension( sFontIniPath, "" );
+	vector<RString> asFiles;
 	GetDirListing( sPrefix + "*", asFiles, false, true );
 
 	for( unsigned i = 0; i < asFiles.size(); ++i )
@@ -352,7 +344,7 @@ void Font::GetFontPaths( const CString &sFontIniPath, CStringArray &asTexturePat
 	}
 }
 
-CString Font::GetPageNameFromFileName( const CString &sFilename )
+RString Font::GetPageNameFromFileName( const RString &sFilename )
 {
 	size_t begin = sFilename.find_first_of( '[' );
 	if( begin == string::npos )
@@ -369,7 +361,7 @@ CString Font::GetPageNameFromFileName( const CString &sFilename )
 	return sFilename.substr( begin, end-begin+1 );
 }
 
-void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CString &sTexturePath, const CString &sPageName, CString sChars )
+void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const RString &sTexturePath, const RString &sPageName, RString sChars )
 {
 	cfg.m_sTexturePath = sTexturePath;
 
@@ -405,8 +397,8 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 	{
 		FOREACH_CONST_Attr( pNode, pAttr )
 		{
-			CString sName = pAttr->m_sName;
-			const CString &sValue = pAttr->m_sValue;
+			RString sName = pAttr->first;
+			const RString &sValue = pAttr->second;
 
 			sName.MakeUpper();
 
@@ -430,7 +422,7 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 				 * map 1=2 is the same as
 				 * range unicode #1-1=2
 				 */
-				CString sCodepoint = sName.substr(4); /* "CODEPOINT" */
+				RString sCodepoint = sName.substr(4); /* "CODEPOINT" */
 			
 				const Game* pGame = NULL;
 
@@ -438,7 +430,7 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 				{
 					/* There's a space; the first word should be a game type. Split it. */
 					unsigned pos = sCodepoint.find_first_of( ' ' );
-					CString gamename = sCodepoint.substr( 0, pos );
+					RString gamename = sCodepoint.substr( 0, pos );
 					sCodepoint = sCodepoint.substr( pos+1 );
 
 					pGame = GameManager::StringToGameType(gamename);
@@ -492,8 +484,8 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 				 * Map hiragana to 0-84:
 				 * range Unicode #3041-3094=0
 				 */
-				vector<CString> asMatches;
-				static Regex parse("^RANGE ([A-Z\\-]+)( ?#([0-9A-F]+)-([0-9A-F]+))?$");
+				vector<RString> asMatches;
+				static Regex parse("^RANGE ([A-Z0-9\\-]+)( ?#([0-9A-F]+)-([0-9A-F]+))?$");
 				bool bMatch = parse.Compare( sName, asMatches );
 				
 				ASSERT( asMatches.size() == 4 ); /* 4 parens */
@@ -518,7 +510,7 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 					iCount = iLast - iFirst + 1;
 				}
 
-				CString sRet = cfg.MapRange( asMatches[0], iFirst, atoi(sValue), iCount );
+				RString sRet = cfg.MapRange( asMatches[0], iFirst, atoi(sValue), iCount );
 				if( !sRet.empty() )
 					RageException::Throw( "Font definition '%s' has an invalid range '%s': %s.",
 						ini.GetPath().c_str(), sName.c_str(), sRet.c_str() );
@@ -534,7 +526,7 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 				 *
 				 * This lets us assign characters very compactly and readably. */
 
-				CString sRowStr = sName.substr(5);
+				RString sRowStr = sName.substr(5);
 				ASSERT( IsAnInt(sRowStr) );
 				const int iRow = atoi( sRowStr.c_str() );
 				const int iFirstFrame = iRow * iNumFramesWide;
@@ -544,7 +536,7 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 						ini.GetPath().c_str(), iFirstFrame, iNumFramesHigh );
 
 				/* Decode the string. */
-				const wstring wdata( CStringToWstring(sValue) );
+				const wstring wdata( RStringToWstring(sValue) );
 
 				if( int(wdata.size()) > iNumFramesWide )
 					RageException::Throw( "The font definition \"%s\" assigns %i characters to row %i (\"%ls\"), but the font only has %i characters wide",
@@ -577,7 +569,7 @@ void Font::LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CStr
 		cfg.CharToGlyphNo[0x00A0] = cfg.CharToGlyphNo[' '];
 }
 
-CString FontPageSettings::MapRange( CString sMapping, int iMapOffset, int iGlyphNo, int iCount )
+RString FontPageSettings::MapRange( RString sMapping, int iMapOffset, int iGlyphNo, int iCount )
 {
 	if( !sMapping.CompareNoCase("Unicode") )
 	{
@@ -600,7 +592,7 @@ CString FontPageSettings::MapRange( CString sMapping, int iMapOffset, int iGlyph
 			iCount--;
 		}
 
-		return CString();
+		return RString();
 	}
 
 	const wchar_t *pMapping = FontCharmaps::get_char_map( sMapping );
@@ -631,10 +623,10 @@ CString FontPageSettings::MapRange( CString sMapping, int iMapOffset, int iGlyph
 	if( iCount )
 		return "Map overflow"; /* there aren't enough characters in the map */
 
-	return CString();
+	return RString();
 }
 
-static CStringArray LoadStack;
+static vector<RString> LoadStack;
 
 /*
  * A font set is a set of files, eg:
@@ -654,23 +646,21 @@ static CStringArray LoadStack;
  * However, if it doesn't, we don't know what it is and the font will receive
  * no default mapping.  A font isn't useful with no characters mapped.
  */
-void Font::Load( const CString &sIniPath, CString sChars )
+void Font::Load( const RString &sIniPath, RString sChars )
 {
 	ASSERT_M( !GetExtension(sIniPath).CompareNoCase("ini"), sIniPath );
 
 	/* Check for recursion (recursive imports). */
+	for( unsigned i = 0; i < LoadStack.size(); ++i )
 	{
-		for(unsigned i = 0; i < LoadStack.size(); ++i)
+		if( LoadStack[i] == sIniPath )
 		{
-			if( LoadStack[i] == sIniPath )
-			{
-				CString str = join("\n", LoadStack);
-				str += "\n" + sIniPath;
-				RageException::Throw("Font import recursion detected\n%s", str.c_str());
-			}
+			RString str = join("\n", LoadStack);
+			str += "\n" + sIniPath;
+			RageException::Throw("Font import recursion detected\n%s", str.c_str());
 		}
-		LoadStack.push_back( sIniPath );
 	}
+	LoadStack.push_back( sIniPath );
 
 	/* The font is not already loaded.  Figure out what we have. */
 	CHECKPOINT_M( ssprintf("Font::Load(\"%s\",\"%s\").", sIniPath.c_str(), m_sChars.c_str()) );
@@ -679,7 +669,7 @@ void Font::Load( const CString &sIniPath, CString sChars )
 	m_sChars = sChars;
 
 	/* Get the filenames associated with this font. */
-	CStringArray asTexturePaths;
+	vector<RString> asTexturePaths;
 	GetFontPaths( sIniPath, asTexturePaths );
 
 	bool bCapitalsOnly = false;
@@ -691,23 +681,24 @@ void Font::Load( const CString &sIniPath, CString sChars )
 		ini.ReadFile( sIniPath );
 		ini.RenameKey("Char Widths", "main");
 		ini.GetValue( "main", "CapitalsOnly", bCapitalsOnly );
+		ini.GetValue( "main", "RightToLeft", m_bRightToLeft );
 	}
 
 	{
 		/* If this is a top-level font (not a subfont), load the default font first. */
-		CStringArray ImportList;
+		vector<RString> ImportList;
 		if( LoadStack.size() == 1 )
 			ImportList.push_back("Common default");
 
 		/* Check to see if we need to import any other fonts.  Do this
 		 * before loading this font, so any characters in this font
 		 * override imported characters. */
-		CString imports;
+		RString imports;
 		ini.GetValue( "main", "import", imports );
 		split(imports, ",", ImportList, true);
 		for(unsigned i = 0; i < ImportList.size(); ++i)
 		{
-			CString path = THEME->GetPathF( "", ImportList[i], true );
+			RString path = THEME->GetPathF( "", ImportList[i], true );
 			if( path == "" )
 			{
 				LOG->Warn("Font \"%s\" imports a font \"%s\" that doesn't exist", sIniPath.c_str(), ImportList[i].c_str());
@@ -721,14 +712,14 @@ void Font::Load( const CString &sIniPath, CString sChars )
 	}
 
 	/* Load each font page. */
-	for(unsigned i = 0; i < asTexturePaths.size(); ++i)
+	for( unsigned i = 0; i < asTexturePaths.size(); ++i )
 	{
-		const CString &sTexturePath = asTexturePaths[i];
+		const RString &sTexturePath = asTexturePaths[i];
 
 		FontPage *pPage = new FontPage;
 
 		/* Grab the page name, eg "foo" from "Normal [foo].png". */
-		CString sPagename = GetPageNameFromFileName( sTexturePath );
+		RString sPagename = GetPageNameFromFileName( sTexturePath );
 
 		/* Load settings for this page from the INI. */
 		FontPageSettings cfg;
@@ -746,7 +737,7 @@ void Font::Load( const CString &sIniPath, CString sChars )
 		{
 			if( it->second < pPage->m_pTexture->GetNumFrames() )
 				continue; /* OK */
-			CString sError = ssprintf( "The font '%s' maps %s to frame %i, but the font only has %i frames.",
+			RString sError = ssprintf( "The font '%s' maps %s to frame %i, but the font only has %i frames.",
 				sTexturePath.c_str(), WcharDisplayText(wchar_t(it->first)).c_str(), it->second, pPage->m_pTexture->GetNumFrames() );
 			RageException::Throw( sError );
 		}

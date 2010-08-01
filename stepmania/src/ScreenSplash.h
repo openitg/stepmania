@@ -9,7 +9,6 @@
 class ScreenSplash : public ScreenWithMenuElements
 {
 public:
-	ScreenSplash( CString sName );
 	virtual void Init();
 
 	virtual void HandleScreenMessage( const ScreenMessage SM );
@@ -18,7 +17,6 @@ public:
 
 protected:
 	ThemeMetric<bool> ALLOW_START_TO_SKIP;
-	ThemeMetric<CString> NEXT_SCREEN;
 	ThemeMetric<float> MINIMUM_LOAD_DELAY_SECONDS;
 	ThemeMetric<bool> PREPARE_SCREEN;
 };

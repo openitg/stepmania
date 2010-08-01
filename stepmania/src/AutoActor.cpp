@@ -10,7 +10,24 @@ void AutoActor::Unload()
 	m_pActor=NULL;
 }
 
-void AutoActor::Load( const CString &sPath )
+AutoActor::AutoActor( const AutoActor &cpy )
+{ 
+	if( cpy.m_pActor == NULL )
+		m_pActor = NULL;
+	else
+		m_pActor = cpy.m_pActor->Copy();
+}
+
+AutoActor &AutoActor::operator=( const AutoActor &cpy )
+{
+	if( cpy.m_pActor == NULL )
+		m_pActor = NULL;
+	else
+		m_pActor = cpy.m_pActor->Copy();
+	return *this;
+}
+
+void AutoActor::Load( const RString &sPath )
 {
 	Unload();
 	m_pActor = ActorUtil::MakeActor( sPath );
@@ -20,14 +37,14 @@ void AutoActor::Load( const CString &sPath )
 		m_pActor = new Actor;
 }
 
-void AutoActor::LoadFromNode( const CString &sDir, const XNode* pNode )
+void AutoActor::LoadFromNode( const RString &sDir, const XNode* pNode )
 {
 	Unload();
 
-	m_pActor = ActorUtil::LoadFromActorFile( sDir, pNode );
+	m_pActor = ActorUtil::LoadFromNode( sDir, pNode );
 }
 
-void AutoActor::LoadAndSetName( const CString &sScreenName, const CString &sActorName )
+void AutoActor::LoadAndSetName( const RString &sScreenName, const RString &sActorName )
 {
 	Load( THEME->GetPathG(sScreenName,sActorName) );
 	m_pActor->SetName( sActorName );

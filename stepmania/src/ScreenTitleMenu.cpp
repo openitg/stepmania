@@ -18,15 +18,13 @@
 #include "ProfileManager.h"
 #include "CharacterManager.h"
 #include "InputEventPlus.h"
+#include "LocalizedString.h"
 
 #define COIN_MODE_CHANGE_SCREEN		THEME->GetMetric (m_sName,"CoinModeChangeScreen")
 
 REGISTER_SCREEN_CLASS( ScreenTitleMenu );
-ScreenTitleMenu::ScreenTitleMenu( CString sScreenName ) : 
-	ScreenSelectMaster( sScreenName )
+ScreenTitleMenu::ScreenTitleMenu()
 {
-	LOG->Trace( "ScreenTitleMenu::ScreenTitleMenu()" );
-
 	/* XXX We really need two common calls: 1, something run when exiting from gameplay
 	 * (to do this reset), and 2, something run when entering gameplay, to apply default
 	 * options.  Having special cases in attract screens and the title menu to reset
@@ -59,6 +57,8 @@ ScreenTitleMenu::~ScreenTitleMenu()
 	CHARMAN->UndemandGraphics();
 }
 
+static LocalizedString THEME_		("ScreenTitleMenu","Theme");
+static LocalizedString ANNOUNCER_	("ScreenTitleMenu","Announcer");
 void ScreenTitleMenu::Input( const InputEventPlus &input )
 {
 	LOG->Trace( "ScreenTitleMenu::Input( %d-%d )", input.DeviceI.device, input.DeviceI.button );	// debugging gameport joystick problem
@@ -75,8 +75,8 @@ void ScreenTitleMenu::Input( const InputEventPlus &input )
 			CodeDetector::EnteredCode(input.GameI.controller,CODE_NEXT_THEME2) )
 		{
 			THEME->NextTheme();
-			ApplyGraphicOptions();	// update window title and icon
-			SCREENMAN->SystemMessage( "Theme: "+THEME->GetCurThemeName() );
+			StepMania::ApplyGraphicOptions();	// update window title and icon
+			SCREENMAN->SystemMessage( THEME_.GetValue()+": "+THEME->GetCurThemeName() );
 			SCREENMAN->SetNewScreen( m_sName );
 			TEXTUREMAN->DoDelayedDelete();
 		}
@@ -84,32 +84,9 @@ void ScreenTitleMenu::Input( const InputEventPlus &input )
 			CodeDetector::EnteredCode(input.GameI.controller,CODE_NEXT_ANNOUNCER2) )
 		{
 			ANNOUNCER->NextAnnouncer();
-			CString sName = ANNOUNCER->GetCurAnnouncerName();
+			RString sName = ANNOUNCER->GetCurAnnouncerName();
 			if( sName=="" ) sName = "(none)";
-			SCREENMAN->SystemMessage( "Announcer: "+sName );
-			SCREENMAN->SetNewScreen( m_sName );
-		}
-		if( CodeDetector::EnteredCode(input.GameI.controller,CODE_NEXT_GAME) ||
-			CodeDetector::EnteredCode(input.GameI.controller,CODE_NEXT_GAME2) )
-		{
-			vector<const Game*> vGames;
-			GAMEMAN->GetEnabledGames( vGames );
-			ASSERT( !vGames.empty() );
-			vector<const Game*>::iterator iter = find(vGames.begin(),vGames.end(),GAMESTATE->m_pCurGame);
-			ASSERT( iter != vGames.end() );
-
-			iter++;	// move to the next game
-
-			// wrap
-			if( iter == vGames.end() )
-				iter = vGames.begin();
-
-			GAMESTATE->m_pCurGame = *iter;
-
-			/* Reload the theme if it's changed, but don't back to the initial screen. */
-			ResetGame();
-
-			SCREENMAN->SystemMessage( CString("Game: ") + GAMESTATE->GetCurrentGame()->m_szName );
+			SCREENMAN->SystemMessage( ANNOUNCER_.GetValue()+": "+sName );
 			SCREENMAN->SetNewScreen( m_sName );
 		}
 	}
@@ -117,7 +94,7 @@ void ScreenTitleMenu::Input( const InputEventPlus &input )
 	ScreenSelectMaster::Input( input );
 }
 
-void ScreenTitleMenu::HandleMessage( const CString& sMessage )
+void ScreenTitleMenu::HandleMessage( const RString& sMessage )
 {
 	if( sMessage == PREFSMAN->m_CoinMode.GetName()+"Changed" )
 	{

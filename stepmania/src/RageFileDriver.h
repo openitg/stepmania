@@ -10,19 +10,20 @@ class FilenameDB;
 class RageFileDriver
 {
 public:
-	RageFileDriver( FilenameDB *db ) { FDB = db; }
+	RageFileDriver( FilenameDB *pDB ) { FDB = pDB; }
 	virtual ~RageFileDriver();
-	virtual RageFileBasic *Open( const CString &path, int mode, int &err ) = 0;
-	virtual void GetDirListing( const CString &sPath, CStringArray &AddTo, bool bOnlyDirs, bool bReturnPathToo );
-	virtual RageFileManager::FileType GetFileType( const CString &sPath );
-	virtual int GetFileSizeInBytes( const CString &sFilePath );
-	virtual int GetFileHash( const CString &sPath );
-	virtual int GetPathValue( const CString &path );
-	virtual void FlushDirCache( const CString &sPath );
-	virtual bool Remove( const CString &sPath ) { return false; }
+	virtual RageFileBasic *Open( const RString &sPath, int iMode, int &iError ) = 0;
+	virtual void GetDirListing( const RString &sPath, vector<RString> &asAddTo, bool bOnlyDirs, bool bReturnPathToo );
+	virtual RageFileManager::FileType GetFileType( const RString &sPath );
+	virtual int GetFileSizeInBytes( const RString &sFilePath );
+	virtual int GetFileHash( const RString &sPath );
+	virtual int GetPathValue( const RString &sPath );
+	virtual void FlushDirCache( const RString &sPath );
+	virtual bool Move( const RString &sOldPath, const RString &sNewPath ) { return false; }
+	virtual bool Remove( const RString &sPath ) { return false; }
 
 	/* Optional: Move to a different place, as if reconstructed with a different path. */
-	virtual bool Remount( const CString &sPath ) { return false; }
+	virtual bool Remount( const RString &sPath ) { return false; }
 
 	/* Possible error returns from Open, in addition to standard errno.h values: */
 	enum { ERROR_WRITING_NOT_SUPPORTED = -1 };
@@ -33,14 +34,14 @@ public:
 /* This is used to register the driver, so RageFileManager can see it. */
 struct FileDriverEntry
 {
-	FileDriverEntry( CString Type );
+	FileDriverEntry( const RString &sType );
 	virtual ~FileDriverEntry();
-	virtual RageFileDriver *Create( CString Root ) const = 0;
+	virtual RageFileDriver *Create( const RString &sRoot ) const = 0;
 
-	CString m_Type;
-	const FileDriverEntry *m_Link;
+	RString m_sType;
+	const FileDriverEntry *m_pLink;
 };
-RageFileDriver *MakeFileDriver( CString Type, CString Root );
+RageFileDriver *MakeFileDriver( const RString &Type, const RString &Root );
 
 #endif
 

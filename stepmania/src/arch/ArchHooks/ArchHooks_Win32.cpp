@@ -3,38 +3,45 @@
 #include "RageUtil.h"
 #include "RageLog.h"
 #include "RageThreads.h"
-#include "PrefsManager.h"
 #include "ProductInfo.h"
-
 #include "archutils/win32/AppInstance.h"
 #include "archutils/win32/crash.h"
 #include "archutils/win32/DebugInfoHunt.h"
-#include "archutils/win32/GotoURL.h"
 #include "archutils/win32/RestartProgram.h"
-#include "archutils/win32/VideoDriverInfo.h"
-#include "archutils/win32/WindowsResources.h"
+#include "archutils/win32/GotoURL.h"
+#include "archutils/Win32/RegistryAccess.h"
 
-#include <mmsystem.h>
-#if defined(_MSC_VER)
-#pragma comment(lib, "winmm.lib") // for timeGetTime
-#endif
+static HANDLE g_hInstanceMutex;
+static bool g_bIsMultipleInstance = false;
 
 ArchHooks_Win32::ArchHooks_Win32()
 {
-	SetUnhandledExceptionFilter(CrashHandler);
-	TimeCritMutex = new RageMutex("TimeCritMutex");
+	TimeCritMutex = NULL;
+	HOOKS = this;
 
 	/* Disable critical errors, and handle them internally.  We never want the
 	 * "drive not ready", etc. dialogs to pop up. */
 	SetErrorMode( SetErrorMode(0) | SEM_FAILCRITICALERRORS );
 
+	CrashHandler::CrashHandlerHandleArgs( g_argc, g_argv );
+	SetUnhandledExceptionFilter( CrashHandler::ExceptionHandler );
+
+	TimeCritMutex = new RageMutex("TimeCritMutex");
+
 	/* Windows boosts priority on keyboard input, among other things.  Disable that for
 	 * the main thread. */
 	SetThreadPriorityBoost( GetCurrentThread(), TRUE );
+
+	g_hInstanceMutex = CreateMutex( NULL, TRUE, PRODUCT_ID );
+
+	g_bIsMultipleInstance = false;
+	if( GetLastError() == ERROR_ALREADY_EXISTS )
+		g_bIsMultipleInstance = true;
 }
 
 ArchHooks_Win32::~ArchHooks_Win32()
 {
+	CloseHandle( g_hInstanceMutex );
 	delete TimeCritMutex;
 }
 
@@ -43,116 +50,68 @@ void ArchHooks_Win32::DumpDebugInfo()
 	/* This is a good time to do the debug search: before we actually
 	 * start OpenGL (in case something goes wrong). */
 	SearchForDebugInfo();
-
-	CheckVideoDriver();
 }
 
-static CString g_sDriverVersion, g_sURL;
-static bool g_Hush;
-static BOOL CALLBACK DriverWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
+struct CallbackData
 {
-	switch( msg )
-	{
-	case WM_INITDIALOG:
-		{
-			g_Hush = false;
-			CString sMessage = ssprintf(
-				"The graphics drivers you are running, %s, are very old and are known "
-				"to cause problems.  Upgrading to the latest drivers is recommended.\n",
-					g_sDriverVersion.c_str() );
+	HWND hParent;
+	HWND hResult;
+};
 
-			sMessage.Replace( "\n", "\r\n" );
+// Like GW_ENABLEDPOPUP:
+static BOOL CALLBACK GetEnabledPopup( HWND hWnd, LPARAM lParam )
+{
+	CallbackData *pData = (CallbackData *) lParam;
+	if( GetParent(hWnd) != pData->hParent )
+		return TRUE;
+	if( (GetWindowLong(hWnd, GWL_STYLE) & WS_POPUP) != WS_POPUP )
+		return TRUE;
+	if( !IsWindowEnabled(hWnd) )
+		return TRUE;
 
-			SendDlgItemMessage( hWnd, IDC_MESSAGE, WM_SETTEXT, 
-				0, (LPARAM)(LPCTSTR)sMessage );
-		}
-		break;
-	case WM_COMMAND:
-		switch (LOWORD(wParam))
-		{
-		case IDOK:
-			g_Hush = !!IsDlgButtonChecked(hWnd, IDC_HUSH);
-			GotoURL( g_sURL );
-			EndDialog( hWnd, 1 );
-			break;
-
-		case IDCANCEL:
-			g_Hush = !!IsDlgButtonChecked(hWnd, IDC_HUSH);
-			EndDialog( hWnd, 0 );
-			break;
-		}
-	}
+	pData->hResult = hWnd;
 	return FALSE;
 }
 
-static bool MessageIsIgnored( CString ID )
+static const RString CURRENT_VERSION_KEY = "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion";
+
+RString ArchHooks_Win32::GetMachineId()
 {
-	vector<CString> list;
-	split( PREFSMAN->m_sIgnoredMessageWindows, ",", list );
-	for( unsigned i = 0; i < list.size(); ++i )
-		if( !ID.CompareNoCase(list[i]) )
-			return true;
-	return false;
+	RString s;
+	if( RegistryAccess::GetRegValue( CURRENT_VERSION_KEY, "ProductID", s ) )
+		return s;
+	return RString();
 }
 
-static void IgnoreMessage( CString ID )
+bool ArchHooks_Win32::CheckForMultipleInstances()
 {
-	if( ID == "" )
+	if( !g_bIsMultipleInstance )
+		return false;
 
-	if( MessageIsIgnored(ID) )
-		return;
+	/* Search for the existing window.  Prefer to use the class name, which is less likely to
+	 * have a false match, and will match the gameplay window.  If that fails, try the window
+	 * name, which should match the loading window. */
+	HWND hWnd = FindWindow( PRODUCT_ID, NULL );
+	if( hWnd == NULL )
+		hWnd = FindWindow( NULL, PRODUCT_ID );
 
-	vector<CString> list;
-	split( PREFSMAN->m_sIgnoredMessageWindows, ",", list );
-	list.push_back( ID );
-	PREFSMAN->m_sIgnoredMessageWindows.Set( join(",",list) );
-	PREFSMAN->SaveGlobalPrefsToDisk();
-}
-
-/*
- * This simply does a few manual checks for known bad driver versions.  Only nag the
- * user if it's a driver that we receive many complaints about--we don't want to
- * tell users to upgrade if there's no problem, since it's likely to cause new problems.
- */
-void ArchHooks_Win32::CheckVideoDriver()
-{
-	if( MessageIsIgnored( "OLD_DRIVER_WARNING" ) )
-		return;
-
-	CString sPrimaryDeviceName = GetPrimaryVideoName();
-	if( sPrimaryDeviceName == "" )
-		return;
-
-	g_sDriverVersion = "";
-	for( int i=0; true; i++ )
+	if( hWnd != NULL )
 	{
-		VideoDriverInfo info;
-		if( !GetVideoDriverInfo(i, info) )
-			break;
-		if( info.sDescription != sPrimaryDeviceName )
-			continue;
+		/* If the application has a model dialog box open, we want to be sure to give focus to it,
+		 * not the main window. */
+		CallbackData data;
+		data.hParent = hWnd;
+		data.hResult = NULL;
+		EnumWindows( GetEnabledPopup, (LPARAM) &data );
 
-		/* "IntelR 810 Chipset Graphics Driver PV 2.1".  I get a lot of crash reports
-		 * with people using this version. */
-		if( Regex( "Intel.* 810 Chipset Graphics Driver PV 2.1").Compare( info.sDescription ) )
-		{
-			g_sDriverVersion = info.sDescription;
-			g_sURL = "http://www.intel.com/design/software/drivers/platform/810.htm";
-			break;
-		}
+		if( data.hResult != NULL )
+			SetForegroundWindow( data.hResult );
+		else
+			SetForegroundWindow( hWnd );
 	}
 
-	if( g_sDriverVersion == "" )
-		return;
-
-	bool bExit = !!DialogBox( AppInstance(), MAKEINTRESOURCE(IDD_DRIVER), NULL, DriverWndProc );
-
-	if( g_Hush )
-		IgnoreMessage( "OLD_DRIVER_WARNING" );
-	if( bExit )
-		ExitProcess(0);
+	return true;
 }
-
 
 void ArchHooks_Win32::RestartProgram()
 {
@@ -179,12 +138,12 @@ void ArchHooks_Win32::SetTime( tm newtime )
 	SYSTEMTIME st;
 	ZERO( st );
 	st.wYear = (WORD)newtime.tm_year+1900;
-    st.wMonth = (WORD)newtime.tm_mon+1;
-    st.wDay = (WORD)newtime.tm_mday;
-    st.wHour = (WORD)newtime.tm_hour;
-    st.wMinute = (WORD)newtime.tm_min;
-    st.wSecond = (WORD)newtime.tm_sec;
-    st.wMilliseconds = 0;
+	st.wMonth = (WORD)newtime.tm_mon+1;
+	st.wDay = (WORD)newtime.tm_mday;
+	st.wHour = (WORD)newtime.tm_hour;
+	st.wMinute = (WORD)newtime.tm_min;
+	st.wSecond = (WORD)newtime.tm_sec;
+	st.wMilliseconds = 0;
 	SetLocalTime( &st ); 
 }
 
@@ -225,30 +184,9 @@ void ArchHooks_Win32::SetupConcurrentRenderingThread()
 	SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL );
 }
 
-static bool g_bTimerInitialized;
-
-static void InitTimer()
+bool ArchHooks_Win32::GoToURL( RString sUrl )
 {
-	if( g_bTimerInitialized )
-		return;
-	g_bTimerInitialized = true;
-
-	timeBeginPeriod( 1 );
-}
-
-int64_t ArchHooks::GetMicrosecondsSinceStart( bool bAccurate )
-{
-	if( !g_bTimerInitialized )
-		InitTimer();
-
-	int64_t ret = timeGetTime() * int64_t(1000);
-	if( bAccurate )
-	{
-		ret = FixupTimeIfLooped( ret );
-		ret = FixupTimeIfBackwards( ret );
-	}
-	
-	return ret;
+	return ::GotoURL( sUrl );
 }
 
 /*

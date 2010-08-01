@@ -5,11 +5,9 @@
 
 #include "ScreenGameplay.h"
 
-class LyricsLoader;
 class ScreenGameplayNormal : public ScreenGameplay
 {
 public:
-	ScreenGameplayNormal( CString sName );
 	virtual void FillPlayerInfo( vector<PlayerInfo> &vPlayerInfoOut );
 };
 

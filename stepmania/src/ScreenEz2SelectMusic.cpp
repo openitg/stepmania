@@ -14,6 +14,7 @@
 #include "ActorUtil.h"
 #include "AnnouncerManager.h"
 #include "MenuTimer.h"
+#include "SongUtil.h"
 #include "StepsUtil.h"
 #include "ScreenDimensions.h"
 #include "ScreenPrompt.h"
@@ -22,7 +23,7 @@
 #include "RageLog.h"
 #include "song.h"
 #include "InputEventPlus.h"
-
+#include "LocalizedString.h"
 
 #define PREV_SCREEN				THEME->GetMetric ("ScreenEz2SelectMusic","PrevScreen")
 #define SCROLLING_LIST_X		THEME->GetMetricF("ScreenEz2SelectMusic","ScrollingListX")
@@ -30,7 +31,7 @@
 #define SCROLLING_LIST_ROT		THEME->GetMetricF("ScreenEz2SelectMusic","ScrollingListRotation")
 #define PUMP_DIFF_X				THEME->GetMetricF("ScreenEz2SelectMusic","PumpDifficultyX")
 #define PUMP_DIFF_Y				THEME->GetMetricF("ScreenEz2SelectMusic","PumpDifficultyY")
-#define HELP_TEXT				THEME->GetMetric("ScreenSelectMusic","HelpText")
+#define HELP_TEXT				THEME->GetString("ScreenSelectMusic","HelpText")
 #define TIMER_SECONDS			THEME->GetMetricI("ScreenSelectMusic","TimerSeconds")
 #define METER_X( p )			THEME->GetMetricF("ScreenEz2SelectMusic",ssprintf("MeterP%dX",p+1))
 #define METER_Y( p )			THEME->GetMetricF("ScreenEz2SelectMusic",ssprintf("MeterP%dY",p+1))
@@ -70,14 +71,12 @@ const float TWEEN_TIME		= 0.5f;
 AutoScreenMessage( SM_NoSongs )
 
 REGISTER_SCREEN_CLASS( ScreenEz2SelectMusic );
-ScreenEz2SelectMusic::ScreenEz2SelectMusic( CString sName ) : ScreenWithMenuElements( sName )
-{
-	/* Finish any previous stage.  It's OK to call this when we havn't played a stage yet. */
-	GAMESTATE->FinishStage();
-}
 
 void ScreenEz2SelectMusic::Init()
 {
+	/* Finish any previous stage.  It's OK to call this when we havn't played a stage yet. */
+	GAMESTATE->FinishStage();
+
 	ScreenWithMenuElements::Init();
 
 	i_SkipAheadOffset = 0;
@@ -393,7 +392,7 @@ void ScreenEz2SelectMusic::HandleScreenMessage( const ScreenMessage SM )
 }
 
 
-void ScreenEz2SelectMusic::MenuRight( PlayerNumber pn, const InputEventType type )
+void ScreenEz2SelectMusic::MenuRight( const InputEventPlus &input )
 {
 	m_MenuTimer->Stall();
 	m_MusicBannerWheel.BannersRight();
@@ -438,7 +437,7 @@ void ScreenEz2SelectMusic::TweenOffScreen()
 }
 
 
-void ScreenEz2SelectMusic::MenuLeft( PlayerNumber pn, const InputEventType type )
+void ScreenEz2SelectMusic::MenuLeft( const InputEventPlus &input )
 {
 	m_MenuTimer->Stall();
 	m_MusicBannerWheel.BannersLeft();
@@ -447,11 +446,12 @@ void ScreenEz2SelectMusic::MenuLeft( PlayerNumber pn, const InputEventType type 
 	MusicChanged();
 }
 
+static LocalizedString DOES_NOT_HAVE_MUSIC_FILE( "ScreenEz2SelectMusic", "This song does not have a music file and cannot be played." );
 void ScreenEz2SelectMusic::MenuStart( PlayerNumber pn )
 {
 	if( !m_MusicBannerWheel.GetSelectedSong()->HasMusic() )
 	{
-		ScreenPrompt::Prompt( SM_None, "ERROR:\n \nThis song does not have a music file\n and cannot be played." );
+		ScreenPrompt::Prompt( SM_None, DOES_NOT_HAVE_MUSIC_FILE );
 		return;
 	}
 
@@ -481,7 +481,7 @@ void ScreenEz2SelectMusic::MenuStart( PlayerNumber pn )
 	m_sprOptionsMessage.SetZoomY( 0 );
 }
 
-
+static LocalizedString NO_SONGS_AVAILABLE( "ScreenEz2SelectMusic", "There are no songs available for play." );
 void ScreenEz2SelectMusic::Update( float fDeltaTime )
 {
 	m_DifficultyRating.Update(fDeltaTime);
@@ -497,7 +497,7 @@ void ScreenEz2SelectMusic::Update( float fDeltaTime )
 	
 	if(m_MusicBannerWheel.CheckSongsExist() == 0 && ! i_ErrorDetected)
 	{
-		ScreenPrompt::Prompt( SM_NoSongs, "ERROR:\n \nThere are no songs available for play!" );
+		ScreenPrompt::Prompt( SM_NoSongs, NO_SONGS_AVAILABLE );
 		i_ErrorDetected=1;
 		this->PostScreenMessage( SM_NoSongs, 5.5f ); // timeout incase the user decides to do nothing :D
 	}
@@ -505,7 +505,7 @@ void ScreenEz2SelectMusic::Update( float fDeltaTime )
 	if(m_bMadeChoice && RageTimer::GetTimeSinceStartFast() > m_fRemainingWaitTime + 2 && !m_bTransitioning)
 	{
 		m_bTransitioning = true;
-		StartTransitioning( SM_GoToNextScreen );
+		StartTransitioningScreen( SM_GoToNextScreen );
 	}
 
 	Screen::Update( fDeltaTime );
@@ -641,7 +641,7 @@ void ScreenEz2SelectMusic::MusicChanged()
 
 	for( pn = 0; pn < NUM_PLAYERS; ++pn)
 	{
-		pSong->GetSteps( m_arrayNotes[pn], GAMESTATE->GetCurrentStyle()->m_StepsType );
+		SongUtil::GetSteps( pSong, m_arrayNotes[pn], GAMESTATE->GetCurrentStyle()->m_StepsType );
 		StepsUtil::SortNotesArrayByDifficulty( m_arrayNotes[pn] );
 	}
 

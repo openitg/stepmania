@@ -3,12 +3,14 @@
 #ifndef NOTEDATAUTIL_H
 #define NOTEDATAUTIL_H
 
-#include "GameConstantsAndTypes.h"	// for RadarCategory
+#include "GameConstantsAndTypes.h"
 #include "NoteTypes.h"
-#include "NoteData.h"
 
-struct PlayerOptions;
+class PlayerOptions;
 struct RadarValues;
+class NoteData;
+class Song;
+struct AttackArray;
 
 /* Utils for NoteData.  Things should go in here if they can be (cleanly and
  * efficiently) implemented using only NoteData's primitives; this improves
@@ -17,8 +19,10 @@ struct RadarValues;
 namespace NoteDataUtil
 {
 	NoteType GetSmallestNoteTypeForMeasure( const NoteData &n, int iMeasureIndex );
-	void LoadFromSMNoteDataString( NoteData &out, CString sSMNoteData );
-	void GetSMNoteDataString( const NoteData &in, CString &notes_out );
+	void LoadFromSMNoteDataString( NoteData &out, const RString &sSMNoteData, bool bComposite );
+	void GetSMNoteDataString( const NoteData &in, RString &notes_out );
+	void SplitCompositeNoteData( const NoteData &in, vector<NoteData> &out );
+	void CombineCompositeNoteData( NoteData &out, const vector<NoteData> &in );
 	void LoadTransformedSlidingWindow( const NoteData &in, NoteData &out, int iNewNumTracks );
 	void LoadOverlapped( const NoteData &in, NoteData &out, int iNewNumTracks );
 	void LoadTransformedLights( const NoteData &in, NoteData &out, int iNewNumTracks );
@@ -43,6 +47,7 @@ namespace NoteDataUtil
 	void RemoveMines( NoteData &inout, int iStartIndex = 0, int iEndIndex = MAX_NOTE_ROW );
 	void RemoveStretch( NoteData &inout, StepsType st, int iStartIndex = 0, int iEndIndex = MAX_NOTE_ROW );
 	void RemoveAllButOneTap( NoteData &inout, int row );
+	void RemoveAllButPlayer( NoteData &inout, PlayerNumber pn );
 	enum TrackMapping { left, right, mirror, shuffle, super_shuffle, stomp, NUM_TRACK_MAPPINGS };
 	void Turn( NoteData &inout, StepsType st, TrackMapping tt, int iStartIndex = 0, int iEndIndex = MAX_NOTE_ROW );
 	void Little( NoteData &inout, int iStartIndex = 0, int iEndIndex = MAX_NOTE_ROW );
@@ -100,8 +105,8 @@ namespace NoteDataUtil
 	void ScaleRegion( NoteData &nd, float fScale, int iStartIndex = 0, int iEndIndex = MAX_NOTE_ROW );
 	inline void Scale( NoteData &nd, float fScale ) { NoteDataUtil::ScaleRegion(nd, fScale); }
 
-	// If iRowsToShift > 0, add blank rows.  If iRowsToShift < 0, delete rows
-	void ShiftRows( NoteData &nd, int iStartIndex, int iRowsToShift );
+	void InsertRows( NoteData &nd, int iStartIndex, int iRowsToShift );
+	void DeleteRows( NoteData &nd, int iStartIndex, int iRowsToShift );
 
 	void RemoveAllTapsOfType( NoteData& ndInOut, TapNote::Type typeToRemove );
 	void RemoveAllTapsExceptForType( NoteData& ndInOut, TapNote::Type typeToKeep );

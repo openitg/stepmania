@@ -6,11 +6,6 @@
 #include "PrefsManager.h"
 
 REGISTER_SCREEN_CLASS( ScreenSongOptions );
-ScreenSongOptions::ScreenSongOptions( CString sClassName ) :
-	ScreenOptionsMaster( sClassName )
-{
-}
-
 
 void ScreenSongOptions::Init()
 {

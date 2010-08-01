@@ -1,6 +1,6 @@
 #include "global.h"
 #include "RageUtil.h"
-#include "StepMania.h"
+#include "RageException.h"
 #include "archutils/Unix/EmergencyShutdown.h"
 #include <unistd.h>
 #include <assert.h>
@@ -11,7 +11,7 @@
 
 extern "C" void __assert_fail( const char *assertion, const char *file, unsigned int line, const char *function ) throw()
 {
-	const CString error = ssprintf( "Assertion failure: %s: %s", function, assertion );
+	const RString error = ssprintf( "Assertion failure: %s: %s", function, assertion );
 
 #if defined(CRASH_HANDLER)
 	Checkpoints::SetCheckpoint( file, line, error );
@@ -19,7 +19,7 @@ extern "C" void __assert_fail( const char *assertion, const char *file, unsigned
 #else
 	/* It'd be nice to just throw an exception here, but throwing an exception
 	 * through C code sometimes explodes. */
-	HandleException( error );
+	RageException::CallCleanupHandler( error );
 
 	DoEmergencyShutdown();
 
@@ -30,13 +30,13 @@ extern "C" void __assert_fail( const char *assertion, const char *file, unsigned
 
 extern "C" void __assert_perror_fail( int errnum, const char *file, unsigned int line, const char *function ) throw()
 {
-	const CString error = ssprintf( "Assertion failure: %s: %s", function, strerror(errnum) );
+	const RString error = ssprintf( "Assertion failure: %s: %s", function, strerror(errnum) );
 
 #if defined(CRASH_HANDLER)
 	Checkpoints::SetCheckpoint( file, line, error );
 	sm_crash( strerror(errnum) );
 #else
-	HandleException( error );
+	RageException::CallCleanupHandler( error );
 
 	DoEmergencyShutdown();
 
@@ -54,11 +54,11 @@ void UnexpectedExceptionHandler()
 	int iStatus = -1;
 	char *pDem = abi::__cxa_demangle( pName, 0, 0, &iStatus );
 
-	const CString error = ssprintf("Unhandled exception: %s", iStatus? pName:pDem);
+	const RString error = ssprintf("Unhandled exception: %s", iStatus? pName:pDem);
 #if defined(CRASH_HANDLER)
 	sm_crash( error );
 #else
-	HandleException( error );
+	RageException::CallCleanupHandler( error );
 #endif
 }
 

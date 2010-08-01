@@ -23,22 +23,21 @@ GradeDisplay::GradeDisplay()
 	SetGrade( PLAYER_1, Grade_NoData );
 }
 
-bool GradeDisplay::Load( RageTextureID ID )
+void GradeDisplay::Load( RageTextureID ID )
 {
 	ID.bStretch = true;
 	Sprite::Load( ID );
 	Sprite::StopAnimating();
 
 	bool bWarn = Sprite::GetNumStates() != 8 && Sprite::GetNumStates() != 16;
-	if( ID.filename.Find("_blank") != -1 )
+	if( ID.filename.find("_blank") != RString::npos )
 		bWarn = false;
 	if( bWarn )
 	{
-		CString sError = ssprintf( "The grade graphic '%s' must have either 8 or 16 frames.", ID.filename.c_str() );
+		RString sError = ssprintf( "The grade graphic '%s' must have either 8 or 16 frames.", ID.filename.c_str() );
 		LOG->Warn( sError );
 		Dialog::OK( sError );
 	}
-	return true;
 }
 
 void GradeDisplay::Update( float fDeltaTime )
@@ -75,7 +74,7 @@ void GradeDisplay::Update( float fDeltaTime )
 
 int GradeDisplay::GetFrameIndex( PlayerNumber pn, Grade g )
 {
-	if( this->m_pTexture->GetID().filename.Find("_blank") != -1 )
+	if( this->m_pTexture->GetID().filename.find("_blank") != string::npos )
 		return 0;
 
 	// either 8, or 16 states
@@ -118,15 +117,17 @@ void GradeDisplay::SetGrade( PlayerNumber pn, Grade g )
 	if(g != Grade_NoData)
 	{
 		SetState( GetFrameIndex(pn,g) );
-		SetDiffuseAlpha( 1 );
+		SetHidden( false );
+		SetDiffuseAlpha(1);
 	}
 	else
 	{
-		SetDiffuseAlpha( 0 );
+		SetHidden( true );
+		SetDiffuseAlpha(0);
 	}
 }
 
-void GradeDisplay::Spin()
+void GradeDisplay::Scroll()
 {
 	m_bDoScrolling = true;
 
@@ -171,6 +172,25 @@ void GradeDisplay::SettleQuickly()
 	m_bDoScrolling = 2;
 	m_fTimeLeftInScroll = QUICK_SCROLL_TIME;
 }
+
+// lua start
+#include "LuaBinding.h"
+
+class LunaGradeDisplay: public Luna<GradeDisplay>
+{
+public:
+	LunaGradeDisplay() { LUA->Register( Register ); }
+
+	static int scroll( T* p, lua_State *L ) { p->Scroll(); return 0; }
+	static void Register(lua_State *L) {
+		ADD_METHOD( scroll );
+
+		Luna<T>::Register( L );
+	}
+};
+
+LUA_REGISTER_DERIVED_CLASS( GradeDisplay, Sprite )
+// lua end
 
 /*
  * (c) 2001-2002 Chris Danford

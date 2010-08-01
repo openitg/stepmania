@@ -5,7 +5,7 @@
 
 #define DIRECTINPUT_VERSION 0x0500
 #include <dinput.h>
-extern LPDIRECTINPUT dinput;
+extern LPDIRECTINPUT g_dinput;
 
 #define INPUT_QSIZE	32
 
@@ -24,6 +24,7 @@ struct DIDevice
 {
 	DIDEVICEINSTANCE JoystickInst;
 	LPDIRECTINPUTDEVICE2 Device;
+	RString m_sName;
 
 	enum { KEYBOARD, JOYSTICK } type;
 

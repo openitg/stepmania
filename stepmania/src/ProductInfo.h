@@ -5,10 +5,25 @@
 
 // Don't forget to also change ProductInfo.inc!
 
-#define PRODUCT_NAME "StepMania"
-#define PRODUCT_VER "4.0 CVS"
-//#define PRODUCT_VER "4.0 alpha 1"
-#define PRODUCT_NAME_VER PRODUCT_NAME " " PRODUCT_VER
+// Change these three.
+#define PRODUCT_FAMILY_BARE StepMania
+#define PRODUCT_ID_BARE StepMania4
+// String used for the install directory and registry locations
+#define PRODUCT_VER_BARE 4.0.b2
+
+// These cannot be #undef'd so make them unlikely to conflict with anything
+#define PRODUCT_STRINGIFY(x) #x
+#define PRODUCT_XSTRINGIFY(x) PRODUCT_STRINGIFY(x)
+
+#define PRODUCT_FAMILY		PRODUCT_XSTRINGIFY(PRODUCT_FAMILY_BARE)
+#define PRODUCT_ID		PRODUCT_XSTRINGIFY(PRODUCT_ID_BARE)
+#define PRODUCT_VER		PRODUCT_XSTRINGIFY(PRODUCT_VER_BARE)
+#define PRODUCT_DISPLAY		PRODUCT_FAMILY " " PRODUCT_VER
+
+#define VIDEO_TROUBLESHOOTING_URL "http://www.stepmania.com/wiki/Video_Driver_Troubleshooting"
+#define REPORT_BUG_URL "http://sourceforge.net/tracker/?func=add&group_id=37892&atid=421366"
+
+#define CAN_INSTALL_PACKAGES true
 
 #endif
 

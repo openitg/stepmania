@@ -16,41 +16,43 @@
 #include "GameManager.h"
 #include "StyleUtil.h"
 #include "ThemeManager.h"
-#include "PrefsManager.h"
 #include "Style.h"
 #include "CommonMetrics.h"
 #include "UnlockManager.h"
 #include "arch/LoadingWindow/LoadingWindow.h"
+#include "LocalizedString.h"
 
-#define SHOW_PLAY_MODE(pm)				THEME->GetMetricB("CatalogXml",ssprintf("ShowPlayMode%s",PlayModeToString(pm).c_str()))
-#define SHOW_STYLE(ps)					THEME->GetMetricB("CatalogXml",ssprintf("ShowStyle%s",Capitalize((ps)->m_szName).c_str()))
-#define INTERNET_RANKING_HOME_URL		THEME->GetMetric ("CatalogXml","InternetRankingHomeUrl")
-#define INTERNET_RANKING_UPLOAD_URL		THEME->GetMetric ("CatalogXml","InternetRankingUploadUrl")
+#define SHOW_PLAY_MODE(pm)		THEME->GetMetricB("CatalogXml",ssprintf("ShowPlayMode%s",PlayModeToString(pm).c_str()))
+#define SHOW_STYLE(ps)			THEME->GetMetricB("CatalogXml",ssprintf("ShowStyle%s",Capitalize((ps)->m_szName).c_str()))
+#define INTERNET_RANKING_HOME_URL	THEME->GetMetric ("CatalogXml","InternetRankingHomeUrl")
+#define INTERNET_RANKING_UPLOAD_URL	THEME->GetMetric ("CatalogXml","InternetRankingUploadUrl")
 #define INTERNET_RANKING_VIEW_GUID_URL	THEME->GetMetric ("CatalogXml","InternetRankingViewGuidUrl")
-#define PRODUCT_TITLE					THEME->GetMetric ("CatalogXml","ProductTitle")
-#define FOOTER_TEXT						THEME->GetMetric ("CatalogXml","FooterText")
-#define FOOTER_LINK						THEME->GetMetric ("CatalogXml","FooterLink")
+#define PRODUCT_TITLE			THEME->GetMetric ("CatalogXml","ProductTitle")
+#define FOOTER_TEXT			THEME->GetMetric ("CatalogXml","FooterText")
+#define FOOTER_LINK			THEME->GetMetric ("CatalogXml","FooterLink")
 
-const CString CATALOG_XML       = "Catalog.xml";
-const CString CATALOG_XSL       = "Catalog.xsl";
-const CString CATALOG_XML_FILE  = DATA_DIR + "Catalog.xml";
+// Catalog file paths.
+const RString CATALOG_XML       = "Catalog.xml";
+const RString CATALOG_XSL       = "Catalog.xsl";
+const RString CATALOG_XML_FILE  = "Save/" + CATALOG_XML;
 
-void SaveCatalogXml( LoadingWindow *loading_window )
+static LocalizedString SAVING_CATALOG_XML( "CatalogXml", "Saving %s ..." );
+void CatalogXml::Save( LoadingWindow *loading_window )
 {
 	ASSERT( SONGMAN );
 	ASSERT( UNLOCKMAN );
 
 	if( loading_window )
-		loading_window->SetText( "Saving Catalog.xml ..." );
+		loading_window->SetText( ssprintf(SAVING_CATALOG_XML.GetValue(),CATALOG_XML.c_str()) );
 
-	CString fn = CATALOG_XML_FILE;
+	RString fn = CATALOG_XML_FILE;
 
 	LOG->Trace( "Writing %s ...", fn.c_str() );
 
 	XNode xml;
 	xml.m_sName = "Catalog";
 
-	const vector<StepsType> &vStepsTypesToShow = STEPS_TYPES_TO_SHOW.GetValue();
+	const vector<StepsType> &vStepsTypesToShow = CommonMetrics::STEPS_TYPES_TO_SHOW.GetValue();
 	
 	{
 		XNode* pNode = xml.AppendChild( "Totals" );
@@ -59,9 +61,9 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 
 		int iTotalSongs = 0;
 		int iTotalSteps = 0;
-		vector<CString> vsGroups;
+		vector<RString> vsGroups;
 		SONGMAN->GetSongGroupNames( vsGroups );
-		FOREACH_CONST( CString, vsGroups, sGroup )
+		FOREACH_CONST( RString, vsGroups, sGroup )
 		{
 			XNode* p1 = pNumSongsByGroup->AppendChild( "Group" );
 			p1->AppendAttr( "Name", *sGroup );
@@ -75,22 +77,35 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			{
 				XNode* p3 = p2->AppendChild( "StepsType" );
 				p3->AppendAttr( "StepsType", GAMEMAN->StepsTypeToString(*st) );
-
-				int iNumStepsInGroupAndStepsType[NUM_DIFFICULTIES];
+				
+				int iNumStepsInGroupAndStepsType[NUM_Difficulty];
 				ZERO( iNumStepsInGroupAndStepsType );
 				FOREACH_CONST( Song*, vpSongsInGroup, i )
 				{
 					Song *pSong = *i;
+				
+				/*
+				 * Not all songs should be stored in Catalog.xml.  Tutorial songs
+				 * are meant to learn how to play the game, not for playing for
+				 * a grade.  Locked songs aren't shown to keep them a surprise
+				 * until such a time when they are unlocked.
+				 */
+				
 					if( pSong->IsTutorial() )
-						continue;	// skip
+						continue;	// skip: Tutorial song.
 					if( UNLOCKMAN->SongIsLocked(pSong) )
-						continue;	// skip
+						continue;	// skip: Locked song.
 					iTotalSongs++;
 					iNumSongsInGroup++;
-
-					FOREACH_CONST( Difficulty, DIFFICULTIES_TO_SHOW.GetValue(), dc )
+					FOREACH_CONST( Difficulty, CommonMetrics::DIFFICULTIES_TO_SHOW.GetValue(), dc )
 					{
-						Steps* pSteps = pSong->GetStepsByDifficulty( *st, *dc, false );	// no autogen
+						Steps* pSteps = SongUtil::GetStepsByDifficulty( pSong, *st, *dc, false );	// no autogen
+						
+						/*
+						 * There is no point in storing the steps if either there
+						 * are no steps, or the song is locked.
+						 */
+						
 						if( pSteps == NULL )
 							continue;	// skip
 						if( UNLOCKMAN->StepsIsLocked(pSong,pSteps) )
@@ -114,7 +129,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			Course* pCourse = vpCourses[i];
 			// skip non-fixed courses.  We don't have any stable data for them other than 
 			// the title.
-			if( !pCourse->IsFixed() )
+			if( !pCourse->AllSongsAreFixed() )
 				continue;
 			if( UNLOCKMAN->CourseIsLocked(pCourse) )
 				continue;
@@ -130,15 +145,15 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 				continue;
 			switch( e->m_Type )
 			{
-			case UnlockEntry::TYPE_SONG:	iNumUnlockedSongs++;	break;
-			case UnlockEntry::TYPE_STEPS:	iNumUnlockedSteps++;	break;
-			case UnlockEntry::TYPE_COURSE:	iNumUnlockedCourses++;	break;
+			case UnlockRewardType_Song:	iNumUnlockedSongs++;	break;
+			case UnlockRewardType_Steps:	iNumUnlockedSteps++;	break;
+			case UnlockRewardType_Course:	iNumUnlockedCourses++;	break;
 			}
 		}
 
-		pNode->AppendChild( "TotalSongs",			iTotalSongs );
-		pNode->AppendChild( "TotalSteps",			iTotalSteps );
-		pNode->AppendChild( "TotalCourses",			iTotalCourses );
+		pNode->AppendChild( "TotalSongs",		iTotalSongs );
+		pNode->AppendChild( "TotalSteps",		iTotalSteps );
+		pNode->AppendChild( "TotalCourses",		iTotalCourses );
 		pNode->AppendChild( "NumUnlockedSongs",		iNumUnlockedSongs );
 		pNode->AppendChild( "NumUnlockedSteps",		iNumUnlockedSteps );
 		pNode->AppendChild( "NumUnlockedCourses",	iNumUnlockedCourses );
@@ -152,10 +167,17 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 		{
 			Song* pSong = vpSongs[i];
 			
+			/*
+			 * Not all songs should be stored in Catalog.xml.  Tutorial songs
+			 * are meant to learn how to play the game, not for playing for
+			 * a grade.  Locked songs aren't shown to keep them a surprise
+			 * until such a time when they are unlocked.
+			 */
+			
 			if( pSong->IsTutorial() )
-				continue;	// skip
+				continue;	// skip: Tutorial song.
 			if( UNLOCKMAN->SongIsLocked(pSong) )
-				continue;	// skip
+				continue;	// skip: Locked song.
 
 			SongID songID;
 			songID.FromSong( pSong );
@@ -169,9 +191,9 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 
 			FOREACH_CONST( StepsType, vStepsTypesToShow, st )
 			{
-				FOREACH_CONST( Difficulty, DIFFICULTIES_TO_SHOW.GetValue(), dc )
+				FOREACH_CONST( Difficulty, CommonMetrics::DIFFICULTIES_TO_SHOW.GetValue(), dc )
 				{
-					Steps* pSteps = pSong->GetStepsByDifficulty( *st, *dc, false );	// no autogen
+					Steps* pSteps = SongUtil::GetStepsByDifficulty( pSong, *st, *dc, false );	// no autogen
 					if( pSteps == NULL )
 						continue;	// skip
 					if( UNLOCKMAN->StepsIsLocked(pSong,pSteps) )
@@ -202,7 +224,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 
 			// skip non-fixed courses.  We don't have any stable data for them other than 
 			// the title.
-			if( !pCourse->IsFixed() )
+			if( !pCourse->AllSongsAreFixed() )
 				continue;
 			if( UNLOCKMAN->CourseIsLocked(pCourse) )
 				continue;
@@ -218,7 +240,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			pCourseNode->AppendChild( "SubTitle", pCourse->GetDisplaySubTitle() );
 			pCourseNode->AppendChild( "HasMods", pCourse->HasMods() );
 
-			const vector<CourseDifficulty> &vDiffs = COURSE_DIFFICULTIES_TO_SHOW.GetValue();
+			const vector<CourseDifficulty> &vDiffs = CommonMetrics::COURSE_DIFFICULTIES_TO_SHOW.GetValue();
 
 			FOREACH_CONST( StepsType, vStepsTypesToShow, st )
 			{
@@ -248,19 +270,19 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 
 		{
 			XNode* pNode2 = pNode->AppendChild( "Difficulty" );
-			FOREACH_CONST( Difficulty, DIFFICULTIES_TO_SHOW.GetValue(), iter )
+			FOREACH_CONST( Difficulty, CommonMetrics::DIFFICULTIES_TO_SHOW.GetValue(), iter )
 			{
 				XNode* pNode3 = pNode2->AppendChild( "Difficulty", DifficultyToString(*iter) );
-				pNode3->AppendAttr( "DisplayAs", DifficultyToThemedString(*iter) );
+				pNode3->AppendAttr( "DisplayAs", DifficultyToLocalizedString(*iter) );
 			}
 		}
 
 		{
 			XNode* pNode2 = pNode->AppendChild( "CourseDifficulty" );
-			FOREACH_CONST( CourseDifficulty, COURSE_DIFFICULTIES_TO_SHOW.GetValue(), iter )
+			FOREACH_CONST( CourseDifficulty, CommonMetrics::COURSE_DIFFICULTIES_TO_SHOW.GetValue(), iter )
 			{
 				XNode* pNode3 = pNode2->AppendChild( "CourseDifficulty", CourseDifficultyToString(*iter) );
-				pNode3->AppendAttr( "DisplayAs", CourseDifficultyToThemedString(*iter) );
+				pNode3->AppendAttr( "DisplayAs", CourseDifficultyToLocalizedString(*iter) );
 			}
 		}
 
@@ -269,7 +291,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			FOREACH_CONST( StepsType, vStepsTypesToShow, iter )
 			{
 				XNode* pNode3 = pNode2->AppendChild( "StepsType", GAMEMAN->StepsTypeToString(*iter) );
-				pNode3->AppendAttr( "DisplayAs", GAMEMAN->StepsTypeToThemedString(*iter) );
+				pNode3->AppendAttr( "DisplayAs", GAMEMAN->StepsTypeToLocalizedString(*iter) );
 			}
 		}
 
@@ -280,7 +302,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 				if( !SHOW_PLAY_MODE(pm) )
 					continue;
 				XNode* pNode3 = pNode2->AppendChild( "PlayMode", PlayModeToString(pm) );
-				pNode3->AppendAttr( "DisplayAs", PlayModeToThemedString(pm) );
+				pNode3->AppendAttr( "DisplayAs", PlayModeToLocalizedString(pm) );
 			}
 		}
 
@@ -295,7 +317,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 				StyleID sID;
 				sID.FromStyle( (*pStyle) );
 				XNode* pNode3 = pNode2->AppendChild( sID.CreateNode() );
-				pNode3->AppendAttr( "DisplayAs", GAMEMAN->StyleToThemedString(*pStyle) );
+				pNode3->AppendAttr( "DisplayAs", GAMEMAN->StyleToLocalizedString(*pStyle) );
 			}
 		}
 
@@ -313,7 +335,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			FOREACH_UsedGrade( g )
 			{
 				XNode* pNode3 = pNode2->AppendChild( "Grade", GradeToString(g) );
-				pNode3->AppendAttr( "DisplayAs", GradeToThemedString(g) );
+				pNode3->AppendAttr( "DisplayAs", GradeToLocalizedString(g) );
 			}
 		}
 
@@ -322,7 +344,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			FOREACH_TapNoteScore( tns )
 			{
 				XNode* pNode3 = pNode2->AppendChild( "TapNoteScore", TapNoteScoreToString(tns) );
-				pNode3->AppendAttr( "DisplayAs", TapNoteScoreToThemedString(tns) );
+				pNode3->AppendAttr( "DisplayAs", TapNoteScoreToLocalizedString(tns) );
 			}
 		}
 
@@ -331,7 +353,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			FOREACH_HoldNoteScore( hns )
 			{
 				XNode* pNode3 = pNode2->AppendChild( "HoldNoteScore", HoldNoteScoreToString(hns) );
-				pNode3->AppendAttr( "DisplayAs", HoldNoteScoreToThemedString(hns) );
+				pNode3->AppendAttr( "DisplayAs", HoldNoteScoreToLocalizedString(hns) );
 			}
 		}
 
@@ -340,21 +362,21 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 			FOREACH_RadarCategory( rc )
 			{
 				XNode* pNode3 = pNode2->AppendChild( "RadarValue", RadarCategoryToString(rc) );
-				pNode3->AppendAttr( "DisplayAs", RadarCategoryToThemedString(rc) );
+				pNode3->AppendAttr( "DisplayAs", RadarCategoryToLocalizedString(rc) );
 			}
 		}
 
 		{
 			XNode* pNode2 = pNode->AppendChild( "Modifier" );
-			vector<CString> modifiers;
-			THEME->GetModifierNames( modifiers );
-			FOREACH_CONST( CString, modifiers, iter )
+			vector<RString> modifiers;
+			THEME->GetOptionNames( modifiers );
+			FOREACH_CONST( RString, modifiers, iter )
 			{
 				PlayerOptions po;
-				CString s = *iter;
+				RString s = *iter;
 				po.FromString( s, false );
-				vector<CString> v;
-				po.GetThemedMods( v );
+				vector<RString> v;
+				po.GetLocalizedMods( v );
 				if( v.empty() )
 					continue;
 				XNode* pNode3 = pNode2->AppendChild( "Modifier", *iter );
@@ -373,7 +395,7 @@ void SaveCatalogXml( LoadingWindow *loading_window )
 	DISP_OPT opts;
 	opts.stylesheet = CATALOG_XSL;
 	opts.write_tabs = false;
-	xml.SaveToFile(fn, &opts);
+	xml.SaveToFile(fn, opts);
 
 	LOG->Trace( "Done." );
 }

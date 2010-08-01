@@ -1,58 +1,62 @@
+#define CO_EXIST_WITH_MFC
+#include "global.h"
 #include "stdafx.h"
 #include "SMPackageUtil.h"
-#include "Registry.h"
+#include "archutils/Win32/RegistryAccess.h"
+#include "ProductInfo.h"	
+#include "RageUtil.h"	
+#include "RageFileManager.h"	
+#include "resource.h"	
+#include "LocalizedString.h"
+#include "arch/Dialog/Dialog.h"
 
-void WriteStepManiaInstallDirs( const CStringArray& asInstallDirsToWrite )
+static const RString SMPACKAGE_KEY = "HKEY_LOCAL_MACHINE\\Software\\" PRODUCT_ID "\\smpackage";
+static const RString INSTALLATIONS_KEY = "HKEY_LOCAL_MACHINE\\Software\\" PRODUCT_ID "\\smpackage\\Installations";
+
+void SMPackageUtil::WriteGameInstallDirs( const vector<RString>& asInstallDirsToWrite )
 {
-	CRegistry Reg;
-	Reg.SetRootKey(HKEY_LOCAL_MACHINE);
-	Reg.SetKey("Software\\StepMania\\smpackage\\Installations", TRUE);	// create if not already present
+	RegistryAccess::CreateKey( INSTALLATIONS_KEY );
 
-	unsigned i;
-
-	for( i=0; i<100; i++ )
+	for( unsigned i=0; i<100; i++ )
 	{
-		CString sName = ssprintf("%d",i);
-//		Reg.DeleteKey( sName );	// delete key is broken in this library, so just write over it with ""
-		Reg.WriteString( sName, "" );
-	}
+		RString sName = ssprintf("%d",i);
+		RString sValue;
+		if( i < asInstallDirsToWrite.size() )
+			sValue = asInstallDirsToWrite[i];
 
-	for( i=0; i<asInstallDirsToWrite.size(); i++ )
-	{
-		CString sName = ssprintf("%d",i);
-		Reg.WriteString( sName, asInstallDirsToWrite[i] );
+		RegistryAccess::SetRegValue( INSTALLATIONS_KEY, sName, sValue );
 	}
-
 }
 
-void GetStepManiaInstallDirs( CStringArray& asInstallDirsOut )
+void SMPackageUtil::GetGameInstallDirs( vector<RString>& asInstallDirsOut )
 {
 	asInstallDirsOut.clear();
 
-	CRegistry Reg;
-	Reg.SetRootKey(HKEY_LOCAL_MACHINE);
-	Reg.SetKey("Software\\StepMania\\smpackage\\Installations", TRUE);	// create if not already present
-
 	for( int i=0; i<100; i++ )
 	{
-		CString sName = ssprintf("%d",i);
+		RString sName = ssprintf("%d",i);
 
-		CString sPath = Reg.ReadString( sName, "" );
+		RString sPath;
+		if( !RegistryAccess::GetRegValue(INSTALLATIONS_KEY, sName, sPath) )
+			continue;
 
-		if( sPath == "" )	// read failed
+		if( sPath == "" )	// blank entry
+			continue;	// skip
+
+		if( !IsValidInstallDir(sPath) )
 			continue;	// skip
 
 		asInstallDirsOut.push_back( sPath );
 	} 
 
 	// while we're at it, write to clean up stale entries
-	WriteStepManiaInstallDirs( asInstallDirsOut );
+	WriteGameInstallDirs( asInstallDirsOut );
 }
 
-void AddStepManiaInstallDir( CString sNewInstallDir )
+void SMPackageUtil::AddGameInstallDir( const RString &sNewInstallDir )
 {
-	CStringArray asInstallDirs;
-	GetStepManiaInstallDirs( asInstallDirs );
+	vector<RString> asInstallDirs;
+	GetGameInstallDirs( asInstallDirs );
 
 	bool bAlreadyInList = false;
 	for( unsigned i=0; i<asInstallDirs.size(); i++ )
@@ -67,36 +71,59 @@ void AddStepManiaInstallDir( CString sNewInstallDir )
 	if( !bAlreadyInList )
 		asInstallDirs.push_back( sNewInstallDir );
 
-	WriteStepManiaInstallDirs( asInstallDirs );
+	WriteGameInstallDirs( asInstallDirs );
 }
 
-
-bool GetPref( CString name, bool &val )
+void SMPackageUtil::SetDefaultInstallDir( int iInstallDirIndex )
 {
-	CRegistry Reg;
-	Reg.SetRootKey(HKEY_LOCAL_MACHINE);
-	Reg.SetKey("Software\\StepMania\\smpackage", FALSE);	// don't create if not already present
-	return Reg.Read( name, val );
+	// move the specified index to the top of the list
+	vector<RString> asInstallDirs;
+	GetGameInstallDirs( asInstallDirs );
+	ASSERT( iInstallDirIndex >= 0  &&  iInstallDirIndex < (int)asInstallDirs.size() );
+	RString sDefaultInstallDir = asInstallDirs[iInstallDirIndex];
+	asInstallDirs.erase( asInstallDirs.begin()+iInstallDirIndex );
+	asInstallDirs.insert( asInstallDirs.begin(), sDefaultInstallDir );
+	WriteGameInstallDirs( asInstallDirs );
 }
 
-bool SetPref( CString name, bool val )
+void SMPackageUtil::SetDefaultInstallDir( const RString &sInstallDir )
 {
-	CRegistry Reg;
-	Reg.SetRootKey(HKEY_LOCAL_MACHINE);
-	Reg.SetKey("Software\\StepMania\\smpackage", TRUE);	// don't create if not already present
-	Reg.WriteBool( name, val );
-	return false;
+	vector<RString> asInstallDirs;
+	GetGameInstallDirs( asInstallDirs );
 
+	for( unsigned i=0; i<asInstallDirs.size(); i++ )
+	{
+		if( asInstallDirs[i].CompareNoCase(sInstallDir) == 0 )
+		{
+			SetDefaultInstallDir( i );
+			break;
+		}
+	}
+}
+
+bool SMPackageUtil::IsValidInstallDir( const RString &sInstallDir )
+{
+	return DoesOsAbsoluteFileExist( sInstallDir + "/Songs" );
+}
+
+bool SMPackageUtil::GetPref( const RString &name, bool &val )
+{
+	return RegistryAccess::GetRegValue( SMPACKAGE_KEY, name, val );
+}
+
+bool SMPackageUtil::SetPref( const RString &name, bool val )
+{
+	return RegistryAccess::SetRegValue( SMPACKAGE_KEY, name, val );
 }
 
 /* Get a package directory.  For most paths, this is the first two components.  For
  * songs and note skins, this is the first three. */
-CString GetPackageDirectory(CString path)
+RString SMPackageUtil::GetPackageDirectory(const RString &path)
 {
-	if( path.Find("CVS") != -1 )
+	if( path.find("CVS") != string::npos )
 		return "";	// skip
 
-	CStringArray Parts;
+	vector<RString> Parts;
 	split( path, "\\", Parts );
 
 	unsigned NumParts = 2;
@@ -107,18 +134,17 @@ CString GetPackageDirectory(CString path)
 
 	Parts.erase(Parts.begin() + NumParts, Parts.end());
 
-	CString ret = join( "\\", Parts );
+	RString ret = join( "\\", Parts );
 	if( !IsADirectory(ret) )
 		return "";
 	return ret;
 }
 
-
-bool IsValidPackageDirectory(CString path)
+bool SMPackageUtil::IsValidPackageDirectory( const RString &path )
 {
 	/* Make sure the path contains only second-level directories, and doesn't
 	 * contain any ".", "..", "...", etc. dirs. */
-	CStringArray Parts;
+	vector<RString> Parts;
 	split( path, "\\", Parts, true );
 	if( Parts.size() == 0 )
 		return false;
@@ -138,3 +164,124 @@ bool IsValidPackageDirectory(CString path)
 	return true;
 }
 
+static LocalizedString COULD_NOT_FIND( "SMPackageUtil", "Could not find '%s'." );
+bool SMPackageUtil::LaunchGame()
+{
+	PROCESS_INFORMATION pi;
+	STARTUPINFO	si;
+	ZeroMemory( &si, sizeof(si) );
+
+	RString sFile = "Program\\" PRODUCT_FAMILY ".exe";
+
+	BOOL bSuccess = CreateProcess(
+		sFile,	// pointer to name of executable module
+		NULL,	// pointer to command line string
+		NULL,  // process security attributes
+		NULL,   // thread security attributes
+		false,  // handle inheritance flag
+		0, // creation flags
+		NULL,  // pointer to new environment block
+		NULL,   // pointer to current directory name
+		&si,  // pointer to STARTUPINFO
+		&pi  // pointer to PROCESS_INFORMATION
+	);
+	if( !bSuccess )
+	{
+		RString sError = ssprintf( COULD_NOT_FIND.GetValue(), sFile.c_str() );
+		Dialog::OK( sError );
+		return false;
+	}
+
+	return true;
+}
+
+RString SMPackageUtil::GetLanguageDisplayString( const RString &sIsoCode )
+{
+	const LanguageInfo *li = GetLanguageInfo( sIsoCode );
+	return ssprintf( "%s (%s)", li ? li->szIsoCode:sIsoCode.c_str(), li ? li->szNativeName:"???" );
+}
+
+RString SMPackageUtil::GetLanguageCodeFromDisplayString( const RString &sDisplayString )
+{
+	RString s = sDisplayString;
+	// strip the space and everything after
+	size_t iSpace = s.find(' ');
+	ASSERT( iSpace != s.npos ); 
+	s.erase( s.begin()+iSpace, s.end() );
+	return s;
+}
+
+void SMPackageUtil::StripIgnoredSmzipFiles( vector<RString> &vsFilesInOut )
+{
+	for( int i=vsFilesInOut.size()-1; i>=0; i-- )
+	{
+		const RString &sFile = vsFilesInOut[i];
+
+		bool bEraseThis = false;
+		bEraseThis |= EndsWith( sFile, "smzip.ctl" );
+		bEraseThis |= EndsWith( sFile, ".old" );
+		bEraseThis |= EndsWith( sFile, "Thumbs.db" );
+		bEraseThis |= EndsWith( sFile, ".DS_Store" );
+		bEraseThis |= (sFile.find("CVS") != string::npos);
+
+		if( bEraseThis )
+			vsFilesInOut.erase( vsFilesInOut.begin()+i );
+	}
+}
+
+bool SMPackageUtil::DoesOsAbsoluteFileExist( const RString &sOsAbsoluteFile )
+{
+#if defined(WIN32)
+	DWORD dwAttr = ::GetFileAttributes( sOsAbsoluteFile );
+	return bool(dwAttr != (DWORD)-1);
+#endif
+}
+
+
+static const RString TEMP_MOUNT_POINT = "/@package/";
+
+RageFileOsAbsolute::~RageFileOsAbsolute()
+{
+	if( !m_sOsDir.empty() )
+		FILEMAN->Unmount( "dir", m_sOsDir, TEMP_MOUNT_POINT );
+}
+
+bool RageFileOsAbsolute::Open( const RString& path, int mode )
+{
+	if( !m_sOsDir.empty() )
+		FILEMAN->Unmount( "dir", m_sOsDir, TEMP_MOUNT_POINT );
+
+	m_sOsDir = path;
+	size_t iStart = m_sOsDir.find_last_of( "/\\" );
+	ASSERT( iStart != m_sOsDir.npos );
+	m_sOsDir.erase( m_sOsDir.begin()+iStart, m_sOsDir.end() );
+
+	FILEMAN->Mount( "dir", m_sOsDir, TEMP_MOUNT_POINT );	
+	RString sFileName = path.Right( path.size()-m_sOsDir.size() );
+	return RageFile::Open( TEMP_MOUNT_POINT+sFileName, mode );
+}
+
+/*
+ * (c) 2002-2005 Chris Danford
+ * All rights reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, and/or sell copies of the Software, and to permit persons to
+ * whom the Software is furnished to do so, provided that the above
+ * copyright notice(s) and this permission notice appear in all copies of
+ * the Software and that both the above copyright notice(s) and this
+ * permission notice appear in supporting documentation.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+ * THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+ * INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT
+ * OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */

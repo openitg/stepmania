@@ -6,16 +6,20 @@
 class RageDisplay_Null: public RageDisplay
 {
 public:
-	RageDisplay_Null( VideoModeParams p );
+	RageDisplay_Null();
+	virtual RString Init( const VideoModeParams &p, bool bAllowUnacceleratedRenderer );
 
-	void ResolutionChanged() { }
+	virtual RString GetApiDescription() const { return "Null"; }
+	virtual void GetDisplayResolutions( DisplayResolutions &out ) const;
+	virtual float GetMonitorAspectRatio() const { return 4/3.f; }
 	const PixelFormatDesc *GetPixelFormatDesc(PixelFormat pf) const;
 
 	bool BeginFrame() { return true; }
 	void EndFrame();
-	VideoModeParams GetVideoModeParams() const { return m_Params; }
+	VideoModeParams GetActualVideoModeParams() const { return m_Params; }
 	void SetBlendMode( BlendMode mode ) { }
 	bool SupportsTextureFormat( PixelFormat pixfmt, bool realtime=false ) { return true; }
+	bool SupportsPerVertexMatrixScale() { return false; }
 	unsigned CreateTexture( 
 		PixelFormat pixfmt, 
 		RageSurface* img,
@@ -28,7 +32,7 @@ public:
 	void DeleteTexture( unsigned uTexHandle ) { }
 	void ClearAllTextures() { }
 	int GetNumTextureUnits() { return 1; }
-	void SetTexture( int iTextureUnitIndex, RageTexture* pTexture ) { }
+	void SetTexture( TextureUnit tu, RageTexture* pTexture ) { }
 	void SetTextureModeModulate() { }
 	void SetTextureModeGlow() { }
 	void SetTextureModeAdd() { }
@@ -74,9 +78,8 @@ protected:
 	void DrawLineStripInternal( const RageSpriteVertex v[], int iNumVerts, float LineWidth ) { }
 
 	VideoModeParams m_Params;
-	CString TryVideoMode( VideoModeParams params, bool &bNewDeviceOut ) { m_Params = params; return CString(); }
+	RString TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut ) { m_Params = p; return RString(); }
 	RageSurface* CreateScreenshot();
-	void SetViewport(int shift_left, int shift_down) { }
 	RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf ); 
 	bool SupportsSurfaceFormat( PixelFormat pixfmt ) { return true; }
 };

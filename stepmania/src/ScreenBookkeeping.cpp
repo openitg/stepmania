@@ -6,13 +6,11 @@
 #include "Bookkeeper.h"
 #include "ScreenDimensions.h"
 #include "InputEventPlus.h"
+#include "RageUtil.h"
+#include "LocalizedString.h"
 
 
 REGISTER_SCREEN_CLASS( ScreenBookkeeping );
-ScreenBookkeeping::ScreenBookkeeping( CString sClassName ) : ScreenWithMenuElements( sClassName )
-{
-	LOG->Trace( "ScreenBookkeeping::ScreenBookkeeping()" );
-}
 
 void ScreenBookkeeping::Init()
 {
@@ -82,7 +80,7 @@ void ScreenBookkeeping::MenuStart( PlayerNumber pn )
 	if( !IsTransitioning() )
 	{
 		SCREENMAN->PlayStartSound();
-		StartTransitioning( SM_GoToNextScreen );		
+		StartTransitioningScreen( SM_GoToNextScreen );		
 	}
 }
 
@@ -91,7 +89,7 @@ void ScreenBookkeeping::MenuBack( PlayerNumber pn )
 	if(!IsTransitioning())
 	{
 		SCREENMAN->PlayStartSound();
-		StartTransitioning( SM_GoToPrevScreen );		
+		StartTransitioningScreen( SM_GoToPrevScreen );		
 	}
 }
 
@@ -102,15 +100,20 @@ void ScreenBookkeeping::MenuCoin( PlayerNumber pn )
 	Screen::MenuCoin( pn );
 }
 
+static LocalizedString ALL_TIME		( "ScreenBookkeeping", "All-time Total:" );
+static LocalizedString LAST_DAYS	( "ScreenBookkeeping", "Coin Data of Last %d Days" );
+static LocalizedString LAST_WEEKS	( "ScreenBookkeeping", "Coin Data of Last %d Weeks" );
+static LocalizedString DAY_OF_WEEK	( "ScreenBookkeeping", "Coin Data by Day of Week, All-Time" );
+static LocalizedString HOUR_OF_DAY	( "ScreenBookkeeping", "Coin Data by Hour of Day, All-Time" );
 void ScreenBookkeeping::ChangeView( View newView )
 {
 	m_View = newView;
 
 
 	{
-		CString s;
-		s += "All-time Total: ";
-		s += ssprintf( "%i\n", BOOKKEEPER->GetCoinsTotal() );
+		RString s;
+		s += ALL_TIME.GetValue();
+		s += ssprintf( " %i\n", BOOKKEEPER->GetCoinsTotal() );
 		m_textAllTime.SetText( s );
 	}
 
@@ -118,21 +121,21 @@ void ScreenBookkeeping::ChangeView( View newView )
 	{
 	case VIEW_LAST_DAYS:
 		{
-			m_textTitle.SetText( ssprintf("Coin Data of Last %d Days", NUM_LAST_DAYS) );
+			m_textTitle.SetText( ssprintf(LAST_DAYS.GetValue(), NUM_LAST_DAYS) );
 
 			int coins[NUM_LAST_DAYS];
 			BOOKKEEPER->GetCoinsLastDays( coins );
 			int iTotalLast = 0;
 			
-			CString sTitle, sData;
+			RString sTitle, sData;
 			for( int i=0; i<NUM_LAST_DAYS; i++ )
 			{
-				sTitle += LastDayToDisplayString(i) + "\n";
+				sTitle += LastDayToLocalizedString(i) + "\n";
 				sData += ssprintf("%d",coins[i]) + "\n";
 				iTotalLast += coins[i];
 			}
 
-			sTitle += "Total\n";
+			sTitle += ALL_TIME.GetValue()+"\n";
 			sData += ssprintf("%i\n", iTotalLast);
 			
 			m_textData[0].SetText( "" );
@@ -145,19 +148,19 @@ void ScreenBookkeeping::ChangeView( View newView )
 		break;
 	case VIEW_LAST_WEEKS:
 		{
-			m_textTitle.SetText( ssprintf("Coin Data of Last %d Weeks", NUM_LAST_WEEKS) );
+			m_textTitle.SetText( ssprintf(LAST_WEEKS.GetValue(), NUM_LAST_WEEKS) );
 
 			int coins[NUM_LAST_WEEKS];
 			BOOKKEEPER->GetCoinsLastWeeks( coins );
 
-			CString sTitle, sData;
+			RString sTitle, sData;
 			for( int col=0; col<4; col++ )
 			{
-				CString sTemp;
+				RString sTemp;
 				for( int row=0; row<52/4; row++ )
 				{
 					int week = row*4+col;
-					sTemp += LastWeekToDisplayString(week) + ssprintf(": %d",coins[week]) + "\n";
+					sTemp += LastWeekToLocalizedString(week) + ssprintf(": %d",coins[week]) + "\n";
 				}
 
 				m_textData[col].SetHorizAlign( Actor::align_left );
@@ -167,12 +170,12 @@ void ScreenBookkeeping::ChangeView( View newView )
 		break;
 	case VIEW_DAY_OF_WEEK:
 		{
-			m_textTitle.SetText( "Coin Data by Day of Week" );
+			m_textTitle.SetText( DAY_OF_WEEK );
 
 			int coins[DAYS_IN_WEEK];
 			BOOKKEEPER->GetCoinsByDayOfWeek( coins );
 
-			CString sTitle, sData;
+			RString sTitle, sData;
 			for( int i=0; i<DAYS_IN_WEEK; i++ )
 			{
 				sTitle += DayOfWeekToString(i) + "\n";
@@ -189,22 +192,22 @@ void ScreenBookkeeping::ChangeView( View newView )
 		break;
 	case VIEW_HOUR_OF_DAY:
 		{
-			m_textTitle.SetText( "Coin Data by Hour of Day" );
+			m_textTitle.SetText( HOUR_OF_DAY );
 
 			int coins[HOURS_IN_DAY];
 			BOOKKEEPER->GetCoinsByHour( coins );
 
-			CString sTitle1, sData1;
+			RString sTitle1, sData1;
 			for( int i=0; i<HOURS_IN_DAY/2; i++ )
 			{
-				sTitle1 += HourInDayToDisplayString(i) + "\n";
+				sTitle1 += HourInDayToLocalizedString(i) + "\n";
 				sData1 += ssprintf("%d",coins[i]) + "\n";
 			}
 			
-			CString sTitle2, sData2;
+			RString sTitle2, sData2;
 			for( int i=(HOURS_IN_DAY/2); i<HOURS_IN_DAY; i++ )
 			{
-				sTitle2 += HourInDayToDisplayString(i) + "\n";
+				sTitle2 += HourInDayToLocalizedString(i) + "\n";
 				sData2 += ssprintf("%d",coins[i]) + "\n";
 			}
 			

@@ -3,12 +3,12 @@
 
 class Style;
 class Song;
-struct XNode;
+class XNode;
 
 class StyleID
 {
-	CString sGame;
-	CString sStyle;
+	RString sGame;
+	RString sStyle;
 
 public:
 	StyleID() { Unset(); }

@@ -9,15 +9,15 @@
 
 LuaFunction( GradeToString,			GradeToString((Grade)IArg(1)) )
 
-CString GradeToThemedString( Grade g )
+RString GradeToLocalizedString( Grade g )
 {
-	CString s = GradeToString(g);
-	if( !THEME->HasMetric("Grade",s) )
+	RString s = GradeToString(g);
+	if( !THEME->HasString("Grade",s) )
 		return "???";
-	return THEME->GetMetric( "Grade",s );
+	return THEME->GetString( "Grade",s );
 }
 
-CString GradeToOldString( Grade g )
+RString GradeToOldString( Grade g )
 {
 	// string is meant to be human readable
 	switch( g )
@@ -35,30 +35,16 @@ CString GradeToOldString( Grade g )
 	}
 };
 
-Grade StringToGrade( const CString &sGrade )
+Grade StringToGrade( const RString &sGrade )
 {
-	CString s = sGrade;
+	RString s = sGrade;
 	s.MakeUpper();
 
-	// for backward compatibility
-	if	   ( s == "AAAA" )		return Grade_Tier01;
-	else if( s == "AAA" )		return Grade_Tier02;
-	else if( s == "AA" )		return Grade_Tier03;
-	else if( s == "A" )			return Grade_Tier04;
-	else if( s == "B" )			return Grade_Tier05;
-	else if( s == "C" )			return Grade_Tier06;
-	else if( s == "D" )			return Grade_Tier07;
-	else if( s == "E" )			return Grade_Failed;
-	else if( s == "N" )			return Grade_NoData;
-
-
 	// new style
-	if	   ( s == "FAILED" )	return Grade_Failed;
-	else if( s == "NODATA" )	return Grade_NoData;
-
 	int iTier;
-	if( sscanf(sGrade.c_str(),"Tier%02d",&iTier) == 1 )
-		return (Grade)(iTier-1);
+	if( sscanf(sGrade.c_str(),"Tier%02d",&iTier) == 1 )		return (Grade)(iTier-1);
+	else if( s == "FAILED" )	return Grade_Failed;
+	else if( s == "NODATA" )	return Grade_NoData;
 
 	LOG->Warn( "Invalid grade: %s", sGrade.c_str() );
 	return Grade_NoData;
@@ -68,7 +54,7 @@ static void LuaGrade(lua_State* L)
 {
 	FOREACH_Grade( g )
 	{
-		CString s = GradeToString(g);
+		RString s = GradeToString(g);
 		LUA->SetGlobal( "Grade_"+s, g );
 	}
 	LUA->SetGlobal( "NUM_Grade", NUM_Grade );

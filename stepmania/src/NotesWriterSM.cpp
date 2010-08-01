@@ -12,10 +12,13 @@
 #include <cerrno>
 #include "Foreach.h"
 #include "BackgroundUtil.h"
+#include "ProfileManager.h"
+#include "Profile.h"
+#include "LocalizedString.h"
 
-static CString BackgroundChangeToString( const BackgroundChange &bgc )
+static RString BackgroundChangeToString( const BackgroundChange &bgc )
 {
-	CString s = ssprintf( 
+	RString s = ssprintf( 
 		"%.3f=%s=%.3f=%d=%d=%d=%s=%s=%s=%s=%s", 
 		bgc.m_fStartBeat, 
 		bgc.m_def.m_sFile1.c_str(), 
@@ -141,7 +144,7 @@ void NotesWriterSM::WriteGlobalTags( RageFile &f, const Song &out )
 	f.PutLine( ";" );
 }
 
-static CString JoinLineList( vector<CString> &lines )
+static RString JoinLineList( vector<RString> &lines )
 {
 	for( unsigned i = 0; i < lines.size(); ++i )
 		TrimRight( lines[i] );
@@ -154,9 +157,9 @@ static CString JoinLineList( vector<CString> &lines )
 	return join( "\r\n", lines.begin()+j, lines.end() );
 }
 
-CString NotesWriterSM::GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCache )
+RString NotesWriterSM::GetSMNotesTag( const Song &song, const Steps &in, bool bSavingCache )
 {
-	vector<CString> lines;
+	vector<RString> lines;
 
 	lines.push_back( "" );
 	lines.push_back( ssprintf("//---------------%s - %s----------------",
@@ -167,16 +170,15 @@ CString NotesWriterSM::GetSMNotesTag( const Song &song, const Steps &in, bool bS
 	lines.push_back( ssprintf( "     %s:", DifficultyToString(in.GetDifficulty()).c_str() ) );
 	lines.push_back( ssprintf( "     %d:", in.GetMeter() ) );
 	
-	int MaxRadar = bSavingCache? NUM_RADAR_CATEGORIES:5;
-	CStringArray asRadarValues;
-	for( int r=0; r < MaxRadar; r++ )
+	vector<RString> asRadarValues;
+	for( int r=0; r < NUM_RadarCategory; r++ )
 		asRadarValues.push_back( ssprintf("%.3f", in.GetRadarValues()[r]) );
 	/* Don't append a newline here; it's added in NoteDataUtil::GetSMNoteDataString.
 	 * If we add it here, then every time we write unmodified data we'll add an extra
 	 * newline and they'll accumulate. */
 	lines.push_back( ssprintf( "     %s:", join(",",asRadarValues).c_str() ) );
 
-	CString sNoteData;
+	RString sNoteData;
 	in.GetSMNoteData( sNoteData );
 
 	split( sNoteData, "\n", lines, true );
@@ -185,7 +187,7 @@ CString NotesWriterSM::GetSMNotesTag( const Song &song, const Steps &in, bool bS
 	return JoinLineList( lines );
 }
 
-bool NotesWriterSM::Write(CString sPath, const Song &out, bool bSavingCache)
+bool NotesWriterSM::Write(RString sPath, const Song &out, bool bSavingCache)
 {
 	/* Flush dir cache when writing steps, so the old size isn't cached. */
 	FILEMAN->FlushDirCache( Dirname(sPath) );
@@ -222,9 +224,9 @@ bool NotesWriterSM::Write(CString sPath, const Song &out, bool bSavingCache)
 	// Save all Steps for this file
 	//
 	const vector<Steps*>& vpSteps = out.GetAllSteps();
-	for( unsigned i=0; i<vpSteps.size(); i++ ) 
+	FOREACH_CONST( Steps*, vpSteps, s ) 
 	{
-		const Steps* pSteps = vpSteps[i];
+		const Steps* pSteps = *s;
 		if( pSteps->IsAutogen() )
 			continue; /* don't write autogen notes */
 
@@ -232,25 +234,91 @@ bool NotesWriterSM::Write(CString sPath, const Song &out, bool bSavingCache)
 		if( pSteps->WasLoadedFromProfile() )
 			continue;
 
-		CString sTag = GetSMNotesTag( out, *pSteps, bSavingCache );
+		RString sTag = GetSMNotesTag( out, *pSteps, bSavingCache );
 		f.PutLine( sTag );
 	}
 
 	return true;
 }
 
-void NotesWriterSM::GetEditFile( const Song *pSong, const Steps *pSteps, CString &sOut )
+void NotesWriterSM::GetEditFileContents( const Song *pSong, const Steps *pSteps, RString &sOut )
 {
 	sOut = "";
-	CString sDir = pSong->GetSongDir();
+	RString sDir = pSong->GetSongDir();
 	
 	/* "Songs/foo/bar"; strip off "Songs/". */
-	vector<CString> asParts;
+	vector<RString> asParts;
 	split( sDir, "/", asParts );
 	if( asParts.size() )
 		sDir = join( "/", asParts.begin()+1, asParts.end() );
-	sOut += ssprintf( "#SONG:%s;\n", sDir.c_str() );
+	sOut += ssprintf( "#SONG:%s;\r\n", sDir.c_str() );
 	sOut += GetSMNotesTag( *pSong, *pSteps, false );
+}
+
+RString NotesWriterSM::GetEditFileName( const Song *pSong, const Steps *pSteps )
+{
+	/* Try to make a unique name.  This isn't guaranteed.  Edit descriptions are
+	 * case-sensitive, filenames on disk are usually not, and we decimate certain
+	 * characters for FAT filesystems. */
+	RString sFile = pSong->GetTranslitFullTitle() + " - " + pSteps->GetDescription();
+
+	// HACK:
+	if( pSteps->m_StepsType == STEPS_TYPE_DANCE_DOUBLE )
+		sFile += " (doubles)";
+	
+	sFile += ".edit";
+
+	MakeValidFilename( sFile );
+	return sFile;
+}
+
+static LocalizedString DESTINATION_ALREADY_EXISTS	("NotesWriterSM", "Error renaming file.  Destination file '%s' already exists.");
+static LocalizedString ERROR_WRITING_FILE		("NotesWriterSM", "Error writing file '%s'.");
+bool NotesWriterSM::WriteEditFileToMachine( const Song *pSong, Steps *pSteps, RString &sErrorOut )
+{
+	RString sDir = PROFILEMAN->GetProfileDir( ProfileSlot_Machine ) + EDIT_STEPS_SUBDIR;
+
+	RString sPath = sDir + GetEditFileName(pSong,pSteps);
+
+	/* Flush dir cache when writing steps, so the old size isn't cached. */
+	FILEMAN->FlushDirCache( Dirname(sPath) );
+
+	// Check to make sure that we're not clobering an existing file before opening.
+	bool bFileNameChanging = 
+		pSteps->GetSavedToDisk()  && 
+		pSteps->GetFilename() != sPath;
+	if( bFileNameChanging  &&  DoesFileExist(sPath) )
+	{
+		sErrorOut = ssprintf( DESTINATION_ALREADY_EXISTS.GetValue(), sPath.c_str() );
+		return false;
+	}
+
+	RageFile f;
+	if( !f.Open(sPath, RageFile::WRITE | RageFile::SLOW_FLUSH) )
+	{
+		sErrorOut = ssprintf( ERROR_WRITING_FILE.GetValue(), sPath.c_str() );
+		return false;
+	}
+
+	RString sTag;
+	GetEditFileContents( pSong, pSteps, sTag );
+	if( f.PutLine(sTag) == -1 || f.Flush() == -1 )
+	{
+		sErrorOut = ssprintf( ERROR_WRITING_FILE.GetValue(), sPath.c_str() );
+		return false;
+	}
+
+	/* If the file name of the edit has changed since the last save, then delete the old
+	 * file after saving the new one.  If we delete it first, then we'll lose data on error. */
+
+	if( bFileNameChanging )
+		FILEMAN->Remove( pSteps->GetFilename() );
+	pSteps->SetFilename( sPath );
+
+	/* Flush dir cache or else the new file won't be seen. */
+	FILEMAN->FlushDirCache( Dirname(sPath) );
+
+	return true;
 }
 
 /*

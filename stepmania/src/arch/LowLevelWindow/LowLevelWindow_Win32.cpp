@@ -1,14 +1,17 @@
 #include "global.h"
-#include "archutils/Win32/GraphicsWindow.h"
 #include "LowLevelWindow_Win32.h"
-#include "StepMania.h"
+#include "archutils/Win32/GraphicsWindow.h"
 #include "RageUtil.h"
 #include "RageLog.h"
+#include "RageDisplay.h"
+
+#include <GL/gl.h>
 
 static PIXELFORMATDESCRIPTOR g_CurrentPixelFormat;
 static HGLRC g_HGLRC = NULL;
+static HGLRC g_HGLRC_Background = NULL;
 
-void DestroyGraphicsWindowAndOpenGLContext()
+static void DestroyGraphicsWindowAndOpenGLContext()
 {
 	if( g_HGLRC != NULL )
 	{
@@ -17,12 +20,18 @@ void DestroyGraphicsWindowAndOpenGLContext()
 		g_HGLRC = NULL;
 	}
 
+	if( g_HGLRC_Background != NULL )
+	{
+		wglDeleteContext( g_HGLRC_Background );
+		g_HGLRC_Background = NULL;
+	}
+
 	ZERO( g_CurrentPixelFormat );
 
 	GraphicsWindow::DestroyGraphicsWindow();
 }
 
-void *LowLevelWindow_Win32::GetProcAddress( CString s )
+void *LowLevelWindow_Win32::GetProcAddress( RString s )
 {
 	void *pRet = wglGetProcAddress( s );
 	if( pRet != NULL )
@@ -34,8 +43,9 @@ void *LowLevelWindow_Win32::GetProcAddress( CString s )
 LowLevelWindow_Win32::LowLevelWindow_Win32()
 {
 	ASSERT( g_HGLRC == NULL );
+	ASSERT( g_HGLRC_Background == NULL );
 
-	GraphicsWindow::Initialize();
+	GraphicsWindow::Initialize( false );
 }
 
 LowLevelWindow_Win32::~LowLevelWindow_Win32()
@@ -44,17 +54,26 @@ LowLevelWindow_Win32::~LowLevelWindow_Win32()
 	GraphicsWindow::Shutdown();
 }
 
+void LowLevelWindow_Win32::GetDisplayResolutions( DisplayResolutions &out ) const
+{
+	GraphicsWindow::GetDisplayResolutions( out );
+}
 
-int ChooseWindowPixelFormat( RageDisplay::VideoModeParams p, PIXELFORMATDESCRIPTOR *PixelFormat )
+float LowLevelWindow_Win32::GetMonitorAspectRatio() const
+{
+	return GraphicsWindow::GetMonitorAspectRatio();
+}
+
+int ChooseWindowPixelFormat( const VideoModeParams &p, PIXELFORMATDESCRIPTOR *PixelFormat )
 {
 	ASSERT( GraphicsWindow::GetHwnd() != NULL );
 	ASSERT( GraphicsWindow::GetHDC() != NULL );
 
 	ZERO( *PixelFormat );
-	PixelFormat->nSize			= sizeof(PIXELFORMATDESCRIPTOR);
+	PixelFormat->nSize		= sizeof(PIXELFORMATDESCRIPTOR);
 	PixelFormat->nVersion		= 1;
-    PixelFormat->dwFlags			= PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER | PFD_SUPPORT_OPENGL;
-    PixelFormat->iPixelType		= PFD_TYPE_RGBA;
+	PixelFormat->dwFlags		= PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER | PFD_SUPPORT_OPENGL;
+	PixelFormat->iPixelType		= PFD_TYPE_RGBA;
 	PixelFormat->cColorBits		= p.bpp == 16? 16:24;
 	PixelFormat->cDepthBits		= 16;
 
@@ -63,7 +82,7 @@ int ChooseWindowPixelFormat( RageDisplay::VideoModeParams p, PIXELFORMATDESCRIPT
 
 void DumpPixelFormat( const PIXELFORMATDESCRIPTOR &pfd )
 {
-	CString str = ssprintf( "Mode: " );
+	RString str = ssprintf( "Mode: " );
 	bool bInvalidFormat = false;
 
 	if( pfd.dwFlags & PFD_GENERIC_FORMAT )
@@ -72,7 +91,9 @@ void DumpPixelFormat( const PIXELFORMATDESCRIPTOR &pfd )
 		else { str += "software "; bInvalidFormat = true; }
 	}
 	else
+	{
 		str += "ICD ";
+	}
 
 	if( pfd.iPixelType != PFD_TYPE_RGBA ) { str += "indexed "; bInvalidFormat = true; }
 	if( !(pfd.dwFlags & PFD_SUPPORT_OPENGL) ) { str += "!OPENGL "; bInvalidFormat = true; }
@@ -93,9 +114,11 @@ void DumpPixelFormat( const PIXELFORMATDESCRIPTOR &pfd )
 
 /* This function does not reset the video mode if it fails, because we might be trying
  * yet another video mode, so we'd just thrash the display.  On fatal error,
- * LowLevelWindow_Win32::~LowLevelWindow_Win32 will call Shutdown(). */
-CString LowLevelWindow_Win32::TryVideoMode( RageDisplay::VideoModeParams p, bool &bNewDeviceOut )
+ * LowLevelWindow_Win32::~LowLevelWindow_Win32 will call GraphicsWindow::Shutdown(). */
+RString LowLevelWindow_Win32::TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut )
 {
+	//LOG->Warn( "LowLevelWindow_Win32::TryVideoMode" );
+	
 	ASSERT_M( p.bpp == 16 || p.bpp == 32, ssprintf("%i", p.bpp) );
 
 	bNewDeviceOut = false;
@@ -110,11 +133,9 @@ CString LowLevelWindow_Win32::TryVideoMode( RageDisplay::VideoModeParams p, bool
 		 * Otherwise, some other window may have focus, and changing the video mode will
 		 * cause that window to be resized. */
 		GraphicsWindow::CreateGraphicsWindow( p );
-		GraphicsWindow::ConfigureGraphicsWindow( p );
 	} else {
 		/* We already have a window.  Assume that it's pixel format has already been
 		 * set. */
-		LOG->Trace("Setting new window, can't reuse old");
 		bCanSetPixelFormat = false;
 	}
 	
@@ -122,7 +143,7 @@ CString LowLevelWindow_Win32::TryVideoMode( RageDisplay::VideoModeParams p, bool
 
 	/* Set the display mode: switch to a fullscreen mode or revert to windowed mode. */
 	LOG->Trace("SetScreenMode ...");
-	CString sErr = GraphicsWindow::SetScreenMode( p );
+	RString sErr = GraphicsWindow::SetScreenMode( p );
 	if( !sErr.empty() )
 		return sErr;
 
@@ -156,7 +177,7 @@ CString LowLevelWindow_Win32::TryVideoMode( RageDisplay::VideoModeParams p, bool
 		 * not allowed to do so, destroy the window and make a new one.
 		 *
 		 * For some reason, if we destroy the old window before creating the new one,
-		 * the "fullscreen apps go under the taskbar" glitch will happen when we quit.
+		 * the "maximized apps go under the taskbar" glitch will happen when we quit.
 		 * We have to create the new window first.
 		 */
 		LOG->Trace( "Mode requires new pixel format, and we've already set one; resetting OpenGL context" );
@@ -165,17 +186,16 @@ CString LowLevelWindow_Win32::TryVideoMode( RageDisplay::VideoModeParams p, bool
 			wglMakeCurrent( NULL, NULL );
 			wglDeleteContext( g_HGLRC );
 			g_HGLRC = NULL;
+			wglDeleteContext( g_HGLRC_Background );
+			g_HGLRC_Background = NULL;
 		}
 
-		GraphicsWindow::RecreateGraphicsWindow(p);
-//		DestroyGraphicsWindowAndOpenGLContext();
-//		GraphicsWindow::CreateGraphicsWindow( p );
 		bNewDeviceOut = true;
 	}
 
-	GraphicsWindow::ConfigureGraphicsWindow( p );
-
-	GraphicsWindow::SetVideoModeParams( p );
+	/* If we deleted the OpenGL context above, also recreate the window.  Otherwise, just
+	 * reconfigure it. */
+	GraphicsWindow::CreateGraphicsWindow( p, bNewDeviceOut );
 
 	if( bNeedToSetPixelFormat )
 	{
@@ -202,13 +222,56 @@ CString LowLevelWindow_Win32::TryVideoMode( RageDisplay::VideoModeParams p, bool
 			return hr_ssprintf( GetLastError(), "wglCreateContext" );
 		}
 
+		g_HGLRC_Background = wglCreateContext( GraphicsWindow::GetHDC() );
+		if( g_HGLRC_Background == NULL )
+		{
+			DestroyGraphicsWindowAndOpenGLContext();
+			return hr_ssprintf( GetLastError(), "wglCreateContext" );
+		}
+
+		if( !wglShareLists(g_HGLRC, g_HGLRC_Background) )
+		{
+			LOG->Warn( werr_ssprintf(GetLastError(), "wglShareLists failed") );
+			wglDeleteContext( g_HGLRC_Background );
+			g_HGLRC_Background = NULL;
+		}
+
 		if( !wglMakeCurrent( GraphicsWindow::GetHDC(), g_HGLRC ) )
 		{
 			DestroyGraphicsWindowAndOpenGLContext();
 			return hr_ssprintf( GetLastError(), "wglCreateContext" );
 		}
 	}
-	return CString();	// we set the video mode successfully
+	return RString();	// we set the video mode successfully
+}
+
+bool LowLevelWindow_Win32::SupportsThreadedRendering()
+{
+	return g_HGLRC_Background != NULL;
+}
+	
+void LowLevelWindow_Win32::BeginConcurrentRendering()
+{
+	if( !wglMakeCurrent( GraphicsWindow::GetHDC(), g_HGLRC_Background ) )
+	{
+		LOG->Warn( hr_ssprintf(GetLastError(), "wglMakeCurrent") );
+		FAIL_M( hr_ssprintf(GetLastError(), "wglMakeCurrent") );
+	}
+}
+
+void LowLevelWindow_Win32::EndConcurrentRendering()
+{
+	wglMakeCurrent( NULL, NULL );
+}
+
+bool LowLevelWindow_Win32::IsSoftwareRenderer( RString &sError )
+{
+	if( strcmp((const char*)glGetString(GL_VENDOR),"Microsoft Corporation") &&
+		strcmp((const char*)glGetString(GL_RENDERER),"GDI Generic") )
+		return false;
+
+	sError = "OpenGL hardware acceleration is not available.";
+	return true;
 }
 
 void LowLevelWindow_Win32::SwapBuffers()
@@ -221,7 +284,7 @@ void LowLevelWindow_Win32::Update()
 	GraphicsWindow::Update();
 }
 
-RageDisplay::VideoModeParams LowLevelWindow_Win32::GetVideoModeParams() const
+const VideoModeParams &LowLevelWindow_Win32::GetActualVideoModeParams() const
 {
 	return GraphicsWindow::GetParams();
 }

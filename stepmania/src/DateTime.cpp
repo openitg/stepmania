@@ -1,8 +1,9 @@
 #include "global.h"
 #include "DateTime.h"
 #include "RageUtil.h"
+#include "EnumHelper.h"
 #include "LuaFunctions.h"
-
+#include "LocalizedString.h"
 
 DateTime::DateTime()
 {
@@ -16,7 +17,7 @@ void DateTime::Init()
 
 bool DateTime::operator<( const DateTime& other ) const
 {
-#define COMPARE( v ) if(v<other.v) return true; if(v>other.v) return false;
+#define COMPARE( v ) if(v!=other.v) return v<other.v;
 	COMPARE( tm_year );
 	COMPARE( tm_mon );
 	COMPARE( tm_mday );
@@ -44,7 +45,7 @@ bool DateTime::operator==( const DateTime& other ) const
 DateTime DateTime::GetNowDateTime()
 {
 	time_t now = time(NULL);
-    tm tNow;
+	tm tNow;
 	localtime_r( &now, &tNow );
 	DateTime dtNow;
 #define COPY_M( v ) dtNow.v = tNow.v;
@@ -60,7 +61,7 @@ DateTime DateTime::GetNowDateTime()
 
 DateTime DateTime::GetNowDate()
 {
-    DateTime tNow = GetNowDateTime();
+	DateTime tNow = GetNowDateTime();
 	tNow.StripTime();
 	return tNow;
 }
@@ -75,9 +76,9 @@ void DateTime::StripTime()
 //
 // Common SQL/XML format: "YYYY-MM-DD HH:MM:SS"
 //
-CString DateTime::GetString() const
+RString DateTime::GetString() const
 {
-	CString s = ssprintf( "%d-%02d-%02d",
+	RString s = ssprintf( "%d-%02d-%02d",
 		tm_year+1900,
 		tm_mon+1,
 		tm_mday );
@@ -95,7 +96,7 @@ CString DateTime::GetString() const
 	return s;
 }
 
-bool DateTime::FromString( const CString sDateTime )
+bool DateTime::FromString( const RString sDateTime )
 {
 	Init();
 
@@ -128,12 +129,12 @@ success:
 
 
 
-CString DayInYearToString( int iDayInYear )
+RString DayInYearToString( int iDayInYear )
 {
 	return ssprintf("DayInYear%03d",iDayInYear);
 }
 
-int StringToDayInYear( CString sDayInYear )
+int StringToDayInYear( RString sDayInYear )
 {
 	int iDayInYear;
 	if( sscanf( sDayInYear, "DayInYear%d", &iDayInYear ) != 1 )
@@ -141,7 +142,7 @@ int StringToDayInYear( CString sDayInYear )
 	return iDayInYear;
 }
 
-static const CString LAST_DAYS_NAME[NUM_LAST_DAYS] =
+static const RString LAST_DAYS_NAME[NUM_LAST_DAYS] =
 {
 	"Today",
 	"Yesterday",
@@ -152,12 +153,12 @@ static const CString LAST_DAYS_NAME[NUM_LAST_DAYS] =
 	"Day6Ago",
 };
 
-CString LastDayToString( int iLastDayIndex )
+RString LastDayToString( int iLastDayIndex )
 {
 	return LAST_DAYS_NAME[iLastDayIndex];
 }
 
-static const CString DAY_OF_WEEK_TO_NAME[DAYS_IN_WEEK] =
+static const char *DAY_OF_WEEK_TO_NAME[DAYS_IN_WEEK] =
 {
 	"Sunday",
 	"Monday",
@@ -168,17 +169,17 @@ static const CString DAY_OF_WEEK_TO_NAME[DAYS_IN_WEEK] =
 	"Saturday",
 };
 
-CString DayOfWeekToString( int iDayOfWeekIndex )
+RString DayOfWeekToString( int iDayOfWeekIndex )
 {
 	return DAY_OF_WEEK_TO_NAME[iDayOfWeekIndex];
 }
 
-CString HourInDayToString( int iHourInDayIndex )
+RString HourInDayToString( int iHourInDayIndex )
 {
 	return ssprintf("Hour%02d", iHourInDayIndex);
 }
 
-static const CString MONTH_TO_NAME[MONTHS_IN_YEAR] =
+static const char *MonthNames[] =
 {
 	"January",
 	"February",
@@ -193,16 +194,10 @@ static const CString MONTH_TO_NAME[MONTHS_IN_YEAR] =
 	"November",
 	"December",
 };
+XToString( Month, NUM_Month );
+XToLocalizedString( Month );
 
-CString MonthToString( int iMonthIndex )
-{
-	if( iMonthIndex < 0 || iMonthIndex >= (int) sizeof(MONTH_TO_NAME) )
-		return CString();
-	return MONTH_TO_NAME[iMonthIndex];
-}
-LuaFunction( MonthToString, MonthToString( IArg(1) ) );
-
-CString LastWeekToString( int iLastWeekIndex )
+RString LastWeekToString( int iLastWeekIndex )
 {
 	switch( iLastWeekIndex )
 	{
@@ -212,23 +207,23 @@ CString LastWeekToString( int iLastWeekIndex )
 	}
 }
 
-CString LastDayToDisplayString( int iLastDayIndex )
+RString LastDayToLocalizedString( int iLastDayIndex )
 {
-	CString s = LastDayToString( iLastDayIndex );
+	RString s = LastDayToString( iLastDayIndex );
 	s.Replace( "Day", "" );
 	s.Replace( "Ago", " Ago" );
 	return s;
 }
 
-CString LastWeekToDisplayString( int iLastWeekIndex )
+RString LastWeekToLocalizedString( int iLastWeekIndex )
 {
-	CString s = LastWeekToString( iLastWeekIndex );
+	RString s = LastWeekToString( iLastWeekIndex );
 	s.Replace( "Week", "" );
 	s.Replace( "Ago", " Ago" );
 	return s;
 }
 
-CString HourInDayToDisplayString( int iHourIndex )
+RString HourInDayToLocalizedString( int iHourIndex )
 {
 	int iBeginHour = iHourIndex;
 	iBeginHour--;
@@ -308,6 +303,8 @@ tm GetDayInYearAndYear( int iDayInYearIndex, int iYear )
 	return when;
 }
 
+LuaFunction( MonthToString, MonthToString( (Month)IArg(1) ) );
+LuaFunction( MonthToLocalizedString, MonthToLocalizedString( (Month)IArg(1) ) );
 LuaFunction( MonthOfYear, GetLocalTime().tm_mon );
 LuaFunction( DayOfMonth, GetLocalTime().tm_mday );
 LuaFunction( Hour, GetLocalTime().tm_hour );

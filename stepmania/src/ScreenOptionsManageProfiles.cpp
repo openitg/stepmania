@@ -10,9 +10,9 @@
 #include "ProfileManager.h"
 #include "Profile.h"
 #include "OptionRowHandler.h"
-#include "PrefsManager.h"
+#include "LocalizedString.h"
 
-static ThemeMetric<CString> NEW_PROFILE_DEFAULT_NAME(	"ScreenOptionsManageProfiles", "NewProfileDefaultName" );
+static LocalizedString NEW_PROFILE_DEFAULT_NAME(	"ScreenOptionsManageProfiles", "NewProfileDefaultName" );
 
 #define SHOW_CREATE_NEW (!PROFILEMAN->FixedProfiles())
 
@@ -32,7 +32,7 @@ enum ProfileAction
 	ProfileAction_Clear,
 	NUM_ProfileAction
 };
-static const CString ProfileActionNames[] = {
+static const char *ProfileActionNames[] = {
 	"SetDefaultP1",
 	"SetDefaultP2",
 	"Edit",
@@ -41,18 +41,20 @@ static const CString ProfileActionNames[] = {
 	"Clear",
 };
 XToString( ProfileAction, NUM_ProfileAction );
-XToThemedString( ProfileAction, NUM_ProfileAction );
+XToLocalizedString( ProfileAction );
 #define FOREACH_ProfileAction( i ) FOREACH_ENUM( ProfileAction, NUM_ProfileAction, i )
 
 static MenuDef g_TempMenu(
 	"ScreenMiniMenuContext"
 );
 
-static bool ValidateLocalProfileName( const CString &sAnswer, CString &sErrorOut )
+static LocalizedString PROFILE_NAME_BLANK	( "ScreenEditMenu", "Profile name cannot be blank." );
+static LocalizedString PROFILE_NAME_CONFLICTS	( "ScreenEditMenu", "The name you chose conflicts with another profile. Please use a different name." );
+static bool ValidateLocalProfileName( const RString &sAnswer, RString &sErrorOut )
 {
 	if( sAnswer == "" )
 	{
-		sErrorOut = "Profile name cannot be blank.";
+		sErrorOut = PROFILE_NAME_BLANK;
 		return false;
 	}
 
@@ -60,61 +62,19 @@ static bool ValidateLocalProfileName( const CString &sAnswer, CString &sErrorOut
 	if( pProfile != NULL && sAnswer == pProfile->m_sDisplayName )
 		return true; // unchanged
 
-	vector<CString> vsProfileNames;
+	vector<RString> vsProfileNames;
 	PROFILEMAN->GetLocalProfileDisplayNames( vsProfileNames );
 	bool bAlreadyAProfileWithThisName = find( vsProfileNames.begin(), vsProfileNames.end(), sAnswer ) != vsProfileNames.end();
 	if( bAlreadyAProfileWithThisName )
 	{
-		sErrorOut = "There is already another profile with this name.  Please choose a different name.";
+		sErrorOut = PROFILE_NAME_CONFLICTS;
 		return false;
 	}
 
 	return true;
 }
 
-
-class OptionRowHandlerSimple : public OptionRowHandler
-{
-public:
-	GameCommand m_gc;
-
-	virtual void Load( OptionRowDefinition &defOut, CString sParam )
-	{
-
-	}
-	virtual void ImportOption( const OptionRowDefinition &row, const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const
-	{
-
-	}
-	virtual int ExportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const
-	{
-		if( vbSelected[PLAYER_1][0] )
-			m_gc.ApplyToAllPlayers();
-		return 0;
-	}
-	virtual void GetIconTextAndGameCommand( const OptionRowDefinition &def, int iFirstSelection, CString &sIconTextOut, GameCommand &gcOut ) const
-	{
-		sIconTextOut = "";
-		gcOut = m_gc;
-	}
-};
-
-
 REGISTER_SCREEN_CLASS( ScreenOptionsManageProfiles );
-ScreenOptionsManageProfiles::ScreenOptionsManageProfiles( CString sName ) : ScreenOptions( sName )
-{
-	LOG->Trace( "ScreenOptionsManageProfiles::ScreenOptionsManageProfiles()" );
-}
-
-ScreenOptionsManageProfiles::~ScreenOptionsManageProfiles()
-{
-	FOREACH( OptionRow*, m_pRows, r )
-		(*r)->DetachHandler();
-	FOREACH( OptionRowHandler*, m_OptionRowHandlers, h )
-		SAFE_DELETE( *h );
-	m_OptionRowHandlers.clear();
-	SAFE_DELETE( m_pContextMenu );
-}
 
 void ScreenOptionsManageProfiles::Init()
 {
@@ -122,88 +82,93 @@ void ScreenOptionsManageProfiles::Init()
 
 	SetNavigation( NAV_THREE_KEY_MENU );
 	SetInputMode( INPUTMODE_SHARE_CURSOR );
-
-	m_pContextMenu = new ScreenMiniMenu( g_TempMenu.sClassName );
-	m_pContextMenu->Init();
-	m_pContextMenu->LoadMenu( &g_TempMenu );
 }
 
 void ScreenOptionsManageProfiles::BeginScreen()
 {
-	vector<OptionRowDefinition> vDefs;
-	for( unsigned i = 0; i < m_OptionRowHandlers.size(); ++i )
-		delete m_OptionRowHandlers[i];
-	m_OptionRowHandlers.clear();
-
-	OptionRowDefinition def;
-	def.m_layoutType = LAYOUT_SHOW_ALL_IN_ROW;
-	def.m_bAllowThemeTitles = false;
-	def.m_bAllowThemeItems = false;
-
-	int iIndex = 0;
+	// FIXME
+	// int iIndex = 0;
+	vector<OptionRowHandler*> OptionRowHandlers;
 
 	if( SHOW_CREATE_NEW )
 	{
-		def.m_vsChoices.clear();
-		def.m_vsChoices.push_back( "Create New" );
-		vDefs.push_back( def );
-		
-		OptionRowHandlerSimple *pHand = new OptionRowHandlerSimple;
-		m_OptionRowHandlers.push_back( pHand );
-		GameCommand &gc = pHand->m_gc;
-		CString sCommand = "screen,ScreenOptionsEditProfile";
-		gc.Load( iIndex++, ParseCommands(sCommand) );
+		OptionRowHandler *pHand = OptionRowHandlerUtil::Make( ParseCommands(ssprintf("gamecommand;screen,%s;name,dummy",m_sName.c_str())) );
+		OptionRowDefinition &def = pHand->m_Def;
+		def.m_layoutType = LAYOUT_SHOW_ALL_IN_ROW;
+		def.m_bAllowThemeTitle = true;
+		def.m_bAllowThemeItems = false;
+		def.m_sName = "Create New Profile";
+		def.m_sExplanationName = "Create New Profile";
+		OptionRowHandlers.push_back( pHand );
+
+		// FIXME
+		// gc.Load( iIndex++,  );
 	}
 
 	PROFILEMAN->GetLocalProfileIDs( m_vsLocalProfileID );
 
-	FOREACH_CONST( CString, m_vsLocalProfileID, s )
+	FOREACH_CONST( RString, m_vsLocalProfileID, s )
 	{
 		Profile *pProfile = PROFILEMAN->GetLocalProfile( *s );
 		ASSERT( pProfile );
 
-		def.m_sName = ssprintf( "%d", iIndex );
-		def.m_vsChoices.clear();
-		def.m_vsChoices.push_back( pProfile->m_sDisplayName );
-		vDefs.push_back( def );
+		RString sCommand = ssprintf( "gamecommand;screen,ScreenOptionsEditProfile;profileid,%s;name,dummy", s->c_str() );
+		OptionRowHandler *pHand = OptionRowHandlerUtil::Make( ParseCommands(sCommand) );
+		OptionRowDefinition &def = pHand->m_Def;
+		def.m_layoutType = LAYOUT_SHOW_ALL_IN_ROW;
+		def.m_bAllowThemeTitle = false;
+		def.m_bAllowThemeItems = false;
+		def.m_sName = pProfile->m_sDisplayName;
+		def.m_sExplanationName = "Select Profile";
 
-		OptionRowHandlerSimple *pHand = new OptionRowHandlerSimple;
-		m_OptionRowHandlers.push_back( pHand );
-		GameCommand &gc = pHand->m_gc;
-		CString sCommand = "screen,ScreenOptionsEditProfile;profileid,"+*s;
-		gc.Load( iIndex++, ParseCommands(sCommand) );
+		PlayerNumber pn = PLAYER_INVALID;
+		FOREACH_PlayerNumber( p )
+			if( *s == ProfileManager::m_sDefaultLocalProfileID[p].Get() )
+				pn = p;
+		if( pn != PLAYER_INVALID )
+			def.m_vsChoices.push_back( PlayerNumberToLocalizedString(pn) );
+		OptionRowHandlers.push_back( pHand );
+
+		// FIXME
+		// gc.Load( iIndex++,  );
 	}
 
-	ScreenOptions::InitMenu( vDefs, m_OptionRowHandlers );
+	ScreenOptions::InitMenu( OptionRowHandlers );
+
+	// Save sEditLocalProfileID before calling ScreenOptions::BeginScreen, because it will get clobbered.
+	RString sEditLocalProfileID = GAMESTATE->m_sEditLocalProfileID;
 
 	ScreenOptions::BeginScreen();
 	
 	// select the last chosen profile
-	if( !GAMESTATE->m_sEditLocalProfileID.Get().empty() )
+	if( !sEditLocalProfileID.empty() )
 	{
-		vector<CString>::const_iterator iter = find( m_vsLocalProfileID.begin(), m_vsLocalProfileID.end(), GAMESTATE->m_sEditLocalProfileID.Get() );
+		vector<RString>::const_iterator iter = find( m_vsLocalProfileID.begin(), m_vsLocalProfileID.end(), sEditLocalProfileID );
 		if( iter != m_vsLocalProfileID.end() )
 		{
 			int iIndex = iter - m_vsLocalProfileID.begin();
-			this->MoveRowAbsolute( PLAYER_1, 1 + iIndex, false );
+			this->MoveRowAbsolute( PLAYER_1, 1 + iIndex );
 		}
 	}
 	else if( !m_vsLocalProfileID.empty() )
 	{
 		// select the first item below "create new"
-		this->MoveRowAbsolute( PLAYER_1, 1, false );
+		this->MoveRowAbsolute( PLAYER_1, 1 );
 	}
 
 	AfterChangeRow( PLAYER_1 );
 }
 
+static LocalizedString CONFIRM_DELETE_PROFILE	( "ScreenOptionsManageProfiles", "Are you sure you want to delete the profile '%s'?" );
+static LocalizedString CONFIRM_CLEAR_PROFILE	( "ScreenOptionsManageProfiles", "Are you sure you want to clear all data in the profile '%s'?" );
+static LocalizedString ENTER_PROFILE_NAME	( "ScreenOptionsManageProfiles", "Enter a name for the profile." );
 void ScreenOptionsManageProfiles::HandleScreenMessage( const ScreenMessage SM )
 {
 	if( SM == SM_GoToNextScreen )
 	{
 		int iCurRow = m_iCurrentRow[GAMESTATE->m_MasterPlayerNumber];
 		OptionRow &row = *m_pRows[iCurRow];
-		if( row.GetRowType() == OptionRow::ROW_EXIT )
+		if( row.GetRowType() == OptionRow::RowType_Exit )
 		{
 			this->HandleScreenMessage( SM_GoToPrevScreen );
 			return;	// don't call base
@@ -215,15 +180,35 @@ void ScreenOptionsManageProfiles::HandleScreenMessage( const ScreenMessage SM )
 		{
 			ASSERT( ScreenTextEntry::s_sLastAnswer != "" );	// validate should have assured this
 		
-			CString sNewName = ScreenTextEntry::s_sLastAnswer;
+			RString sNewName = ScreenTextEntry::s_sLastAnswer;
 			ASSERT( GAMESTATE->m_sEditLocalProfileID.Get().empty() );
 
+			int iNumProfiles = PROFILEMAN->GetNumLocalProfiles();
+
 			// create
-			CString sProfileID;
-			PROFILEMAN->CreateLocalProfile( ScreenTextEntry::s_sLastAnswer, sProfileID );
+			RString sProfileID;
+			PROFILEMAN->CreateLocalProfile( ScreenTextEntry::s_sLastAnswer, sProfileID );	// TODO: Check return value
 			GAMESTATE->m_sEditLocalProfileID.Set( sProfileID );
 
-			this->HandleScreenMessage( SM_GoToNextScreen );
+			if( iNumProfiles < NUM_PLAYERS )
+			{
+				int iFirstUnused = -1;
+				FOREACH_CONST( Preference<RString>*, PROFILEMAN->m_sDefaultLocalProfileID.m_v, i )
+				{
+					RString sLocalProfileID = (*i)->Get();
+					if( sLocalProfileID.empty() )
+					{
+						iFirstUnused = i - PROFILEMAN->m_sDefaultLocalProfileID.m_v.begin();
+						break;
+					}
+				}
+				if( iFirstUnused != -1 )
+				{
+					PROFILEMAN->m_sDefaultLocalProfileID.m_v[iFirstUnused]->Set( sProfileID );
+				}
+			}
+
+			SCREENMAN->SetNewScreen( this->m_sName ); // reload
 		}
 	}
 	else if( SM == SM_BackFromRename )
@@ -232,7 +217,7 @@ void ScreenOptionsManageProfiles::HandleScreenMessage( const ScreenMessage SM )
 		{
 			ASSERT( ScreenTextEntry::s_sLastAnswer != "" );	// validate should have assured this
 		
-			CString sNewName = ScreenTextEntry::s_sLastAnswer;
+			RString sNewName = ScreenTextEntry::s_sLastAnswer;
 			PROFILEMAN->RenameLocalProfile( GAMESTATE->m_sEditLocalProfileID, sNewName );
 
 			SCREENMAN->SetNewScreen( this->m_sName ); // reload
@@ -244,7 +229,7 @@ void ScreenOptionsManageProfiles::HandleScreenMessage( const ScreenMessage SM )
 		{
 			// Select the profile nearest to the one that was just deleted.
 			int iIndex = -1;
-			vector<CString>::const_iterator iter = find( m_vsLocalProfileID.begin(), m_vsLocalProfileID.end(), GAMESTATE->m_sEditLocalProfileID.Get() );
+			vector<RString>::const_iterator iter = find( m_vsLocalProfileID.begin(), m_vsLocalProfileID.end(), GAMESTATE->m_sEditLocalProfileID.Get() );
 			if( iter != m_vsLocalProfileID.end() )
 				iIndex = iter - m_vsLocalProfileID.begin();
 			CLAMP( iIndex, 0, m_vsLocalProfileID.size()-1 );
@@ -276,27 +261,16 @@ void ScreenOptionsManageProfiles::HandleScreenMessage( const ScreenMessage SM )
 			default:
 				ASSERT(0);
 			case ProfileAction_SetDefaultP1:
-				{
-					PREFSMAN->m_sDefaultLocalProfileIDP1.Set( GetLocalProfileIDWithFocus() );
-					if( PREFSMAN->m_sDefaultLocalProfileIDP1.Get() == PREFSMAN->m_sDefaultLocalProfileIDP2.Get() )
-					{
-						int iIndex = GetLocalProfileIndexWithFocus();
-						iIndex++;
-						wrap( iIndex, m_vsLocalProfileID.size() );
-						PREFSMAN->m_sDefaultLocalProfileIDP2.Set( m_vsLocalProfileID[iIndex] );
-					}
-				}
-				break;
 			case ProfileAction_SetDefaultP2:
 				{
-					PREFSMAN->m_sDefaultLocalProfileIDP2.Set( GetLocalProfileIDWithFocus() );
-					if( PREFSMAN->m_sDefaultLocalProfileIDP1.Get() == PREFSMAN->m_sDefaultLocalProfileIDP2.Get() )
-					{
-						int iIndex = GetLocalProfileIndexWithFocus();
-						iIndex++;
-						wrap( iIndex, m_vsLocalProfileID.size() );
-						PREFSMAN->m_sDefaultLocalProfileIDP1.Set( m_vsLocalProfileID[iIndex] );
-					}
+					FOREACH_PlayerNumber( p )
+						if( ProfileManager::m_sDefaultLocalProfileID[p].Get() == GetLocalProfileIDWithFocus() )
+							ProfileManager::m_sDefaultLocalProfileID[p].Set("");
+
+					PlayerNumber pn = (PlayerNumber)(ScreenMiniMenu::s_iLastRowCode - ProfileAction_SetDefaultP1);
+					ProfileManager::m_sDefaultLocalProfileID[pn].Set( GetLocalProfileIDWithFocus() );
+		
+					SCREENMAN->SetNewScreen( this->m_sName ); // reload
 				}
 				break;
 			case ProfileAction_Edit:
@@ -310,7 +284,7 @@ void ScreenOptionsManageProfiles::HandleScreenMessage( const ScreenMessage SM )
 				{
 					ScreenTextEntry::TextEntry( 
 						SM_BackFromRename, 
-						"Enter a name for the profile.", 
+						ENTER_PROFILE_NAME, 
 						pProfile->m_sDisplayName, 
 						PROFILE_MAX_DISPLAY_NAME_LENGTH, 
 						ValidateLocalProfileName );
@@ -318,20 +292,28 @@ void ScreenOptionsManageProfiles::HandleScreenMessage( const ScreenMessage SM )
 				break;
 			case ProfileAction_Delete:
 				{
-					CString sTitle = pProfile->m_sDisplayName;
-					CString sMessage = ssprintf( "Are you sure you want to delete the profile '%s'?", sTitle.c_str() );
+					RString sTitle = pProfile->m_sDisplayName;
+					RString sMessage = ssprintf( CONFIRM_DELETE_PROFILE.GetValue(), sTitle.c_str() );
 					ScreenPrompt::Prompt( SM_BackFromDeleteConfirm, sMessage, PROMPT_YES_NO );
 				}
 				break;
 			case ProfileAction_Clear:
 				{
-					CString sTitle = pProfile->m_sDisplayName;
-					CString sMessage = ssprintf( "Are you sure you want to clear all data in the profile '%s'?", sTitle.c_str() );
+					RString sTitle = pProfile->m_sDisplayName;
+					RString sMessage = ssprintf( CONFIRM_CLEAR_PROFILE.GetValue(), sTitle.c_str() );
 					ScreenPrompt::Prompt( SM_BackFromClearConfirm, sMessage, PROMPT_YES_NO );
 				}
 				break;
 			}
 		}
+	}
+	else if( SM == SM_LoseFocus )
+	{
+		this->PlayCommand( "ScreenLoseFocus" );
+	}
+	else if( SM == SM_GainFocus )
+	{
+		this->PlayCommand( "ScreenGainFocus" );
 	}
 
 	ScreenOptions::HandleScreenMessage( SM );
@@ -344,17 +326,20 @@ void ScreenOptionsManageProfiles::AfterChangeRow( PlayerNumber pn )
 	ScreenOptions::AfterChangeRow( pn );
 }
 
-void ScreenOptionsManageProfiles::ProcessMenuStart( PlayerNumber pn, const InputEventType type )
+void ScreenOptionsManageProfiles::ProcessMenuStart( const InputEventPlus &input )
 {
+	if( IsTransitioning() )
+		return;
+
 	int iCurRow = m_iCurrentRow[GAMESTATE->m_MasterPlayerNumber];
 	OptionRow &row = *m_pRows[iCurRow];
 	
 	if( SHOW_CREATE_NEW && iCurRow == 0 )	// "create new"
 	{
-		vector<CString> vsUsedNames;
+		vector<RString> vsUsedNames;
 		PROFILEMAN->GetLocalProfileDisplayNames( vsUsedNames );
 
-		CString sPotentialName;
+		RString sPotentialName;
 		for( int i=1; i<1000; i++ )
 		{
 			sPotentialName = ssprintf( "%s%04d", NEW_PROFILE_DEFAULT_NAME.GetValue().c_str(), i );
@@ -364,13 +349,14 @@ void ScreenOptionsManageProfiles::ProcessMenuStart( PlayerNumber pn, const Input
 		}
 		ScreenTextEntry::TextEntry( 
 			SM_BackFromEnterNameForNew, 
-			"Enter a name for the new profile.", 
+			ENTER_PROFILE_NAME, 
 			sPotentialName, 
 			PROFILE_MAX_DISPLAY_NAME_LENGTH, 
 			ValidateLocalProfileName );
 	}
-	else if( row.GetRowType() == OptionRow::ROW_EXIT )
+	else if( row.GetRowType() == OptionRow::RowType_Exit )
 	{
+		SCREENMAN->PlayStartSound();
 		this->BeginFadingOut();
 	}
 	else	// a profile
@@ -378,7 +364,7 @@ void ScreenOptionsManageProfiles::ProcessMenuStart( PlayerNumber pn, const Input
 		g_TempMenu.rows.clear();
 
 #define ADD_ACTION( i )	\
-		g_TempMenu.rows.push_back( MenuRowDef( i, ProfileActionToThemedString(i), true, EDIT_MODE_HOME, 0, "" ) );
+		g_TempMenu.rows.push_back( MenuRowDef( i, ProfileActionToLocalizedString(i), true, EditMode_Home, false, false, 0, "" ) );
 
 		ADD_ACTION( ProfileAction_SetDefaultP1 );
 		ADD_ACTION( ProfileAction_SetDefaultP2 );
@@ -389,7 +375,7 @@ void ScreenOptionsManageProfiles::ProcessMenuStart( PlayerNumber pn, const Input
 		}
 		else
 		{
-			ADD_ACTION( ProfileAction_Edit );
+			//ADD_ACTION( ProfileAction_Edit );
 			ADD_ACTION( ProfileAction_Rename );
 			ADD_ACTION( ProfileAction_Delete );
 		}
@@ -397,11 +383,7 @@ void ScreenOptionsManageProfiles::ProcessMenuStart( PlayerNumber pn, const Input
 		int iWidth, iX, iY;
 		this->GetWidthXY( PLAYER_1, iCurRow, 0, iWidth, iX, iY );
 
-		m_pContextMenu->LoadMenu( &g_TempMenu );
-		m_pContextMenu->SetOKMessage( SM_BackFromContextMenu );
-		m_pContextMenu->SetCancelMessage( SM_BackFromContextMenu );
-		m_pContextMenu->SetXY( (float)iX, (float)iY );
-		SCREENMAN->PushScreen( m_pContextMenu );
+		ScreenMiniMenu::MiniMenu( &g_TempMenu, SM_BackFromContextMenu, SM_BackFromContextMenu, (float)iX, (float)iY );
 	}
 }
 
@@ -422,7 +404,7 @@ int ScreenOptionsManageProfiles::GetLocalProfileIndexWithFocus() const
 
 	if( SHOW_CREATE_NEW && iCurRow == 0 )	// "create new"
 		return -1;
-	else if( row.GetRowType() == OptionRow::ROW_EXIT )
+	else if( row.GetRowType() == OptionRow::RowType_Exit )
 		return -1;
 	
 	// a profile
@@ -430,7 +412,7 @@ int ScreenOptionsManageProfiles::GetLocalProfileIndexWithFocus() const
 	return iIndex;
 }
 
-CString ScreenOptionsManageProfiles::GetLocalProfileIDWithFocus() const
+RString ScreenOptionsManageProfiles::GetLocalProfileIDWithFocus() const
 {
 	int iIndex = GetLocalProfileIndexWithFocus();
 	if( iIndex == -1 )

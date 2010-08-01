@@ -3,17 +3,16 @@
 #include "RageUtil.h"
 #include "RageLog.h"
 #include "RageTextureManager.h"
-#include "RageException.h"
 #include "RageDisplay.h"
 #include "RageTypes.h"
-#include "arch/Dialog/Dialog.h"
 #include "RageSurface.h"
 #include "RageSurfaceUtils.h"
 #include "RageSurfaceUtils_Zoom.h"
 #include "RageSurfaceUtils_Dither.h"
 #include "RageSurface_Load.h"
+#include "arch/Dialog/Dialog.h"
 
-static void GetResolutionFromFileName( CString sPath, int &iWidth, int &iHeight )
+static void GetResolutionFromFileName( RString sPath, int &iWidth, int &iHeight )
 {
 	/* Match:
 	 *  Foo (res 512x128).png
@@ -23,7 +22,7 @@ static void GetResolutionFromFileName( CString sPath, int &iWidth, int &iHeight 
 	 * Be careful that this doesn't get mixed up with frame dimensions. */
 	static Regex re( "\\([^\\)]*res ([0-9]+)x([0-9]+).*\\)" );
 
-	vector<CString> asMatches;
+	vector<RString> asMatches;
 	if( !re.Compare(sPath, asMatches) )
 		return;
 
@@ -65,13 +64,13 @@ void RageBitmapTexture::Create()
 	ASSERT( actualID.filename != "" );
 
 	/* Load the image into a RageSurface. */
-	CString error;
+	RString error;
 	RageSurface *pImg = RageSurfaceUtils::LoadFile( actualID.filename, error );
 
 	/* Tolerate corrupt/unknown images. */
 	if( pImg == NULL )
 	{
-		CString sWarning = ssprintf( "RageBitmapTexture: Couldn't load %s: %s", actualID.filename.c_str(), error.c_str() );
+		RString sWarning = ssprintf( "RageBitmapTexture: Couldn't load %s: %s", actualID.filename.c_str(), error.c_str() );
 		Dialog::OK( sWarning );
 		pImg = RageSurfaceUtils::MakeDummySurface( 64, 64 );
 		ASSERT( pImg != NULL );
@@ -91,24 +90,24 @@ void RageBitmapTexture::Create()
 	}
 
 	// look in the file name for a format hints
-	CString sHintString = GetID().filename + actualID.AdditionalTextureHints;
+	RString sHintString = GetID().filename + actualID.AdditionalTextureHints;
 	sHintString.MakeLower();
 
-	if( sHintString.Find("32bpp") != -1 )			actualID.iColorDepth = 32;
-	else if( sHintString.Find("16bpp") != -1 )		actualID.iColorDepth = 16;
-	if( sHintString.Find("dither") != -1 )			actualID.bDither = true;
-	if( sHintString.Find("stretch") != -1 )			actualID.bStretch = true;
-	if( sHintString.Find("mipmaps") != -1 )			actualID.bMipMaps = true;
-	if( sHintString.Find("nomipmaps") != -1 )		actualID.bMipMaps = false;	// check for "nomipmaps" after "mipmaps"
+	if( sHintString.find("32bpp") != string::npos )			actualID.iColorDepth = 32;
+	else if( sHintString.find("16bpp") != string::npos )	actualID.iColorDepth = 16;
+	if( sHintString.find("dither") != string::npos )		actualID.bDither = true;
+	if( sHintString.find("stretch") != string::npos )		actualID.bStretch = true;
+	if( sHintString.find("mipmaps") != string::npos )		actualID.bMipMaps = true;
+	if( sHintString.find("nomipmaps") != string::npos )		actualID.bMipMaps = false;	// check for "nomipmaps" after "mipmaps"
 
 	/* If the image is marked grayscale, then use all bits not used for alpha
 	 * for the intensity.  This way, if an image has no alpha, you get an 8-bit
 	 * grayscale; if it only has boolean transparency, you get a 7-bit grayscale. */
-	if( sHintString.Find("grayscale") != -1 )		actualID.iGrayscaleBits = 8-actualID.iAlphaBits;
+	if( sHintString.find("grayscale") != string::npos )		actualID.iGrayscaleBits = 8-actualID.iAlphaBits;
 
 	/* This indicates that the only component in the texture is alpha; assume all
 	 * color is white. */
-	if( sHintString.Find("alphamap") != -1 )			actualID.iGrayscaleBits = 0;
+	if( sHintString.find("alphamap") != string::npos )			actualID.iGrayscaleBits = 0;
 
 	/* No iGrayscaleBits for images that are already paletted.  We don't support
 	 * that; and that hint is intended for use on images that are already grayscale,
@@ -139,8 +138,8 @@ void RageBitmapTexture::Create()
 		m_iTextureHeight = max( 8, m_iTextureHeight );
 	}
 
-	ASSERT( m_iTextureWidth <= actualID.iMaxSize );
-	ASSERT( m_iTextureHeight <= actualID.iMaxSize );
+	ASSERT_M( m_iTextureWidth <= actualID.iMaxSize, ssprintf("w %i, %i", m_iTextureWidth, actualID.iMaxSize) );
+	ASSERT_M( m_iTextureHeight <= actualID.iMaxSize, ssprintf("h %i, %i", m_iTextureHeight, actualID.iMaxSize) );
 
 	if( actualID.bStretch )
 	{
@@ -153,7 +152,7 @@ void RageBitmapTexture::Create()
 	if( pImg->w != m_iImageWidth || pImg->h != m_iImageHeight ) 
 		RageSurfaceUtils::Zoom( pImg, m_iImageWidth, m_iImageHeight );
 
-	if( actualID.iGrayscaleBits != -1 && DISPLAY->SupportsTextureFormat(RageDisplay::FMT_PAL) )
+	if( actualID.iGrayscaleBits != -1 && DISPLAY->SupportsTextureFormat(PixelFormat_PAL) )
 	{
 		RageSurface *pGrayscale = RageSurfaceUtils::PalettizeToGrayscale( pImg, actualID.iGrayscaleBits, actualID.iAlphaBits );
 
@@ -162,12 +161,12 @@ void RageBitmapTexture::Create()
 	}
 
 	/* Figure out which texture format we want the renderer to use. */
-	RageDisplay::PixelFormat pixfmt;
+	PixelFormat pixfmt;
 
 	/* If the source is palleted, always load as paletted if supported. */
-	if( pImg->format->BitsPerPixel == 8 && DISPLAY->SupportsTextureFormat(RageDisplay::FMT_PAL) )
+	if( pImg->format->BitsPerPixel == 8 && DISPLAY->SupportsTextureFormat(PixelFormat_PAL) )
 	{
-		pixfmt = RageDisplay::FMT_PAL;
+		pixfmt = PixelFormat_PAL;
 	}
 	else
 	{
@@ -186,28 +185,27 @@ void RageBitmapTexture::Create()
 				{
 				case 0:
 				case 1:
-					pixfmt = RageDisplay::FMT_RGB5A1;
+					pixfmt = PixelFormat_RGB5A1;
 					break;
 				default:	
-					pixfmt = RageDisplay::FMT_RGBA4;
+					pixfmt = PixelFormat_RGBA4;
 					break;
 				}
 			}
 			break;
 		case 32:
-			pixfmt = RageDisplay::FMT_RGBA8;
+			pixfmt = PixelFormat_RGBA8;
 			break;
-		default:
-			RageException::Throw( "Invalid color depth: %d bits", actualID.iColorDepth );
+		default: FAIL_M( ssprintf("%i", actualID.iColorDepth) );
 		}
 	}
 
 	/* Make we're using a supported format. Every card supports either RGBA8 or RGBA4. */
 	if( !DISPLAY->SupportsTextureFormat(pixfmt) )
 	{
-		pixfmt = RageDisplay::FMT_RGBA8;
+		pixfmt = PixelFormat_RGBA8;
 		if( !DISPLAY->SupportsTextureFormat(pixfmt) )
-			pixfmt = RageDisplay::FMT_RGBA4;
+			pixfmt = PixelFormat_RGBA4;
 	}
 
 	/* Dither if appropriate. XXX: This is a special case: don't bother dithering to
@@ -215,7 +213,7 @@ void RageBitmapTexture::Create()
 	 * depth on at least one color channel than the source.  For example, it doesn't
 	 * make sense to do this when pixfmt is RGBA5551 if the image is only RGBA555. */
 	if( actualID.bDither && 
-		(pixfmt==RageDisplay::FMT_RGBA4 || pixfmt==RageDisplay::FMT_RGB5A1) )
+		(pixfmt==PixelFormat_RGBA4 || pixfmt==PixelFormat_RGB5A1) )
 	{
 		/* Dither down to the destination format. */
 		const RageDisplay::PixelFormatDesc *pfd = DISPLAY->GetPixelFormatDesc(pixfmt);
@@ -265,7 +263,7 @@ void RageBitmapTexture::Create()
 		float fBetterSourceHeight = this->GetFramesHigh() * fBetterFrameHeight;
 		if( fFrameWidth!=fBetterFrameWidth || fFrameHeight!=fBetterFrameHeight )
 		{
-			CString sWarning = ssprintf(
+			RString sWarning = ssprintf(
 				"The graphic '%s' has frame dimensions that aren't even numbers.\n\n"
 				"The entire image is %dx%d and frame size is %.1fx%.1f.\n\n"
 				"Image quality will be much improved if you resize the graphic to %.0fx%.0f, which is a frame size of %.0fx%.0f.", 
@@ -287,8 +285,8 @@ void RageBitmapTexture::Create()
 	GetResolutionFromFileName( actualID.filename, m_iSourceWidth, m_iSourceHeight );
 
 
-	CString sProperties;
-	sProperties += RageDisplay::PixelFormatToString( pixfmt ) + " ";
+	RString sProperties;
+	sProperties += PixelFormatToString( pixfmt ) + " ";
 	if( actualID.iAlphaBits == 0 ) sProperties += "opaque ";
 	if( actualID.iAlphaBits == 1 ) sProperties += "matte ";
 	if( actualID.bStretch ) sProperties += "stretch ";

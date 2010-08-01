@@ -15,27 +15,27 @@
 const int MAX_EDIT_STEPS_SIZE_BYTES		= 30*1024;	// 30KB
 
 void SMLoader::LoadFromSMTokens( 
-	CString sStepsType, 
-	CString sDescription,
-	CString sDifficulty,
-	CString sMeter,
-	CString sRadarValues,
-	CString sNoteData,
+	RString sStepsType, 
+	RString sDescription,
+	RString sDifficulty,
+	RString sMeter,
+	RString sRadarValues,
+	RString sNoteData,
 	Steps &out
 )
 {
 	out.SetSavedToDisk( true );	// we're loading from disk, so this is by definintion already saved
 
-	TrimLeft(sStepsType); 	TrimRight(sStepsType); 
-	TrimLeft(sDescription);	TrimRight(sDescription); 
-	TrimLeft(sDifficulty); 	TrimRight(sDifficulty); 
+	TrimLeft( sStepsType ); 	TrimRight( sStepsType ); 
+	TrimLeft( sDescription );	TrimRight( sDescription ); 
+	TrimLeft( sDifficulty ); 	TrimRight( sDifficulty ); 
 
 
 //	LOG->Trace( "Steps::LoadFromSMTokens()" );
 
-	out.m_StepsType = GameManager::StringToStepsType(sStepsType);
-	out.SetDescription(sDescription);
-	out.SetDifficulty(StringToDifficulty( sDifficulty ));
+	out.m_StepsType = GameManager::StringToStepsType( sStepsType );
+	out.SetDescription( sDescription );
+	out.SetDifficulty( StringToDifficulty(sDifficulty) );
 
 	// HACK:  We used to store SMANIAC as DIFFICULTY_HARD with special description.
 	// Now, it has its own DIFFICULTY_CHALLENGE
@@ -46,28 +46,28 @@ void SMLoader::LoadFromSMTokens(
 	if( sDescription.CompareNoCase("challenge") == 0 ) 
 		out.SetDifficulty( DIFFICULTY_CHALLENGE );
 
-	out.SetMeter(atoi(sMeter));
-	CStringArray saValues;
+	out.SetMeter( atoi(sMeter) );
+	vector<RString> saValues;
 	split( sRadarValues, ",", saValues, true );
-	if( saValues.size() == NUM_RADAR_CATEGORIES )
+	if( saValues.size() == NUM_RadarCategory )
 	{
 		RadarValues v;
-		FOREACH_RadarCategory(rc)
-			v[rc] = strtof( saValues[rc], NULL );
+		FOREACH_RadarCategory( rc )
+			v[rc] = StringToFloat( saValues[rc] );
 		out.SetCachedRadarValues( v ); 
 	}
     
-	out.SetSMNoteData(sNoteData);
+	out.SetSMNoteData( sNoteData );
 
 	out.TidyUpData();
 }
 
-void SMLoader::GetApplicableFiles( CString sPath, CStringArray &out )
+void SMLoader::GetApplicableFiles( const RString &sPath, vector<RString> &out )
 {
-	GetDirListing( sPath + CString("*.sm"), out );
+	GetDirListing( sPath + RString("*.sm"), out );
 }
 
-bool SMLoader::LoadTimingFromFile( const CString &fn, TimingData &out )
+bool SMLoader::LoadTimingFromFile( const RString &fn, TimingData &out )
 {
 	MsdFile msd;
 	if( !msd.ReadFile( fn ) )
@@ -90,21 +90,21 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 	for( unsigned i=0; i<msd.GetNumValues(); i++ )
 	{
 		const MsdFile::value_t &sParams = msd.GetValue(i);
-		CString sValueName = sParams[0];
+		RString sValueName = sParams[0];
 		sValueName.MakeUpper();
 
 		if( sValueName=="OFFSET" )
 		{
-			out.m_fBeat0OffsetInSeconds = strtof( sParams[1], NULL );
+			out.m_fBeat0OffsetInSeconds = StringToFloat( sParams[1] );
 		}
 		else if( sValueName=="STOPS" || sValueName=="FREEZES" )
 		{
-			CStringArray arrayFreezeExpressions;
+			vector<RString> arrayFreezeExpressions;
 			split( sParams[1], ",", arrayFreezeExpressions );
 
 			for( unsigned f=0; f<arrayFreezeExpressions.size(); f++ )
 			{
-				CStringArray arrayFreezeValues;
+				vector<RString> arrayFreezeValues;
 				split( arrayFreezeExpressions[f], "=", arrayFreezeValues );
 				/* XXX: Once we have a way to display warnings that the user actually
 				 * cares about (unlike most warnings), this should be one of them. */
@@ -115,8 +115,8 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 					continue;
 				}
 
-				const float fFreezeBeat = strtof( arrayFreezeValues[0], NULL );
-				const float fFreezeSeconds = strtof( arrayFreezeValues[1], NULL );
+				const float fFreezeBeat = StringToFloat( arrayFreezeValues[0] );
+				const float fFreezeSeconds = StringToFloat( arrayFreezeValues[1] );
 				
 				StopSegment new_seg;
 				new_seg.m_iStartRow = BeatToNoteRow(fFreezeBeat);
@@ -130,12 +130,12 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 
 		else if( sValueName=="BPMS" )
 		{
-			CStringArray arrayBPMChangeExpressions;
+			vector<RString> arrayBPMChangeExpressions;
 			split( sParams[1], ",", arrayBPMChangeExpressions );
 
 			for( unsigned b=0; b<arrayBPMChangeExpressions.size(); b++ )
 			{
-				CStringArray arrayBPMChangeValues;
+				vector<RString> arrayBPMChangeValues;
 				split( arrayBPMChangeExpressions[b], "=", arrayBPMChangeValues );
 				/* XXX: Once we have a way to display warnings that the user actually
 				 * cares about (unlike most warnings), this should be one of them. */
@@ -146,8 +146,8 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 					continue;
 				}
 
-				const float fBeat = strtof( arrayBPMChangeValues[0], NULL );
-				const float fNewBPM = strtof( arrayBPMChangeValues[1], NULL );
+				const float fBeat = StringToFloat( arrayBPMChangeValues[0] );
+				const float fNewBPM = StringToFloat( arrayBPMChangeValues[1] );
 				
 				BPMSegment new_seg;
 				new_seg.m_iStartIndex = BeatToNoteRow(fBeat);
@@ -159,9 +159,9 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 	}
 }
 
-bool LoadFromBGChangesString( BackgroundChange &change, const CString &sBGChangeExpression )
+bool LoadFromBGChangesString( BackgroundChange &change, const RString &sBGChangeExpression )
 {
-	CStringArray aBGChangeValues;
+	vector<RString> aBGChangeValues;
 	split( sBGChangeExpression, "=", aBGChangeValues, false );
 
 	aBGChangeValues.resize( min((int)aBGChangeValues.size(),11) );
@@ -212,20 +212,20 @@ bool LoadFromBGChangesString( BackgroundChange &change, const CString &sBGChange
 			change.m_sTransition = (atoi( aBGChangeValues[3] ) != 0) ? "CrossFade" : "";
 		// fall through
 	case 3:
-		change.m_fRate = strtof( aBGChangeValues[2], NULL );
+		change.m_fRate = StringToFloat( aBGChangeValues[2] );
 		// fall through
 	case 2:
 		change.m_def.m_sFile1 = aBGChangeValues[1];
 		// fall through
 	case 1:
-		change.m_fStartBeat = strtof( aBGChangeValues[0], NULL );
+		change.m_fStartBeat = StringToFloat( aBGChangeValues[0] );
 		// fall through
 	}
 	
 	return aBGChangeValues.size() >= 2;
 }
 
-bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
+bool SMLoader::LoadFromSMFile( const RString &sPath, Song &out )
 {
 	LOG->Trace( "Song::LoadFromSMFile(%s)", sPath.c_str() );
 
@@ -243,7 +243,7 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 	{
 		int iNumParams = msd.GetNumParams(i);
 		const MsdFile::value_t &sParams = msd.GetValue(i);
-		CString sValueName = sParams[0];
+		RString sValueName = sParams[0];
 		sValueName.MakeUpper();
 
 		// handle the data
@@ -293,7 +293,7 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 		{
 			if(!FromCache)
 				continue;
-			out.m_fMusicLengthSeconds = strtof( sParams[1], NULL );
+			out.m_fMusicLengthSeconds = StringToFloat( sParams[1] );
 		}
 
 		else if( sValueName=="MUSICBYTES" )
@@ -305,14 +305,14 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 		{
 			if(!FromCache)
 				continue;
-			out.m_fFirstBeat = strtof( sParams[1], NULL );
+			out.m_fFirstBeat = StringToFloat( sParams[1] );
 		}
 
 		else if( sValueName=="LASTBEAT" )
 		{
 			if(!FromCache)
 				LOG->Trace("Ignored #LASTBEAT (cache only)");
-			out.m_fLastBeat = strtof( sParams[1], NULL );
+			out.m_fLastBeat = StringToFloat( sParams[1] );
 		}
 		else if( sValueName=="SONGFILENAME" )
 		{
@@ -344,11 +344,11 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 			else 
 			{
 				out.m_DisplayBPMType = Song::DISPLAY_SPECIFIED;
-				out.m_fSpecifiedBPMMin = strtof( sParams[1], NULL );
+				out.m_fSpecifiedBPMMin = StringToFloat( sParams[1] );
 				if( sParams[2].empty() )
 					out.m_fSpecifiedBPMMax = out.m_fSpecifiedBPMMin;
 				else
-					out.m_fSpecifiedBPMMax = strtof( sParams[2], NULL );
+					out.m_fSpecifiedBPMMax = StringToFloat( sParams[2] );
 			}
 		}
 
@@ -377,7 +377,7 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 			}
 			else
 			{
-				CStringArray aBGChangeExpressions;
+				vector<RString> aBGChangeExpressions;
 				split( sParams[1], ",", aBGChangeExpressions );
 
 				for( unsigned b=0; b<aBGChangeExpressions.size(); b++ )
@@ -391,7 +391,7 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 
 		else if( sValueName=="FGCHANGES" )
 		{
-			CStringArray aFGChangeExpressions;
+			vector<RString> aFGChangeExpressions;
 			split( sParams[1], ",", aFGChangeExpressions );
 
 			for( unsigned b=0; b<aFGChangeExpressions.size(); b++ )
@@ -404,13 +404,7 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 
 		else if( sValueName=="KEYSOUNDS" )
 		{
-			CStringArray aKeysoundFiles;
-			split( sParams[1], ",", aKeysoundFiles );
-
-			for( unsigned k=0; k<aKeysoundFiles.size(); k++ )
-			{
-				out.m_vsKeysoundFile.push_back( aKeysoundFiles[k] );
-			}
+			split( sParams[1], ",", out.m_vsKeysoundFile );
 		}
 
 		else if( sValueName=="NOTES" || sValueName=="NOTES2" )
@@ -444,9 +438,9 @@ bool SMLoader::LoadFromSMFile( CString sPath, Song &out )
 }
 
 
-bool SMLoader::LoadFromDir( CString sPath, Song &out )
+bool SMLoader::LoadFromDir( const RString &sPath, Song &out )
 {
-	CStringArray aFileNames;
+	vector<RString> aFileNames;
 	GetApplicableFiles( sPath, aFileNames );
 
 	if( aFileNames.size() > 1 )
@@ -462,9 +456,9 @@ bool SMLoader::LoadFromDir( CString sPath, Song &out )
 	return LoadFromSMFile( sPath + aFileNames[0], out );
 }
 
-bool SMLoader::LoadEdit( CString sEditFilePath, ProfileSlot slot )
+bool SMLoader::LoadEditFromFile( RString sEditFilePath, ProfileSlot slot, bool bAddStepsToSong )
 {
-	LOG->Trace( "SMLoader::LoadEdit(%s)", sEditFilePath.c_str() );
+	LOG->Trace( "SMLoader::LoadEditFromFile(%s)", sEditFilePath.c_str() );
 
 	int iBytes = FILEMAN->GetFileSizeInBytes( sEditFilePath );
 	if( iBytes > MAX_EDIT_STEPS_SIZE_BYTES )
@@ -480,17 +474,17 @@ bool SMLoader::LoadEdit( CString sEditFilePath, ProfileSlot slot )
 		return false;
 	}
 
-	return LoadEditFromMsd( msd, sEditFilePath, slot );
+	return LoadEditFromMsd( msd, sEditFilePath, slot, bAddStepsToSong );
 }
 
-bool SMLoader::LoadEditFromBuffer( const CString &sBuffer, CString sEditFilePath, ProfileSlot slot )
+bool SMLoader::LoadEditFromBuffer( const RString &sBuffer, const RString &sEditFilePath, ProfileSlot slot )
 {
 	MsdFile msd;
 	msd.ReadFromString( sBuffer );
-	return LoadEditFromMsd( msd, sEditFilePath, slot );
+	return LoadEditFromMsd( msd, sEditFilePath, slot, true );
 }
 
-bool SMLoader::LoadEditFromMsd( const MsdFile &msd, CString sEditFilePath, ProfileSlot slot )
+bool SMLoader::LoadEditFromMsd( const MsdFile &msd, const RString &sEditFilePath, ProfileSlot slot, bool bAddStepsToSong )
 {
 	Song* pSong = NULL;
 
@@ -498,7 +492,7 @@ bool SMLoader::LoadEditFromMsd( const MsdFile &msd, CString sEditFilePath, Profi
 	{
 		int iNumParams = msd.GetNumParams(i);
 		const MsdFile::value_t &sParams = msd.GetValue(i);
-		CString sValueName = sParams[0];
+		RString sValueName = sParams[0];
 		sValueName.MakeUpper();
 
 		// handle the data
@@ -510,7 +504,7 @@ bool SMLoader::LoadEditFromMsd( const MsdFile &msd, CString sEditFilePath, Profi
 				return false;
 			}
 
-			CString sSongFullTitle = sParams[1];
+			RString sSongFullTitle = sParams[1];
 			sSongFullTitle.Replace( '\\', '/' );
 
 			pSong = SONGMAN->FindSong( sSongFullTitle );
@@ -541,6 +535,9 @@ bool SMLoader::LoadEditFromMsd( const MsdFile &msd, CString sEditFilePath, Profi
 				continue;
 			}
 
+			if( !bAddStepsToSong )
+				return true;
+
 			Steps* pNewNotes = new Steps;
 			LoadFromSMTokens( 
 				sParams[1], sParams[2], sParams[3], sParams[4], sParams[5], sParams[6],
@@ -548,7 +545,7 @@ bool SMLoader::LoadEditFromMsd( const MsdFile &msd, CString sEditFilePath, Profi
 
 			pNewNotes->SetLoadedFromProfile( slot );
 			pNewNotes->SetDifficulty( DIFFICULTY_EDIT );
-
+			pNewNotes->SetFilename( sEditFilePath );
 
 			if( pSong->IsEditAlreadyLoaded(pNewNotes) )
 			{

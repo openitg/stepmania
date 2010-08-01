@@ -8,13 +8,32 @@
 
 ThemeMetric<float> METER_WIDTH		("CombinedLifeMeterTug","MeterWidth");
 
+static void TugMeterPercentChangeInit( size_t /*ScoreEvent*/ i, RString &sNameOut, float &defaultValueOut )
+{
+	sNameOut = "TugMeterPercentChange" + ScoreEventToString( (ScoreEvent)i );
+	switch( i )
+	{
+	default:	ASSERT(0);
+	case SE_W1:			defaultValueOut = +0.010f;	break;
+	case SE_W2:			defaultValueOut = +0.008f;	break;
+	case SE_W3:			defaultValueOut = +0.004f;	break;
+	case SE_W4:			defaultValueOut = +0.000f;	break;
+	case SE_W5:			defaultValueOut = -0.010f;	break;
+	case SE_Miss:		defaultValueOut = -0.020f;	break;
+	case SE_HitMine:	defaultValueOut = -0.040f;	break;
+	case SE_Held:		defaultValueOut = +0.008f;	break;
+	case SE_LetGo:		defaultValueOut = -0.020f;	break;
+	}
+}
+
+static Preference1D<float> g_fTugMeterPercentChange( TugMeterPercentChangeInit, NUM_ScoreEvent );
 
 CombinedLifeMeterTug::CombinedLifeMeterTug() 
 {
 	FOREACH_PlayerNumber( p )
 	{
-		CString sStreamPath = THEME->GetPathG("CombinedLifeMeterTug",ssprintf("stream p%d",p+1));
-		CString sTipPath = THEME->GetPathG("CombinedLifeMeterTug",ssprintf("tip p%d",p+1));
+		RString sStreamPath = THEME->GetPathG("CombinedLifeMeterTug",ssprintf("stream p%d",p+1));
+		RString sTipPath = THEME->GetPathG("CombinedLifeMeterTug",ssprintf("tip p%d",p+1));
 		m_Stream[p].Load( sStreamPath, METER_WIDTH, sTipPath );
 		this->AddChild( &m_Stream[p] );
 	}
@@ -47,13 +66,13 @@ void CombinedLifeMeterTug::ChangeLife( PlayerNumber pn, TapNoteScore score )
 	float fPercentToMove = 0;
 	switch( score )
 	{
-	case TNS_MARVELOUS:		fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeMarvelous;	break;
-	case TNS_PERFECT:		fPercentToMove = PREFSMAN->m_fTugMeterPercentChangePerfect;	break;
-	case TNS_GREAT:			fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeGreat;		break;
-	case TNS_GOOD:			fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeGood;		break;
-	case TNS_BOO:			fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeBoo;		break;
-	case TNS_MISS:			fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeMiss;		break;
-	case TNS_HIT_MINE:		fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeHitMine; break;
+	case TNS_W1:		fPercentToMove = g_fTugMeterPercentChange[SE_W1];		break;
+	case TNS_W2:		fPercentToMove = g_fTugMeterPercentChange[SE_W2];		break;
+	case TNS_W3:		fPercentToMove = g_fTugMeterPercentChange[SE_W3];		break;
+	case TNS_W4:		fPercentToMove = g_fTugMeterPercentChange[SE_W4];		break;
+	case TNS_W5:		fPercentToMove = g_fTugMeterPercentChange[SE_W5];		break;
+	case TNS_Miss:		fPercentToMove = g_fTugMeterPercentChange[SE_Miss];	break;
+	case TNS_HitMine:	fPercentToMove = g_fTugMeterPercentChange[SE_HitMine]; break;
 	default:	ASSERT(0);	break;
 	}
 
@@ -62,16 +81,11 @@ void CombinedLifeMeterTug::ChangeLife( PlayerNumber pn, TapNoteScore score )
 
 void CombinedLifeMeterTug::ChangeLife( PlayerNumber pn, HoldNoteScore score, TapNoteScore tscore )
 {
-	/* The initial tap note score (which we happen to have in have in
-	 * tscore) has already been reported to the above function.  If the
-	 * hold end result was an NG, count it as a miss; if the end result
-	 * was an OK, count a perfect.  (Remember, this is just life meter
-	 * computation, not scoring.) */
 	float fPercentToMove = 0;
 	switch( score )
 	{
-	case HNS_OK:			fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeOK;	break;
-	case HNS_NG:			fPercentToMove = PREFSMAN->m_fTugMeterPercentChangeNG;	break;
+	case HNS_Held:			fPercentToMove = g_fTugMeterPercentChange[SE_Held];	break;
+	case HNS_LetGo:			fPercentToMove = g_fTugMeterPercentChange[SE_LetGo];	break;
 	default:	ASSERT(0);	break;
 	}
 

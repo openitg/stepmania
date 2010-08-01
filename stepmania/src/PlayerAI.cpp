@@ -10,20 +10,20 @@
 
 struct TapScoreDistribution
 {
-	float fPercent[NUM_TAP_NOTE_SCORES];
+	float fPercent[NUM_TapNoteScore];
 
 	TapNoteScore GetTapNoteScore()
 	{
 		float fRand = randomf(0,1);
 		float fCumulativePercent = 0;
-		for( int i=0; i<=TNS_MARVELOUS; i++ )
+		for( int i=0; i<=TNS_W1; i++ )
 		{
 			fCumulativePercent += fPercent[i];
 			if( fRand <= fCumulativePercent+1e-4 ) /* rounding error */
 				return (TapNoteScore)i;
 		}
-		ASSERT(0);	// the fCumulativePercents must sum to 1.0, so we should never get here!
-		return TNS_MARVELOUS;
+		ASSERT_M( 0, ssprintf("%f,%f",fRand,fCumulativePercent) );	// the fCumulativePercents must sum to 1.0, so we should never get here!
+		return TNS_W1;
 	}
 
 };
@@ -33,29 +33,38 @@ static TapScoreDistribution g_Distributions[NUM_SKILL_LEVELS];
 
 void PlayerAI::InitFromDisk()
 {
+	bool bSuccess;
+	
 	IniFile ini;
-	ini.ReadFile( AI_PATH );
+	bSuccess = ini.ReadFile( AI_PATH );
+	ASSERT( bSuccess );
 
 	for( int i=0; i<NUM_SKILL_LEVELS; i++ )
 	{
-		CString sKey = ssprintf("Skill%d", i);
+		RString sKey = ssprintf("Skill%d", i);
 		XNode* pNode = ini.GetChild(sKey);
 		if( pNode == NULL )
 			RageException::Throw( "AI.ini: '%s' doesn't exist.", sKey.c_str() );
 
 		TapScoreDistribution& dist = g_Distributions[i];
-		dist.fPercent[TNS_NONE] = 0;
-		pNode->GetAttrValue( "MissWeight", dist.fPercent[TNS_MISS] );
-		pNode->GetAttrValue( "BooWeight", dist.fPercent[TNS_BOO] );
-		pNode->GetAttrValue( "GoodWeight", dist.fPercent[TNS_GOOD] );
-		pNode->GetAttrValue( "GreatWeight", dist.fPercent[TNS_GREAT] );
-		pNode->GetAttrValue( "PerfectWeight", dist.fPercent[TNS_PERFECT] );
-		pNode->GetAttrValue( "MarvelousWeight", dist.fPercent[TNS_MARVELOUS] );
+		dist.fPercent[TNS_None] = 0;
+		bSuccess = pNode->GetAttrValue( "WeightMiss", dist.fPercent[TNS_Miss] );
+		ASSERT( bSuccess );
+		bSuccess = pNode->GetAttrValue( "WeightW5", dist.fPercent[TNS_W5] );
+		ASSERT( bSuccess );
+		bSuccess = pNode->GetAttrValue( "WeightW4", dist.fPercent[TNS_W4] );
+		ASSERT( bSuccess );
+		bSuccess = pNode->GetAttrValue( "WeightW3", dist.fPercent[TNS_W3] );
+		ASSERT( bSuccess );
+		bSuccess = pNode->GetAttrValue( "WeightW2", dist.fPercent[TNS_W2] );
+		ASSERT( bSuccess );
+		bSuccess = pNode->GetAttrValue( "WeightW1", dist.fPercent[TNS_W1] );
+		ASSERT( bSuccess );
 		
 		float fSum = 0;
-		for( int j=0; j<NUM_TAP_NOTE_SCORES; j++ )
+		for( int j=0; j<NUM_TapNoteScore; j++ )
 			fSum += dist.fPercent[j];
-		for( int j=0; j<NUM_TAP_NOTE_SCORES; j++ )
+		for( int j=0; j<NUM_TapNoteScore; j++ )
 			dist.fPercent[j] /= fSum;
 	}
 }
@@ -64,7 +73,7 @@ void PlayerAI::InitFromDisk()
 TapNoteScore PlayerAI::GetTapNoteScore( const PlayerState* pPlayerState )
 {
 	if( pPlayerState->m_PlayerController == PC_AUTOPLAY )
-		return TNS_MARVELOUS;
+		return TNS_W1;
 
 	int iCpuSkill = pPlayerState->m_iCpuSkill;
 

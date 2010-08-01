@@ -3,6 +3,7 @@
 #ifndef LOW_LEVEL_WINDOW_X11_H
 #define LOW_LEVEL_WINDOW_X11_H
 
+#include "RageDisplay.h" // VideoModeParams
 #include "LowLevelWindow.h"
 
 class LowLevelWindow_X11 : public LowLevelWindow
@@ -11,15 +12,25 @@ public:
 	LowLevelWindow_X11();
 	~LowLevelWindow_X11();
 
-	void *GetProcAddress(CString s);
-	CString TryVideoMode(RageDisplay::VideoModeParams p, bool &bNewDeviceOut);
+	void *GetProcAddress(RString s);
+	RString TryVideoMode(const VideoModeParams &p, bool &bNewDeviceOut);
+	bool IsSoftwareRenderer( RString &sError );
 	void SwapBuffers();
 
-	RageDisplay::VideoModeParams GetVideoModeParams() const { return CurrentParams; }
+	const VideoModeParams &GetActualVideoModeParams() const { return CurrentParams; }
+	
+	void GetDisplayResolutions( DisplayResolutions &out ) const;
+	float GetMonitorAspectRatio() const;
+
+	bool SupportsThreadedRendering();
+	void BeginConcurrentRenderingMainThread();
+	void EndConcurrentRenderingMainThread();
+	void BeginConcurrentRendering();
+	void EndConcurrentRendering();
 
 private:
-	bool m_bWindowIsOpen;
-	RageDisplay::VideoModeParams CurrentParams;
+	bool m_bWasWindowed;
+	VideoModeParams CurrentParams;
 };
 
 #ifdef ARCH_LOW_LEVEL_WINDOW

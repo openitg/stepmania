@@ -107,7 +107,7 @@
 
 typedef unsigned char byte;     // moved outside namespace for Borland C++Builder 5
 
-NAMESPACE_BEGIN(CryptoPP)
+namespace CryptoPP {
 
 typedef unsigned short word16;
 #if defined(__alpha) && !defined(_MSC_VER)
@@ -178,7 +178,7 @@ union dword_union
 #	define FAST_ROTATE
 #endif
 
-NAMESPACE_END
+}
 
 // VC60 workaround: it doesn't allow typename in some places
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
@@ -204,7 +204,7 @@ NAMESPACE_END
 #define CRYPTOPP_WIN32_AVAILABLE
 #endif
 
-#if defined(__unix__) || defined(__MACH__)
+#if defined(__unix__) || defined(__MACH__) || defined(__NetBSD__)
 #define CRYPTOPP_UNIX_AVAILABLE
 #endif
 

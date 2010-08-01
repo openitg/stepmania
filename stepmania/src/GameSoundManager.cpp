@@ -14,6 +14,7 @@
 #include "song.h"
 #include "Steps.h"
 #include "LightsManager.h"
+#include "SongUtil.h"
 
 GameSoundManager *SOUND = NULL;
 
@@ -72,13 +73,13 @@ static MusicPlaying *g_Playing;
 
 static RageThread MusicThread;
 
-vector<CString> g_SoundsToPlayOnce;
-vector<CString> g_SoundsToPlayOnceFromDir;
-vector<CString> g_SoundsToPlayOnceFromAnnouncer;
+vector<RString> g_SoundsToPlayOnce;
+vector<RString> g_SoundsToPlayOnceFromDir;
+vector<RString> g_SoundsToPlayOnceFromAnnouncer;
 
 struct MusicToPlay
 {
-	CString file, timing_file;
+	RString file, timing_file;
 	bool HasTiming;
 	TimingData timing_data;
 	NoteData lights_data;
@@ -142,7 +143,7 @@ static void StartMusic( MusicToPlay &ToPlay )
 			ToPlay.HasTiming = true;
 			ToPlay.timing_data = song.m_Timing;
 			// get cabinet lights if any
-			Steps *pStepsCabinetLights = song.GetOneSteps( STEPS_TYPE_LIGHTS_CABINET );
+			Steps *pStepsCabinetLights = SongUtil::GetOneSteps( &song, STEPS_TYPE_LIGHTS_CABINET );
 			if( pStepsCabinetLights )
 				pStepsCabinetLights->GetNoteData( ToPlay.lights_data );
 		}
@@ -159,9 +160,9 @@ static void StartMusic( MusicToPlay &ToPlay )
 		/* Extend the loop period so it always starts and ends on the same fractional
 		 * beat.  That is, if it starts on beat 1.5, and ends on beat 10.2, extend it
 		 * to end on beat 10.5.  This way, effects always loop cleanly. */
-		float fStartBeat = NewMusic->m_NewTiming.GetBeatFromElapsedTime( ToPlay.start_sec );
+		float fStartBeat = NewMusic->m_NewTiming.GetBeatFromElapsedTimeNoOffset( ToPlay.start_sec );
 		float fEndSec = ToPlay.start_sec + ToPlay.length_sec;
-		float fEndBeat = NewMusic->m_NewTiming.GetBeatFromElapsedTime( fEndSec );
+		float fEndBeat = NewMusic->m_NewTiming.GetBeatFromElapsedTimeNoOffset( fEndSec );
 		
 		const float fStartBeatFraction = fmodfp( fStartBeat, 1 );
 		const float fEndBeatFraction = fmodfp( fEndBeat, 1 );
@@ -172,7 +173,7 @@ static void StartMusic( MusicToPlay &ToPlay )
 
 		fEndBeat += fBeatDifference;
 
-		const float fRealEndSec = NewMusic->m_NewTiming.GetElapsedTimeFromBeat( fEndBeat );
+		const float fRealEndSec = NewMusic->m_NewTiming.GetElapsedTimeFromBeatNoOffset( fEndBeat );
 		const float fNewLengthSec = fRealEndSec - ToPlay.start_sec;
 
 		/* Extend the fade_len, so the added time is faded out. */
@@ -185,8 +186,8 @@ static void StartMusic( MusicToPlay &ToPlay )
 	{
 		/* This song has no real timing data.  The offset is arbitrary.  Change it so
 		 * the beat will line up to where we are now, so we don't have to delay. */
-		float fDestBeat = fmodfp( GAMESTATE->m_fSongBeat, 1 );
-		float fTime = NewMusic->m_NewTiming.GetElapsedTimeFromBeat( fDestBeat );
+		float fDestBeat = fmodfp( GAMESTATE->m_fSongBeatNoOffset, 1 );
+		float fTime = NewMusic->m_NewTiming.GetElapsedTimeFromBeatNoOffset( fDestBeat );
 
 		NewMusic->m_NewTiming.m_fBeat0OffsetInSeconds = fTime;
 
@@ -206,23 +207,23 @@ static void StartMusic( MusicToPlay &ToPlay )
 		/* GetPlayLatency returns the minimum time until a sound starts.  That's
 		 * common when starting a precached sound, but our sound isn't, so it'll
 		 * probably take a little longer.  Nudge the latency up. */
-		const float PresumedLatency = SOUND->GetPlayLatency() + 0.040f;
-		const float fCurSecond = GAMESTATE->m_fMusicSeconds + PresumedLatency;
-		const float fCurBeat = g_Playing->m_Timing.GetBeatFromElapsedTime( fCurSecond );
-		const float fCurBeatFraction = fmodfp( fCurBeat,1 );
+		const float fPresumedLatency = SOUND->GetPlayLatency() + 0.040f;
+		const float fCurSecond = GAMESTATE->m_fMusicSeconds + fPresumedLatency;
+		const float fCurBeat = g_Playing->m_Timing.GetBeatFromElapsedTimeNoOffset( fCurSecond );
 
 		/* The beat that the new sound will start on. */
-		const float fStartBeat = NewMusic->m_NewTiming.GetBeatFromElapsedTime( ToPlay.start_sec );
-		float fStartBeatFraction = fmodfp( fStartBeat, 1 );
-		if( fStartBeatFraction < fCurBeatFraction )
-			fStartBeatFraction += 1.0f; /* unwrap */
+		const float fStartBeat = NewMusic->m_NewTiming.GetBeatFromElapsedTimeNoOffset( ToPlay.start_sec );
+		const float fStartBeatFraction = fmodfp( fStartBeat, 1 );
 
-		const float fCurBeatToStartOn = truncf(fCurBeat) + fStartBeatFraction;
-		const float fSecondToStartOn = g_Playing->m_Timing.GetElapsedTimeFromBeat( fCurBeatToStartOn );
+		float fCurBeatToStartOn = truncf(fCurBeat) + fStartBeatFraction;
+		if( fCurBeatToStartOn < fCurBeat )
+			fCurBeatToStartOn += 1.0f;
+
+		const float fSecondToStartOn = g_Playing->m_Timing.GetElapsedTimeFromBeatNoOffset( fCurBeatToStartOn );
 		const float fMaximumDistance = 2;
-		const float fDistance = min( fSecondToStartOn - fCurSecond, fMaximumDistance );
+		const float fDistance = min( fSecondToStartOn - GAMESTATE->m_fMusicSeconds, fMaximumDistance );
 
-		when = GAMESTATE->m_LastBeatUpdate + PresumedLatency + fDistance;
+		when = GAMESTATE->m_LastBeatUpdate + fDistance;
 	}
 
 	/* Important: don't hold the mutex while we load and seek the actual sound. */
@@ -238,7 +239,7 @@ static void StartMusic( MusicToPlay &ToPlay )
 		p.m_StartSecond = ToPlay.start_sec;
 		p.m_LengthSeconds = ToPlay.length_sec;
 		p.m_FadeLength = ToPlay.fade_len;
-		p.StartTime = when;
+		p.m_StartTime = when;
 		if( ToPlay.force_loop )
 			p.StopMode = RageSoundParams::M_LOOP;
 		NewMusic->m_Music->SetParams( p );
@@ -252,7 +253,7 @@ static void StartMusic( MusicToPlay &ToPlay )
 	g_Playing = NewMusic;
 }
 
-static void DoPlayOnceFromDir( CString sPath )
+static void DoPlayOnceFromDir( RString sPath )
 {
 	if( sPath == "" )
 		return;
@@ -261,7 +262,7 @@ static void DoPlayOnceFromDir( CString sPath )
 	if( sPath.Right(1) != "/" )
 		sPath += "/";
 
-	CStringArray arraySoundFiles;
+	vector<RString> arraySoundFiles;
 	GetDirListing( sPath + "*.mp3", arraySoundFiles );
 	GetDirListing( sPath + "*.wav", arraySoundFiles );
 	GetDirListing( sPath + "*.ogg", arraySoundFiles );
@@ -269,7 +270,7 @@ static void DoPlayOnceFromDir( CString sPath )
 	if( arraySoundFiles.empty() )
 		return;
 
-	int index = rand() % arraySoundFiles.size();
+	int index = RandomInt( arraySoundFiles.size( ));
 	SOUNDMAN->PlayOnce( sPath + arraySoundFiles[index] );
 }
 
@@ -285,11 +286,11 @@ static bool SoundWaiting()
 static void StartQueuedSounds()
 {
 	g_Mutex->Lock();
-	vector<CString> aSoundsToPlayOnce = g_SoundsToPlayOnce;
+	vector<RString> aSoundsToPlayOnce = g_SoundsToPlayOnce;
 	g_SoundsToPlayOnce.clear();
-	vector<CString> aSoundsToPlayOnceFromDir = g_SoundsToPlayOnceFromDir;
+	vector<RString> aSoundsToPlayOnceFromDir = g_SoundsToPlayOnceFromDir;
 	g_SoundsToPlayOnceFromDir.clear();
-	vector<CString> aSoundsToPlayOnceFromAnnouncer = g_SoundsToPlayOnceFromAnnouncer;
+	vector<RString> aSoundsToPlayOnceFromAnnouncer = g_SoundsToPlayOnceFromAnnouncer;
 	g_SoundsToPlayOnceFromAnnouncer.clear();
 	vector<MusicToPlay> aMusicsToPlay = g_MusicsToPlay;
 	g_MusicsToPlay.clear();
@@ -304,7 +305,7 @@ static void StartQueuedSounds()
 
 	for( unsigned i = 0; i < aSoundsToPlayOnceFromAnnouncer.size(); ++i )
 	{
-		CString sPath = aSoundsToPlayOnceFromAnnouncer[i];
+		RString sPath = aSoundsToPlayOnceFromAnnouncer[i];
 		if( sPath != "" )
 		{
 			sPath = ANNOUNCER->GetPathTo( sPath );
@@ -433,7 +434,7 @@ float GameSoundManager::GetFrameTimingAdjustment( float fDeltaTime )
 	static int iLastFPS = 0;
 	int iThisFPS = DISPLAY->GetFPS();
 
-	if( iThisFPS != DISPLAY->GetVideoModeParams().rate || iThisFPS != iLastFPS )
+	if( iThisFPS != DISPLAY->GetActualVideoModeParams().rate || iThisFPS != iLastFPS )
 	{
 		iLastFPS = iThisFPS;
 		return 0;
@@ -441,7 +442,7 @@ float GameSoundManager::GetFrameTimingAdjustment( float fDeltaTime )
 
 	const float fExpectedDelay = 1.0f / iThisFPS;
 	const float fExtraDelay = fDeltaTime - fExpectedDelay;
-	if( fabsf(fExtraDelay) >= fExpectedDelay )
+	if( fabsf(fExtraDelay) >= fExpectedDelay/2 )
 		return 0;
 
 	/* Subtract the extra delay. */
@@ -456,7 +457,7 @@ void GameSoundManager::Update( float fDeltaTime )
 		/* Duration of the fade-in and fade-out: */
 		static float fFadeInSpeed = 1.5f;
 		static float fFadeOutSpeed = 0.3f;
-		float fVolume = g_Playing->m_Music->GetVolume();
+		float fVolume = g_Playing->m_Music->GetParams().m_Volume;
 		switch( g_FadeState )
 		{
 		case FADE_NONE: break;
@@ -512,8 +513,8 @@ void GameSoundManager::Update( float fDeltaTime )
 		const float fSoundTimePassed = fSeconds - GAMESTATE->m_fMusicSeconds;
 		const float fDiff = fExpectedTimePassed - fSoundTimePassed;
 
-		static CString sLastFile = "";
-		const CString ThisFile = g_Playing->m_Music->GetLoadedFilePath();
+		static RString sLastFile = "";
+		const RString ThisFile = g_Playing->m_Music->GetLoadedFilePath();
 
 		/* If fSoundTimePassed < 0, the sound has probably looped. */
 		if( sLastFile == ThisFile && fSoundTimePassed >= 0 && fabsf(fDiff) > 0.003f )
@@ -615,14 +616,14 @@ done_with_cabinet_light:
 }
 
 
-CString GameSoundManager::GetMusicPath() const
+RString GameSoundManager::GetMusicPath() const
 {
 	LockMut( *g_Mutex );
 	return g_Playing->m_Music->GetLoadedFilePath();
 }
 
 void GameSoundManager::PlayMusic( 
-	const CString &file, 
+	const RString &file, 
 	const TimingData *pTiming, 
 	bool force_loop, 
 	float start_sec, 
@@ -664,8 +665,8 @@ void GameSoundManager::DimMusic( float fVolume, float fDurationSeconds )
 	LockMut( *g_Mutex );
 
 	if( g_FadeState == FADE_NONE )
-		g_fOriginalVolume = g_Playing->m_Music->GetVolume();
-	// otherwise, g_fOriginalVolume is already set and GetVolume will return the
+		g_fOriginalVolume = g_Playing->m_Music->GetParams().m_Volume;
+	// otherwise, g_fOriginalVolume is already set and m_Volume will be the
 	// current state, not the original state
 
 	g_fDimDurationRemaining = fDurationSeconds;
@@ -679,7 +680,7 @@ void GameSoundManager::HandleSongTimer( bool on )
 	g_UpdatingTimer = on;
 }
 
-void GameSoundManager::PlayOnce( CString sPath )
+void GameSoundManager::PlayOnce( RString sPath )
 {
 	/* Add the sound to the g_SoundsToPlayOnce queue. */
 	g_Mutex->Lock();
@@ -688,7 +689,7 @@ void GameSoundManager::PlayOnce( CString sPath )
 	g_Mutex->Unlock();
 }
 
-void GameSoundManager::PlayOnceFromDir( CString sPath )
+void GameSoundManager::PlayOnceFromDir( RString sPath )
 {
 	/* Add the path to the g_SoundsToPlayOnceFromDir queue. */
 	g_Mutex->Lock();
@@ -697,7 +698,7 @@ void GameSoundManager::PlayOnceFromDir( CString sPath )
 	g_Mutex->Unlock();
 }
 
-void GameSoundManager::PlayOnceFromAnnouncer( CString sPath )
+void GameSoundManager::PlayOnceFromAnnouncer( RString sPath )
 {
 	/* Add the path to the g_SoundsToPlayOnceFromDir queue. */
 	g_Mutex->Lock();
@@ -735,7 +736,7 @@ public:
 		p->DimMusic( fVolume, fDurationSeconds );
 		return 0;
 	}
-	static int PlayOnce( T* p, lua_State *L ) { CString sPath = SArg(1); p->PlayOnce( sPath ); return 0; }
+	static int PlayOnce( T* p, lua_State *L ) { RString sPath = SArg(1); p->PlayOnce( sPath ); return 0; }
 
 	static void Register(lua_State *L)
 	{

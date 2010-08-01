@@ -40,12 +40,13 @@ void Style::GetTransformedNoteDataForStyle( PlayerNumber pn, const NoteData& ori
 
 GameInput Style::StyleInputToGameInput( const StyleInput& StyleI ) const
 {
-	ASSERT_M( StyleI.player < NUM_PLAYERS, ssprintf("P%i", StyleI.player) );
-	ASSERT_M( StyleI.col < MAX_COLS_PER_PLAYER, ssprintf("C%i", StyleI.col) );
+	ASSERT_M( StyleI.player < NUM_PLAYERS  &&  StyleI.col < MAX_COLS_PER_PLAYER,
+		ssprintf("P%i C%i", StyleI.player, StyleI.col) );
+	bool bUsingOneSide = m_StyleType != ONE_PLAYER_TWO_SIDES && m_StyleType != TWO_PLAYERS_SHARED_SIDES;
 
 	FOREACH_GameController(gc)
 	{
-		if( this->m_StyleType != ONE_PLAYER_TWO_SIDES && gc != (int) StyleI.player )
+		if( bUsingOneSide && gc != (int) StyleI.player )
 			continue;
 
 		for( int i = 0; i < m_pGame->m_iButtonsPerController && m_iInputColumn[gc][i] != END_MAPPING; ++i )
@@ -60,8 +61,8 @@ StyleInput Style::GameInputToStyleInput( const GameInput &GameI ) const
 {
 	StyleInput SI;
 
-	if( m_iInputColumn[0][0] == NO_MAPPING )
-		return SI;	// Return invalid.
+	if( m_iInputColumn[GameI.controller][GameI.button] == NO_MAPPING )
+		return SI; // Return invalid.
 
 	for( int i = 0; i <= GameI.button; ++i )
 		if( m_iInputColumn[GameI.controller][i] == END_MAPPING )
@@ -79,6 +80,7 @@ PlayerNumber Style::ControllerToPlayerNumber( GameController controller ) const
 	{
 	case ONE_PLAYER_ONE_SIDE:
 	case TWO_PLAYERS_TWO_SIDES:
+	case TWO_PLAYERS_SHARED_SIDES:
 		return (PlayerNumber)controller;
 	case ONE_PLAYER_TWO_SIDES:
 		return GAMESTATE->m_MasterPlayerNumber;

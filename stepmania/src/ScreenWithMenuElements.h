@@ -5,8 +5,7 @@
 #include "Sprite.h"
 #include "Transition.h"
 #include "ActorUtil.h"
-#include "RageSound.h"
-#include "MemoryCardDisplay.h"
+//#include "RageSound.h"
 #include "ThemeMetric.h"
 
 class MenuTimer;
@@ -16,13 +15,13 @@ class MemoryCardDisplay;
 class ScreenWithMenuElements : public Screen
 {
 public:
-	ScreenWithMenuElements( CString sName );
+	ScreenWithMenuElements();
 	virtual void Init();
 	virtual void BeginScreen();
 	virtual ~ScreenWithMenuElements();
 
 	void Update( float fDeltaTime );
-	void StartTransitioning( ScreenMessage smSendWhenDone );
+	void StartTransitioningScreen( ScreenMessage smSendWhenDone );
 	virtual void Cancel( ScreenMessage smSendWhenDone );
 	bool IsTransitioning();
 
@@ -41,23 +40,48 @@ protected:
 	virtual void StartPlayingMusic();
 	virtual void LoadHelpText();
 
+	/* If true, BeginScreen() will run OnCommand on the whole screen, and
+	 * TweenOnScreen will not be called.  (Eventually, all screens should
+	 * use this, and this will be removed.) */
+	virtual bool GenericTweenOn() const { return false; }
+	virtual bool GenericTweenOff() const { return false; }
+
 	AutoActor			m_sprUnderlay;
 	AutoActor			m_autoHeader;
 	Sprite				m_sprStyleIcon;
 	AutoActor			m_sprStage;
-	MemoryCardDisplay	*m_MemoryCardDisplay[NUM_PLAYERS];
+	MemoryCardDisplay		*m_MemoryCardDisplay[NUM_PLAYERS];
 	MenuTimer			*m_MenuTimer;
 	AutoActor			m_autoFooter;
 	HelpDisplay			*m_textHelp;
 	AutoActor			m_sprOverlay;
 
-	Transition	m_In;
-	Transition	m_Out;
-	Transition	m_Cancel;
+	Transition			m_In;
+	Transition			m_Out;
+	Transition			m_Cancel;
 
-	ThemeMetric<bool>			PLAY_MUSIC;
-	ThemeMetric<float>			TIMER_SECONDS;
+	ThemeMetric<bool>		PLAY_MUSIC;
+	ThemeMetric<bool>		CANCEL_TRANSITIONS_OUT;
+	ThemeMetric<float>		TIMER_SECONDS;
 
+private:
+	RString				m_sPathToMusic;
+};
+
+class ScreenWithMenuElementsSimple: public ScreenWithMenuElements
+{
+public:
+	void MenuStart( PlayerNumber pn );
+	void MenuBack( PlayerNumber pn );
+
+	//
+	// Lua
+	//
+	virtual void PushSelf( lua_State *L );
+
+protected:
+	virtual bool GenericTweenOn() const { return true; }
+	virtual bool GenericTweenOff() const { return true; }
 };
 
 #endif

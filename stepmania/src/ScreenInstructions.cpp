@@ -3,9 +3,6 @@
 
 
 REGISTER_SCREEN_CLASS( ScreenInstructions );
-ScreenInstructions::ScreenInstructions( CString sName ) : ScreenWithMenuElements( sName )
-{
-}
 
 void ScreenInstructions::Init()
 {
@@ -30,7 +27,7 @@ void ScreenInstructions::MenuBack( PlayerNumber pn )
 
 void ScreenInstructions::MenuStart( PlayerNumber pn )
 {
-	StartTransitioning( SM_GoToNextScreen );
+	StartTransitioningScreen( SM_GoToNextScreen );
 }
 
 /*

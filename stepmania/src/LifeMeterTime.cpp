@@ -28,7 +28,7 @@ void LifeMeterTime::Load( const PlayerState *pPlayerState, PlayerStageStats *pPl
 {
 	LifeMeter::Load( pPlayerState, pPlayerStageStats );
 
-	const CString sType = "LifeMeterTime";
+	const RString sType = "LifeMeterTime";
 
 	m_sprBackground.Load( THEME->GetPathG(sType,"background") );
 	m_sprBackground->SetName( "Background" );
@@ -46,7 +46,7 @@ void LifeMeterTime::Load( const PlayerState *pPlayerState, PlayerStageStats *pPl
 
 	m_pStream = new StreamDisplay;
 	bool bExtra = GAMESTATE->IsExtraStage()||GAMESTATE->IsExtraStage2();
-	CString sExtra = bExtra ? "extra " : "";
+	RString sExtra = bExtra ? "extra " : "";
 	m_pStream->Load(
 		METER_WIDTH,
 		METER_HEIGHT,
@@ -78,8 +78,7 @@ void LifeMeterTime::OnLoadSong()
 	const CourseEntry *pEntry = &pCourse->m_vEntries[GAMESTATE->GetCourseSongIndex()];
 	m_fLifeTotalGainedSeconds += pEntry->fGainSeconds;
 
-	if( GAMESTATE->GetCourseSongIndex() > 0 )
-		m_soundGainLife.Play();
+	m_soundGainLife.Play();
 }
 
 
@@ -91,14 +90,14 @@ void LifeMeterTime::ChangeLife( TapNoteScore tns )
 	float fMeterChange = 0;
 	switch( tns )
 	{
-	case TNS_MARVELOUS:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeMarvelous;	break;
-	case TNS_PERFECT:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangePerfect;		break;
-	case TNS_GREAT:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeGreat;		break;
-	case TNS_GOOD:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeGood;			break;
-	case TNS_BOO:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeBoo;			break;
-	case TNS_MISS:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeMiss;			break;
-	case TNS_HIT_MINE:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeHitMine;		break;
 	default:	ASSERT(0);
+	case TNS_W1:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W1];		break;
+	case TNS_W2:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W2];		break;
+	case TNS_W3:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W3];		break;
+	case TNS_W4:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W4];		break;
+	case TNS_W5:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W5];		break;
+	case TNS_Miss:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_Miss];	break;
+	case TNS_HitMine:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_HitMine];	break;
 	}
 
 	m_fLifeTotalLostSeconds -= fMeterChange;
@@ -115,9 +114,9 @@ void LifeMeterTime::ChangeLife( HoldNoteScore hns, TapNoteScore tns )
 	float fMeterChange = 0;
 	switch( hns )
 	{
-	case HNS_OK:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeOK;	break;
-	case HNS_NG:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeNG;	break;
 	default:	ASSERT(0);
+	case HNS_Held:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_Held];	break;
+	case HNS_LetGo:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_LetGo];	break;
 	}
 
 	m_fLifeTotalLostSeconds -= fMeterChange;

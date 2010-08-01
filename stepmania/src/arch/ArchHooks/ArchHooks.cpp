@@ -1,7 +1,29 @@
 #include "global.h"
 #include "ArchHooks.h"
+#include "RageLog.h"
+#include "RageThreads.h"
 
+bool ArchHooks::s_bQuitting = false;
+bool ArchHooks::s_bToggleWindowed = false;
+static bool g_bHasFocus = true;
+// Keep from pulling RageThreads.h into ArchHooks.h
+static RageMutex g_Mutex( "ArchHooks" );
 ArchHooks *HOOKS = NULL;
+
+bool ArchHooks::GetAndClearToggleWindowed()
+{
+	LockMut( g_Mutex );
+	bool bToggle = s_bToggleWindowed;
+	
+	s_bToggleWindowed = false;
+	return bToggle;
+}
+
+void ArchHooks::SetToggleWindowed()
+{
+	LockMut( g_Mutex );
+	s_bToggleWindowed = true;
+}
 
 #include "Selector_ArchHooks.h"
 ArchHooks *MakeArchHooks()
@@ -9,61 +31,23 @@ ArchHooks *MakeArchHooks()
 	return new ARCH_HOOKS;
 }
 
-/*
- * This is a helper for GetMicrosecondsSinceStart on systems with a system
- * timer that may loop or move backwards.
- *
- * The time may decrease last for at least two reasons:
- *
- * 1. The underlying timer may be 32-bit and use millisecs internally, in which case
- * the timer will loop every 2^32 ms.
- *
- * 2. The underlying clock may have moved backwards (eg. system clock and ntpd).
- *
- * If the system clock moves backwards, we can't just clamp the time; if it moved back
- * an hour, we'd sit around for an hour until it catches up.
- *
- * Keep track of an offset: the amount of time to add to the result.  If we move back
- * by 100ms, the offset will be increased by 100ms.  If we loop, the offset will be
- * increased by the duration 2^32 ms.
- *
- * This helper only needs to be used if one or both of the above conditions can occur.
- * If the underlying timer is reliable, this doesn't need to be used (for a small
- * efficiency bonus).  Also, you may omit this for GetMicrosecondsSinceStart() when
- * bAccurate == false.
- */
-
-uint64_t ArchHooks::FixupTimeIfLooped( uint64_t usecs )
+void ArchHooks::SetHasFocus( bool bHasFocus )
 {
-	static uint64_t last = 0;
-	static uint64_t offset_us = 0;
+	if( bHasFocus == g_bHasFocus )
+		return;
+	g_bHasFocus = bHasFocus;
 
-	/* The time has wrapped if the last time was very high and the current time is very low. */
-	const uint64_t i32BitMaxMs = uint64_t(1) << 32;
-	const uint64_t i32BitMaxUs = i32BitMaxMs*1000;
-	const uint64_t one_day = uint64_t(24*60*60)*1000000;
-	if( last > (i32BitMaxUs-one_day) && usecs < one_day )
-		offset_us += i32BitMaxUs;
-
-	last = usecs;
-
-	return usecs + offset_us;
+	LOG->Trace( "App %s focus", bHasFocus? "has":"doesn't have" );
 }
 
-uint64_t ArchHooks::FixupTimeIfBackwards( uint64_t usecs )
+bool ArchHooks::AppHasFocus()
 {
-	static uint64_t last = 0;
-	static uint64_t offset_us = 0;
+	return g_bHasFocus;
+}
 
-	if( usecs < last )
-	{
-		/* The time has moved backwards.  Increase the offset by the amount we moved. */
-		offset_us += last - usecs;
-	}
-
-	last = usecs;
-
-	return usecs + offset_us;
+bool ArchHooks::GoToURL( RString sUrl )
+{
+	return false;
 }
 
 /*

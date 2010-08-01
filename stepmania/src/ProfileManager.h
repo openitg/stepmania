@@ -6,6 +6,7 @@
 #include "PlayerNumber.h"
 #include "GameConstantsAndTypes.h"
 #include "Difficulty.h"
+#include "Preference.h"
 
 class Profile;
 class Song;
@@ -29,28 +30,28 @@ public:
 	// local profiles
 	void UnloadAllLocalProfiles();
 	void RefreshLocalProfilesFromDisk();
-	const Profile *GetLocalProfile( const CString &sProfileID ) const;
-	Profile *GetLocalProfile( const CString &sProfileID ) { return (Profile*) ((const ProfileManager *) this)->GetLocalProfile(sProfileID); }
+	const Profile *GetLocalProfile( const RString &sProfileID ) const;
+	Profile *GetLocalProfile( const RString &sProfileID ) { return (Profile*) ((const ProfileManager *) this)->GetLocalProfile(sProfileID); }
 	Profile *GetLocalProfileFromIndex( int iIndex );
-	CString GetLocalProfileIDFromIndex( int iIndex );
+	RString GetLocalProfileIDFromIndex( int iIndex );
 	
-	bool CreateLocalProfile( CString sName, CString &sProfileIDOut );
-	void AddLocalProfileByID( Profile *pProfile, CString sProfileID ); // transfers ownership of pProfile
-	bool RenameLocalProfile( CString sProfileID, CString sNewName );
-	bool DeleteLocalProfile( CString sProfileID );
-	void GetLocalProfileIDs( vector<CString> &vsProfileIDsOut ) const;
-	void GetLocalProfileDisplayNames( vector<CString> &vsProfileDisplayNamesOut ) const;
-	int GetLocalProfileIndexFromID( CString sProfileID ) const;
+	bool CreateLocalProfile( RString sName, RString &sProfileIDOut );
+	void AddLocalProfileByID( Profile *pProfile, RString sProfileID ); // transfers ownership of pProfile
+	bool RenameLocalProfile( RString sProfileID, RString sNewName );
+	bool DeleteLocalProfile( RString sProfileID );
+	void GetLocalProfileIDs( vector<RString> &vsProfileIDsOut ) const;
+	void GetLocalProfileDisplayNames( vector<RString> &vsProfileDisplayNamesOut ) const;
+	int GetLocalProfileIndexFromID( RString sProfileID ) const;
 	int GetNumLocalProfiles() const;
 
 
 	bool LoadFirstAvailableProfile( PlayerNumber pn );	// memory card or local profile
 	bool LoadLocalProfileFromMachine( PlayerNumber pn );
 	bool LoadProfileFromMemoryCard( PlayerNumber pn );
-	bool FastLoadProfileNameFromMemoryCard( CString sRootDir, CString &sName ) const;
+	bool FastLoadProfileNameFromMemoryCard( RString sRootDir, RString &sName ) const;
 	void SaveAllProfiles() const;
 	bool SaveProfile( PlayerNumber pn ) const;
-	bool SaveLocalProfile( CString sProfileID );
+	bool SaveLocalProfile( RString sProfileID );
 	void UnloadProfile( PlayerNumber pn );
 	
 	//
@@ -75,12 +76,12 @@ public:
 	const Profile* GetProfile( ProfileSlot slot ) const;
 	Profile* GetProfile( ProfileSlot slot ) { return (Profile*) ((const ProfileManager *) this)->GetProfile(slot); }
 	
-	CString GetProfileDir( ProfileSlot slot ) const;
-	CString GetProfileDirImportedFrom( ProfileSlot slot ) const;
+	const RString& GetProfileDir( ProfileSlot slot ) const;
+	RString GetProfileDirImportedFrom( ProfileSlot slot ) const;
 
 	Profile* GetMachineProfile() { return m_pMachineProfile; }
 
-	CString GetPlayerName( PlayerNumber pn ) const;
+	RString GetPlayerName( PlayerNumber pn ) const;
 	bool ProfileWasLoadedFromMemoryCard( PlayerNumber pn ) const;
 	bool LastLoadWasTamperedOrCorrupt( PlayerNumber pn ) const;
 	bool LastLoadWasFromLastGood( PlayerNumber pn ) const;
@@ -90,7 +91,7 @@ public:
 	// Song stats
 	//
 	int GetSongNumTimesPlayed( const Song* pSong, ProfileSlot card ) const;
-	bool IsSongNew( const Song* pSong ) const { return GetSongNumTimesPlayed(pSong,PROFILE_SLOT_MACHINE)==0; }
+	bool IsSongNew( const Song* pSong ) const { return GetSongNumTimesPlayed(pSong,ProfileSlot_Machine)==0; }
 	void AddStepsScore( const Song* pSong, const Steps* pSteps , PlayerNumber pn, const HighScore &hs, int &iPersonalIndexOut, int &iMachineIndexOut );
 	void IncrementStepsPlayCount( const Song* pSong, const Steps* pSteps, PlayerNumber pn );
 	void GetHighScoreForDifficulty( const Song *s, const Style *st, ProfileSlot slot, Difficulty dc, HighScore &hsOut ) const;
@@ -107,24 +108,27 @@ public:
 	void AddCategoryScore( StepsType st, RankingCategory rc, PlayerNumber pn, const HighScore &hs, int &iPersonalIndexOut, int &iMachineIndexOut );
 	void IncrementCategoryPlayCount( StepsType st, RankingCategory rc, PlayerNumber pn );
 
+	static void GetMemoryCardProfileDirectoriesToTry( vector<RString> &asDirsToTry );
 
 	// Lua
 	void PushSelf( lua_State *L );
 
+	static Preference1D<RString> m_sDefaultLocalProfileID;
+
 private:
-	ProfileLoadResult LoadProfile( PlayerNumber pn, CString sProfileDir, bool bIsMemCard );
-	void GetMemoryCardProfileDirectoriesToTry( vector<CString> &asDirsToTry ) const;
+	ProfileLoadResult LoadProfile( PlayerNumber pn, RString sProfileDir, bool bIsMemCard );
 
 	// Directory that contains the profile.  Either on local machine or
 	// on a memory card.
-	CString m_sProfileDir[NUM_PLAYERS];
+	RString m_sProfileDir[NUM_PLAYERS];
 
 	// MemoryCardProfileImportSubdirs name, if the profile was imported.
-	CString m_sProfileDirImportedFrom[NUM_PLAYERS];
+	RString m_sProfileDirImportedFrom[NUM_PLAYERS];
 
 	bool m_bWasLoadedFromMemoryCard[NUM_PLAYERS];
 	bool m_bLastLoadWasTamperedOrCorrupt[NUM_PLAYERS];	// true if Stats.xml was present, but failed to load (probably because of a signature failure)
 	bool m_bLastLoadWasFromLastGood[NUM_PLAYERS];		// if true, then m_bLastLoadWasTamperedOrCorrupt is also true
+	mutable bool m_bNeedToBackUpLastLoad[NUM_PLAYERS];	// if true, back up profile on next save
 	
 	Profile	*m_pMemoryCardProfile[NUM_PLAYERS];	// holds Profile for the currently inserted card
 	Profile *m_pMachineProfile;

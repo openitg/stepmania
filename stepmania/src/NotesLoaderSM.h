@@ -1,7 +1,7 @@
 /* SMLoader - Reads a Song from an .SM file. */
 
-#ifndef NOTES_LOADER_SM_H
-#define NOTES_LOADER_SM_H
+#ifndef NotesLoaderSM_H
+#define NotesLoaderSM_H
 
 #include "NotesLoader.h"
 #include "GameConstantsAndTypes.h"
@@ -14,33 +14,33 @@ class TimingData;
 class SMLoader: public NotesLoader
 {
 	static void LoadFromSMTokens( 
-		CString sStepsType, 
-		CString sDescription,
-		CString sDifficulty,
-		CString sMeter,
-		CString sRadarValues,
-		CString sNoteData,		
+		RString sStepsType, 
+		RString sDescription,
+		RString sDifficulty,
+		RString sMeter,
+		RString sRadarValues,
+		RString sNoteData,		
 		Steps &out);
 
 	bool FromCache;
 
 public:
 	SMLoader() { FromCache = false; }
-	bool LoadFromSMFile( CString sPath, Song &out );
-	bool LoadFromSMFile( CString sPath, Song &out, bool cache )
+	bool LoadFromSMFile( const RString &sPath, Song &out );
+	bool LoadFromSMFile( const RString &sPath, Song &out, bool cache )
 	{
 		FromCache=cache;
 		return LoadFromSMFile( sPath, out );
 	}
 
-	void GetApplicableFiles( CString sPath, CStringArray &out );
-	bool LoadFromDir( CString sPath, Song &out );
+	void GetApplicableFiles( const RString &sPath, vector<RString> &out );
+	bool LoadFromDir( const RString &sPath, Song &out );
 	void TidyUpData( Song &song, bool cache );
-	static bool LoadTimingFromFile( const CString &fn, TimingData &out );
+	static bool LoadTimingFromFile( const RString &fn, TimingData &out );
 	static void LoadTimingFromSMFile( const MsdFile &msd, TimingData &out );
-	static bool LoadEdit( CString sEditFilePath, ProfileSlot slot );
-	static bool LoadEditFromBuffer( const CString &sBuffer, CString sEditFilePath, ProfileSlot slot );
-	static bool LoadEditFromMsd( const MsdFile &msd, CString sEditFilePath, ProfileSlot slot );
+	static bool LoadEditFromFile( RString sEditFilePath, ProfileSlot slot, bool bAddStepsToSong );
+	static bool LoadEditFromBuffer( const RString &sBuffer, const RString &sEditFilePath, ProfileSlot slot );
+	static bool LoadEditFromMsd( const MsdFile &msd, const RString &sEditFilePath, ProfileSlot slot, bool bAddStepsToSong );
 };
 
 #endif

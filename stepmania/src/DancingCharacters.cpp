@@ -52,8 +52,8 @@ DancingCharacters::DancingCharacters()
 			continue;
 
 		// load in any potential 2D stuff
-		CString sCharacterDirectory = pChar->m_sCharDir;
-		CString sCurrentAnim;
+		RString sCharacterDirectory = pChar->m_sCharDir;
+		RString sCurrentAnim;
 		sCurrentAnim = sCharacterDirectory + "2DIdle";
 		if( DoesFileExist(sCurrentAnim + "/BGAnimation.ini") ) // check 2D Idle BGAnim exists
 		{
@@ -130,7 +130,7 @@ DancingCharacters::DancingCharacters()
 		m_pCharacter[p]->LoadMilkshapeAsciiBones( "rest", pChar->GetRestAnimationPath() );
 		m_pCharacter[p]->LoadMilkshapeAsciiBones( "warmup", pChar->GetWarmUpAnimationPath() );
 		m_pCharacter[p]->LoadMilkshapeAsciiBones( "dance", pChar->GetDanceAnimationPath() );
-		m_pCharacter[p]->SetCullMode( CULL_NONE );	// many of the DDR PC character models have the vertex order flipped
+		m_pCharacter[p]->SetCullMode( CULL_NONE );	// many of the models floating around have the vertex order flipped
 	}
 }
 
@@ -160,7 +160,7 @@ void DancingCharacters::LoadNextSong()
 			m_pCharacter[p]->PlayAnimation( "rest" );
 }
 
-int Neg1OrPos1() { return rand()%2 ? -1 : +1; }
+int Neg1OrPos1() { return RandomInt( 2 ) ? -1 : +1; }
 
 void DancingCharacters::Update( float fDelta )
 {
@@ -188,15 +188,15 @@ void DancingCharacters::Update( float fDelta )
 		}
 	}
 
-	static bool bWasHereWeGo = false;
-	bool bIsHereWeGo = GAMESTATE->m_bPastHereWeGo;
-	if( !bWasHereWeGo && bIsHereWeGo )
+	static bool bWasGameplayStarting = false;
+	bool bGameplayStarting = GAMESTATE->m_bGameplayLeadIn;
+	if( !bWasGameplayStarting && bGameplayStarting )
 	{
 		FOREACH_PlayerNumber( p )
 			if( GAMESTATE->IsPlayerEnabled(p) )
 				m_pCharacter[p]->PlayAnimation( "warmup" );
 	}
-	bWasHereWeGo = bIsHereWeGo;
+	bWasGameplayStarting = bGameplayStarting;
 
 
 	static float fLastBeat = GAMESTATE->m_fSongBeat;
@@ -213,7 +213,7 @@ void DancingCharacters::Update( float fDelta )
 	// time for a new sweep?
 	if( GAMESTATE->m_fSongBeat > m_fThisCameraEndBeat )
 	{
-		if( (rand()%5) >= 2 )
+		if( RandomInt(5) >= 2 )
 		{
 			// sweeping camera
 			m_CameraDistance = CAMERA_SWEEP_DISTANCE + RandomInt(-1,1) * CAMERA_SWEEP_DISTANCE_VARIANCE;

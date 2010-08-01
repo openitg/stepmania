@@ -46,9 +46,14 @@ void Actor::SetBGMLight( int iLightNumber, float fCabinetLights )
 	g_fCabinetLights[iLightNumber] = fCabinetLights;
 }
 
-/* This is Reset instead of Init since many derived classes have Init() functions
- * that shouldn't change the position of the actor. */
-void Actor::Reset()
+void Actor::InitDefaults()
+{
+	InitState();
+
+	UnsubscribeAll();
+}
+
+void Actor::InitState()
 {
 	StopTweening();
 
@@ -90,11 +95,9 @@ void Actor::Reset()
 	m_ZTestMode = ZTEST_OFF;
 	m_bZWrite = false;
 	m_CullMode = CULL_NONE;
-
-	UnsubcribeAndClearCommands();
 }
 
-static bool GetMessageNameFromCommandName( const CString &sCommandName, CString &sMessageNameOut )
+static bool GetMessageNameFromCommandName( const RString &sCommandName, RString &sMessageNameOut )
 {
 	if( sCommandName.Right(7) == "Message" )
 	{
@@ -107,28 +110,22 @@ static bool GetMessageNameFromCommandName( const CString &sCommandName, CString 
 	}
 }
 
-void Actor::UnsubcribeAndClearCommands()
-{
-	FOREACH_CONST( CString, m_vsSubscribedTo, s )
-		MESSAGEMAN->Unsubscribe( this, *s );
-	m_vsSubscribedTo.clear();
-}
-
 Actor::Actor()
 {
 	m_pLuaInstance = new LuaClass;
 	m_size = RageVector2( 1, 1 );
-	Reset();
+	InitDefaults();
 	m_bFirstUpdate = true;
 }
 
 Actor::~Actor()
 {
 	StopTweening();
-	UnsubcribeAndClearCommands();
+	UnsubscribeAll();
 }
 
-Actor::Actor( const Actor &cpy )
+Actor::Actor( const Actor &cpy ):
+	MessageSubscriber( cpy )
 {
 	/* Don't copy an Actor in the middle of rendering. */
 	ASSERT( cpy.m_pTempState == NULL );
@@ -184,29 +181,33 @@ Actor::Actor( const Actor &cpy )
 	CPY( m_CullMode );
 
 	CPY( m_mapNameToCommands );
-	CPY( m_vsSubscribedTo );
 #undef CPY
 }
 
-void Actor::LoadFromNode( const CString& sDir, const XNode* pNode )
+/* XXX: This calls InitCommand, which must happen after all other
+ * initialization (eg. ActorFrame loading children).  However, it
+ * also loads input variables, which should happen first.  The
+ * former is more important. */
+void Actor::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	FOREACH_CONST_Child( pNode, pChild )
 	{
-        if( pChild->m_sName == "Input" )
-        {
-			/* Parameters are set as globals by ActorUtil::LoadFromActorFile.
-			 * If parameters are specified here, save them to the actor.  Accessing
-			 * parameters as globals directly is deprecated. */
-			CString sName;
+		if( pChild->m_sName == "Input" )
+		{
+			/* If parameters are specified here, save their values to the actor. */
+			RString sName;
 			if( !pChild->GetAttrValue( "Name", sName ) )
 				RageException::Throw( ssprintf("Input node in '%s' is missing the attribute 'Name'", sDir.c_str()) );
 
-            Lua *L = LUA->Get();
-            this->PushSelf( L );
-            LuaHelpers::Push( sName, L );
-			lua_getglobal( L, sName );
+			bool bOptional = false;
+			pChild->GetAttrValue( "Optional", bOptional );
 
-			if( lua_isnil(L, -1) )
+			Lua *L = LUA->Get();
+			this->PushSelf( L );
+			LuaHelpers::Push( sName, L );
+			ActorUtil::GetParam( L, sName );
+
+			if( lua_isnil(L, -1) && !bOptional )
 				RageException::Throw( "Actor in \"%s\" requires parameter \"%s\" that is not set", sDir.c_str(), sName.c_str() );
 
 			lua_settable( L, -3 );
@@ -218,23 +219,29 @@ void Actor::LoadFromNode( const CString& sDir, const XNode* pNode )
 	FOREACH_CONST_Attr( pNode, pAttr )
 	{
 		// Load Name, if any.
-		if( pAttr->m_sName == "Name" )
+		const RString &sKeyName = pAttr->first;
+		const RString &sValue = pAttr->second;
+		if( sKeyName == "Name" )
 		{
-			m_sName = pAttr->m_sValue;
+			m_sName = sValue;
 		}
-		else if( pAttr->m_sName == "BaseRotationXDegrees" )	SetBaseRotationX( strtof( pAttr->m_sValue, NULL ) );
-		else if( pAttr->m_sName == "BaseRotationYDegrees" )	SetBaseRotationY( strtof( pAttr->m_sValue, NULL ) );
-		else if( pAttr->m_sName == "BaseRotationZDegrees" )	SetBaseRotationZ( strtof( pAttr->m_sValue, NULL ) );
-		else if( pAttr->m_sName == "BaseZoomX" )			SetBaseZoomX( strtof( pAttr->m_sValue, NULL ) );
-		else if( pAttr->m_sName == "BaseZoomY" )			SetBaseZoomY( strtof( pAttr->m_sValue, NULL ) );
-		else if( pAttr->m_sName == "BaseZoomZ" )			SetBaseZoomZ( strtof( pAttr->m_sValue, NULL ) );
-		else if( EndsWith(pAttr->m_sName,"Command") )
+		
+		// TODO: Remove these
+		else if( sKeyName == "BaseRotationXDegrees" )	SetBaseRotationX( StringToFloat(sValue) );
+		else if( sKeyName == "BaseRotationYDegrees" )	SetBaseRotationY( StringToFloat(sValue) );
+		else if( sKeyName == "BaseRotationZDegrees" )	SetBaseRotationZ( StringToFloat(sValue) );
+		
+		else if( sKeyName == "BaseRotationX" )		SetBaseRotationX( StringToFloat(sValue) );
+		else if( sKeyName == "BaseRotationY" )		SetBaseRotationY( StringToFloat(sValue) );
+		else if( sKeyName == "BaseRotationZ" )		SetBaseRotationZ( StringToFloat(sValue) );
+		else if( sKeyName == "BaseZoomX" )		SetBaseZoomX( StringToFloat(sValue) );
+		else if( sKeyName == "BaseZoomY" )		SetBaseZoomY( StringToFloat(sValue) );
+		else if( sKeyName == "BaseZoomZ" )		SetBaseZoomZ( StringToFloat(sValue) );
+		else if( EndsWith(sKeyName,"Command") )
 		{
-			const CString &sKeyName = pAttr->m_sName; /* "OnCommand" */
-			const CString &sValue = pAttr->m_sValue;
 			apActorCommands apac( new ActorCommands( sValue ) );
 
-			CString sCmdName = sKeyName.Left( sKeyName.size()-7 );
+			RString sCmdName = sKeyName.Left( sKeyName.size()-7 );
 			AddCommand( sCmdName, apac );
 		}
 	}
@@ -244,14 +251,14 @@ void Actor::LoadFromNode( const CString& sDir, const XNode* pNode )
 	//
 	FOREACH_CONST_Child( pNode, c )
 	{
-		CString sKeyName = c->m_sName;
+		RString sKeyName = c->m_sName;
 
 		if( sKeyName != "Command" )
 			continue; /* not a command */
 
-		CString sName;
+		RString sName;
 		c->GetAttrValue( "Name", sName );
-		CString sValue;
+		RString sValue;
 		c->GetAttrValue( "Value", sValue );
 
 		LuaHelpers::RunAtExpressionS( sName );
@@ -262,9 +269,20 @@ void Actor::LoadFromNode( const CString& sDir, const XNode* pNode )
 
 	/* There's an InitCommand.  Run it now.  This can be used to eg. change Z to
 	 * modify draw order between BGAs in a Foreground. */
-	// XXX: We should run Init last, after the derived class finishes initializing,
-	// but we want to set up input parameters before the derived class loads ...
 	PlayCommand( "Init" );
+}
+
+/* Like RTTI: return true if this actor is an sType (or derived from sType).
+ * This uses the Lua binding check, so only works on bound types. */
+bool Actor::IsType( const RString &sType )
+{
+	Lua *L = LUA->Get();
+	this->PushSelf( L );
+	bool bRet = LuaBinding::CheckLuaObjectType( L, lua_gettop(L), sType, false );
+	lua_pop( L, 1 );
+	LUA->Release( L );
+
+	return bRet;
 }
 
 void Actor::Draw()
@@ -315,8 +333,6 @@ void Actor::BeginDraw()		// set the world matrix and calculate actor properties
 		m_pTempState = &tempState;
 		tempState = m_current;
 
-		/*
-		 */
 		const float fTotalPeriod = GetEffectPeriod();
 		ASSERT( fTotalPeriod > 0 );
 		const float fTimeIntoEffect = fmodfp( m_fSecsIntoEffect+m_fEffectOffset, fTotalPeriod );
@@ -577,12 +593,12 @@ void Actor::UpdateTweening( float fDeltaTime )
 			m_start = m_current;		// set the start position
 
 			// Execute the command in this tween (if any).
-			if( TS.sCommandName.size() )
+			if( !TI.m_sCommandName.empty() )
 			{
-				if( TS.sCommandName.Left(1) == "!" )
-					MESSAGEMAN->Broadcast( TS.sCommandName.substr(1) );
+				if( TI.m_sCommandName.Left(1) == "!" )
+					MESSAGEMAN->Broadcast( TI.m_sCommandName.substr(1) );
 				else
-					this->PlayCommand( TS.sCommandName );
+					this->PlayCommand( TI.m_sCommandName );
 			}
 		}
 
@@ -594,10 +610,6 @@ void Actor::UpdateTweening( float fDeltaTime )
 		{
 			m_current = TS;
 
-			// don't inherit the queued state's command.  We keep having to do this.
-			// Does sCommandName belong in TweenInfo, instead of TweenState?
-			m_current.sCommandName = "";
-			
 			// delete the head tween
 			delete m_Tweens.front();
 			m_Tweens.erase( m_Tweens.begin() );
@@ -607,39 +619,7 @@ void Actor::UpdateTweening( float fDeltaTime )
 			const float fPercentThroughTween = 1-(TI.m_fTimeLeftInTween / TI.m_fTweenTime);
 
 			// distort the percentage if appropriate
-			float fPercentAlongPath = 0.f;
-			switch( TI.m_TweenType )
-			{
-			case TWEEN_LINEAR:		fPercentAlongPath = fPercentThroughTween;													break;
-			case TWEEN_ACCELERATE:	fPercentAlongPath = fPercentThroughTween * fPercentThroughTween;							break;
-			case TWEEN_DECELERATE:	fPercentAlongPath = 1 - (1-fPercentThroughTween) * (1-fPercentThroughTween);				break;
-			case TWEEN_SMOOTH:
-			{
-				/* Accelerate, reaching full speed at fShift, then decelerate the rest of
-				 * the way.  fShift = 1 degrades to TWEEN_ACCELERATE.  fShift = 0 degrades
-				 * to TWEEN_DECELERATE.  (This is a rough approximation of a sigmoid.) */
-				const float fShift = 0.5f;
-				if( fPercentThroughTween < fShift )
-				{
-					fPercentAlongPath = SCALE( fPercentThroughTween, 0.0f, fShift, 0.0f, 1.0f );
-					fPercentAlongPath = fPercentAlongPath * fPercentAlongPath;
-					fPercentAlongPath = SCALE( fPercentAlongPath, 0.0f, 1.0f, 0.0f, fShift );
-				}
-				else
-				{
-					fPercentAlongPath = SCALE( fPercentThroughTween, fShift, 1.0f, 0.0f, 1.0f );
-					fPercentAlongPath = 1 - (1-fPercentAlongPath) * (1-fPercentAlongPath);
-					fPercentAlongPath = SCALE( fPercentAlongPath, 0.0f, 1.0f, fShift, 1.0f );
-				}
-				break;
-			}
-
-			case TWEEN_BOUNCE_BEGIN:fPercentAlongPath = 1 - RageFastSin( 1.1f + fPercentThroughTween*(PI-1.1f) ) / 0.89f;				break;
-			case TWEEN_BOUNCE_END:	fPercentAlongPath = RageFastSin( 1.1f + (1-fPercentThroughTween)*(PI-1.1f) ) / 0.89f;				break;
-			case TWEEN_SPRING:		fPercentAlongPath = 1 - RageFastCos( fPercentThroughTween*PI*2.5f )/(1+fPercentThroughTween*3);	break;
-			default:	ASSERT(0);
-			}
-
+			float fPercentAlongPath = TI.m_pTween->Tween( fPercentThroughTween );
 			TweenState::MakeWeightedAverage( m_current, m_start, TS, fPercentAlongPath );
 		}
 	}
@@ -719,7 +699,7 @@ void Actor::UpdateInternal( float fDeltaTime )
 	UpdateTweening( fDeltaTime );
 }
 
-void Actor::BeginTweening( float time, TweenType tt )
+void Actor::BeginTweening( float time, ITween *pTween )
 {
 	ASSERT( time >= 0 );
 
@@ -729,7 +709,7 @@ void Actor::BeginTweening( float time, TweenType tt )
 	// recursing ActorCommand.
 	if( m_Tweens.size() > 50 )
 	{
-		CString sError = ssprintf( "Tween overflow: size = %u.  infinitely recursing ActorCommand?", unsigned(m_Tweens.size()) );
+		RString sError = ssprintf( "Tween overflow: size = %u.  infinitely recursing ActorCommand?", unsigned(m_Tweens.size()) );
 		LOG->Warn( sError );
 		Dialog::OK( sError );
 		FinishTweening();
@@ -746,9 +726,6 @@ void Actor::BeginTweening( float time, TweenType tt )
 	{
 		// initialize the new TS from the last TS in the list
 		TS = m_Tweens[m_Tweens.size()-2]->state;
-
-		// don't inherit the queued state's command
-		TS.sCommandName = "";
 	}
 	else
 	{
@@ -757,9 +734,15 @@ void Actor::BeginTweening( float time, TweenType tt )
 		TS = m_current;
 	}
 
-	TI.m_TweenType = tt;
+	TI.m_pTween = pTween;
 	TI.m_fTweenTime = time;
 	TI.m_fTimeLeftInTween = time;
+}
+
+void Actor::BeginTweening( float time, TweenType tt )
+{
+	ITween *pTween = ITween::CreateFromType( tt );
+	BeginTweening( time, pTween );
 }
 
 void Actor::StopTweening()
@@ -793,10 +776,6 @@ void Actor::ScaleTo( const RectF &rect, StretchType st )
 	if( rect_width < 0 )	SetRotationY( 180 );
 	if( rect_height < 0 )	SetRotationX( 180 );
 
-	// center of the rectangle
-	float rect_cx = rect.left + rect_width/2;
-	float rect_cy = rect.top  + rect_height/2;
-
 	// zoom fActor needed to scale the Actor to fill the rectangle
 	float fNewZoomX = fabsf(rect_width  / m_size.x);
 	float fNewZoomY = fabsf(rect_height / m_size.y);
@@ -812,32 +791,45 @@ void Actor::ScaleTo( const RectF &rect, StretchType st )
 		break;
 	}
 
-	SetXY( rect_cx, rect_cy );
+	switch( m_HorizAlign )
+	{
+	case align_left: SetX( rect.left ); break;
+	case align_center: SetX( rect.left + rect_width/2 ); break;
+	case align_right: SetX( rect.left + rect_width ); break;
+	}
+
+	switch( m_VertAlign )
+	{
+	case align_top: SetY( rect.top ); break;
+	case align_middle: SetY( rect.top + rect_height/2 ); break;
+	case align_bottom: SetY( rect.top + rect_height ); break;
+	}
+
 	SetZoom( fNewZoom );
 }
 
-void Actor::SetHorizAlignString( const CString &s )
+void Actor::SetHorizAlignString( const RString &s )
 {
-	if     (s.CompareNoCase("left")==0)		this->SetHorizAlign( align_left ); /* call derived */
-	else if(s.CompareNoCase("center")==0)	this->SetHorizAlign( align_center );
-	else if(s.CompareNoCase("right")==0)	this->SetHorizAlign( align_right );
+	if     (s.EqualsNoCase("left"))		this->SetHorizAlign( align_left ); /* call derived */
+	else if(s.EqualsNoCase("center"))	this->SetHorizAlign( align_center );
+	else if(s.EqualsNoCase("right"))	this->SetHorizAlign( align_right );
 	else	ASSERT(0);
 }
 
-void Actor::SetVertAlignString( const CString &s )
+void Actor::SetVertAlignString( const RString &s )
 {
-	if     (s.CompareNoCase("top")==0)		this->SetVertAlign( align_top ); /* call derived */
-	else if(s.CompareNoCase("middle")==0)	this->SetVertAlign( align_middle );
-	else if(s.CompareNoCase("bottom")==0)	this->SetVertAlign( align_bottom );
+	if     (s.EqualsNoCase("top"))		this->SetVertAlign( align_top ); /* call derived */
+	else if(s.EqualsNoCase("middle"))	this->SetVertAlign( align_middle );
+	else if(s.EqualsNoCase("bottom"))	this->SetVertAlign( align_bottom );
 	else	ASSERT(0);
 }
 
-void Actor::SetEffectClockString( const CString &s )
+void Actor::SetEffectClockString( const RString &s )
 {
-	if     (s.CompareNoCase("timer")==0)	this->SetEffectClock( CLOCK_TIMER );
-	else if(s.CompareNoCase("beat")==0)		this->SetEffectClock( CLOCK_BGM_BEAT );
-	else if(s.CompareNoCase("music")==0)	this->SetEffectClock( CLOCK_BGM_TIME );
-	else if(s.CompareNoCase("bgm")==0)		this->SetEffectClock( CLOCK_BGM_BEAT ); // compat, deprecated
+	if     (s.EqualsNoCase("timer"))	this->SetEffectClock( CLOCK_TIMER );
+	else if(s.EqualsNoCase("beat"))		this->SetEffectClock( CLOCK_BGM_BEAT );
+	else if(s.EqualsNoCase("music"))	this->SetEffectClock( CLOCK_BGM_TIME );
+	else if(s.EqualsNoCase("bgm"))		this->SetEffectClock( CLOCK_BGM_BEAT ); // compat, deprecated
 	else
 	{
 		CabinetLight cl = StringToCabinetLight( s );
@@ -896,7 +888,7 @@ void Actor::SetEffectTiming( float fRampUp, float fAtHalf, float fRampDown, floa
 
 // effect "macros"
 
-void Actor::SetEffectLua( const CString &sCommand )
+void Actor::SetEffectLua( const RString &sCommand )
 {
 	m_Effect = effect_lua;
 	m_sEffectCommand = sCommand;
@@ -1094,7 +1086,7 @@ float Actor::GetTweenTimeLeft() const
  */
 void Actor::SetGlobalDiffuseColor( RageColor c )
 {
-	for(int i=0; i<4; i++) /* color, not alpha */
+	for( int i=0; i<4; i++ ) /* color, not alpha */
 	{
 		for( unsigned ts = 0; ts < m_Tweens.size(); ++ts )
 		{
@@ -1111,17 +1103,9 @@ void Actor::SetGlobalDiffuseColor( RageColor c )
 	}
 }
 
-void Actor::SetGlobalX( float x )
-{
-	for( unsigned ts = 0; ts < m_Tweens.size(); ++ts )
-		m_Tweens[ts]->state.pos.x = x; 
-	m_current.pos.x = x;
-	m_start.pos.x = x;
-}
-
 void Actor::SetDiffuseColor( RageColor c )
 {
-	for(int i=0; i<4; i++)
+	for( int i=0; i<4; i++ )
 	{
 		DestTweenState().diffuse[i].r = c.r;
 		DestTweenState().diffuse[i].g = c.g;
@@ -1132,73 +1116,84 @@ void Actor::SetDiffuseColor( RageColor c )
 
 void Actor::TweenState::Init()
 {
-	pos	= RageVector3( 0, 0, 0 );
+	pos = RageVector3( 0, 0, 0 );
 	rotation = RageVector3( 0, 0, 0 );
 	quat = RageVector4( 0, 0, 0, 1 );
 	scale = RageVector3( 1, 1, 1 );
 	fSkewX = 0;
 	crop = RectF( 0,0,0,0 );
 	fade = RectF( 0,0,0,0 );
-	for(int i=0; i<4; i++) 
+	for( int i=0; i<4; i++ )
 		diffuse[i] = RageColor( 1, 1, 1, 1 );
 	glow = RageColor( 1, 1, 1, 0 );
 	aux = 0;
 }
 
+bool Actor::TweenState::operator==( const TweenState &other ) const
+{
+#define COMPARE( x )	if( x != other.x ) return false;
+	COMPARE( pos );
+	COMPARE( rotation );
+	COMPARE( quat );
+	COMPARE( scale );
+	COMPARE( fSkewX );
+	COMPARE( crop );
+	COMPARE( fade );
+	for( unsigned i=0; i<ARRAYSIZE(diffuse); i++ )
+		COMPARE( diffuse[i] );
+	COMPARE( glow );
+	COMPARE( aux );
+#undef COMPARE
+	return true;
+}
+
 void Actor::TweenState::MakeWeightedAverage( TweenState& average_out, const TweenState& ts1, const TweenState& ts2, float fPercentBetween )
 {
-	average_out.pos			= ts1.pos	   + (ts2.pos		- ts1.pos	  )*fPercentBetween;
-	average_out.scale		= ts1.scale	   + (ts2.scale		- ts1.scale   )*fPercentBetween;
-	average_out.rotation	= ts1.rotation + (ts2.rotation	- ts1.rotation)*fPercentBetween;
-	RageQuatSlerp(&average_out.quat, ts1.quat, ts2.quat, fPercentBetween);
-	average_out.fSkewX		= ts1.fSkewX + (ts2.fSkewX	- ts1.fSkewX)*fPercentBetween;
+	average_out.pos		= lerp( fPercentBetween, ts1.pos,         ts2.pos );
+	average_out.scale	= lerp( fPercentBetween, ts1.scale,       ts2.scale );
+	average_out.rotation	= lerp( fPercentBetween, ts1.rotation,    ts2.rotation );
+	RageQuatSlerp( &average_out.quat, ts1.quat, ts2.quat, fPercentBetween );
+	average_out.fSkewX	= lerp( fPercentBetween, ts1.fSkewX,      ts2.fSkewX );
 	
-	average_out.crop.left	= ts1.crop.left  + (ts2.crop.left	- ts1.crop.left  )*fPercentBetween;
-	average_out.crop.top	= ts1.crop.top   + (ts2.crop.top	- ts1.crop.top   )*fPercentBetween;
-	average_out.crop.right	= ts1.crop.right + (ts2.crop.right	- ts1.crop.right )*fPercentBetween;
-	average_out.crop.bottom	= ts1.crop.bottom+ (ts2.crop.bottom	- ts1.crop.bottom)*fPercentBetween;
+	average_out.crop.left	= lerp( fPercentBetween, ts1.crop.left,   ts2.crop.left	);
+	average_out.crop.top	= lerp( fPercentBetween, ts1.crop.top,    ts2.crop.top );
+	average_out.crop.right	= lerp( fPercentBetween, ts1.crop.right,  ts2.crop.right );
+	average_out.crop.bottom	= lerp( fPercentBetween, ts1.crop.bottom, ts2.crop.bottom );
 
-	average_out.fade.left	= ts1.fade.left  + (ts2.fade.left	- ts1.fade.left  )*fPercentBetween;
-	average_out.fade.top	= ts1.fade.top   + (ts2.fade.top	- ts1.fade.top   )*fPercentBetween;
-	average_out.fade.right	= ts1.fade.right + (ts2.fade.right	- ts1.fade.right )*fPercentBetween;
-	average_out.fade.bottom	= ts1.fade.bottom+ (ts2.fade.bottom	- ts1.fade.bottom)*fPercentBetween;
+	average_out.fade.left	= lerp( fPercentBetween, ts1.fade.left,   ts2.fade.left );
+	average_out.fade.top	= lerp( fPercentBetween, ts1.fade.top,    ts2.fade.top );
+	average_out.fade.right	= lerp( fPercentBetween, ts1.fade.right,  ts2.fade.right );
+	average_out.fade.bottom	= lerp( fPercentBetween, ts1.fade.bottom, ts2.fade.bottom );
 
-	for(int i=0; i<4; i++) 
-		average_out.diffuse[i]	= ts1.diffuse[i]+ (ts2.diffuse[i]	- ts1.diffuse[i])*fPercentBetween;
-	average_out.glow			= ts1.glow      + (ts2.glow			- ts1.glow		)*fPercentBetween;
-	average_out.aux				= ts1.aux       + (ts2.aux			- ts1.aux		)*fPercentBetween;
+	for( int i=0; i<4; ++i )
+		average_out.diffuse[i] = lerp( fPercentBetween, ts1.diffuse[i], ts2.diffuse[i] );
+	average_out.glow	= lerp( fPercentBetween, ts1.glow,        ts2.glow );
+	average_out.aux		= lerp( fPercentBetween, ts1.aux,         ts2.aux );
 }
 
-void Actor::SetBlendModeString( const CString &s )
+void Actor::SetBlendModeString( const RString &s )
 {
-	if     (s.CompareNoCase("normal")==0)	this->SetBlendMode( BLEND_NORMAL );
-	else if(s.CompareNoCase("add")==0)		this->SetBlendMode( BLEND_ADD );
-	else if(s.CompareNoCase("noeffect")==0)	this->SetBlendMode( BLEND_NO_EFFECT );
+	if     (s.EqualsNoCase("normal"))	this->SetBlendMode( BLEND_NORMAL );
+	else if(s.EqualsNoCase("add"))		this->SetBlendMode( BLEND_ADD );
+	else if(s.EqualsNoCase("noeffect"))	this->SetBlendMode( BLEND_NO_EFFECT );
 	else	ASSERT(0);
 }
 
-void Actor::SetCullModeString( const CString &s )
+void Actor::SetCullModeString( const RString &s )
 {
-	if     (s.CompareNoCase("back")==0)		this->SetCullMode( CULL_BACK );
-	else if(s.CompareNoCase("front")==0)	this->SetCullMode( CULL_FRONT );
-	else if(s.CompareNoCase("none")==0)		this->SetCullMode( CULL_NONE );
+	if     (s.EqualsNoCase("back"))		this->SetCullMode( CULL_BACK );
+	else if(s.EqualsNoCase("front"))	this->SetCullMode( CULL_FRONT );
+	else if(s.EqualsNoCase("none"))		this->SetCullMode( CULL_NONE );
 	else	ASSERT(0);
 }
 
-void Actor::SetZTestModeString( const CString &s )
+void Actor::SetZTestModeString( const RString &s )
 {
 	// for metrics backward compatibility
-	if(s.CompareNoCase("off")==0)				this->SetZTestMode( ZTEST_OFF );
-	else if(s.CompareNoCase("writeonpass")==0)	this->SetZTestMode( ZTEST_WRITE_ON_PASS );
-	else if(s.CompareNoCase("writeonfail")==0)	this->SetZTestMode( ZTEST_WRITE_ON_FAIL );
+	if(s.EqualsNoCase("off"))		this->SetZTestMode( ZTEST_OFF );
+	else if(s.EqualsNoCase("writeonpass"))	this->SetZTestMode( ZTEST_WRITE_ON_PASS );
+	else if(s.EqualsNoCase("writeonfail"))	this->SetZTestMode( ZTEST_WRITE_ON_FAIL );
 	else	ASSERT(0);
-}
-
-void Actor::CopyTweening( const Actor &from )
-{
-	m_current = from.m_current;
-	m_start = from.m_start;
-	m_Tweens = from.m_Tweens;
 }
 
 void Actor::Sleep( float time )
@@ -1207,30 +1202,32 @@ void Actor::Sleep( float time )
 	BeginTweening( 0, TWEEN_LINEAR ); 
 }
 
-void Actor::QueueCommand( const CString& sCommandName )
+void Actor::QueueCommand( const RString& sCommandName )
 {
 	BeginTweening( 0, TWEEN_LINEAR );
-	DestTweenState().sCommandName = sCommandName;
+	TweenInfo  &TI = m_Tweens.back()->info;
+	TI.m_sCommandName = sCommandName;
 }
 
-void Actor::QueueMessage( const CString& sMessageName )
+void Actor::QueueMessage( const RString& sMessageName )
 {
 	// Hack: use "!" as a marker to broadcast a command, instead of playing a
 	// command, so we don't have to add yet another element to every tween
 	// state for this rarely-used command.
 	BeginTweening( 0, TWEEN_LINEAR );
-	DestTweenState().sCommandName = "!" + sMessageName;
+	TweenInfo &TI = m_Tweens.back()->info;
+	TI.m_sCommandName = "!" + sMessageName;
 }
 
-void Actor::AddCommand( const CString &sCmdName, apActorCommands apac )
+void Actor::AddCommand( const RString &sCmdName, apActorCommands apac )
 {
 	if( HasCommand(sCmdName) )
 	{
-		CString sWarning = m_sName+"'s command '"+sCmdName+"' defined twice";
+		RString sWarning = m_sName+"'s command '"+sCmdName+"' defined twice";
 		Dialog::OK( sWarning, "COMMAND_DEFINED_TWICE" );
 	}
 
-	CString sMessage;
+	RString sMessage;
 	if( GetMessageNameFromCommandName(sCmdName, sMessage) )
 	{
 		SubscribeToMessage( sMessage );
@@ -1242,44 +1239,55 @@ void Actor::AddCommand( const CString &sCmdName, apActorCommands apac )
 	}
 }
 
-bool Actor::HasCommand( const CString &sCmdName )
+bool Actor::HasCommand( const RString &sCmdName )
 {
-	map<CString, apActorCommands>::const_iterator it = m_mapNameToCommands.find( sCmdName );
-	return it != m_mapNameToCommands.end();
+	return GetCommand(sCmdName) != NULL;
 }
 
-const apActorCommands& Actor::GetCommand( const CString &sCommandName ) const
+const apActorCommands *Actor::GetCommand( const RString &sCommandName ) const
 {
-	map<CString, apActorCommands>::const_iterator it = m_mapNameToCommands.find( sCommandName );
-	ASSERT( it != m_mapNameToCommands.end() );
-	return it->second;
-}
-
-void Actor::PlayCommand( const CString &sCommandName, Actor *pParent )
-{
-	map<CString, apActorCommands>::const_iterator it = m_mapNameToCommands.find( sCommandName );
-
+	map<RString, apActorCommands>::const_iterator it = m_mapNameToCommands.find( sCommandName );
 	if( it == m_mapNameToCommands.end() )
-		return;
-
-	RunCommands( *it->second );
+		return NULL;
+	return &it->second;
 }
 
-void Actor::HandleMessage( const CString& sMessage )
+void Actor::PlayCommand( const RString &sCommandName, Actor *pParent )
+{
+	const apActorCommands *pCmd = GetCommand( sCommandName );
+	if( pCmd != NULL )
+		RunCommands( *pCmd );
+}
+
+void Actor::HandleMessage( const RString& sMessage )
 {
 	PlayCommand( sMessage );
 }
 
-void Actor::SubscribeToMessage( const CString &sMessageName )
+Actor::TweenInfo::TweenInfo()
 {
-	MESSAGEMAN->Subscribe( this, sMessageName );
-	m_vsSubscribedTo.push_back( sMessageName );
+	m_pTween = NULL;
 }
 
-void Actor::SubscribeToMessage( Message message )
+Actor::TweenInfo::~TweenInfo()
 {
-	MESSAGEMAN->Subscribe( this, message );
-	m_vsSubscribedTo.push_back( MessageToString(message) );
+	delete m_pTween;
+}
+
+Actor::TweenInfo::TweenInfo( const TweenInfo &cpy )
+{
+	m_pTween = NULL;
+	*this = cpy;
+}
+
+Actor::TweenInfo &Actor::TweenInfo::operator=( const TweenInfo &rhs )
+{
+	delete m_pTween;
+	m_pTween = (rhs.m_pTween? m_pTween->Copy():NULL);
+	m_fTimeLeftInTween = rhs.m_fTimeLeftInTween;
+	m_fTweenTime = rhs.m_fTweenTime;
+	m_sCommandName = rhs.m_sCommandName;
+	return *this;
 }
 
 // lua start
@@ -1291,19 +1299,22 @@ public:
 	LunaActor() { LUA->Register( Register ); }
 
 	static int sleep( T* p, lua_State *L )			{ p->Sleep(FArg(1)); return 0; }
-	static int linear( T* p, lua_State *L )			{ p->BeginTweening(FArg(1),Actor::TWEEN_LINEAR); return 0; }
-	static int accelerate( T* p, lua_State *L )		{ p->BeginTweening(FArg(1),Actor::TWEEN_ACCELERATE); return 0; }
-	static int decelerate( T* p, lua_State *L )		{ p->BeginTweening(FArg(1),Actor::TWEEN_DECELERATE); return 0; }
-	static int smooth( T* p, lua_State *L )			{ p->BeginTweening(FArg(1),Actor::TWEEN_SMOOTH); return 0; }
-	static int bouncebegin( T* p, lua_State *L )	{ p->BeginTweening(FArg(1),Actor::TWEEN_BOUNCE_BEGIN); return 0; }
-	static int bounceend( T* p, lua_State *L )		{ p->BeginTweening(FArg(1),Actor::TWEEN_BOUNCE_END); return 0; }
-	static int spring( T* p, lua_State *L )			{ p->BeginTweening(FArg(1),Actor::TWEEN_SPRING); return 0; }
-	static int stoptweening( T* p, lua_State *L )	{ p->StopTweening(); p->BeginTweening( 0.0001f, Actor::TWEEN_LINEAR ); return 0; }
-	static int finishtweening( T* p, lua_State *L )	{ p->FinishTweening(); return 0; }
-	static int hurrytweening( T* p, lua_State *L )	{ p->HurryTweening(FArg(1)); return 0; }
-	static int x( T* p, lua_State *L )				{ p->SetX(FArg(1)); return 0; }
-	static int y( T* p, lua_State *L )				{ p->SetY(FArg(1)); return 0; }
-	static int z( T* p, lua_State *L )				{ p->SetZ(FArg(1)); return 0; }
+	static int linear( T* p, lua_State *L )			{ p->BeginTweening(FArg(1),TWEEN_LINEAR); return 0; }
+	static int accelerate( T* p, lua_State *L )		{ p->BeginTweening(FArg(1),TWEEN_ACCELERATE); return 0; }
+	static int decelerate( T* p, lua_State *L )		{ p->BeginTweening(FArg(1),TWEEN_DECELERATE); return 0; }
+	static int spring( T* p, lua_State *L )			{ p->BeginTweening(FArg(1),TWEEN_SPRING); return 0; }
+	static int tween( T* p, lua_State *L )
+	{
+		ITween *pTween = ITween::CreateFromStack( L, 2 );
+		p->BeginTweening( FArg(1), pTween );
+		return 0;
+	}
+	static int stoptweening( T* p, lua_State *L )		{ p->StopTweening(); return 0; }
+	static int finishtweening( T* p, lua_State *L )		{ p->FinishTweening(); return 0; }
+	static int hurrytweening( T* p, lua_State *L )		{ p->HurryTweening(FArg(1)); return 0; }
+	static int x( T* p, lua_State *L )			{ p->SetX(FArg(1)); return 0; }
+	static int y( T* p, lua_State *L )			{ p->SetY(FArg(1)); return 0; }
+	static int z( T* p, lua_State *L )			{ p->SetZ(FArg(1)); return 0; }
 	static int addx( T* p, lua_State *L )			{ p->AddX(FArg(1)); return 0; }
 	static int addy( T* p, lua_State *L )			{ p->AddY(FArg(1)); return 0; }
 	static int addz( T* p, lua_State *L )			{ p->AddZ(FArg(1)); return 0; }
@@ -1312,8 +1323,10 @@ public:
 	static int zoomy( T* p, lua_State *L )			{ p->SetZoomY(FArg(1)); return 0; }
 	static int zoomz( T* p, lua_State *L )			{ p->SetZoomZ(FArg(1)); return 0; }
 	static int zoomto( T* p, lua_State *L )			{ p->ZoomTo(FArg(1), FArg(2)); return 0; }
-	static int zoomtowidth( T* p, lua_State *L )	{ p->ZoomToWidth(FArg(1)); return 0; }
-	static int zoomtoheight( T* p, lua_State *L )	{ p->ZoomToHeight(FArg(1)); return 0; }
+	static int zoomtowidth( T* p, lua_State *L )		{ p->ZoomToWidth(FArg(1)); return 0; }
+	static int zoomtoheight( T* p, lua_State *L )		{ p->ZoomToHeight(FArg(1)); return 0; }
+	static int setsize( T* p, lua_State *L )		{ p->SetWidth(FArg(1)); p->SetHeight(FArg(2)); return 0; }
+	static int basealpha( T* p, lua_State *L )		{ p->SetBaseAlpha(FArg(1)); return 0; }
 	static int basezoomx( T* p, lua_State *L )		{ p->SetBaseZoomX(FArg(1)); return 0; }
 	static int basezoomy( T* p, lua_State *L )		{ p->SetBaseZoomY(FArg(1)); return 0; }
 	static int stretchto( T* p, lua_State *L )		{ p->StretchTo( RectF(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
@@ -1325,7 +1338,7 @@ public:
 	static int fadetop( T* p, lua_State *L )		{ p->SetFadeTop(FArg(1)); return 0; }
 	static int faderight( T* p, lua_State *L )		{ p->SetFadeRight(FArg(1)); return 0; }
 	static int fadebottom( T* p, lua_State *L )		{ p->SetFadeBottom(FArg(1)); return 0; }
-	static int diffuse( T* p, lua_State *L )			{ p->SetDiffuse( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
+	static int diffuse( T* p, lua_State *L )		{ p->SetDiffuse( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
 	static int diffuseupperleft( T* p, lua_State *L )	{ p->SetDiffuseUpperLeft( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
 	static int diffuseupperright( T* p, lua_State *L )	{ p->SetDiffuseUpperRight( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
 	static int diffuselowerleft( T* p, lua_State *L )	{ p->SetDiffuseLowerLeft( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
@@ -1334,29 +1347,29 @@ public:
 	static int diffuserightedge( T* p, lua_State *L )	{ p->SetDiffuseRightEdge( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
 	static int diffusetopedge( T* p, lua_State *L )		{ p->SetDiffuseTopEdge( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
 	static int diffusebottomedge( T* p, lua_State *L )	{ p->SetDiffuseBottomEdge( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
-	static int diffusealpha( T* p, lua_State *L )	{ p->SetDiffuseAlpha(FArg(1)); return 0; }
-	static int diffusecolor( T* p, lua_State *L )	{ p->SetDiffuseColor( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
+	static int diffusealpha( T* p, lua_State *L )		{ p->SetDiffuseAlpha(FArg(1)); return 0; }
+	static int diffusecolor( T* p, lua_State *L )		{ p->SetDiffuseColor( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
 	static int glow( T* p, lua_State *L )			{ p->SetGlow( RageColor(FArg(1),FArg(2),FArg(3),FArg(4)) ); return 0; }
 	static int aux( T* p, lua_State *L )			{ p->SetAux( FArg(1) ); return 0; }
 	static int getaux( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetAux() ); return 1; }
 	static int rotationx( T* p, lua_State *L )		{ p->SetRotationX(FArg(1)); return 0; }
 	static int rotationy( T* p, lua_State *L )		{ p->SetRotationY(FArg(1)); return 0; }
 	static int rotationz( T* p, lua_State *L )		{ p->SetRotationZ(FArg(1)); return 0; }
-	static int getrotation( T* p, lua_State *L )	{ lua_pushnumber(L, p->GetRotationX()); lua_pushnumber(L, p->GetRotationY()); lua_pushnumber(L, p->GetRotationZ()); return 3; }
-	static int baserotationx( T* p, lua_State *L )	{ p->SetBaseRotationX(FArg(1)); return 0; }
-	static int baserotationy( T* p, lua_State *L )	{ p->SetBaseRotationY(FArg(1)); return 0; }
-	static int baserotationz( T* p, lua_State *L )	{ p->SetBaseRotationZ(FArg(1)); return 0; }
+	static int getrotation( T* p, lua_State *L )		{ lua_pushnumber(L, p->GetRotationX()); lua_pushnumber(L, p->GetRotationY()); lua_pushnumber(L, p->GetRotationZ()); return 3; }
+	static int baserotationx( T* p, lua_State *L )		{ p->SetBaseRotationX(FArg(1)); return 0; }
+	static int baserotationy( T* p, lua_State *L )		{ p->SetBaseRotationY(FArg(1)); return 0; }
+	static int baserotationz( T* p, lua_State *L )		{ p->SetBaseRotationZ(FArg(1)); return 0; }
 	static int skewx( T* p, lua_State *L )			{ p->SetSkewX(FArg(1)); return 0; }
 	static int heading( T* p, lua_State *L )		{ p->AddRotationH(FArg(1)); return 0; }
 	static int pitch( T* p, lua_State *L )			{ p->AddRotationP(FArg(1)); return 0; }
 	static int roll( T* p, lua_State *L )			{ p->AddRotationR(FArg(1)); return 0; }
-	static int shadowlength( T* p, lua_State *L )	{ p->SetShadowLength(FArg(1)); return 0; }
+	static int shadowlength( T* p, lua_State *L )		{ p->SetShadowLength(FArg(1)); return 0; }
 	static int horizalign( T* p, lua_State *L )		{ p->SetHorizAlignString(SArg(1)); return 0; }
 	static int vertalign( T* p, lua_State *L )		{ p->SetVertAlignString(SArg(1)); return 0; }
 	static int luaeffect( T* p, lua_State *L )		{ p->SetEffectLua(SArg(1)); return 0; }
-	static int diffuseblink( T* p, lua_State *L )	{ p->SetEffectDiffuseBlink(); return 0; }
-	static int diffuseshift( T* p, lua_State *L )	{ p->SetEffectDiffuseShift(); return 0; }
-	static int diffuseramp( T* p, lua_State *L )	{ p->SetEffectDiffuseRamp(); return 0; }
+	static int diffuseblink( T* p, lua_State *L )		{ p->SetEffectDiffuseBlink(); return 0; }
+	static int diffuseshift( T* p, lua_State *L )		{ p->SetEffectDiffuseShift(); return 0; }
+	static int diffuseramp( T* p, lua_State *L )		{ p->SetEffectDiffuseRamp(); return 0; }
 	static int glowblink( T* p, lua_State *L )		{ p->SetEffectGlowBlink(); return 0; }
 	static int glowshift( T* p, lua_State *L )		{ p->SetEffectGlowShift(); return 0; }
 	static int rainbow( T* p, lua_State *L )		{ p->SetEffectRainbow(); return 0; }
@@ -1376,56 +1389,73 @@ public:
 	static int effectmagnitude( T* p, lua_State *L )	{ p->SetEffectMagnitude( RageVector3(FArg(1),FArg(2),FArg(3)) ); return 0; }
 	static int geteffectmagnitude( T* p, lua_State *L )	{ RageVector3 v = p->GetEffectMagnitude(); lua_pushnumber(L, v[0]); lua_pushnumber(L, v[1]); lua_pushnumber(L, v[2]); return 3; }
 	static int scaletocover( T* p, lua_State *L )		{ p->ScaleToCover( RectF(FArg(1), FArg(2), FArg(3), FArg(4)) ); return 0; }
-	static int scaletofit( T* p, lua_State *L )			{ p->ScaleToFitInside( RectF(FArg(1), FArg(2), FArg(3), FArg(4)) ); return 0; }
-	static int animate( T* p, lua_State *L )			{ p->EnableAnimation(!!IArg(1)); return 0; }
-	static int play( T* p, lua_State *L )				{ p->EnableAnimation(true); return 0; }
-	static int pause( T* p, lua_State *L )				{ p->EnableAnimation(false); return 0; }
-	static int setstate( T* p, lua_State *L )			{ p->SetState(IArg(1)); return 0; }
+	static int scaletofit( T* p, lua_State *L )		{ p->ScaleToFitInside( RectF(FArg(1), FArg(2), FArg(3), FArg(4)) ); return 0; }
+	static int animate( T* p, lua_State *L )		{ p->EnableAnimation(!!IArg(1)); return 0; }
+	static int play( T* p, lua_State *L )			{ p->EnableAnimation(true); return 0; }
+	static int pause( T* p, lua_State *L )			{ p->EnableAnimation(false); return 0; }
+	static int setstate( T* p, lua_State *L )		{ p->SetState(IArg(1)); return 0; }
 	static int texturewrapping( T* p, lua_State *L )	{ p->SetTextureWrapping(!!IArg(1)); return 0; }
 	static int additiveblend( T* p, lua_State *L )		{ p->SetBlendMode(!!IArg(1) ? BLEND_ADD : BLEND_NORMAL); return 0; }
-	static int blend( T* p, lua_State *L )				{ p->SetBlendModeString(SArg(1)); return 0; }
-	static int zbuffer( T* p, lua_State *L )			{ p->SetUseZBuffer(!!IArg(1)); return 0; }
-	static int ztest( T* p, lua_State *L )				{ p->SetZTestMode((!!IArg(1))?ZTEST_WRITE_ON_PASS:ZTEST_OFF); return 0; }
-	static int ztestmode( T* p, lua_State *L )			{ p->SetZTestModeString(SArg(1)); return 0; }
-	static int zwrite( T* p, lua_State *L )				{ p->SetZWrite(!!IArg(1)); return 0; }
-	static int zbias( T* p, lua_State *L )				{ p->SetZBias(FArg(1)); return 0; }
+	static int blend( T* p, lua_State *L )			{ p->SetBlendModeString(SArg(1)); return 0; }
+	static int zbuffer( T* p, lua_State *L )		{ p->SetUseZBuffer(!!IArg(1)); return 0; }
+	static int ztest( T* p, lua_State *L )			{ p->SetZTestMode((!!IArg(1))?ZTEST_WRITE_ON_PASS:ZTEST_OFF); return 0; }
+	static int ztestmode( T* p, lua_State *L )		{ p->SetZTestModeString(SArg(1)); return 0; }
+	static int zwrite( T* p, lua_State *L )			{ p->SetZWrite(!!IArg(1)); return 0; }
+	static int zbias( T* p, lua_State *L )			{ p->SetZBias(FArg(1)); return 0; }
 	static int clearzbuffer( T* p, lua_State *L )		{ p->SetClearZBuffer(!!IArg(1)); return 0; }
 	static int backfacecull( T* p, lua_State *L )		{ p->SetCullMode((!!IArg(1)) ? CULL_BACK : CULL_NONE); return 0; }
-	static int cullmode( T* p, lua_State *L )			{ p->SetCullModeString(SArg(1)); return 0; }
-	static int visible( T* p, lua_State *L )			{ p->SetVisible(!!IArg(1)); return 0; }
-	static int hidden( T* p, lua_State *L )				{ p->SetHidden(!!IArg(1)); return 0; }
-	static int hibernate( T* p, lua_State *L )			{ p->SetHibernate(FArg(1)); return 0; }
-	static int draworder( T* p, lua_State *L )			{ p->SetDrawOrder(IArg(1)); return 0; }
+	static int cullmode( T* p, lua_State *L )		{ p->SetCullModeString(SArg(1)); return 0; }
+	static int visible( T* p, lua_State *L )		{ p->SetVisible(!!IArg(1)); return 0; }
+	static int hidden( T* p, lua_State *L )			{ p->SetHidden(!!IArg(1)); return 0; }
+	static int hibernate( T* p, lua_State *L )		{ p->SetHibernate(FArg(1)); return 0; }
+	static int draworder( T* p, lua_State *L )		{ p->SetDrawOrder(IArg(1)); return 0; }
 	static int playcommand( T* p, lua_State *L )		{ p->PlayCommand(SArg(1),NULL); return 0; }
 	static int queuecommand( T* p, lua_State *L )		{ p->QueueCommand(SArg(1)); return 0; }
 	static int queuemessage( T* p, lua_State *L )		{ p->QueueMessage(SArg(1)); return 0; }
+	static int addcommand( T* p, lua_State *L )
+	{
+		LuaReference *pRef = new LuaReference;
+		pRef->SetFromStack( L );
+		p->AddCommand( SArg(1), apActorCommands(pRef) );
+		return 0;
+	}
+	static int GetCommand( T* p, lua_State *L )
+	{
+		const apActorCommands *pCommand = p->GetCommand(SArg(1));
+		if( pCommand == NULL )
+			lua_pushnil( L );
+		else
+			(*pCommand)->PushSelf(L);
 
-	static int GetX( T* p, lua_State *L )				{ lua_pushnumber( L, p->GetX() ); return 1; }
-	static int GetY( T* p, lua_State *L )				{ lua_pushnumber( L, p->GetY() ); return 1; }
-	static int GetZ( T* p, lua_State *L )				{ lua_pushnumber( L, p->GetZ() ); return 1; }
-	static int GetWidth( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetUnzoomedWidth() ); return 1; }
-	static int GetHeight( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetUnzoomedHeight() ); return 1; }
-	static int GetZoom( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetZoom() ); return 1; }
-	static int GetZoomX( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetZoomX() ); return 1; }
-	static int GetZoomY( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetZoomY() ); return 1; }
-	static int GetZoomZ( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetZoomZ() ); return 1; }
+		return 1;
+	}
+
+	static int GetX( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetX() ); return 1; }
+	static int GetY( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetY() ); return 1; }
+	static int GetZ( T* p, lua_State *L )			{ lua_pushnumber( L, p->GetZ() ); return 1; }
+	static int GetWidth( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetUnzoomedWidth() ); return 1; }
+	static int GetHeight( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetUnzoomedHeight() ); return 1; }
+	static int GetZoomedWidth( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetZoomedWidth() ); return 1; }
+	static int GetZoomedHeight( T* p, lua_State *L )	{ lua_pushnumber( L, p->GetZoomedHeight() ); return 1; }
+	static int GetZoom( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetZoom() ); return 1; }
+	static int GetZoomX( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetZoomX() ); return 1; }
+	static int GetZoomY( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetZoomY() ); return 1; }
+	static int GetZoomZ( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetZoomZ() ); return 1; }
 	static int GetBaseZoomX( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetBaseZoomX() ); return 1; }
 	static int GetRotationY( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetRotationY() ); return 1; }
 	static int GetSecsIntoEffect( T* p, lua_State *L )	{ lua_pushnumber( L, p->GetSecsIntoEffect() ); return 1; }
 	static int GetEffectDelta( T* p, lua_State *L )		{ lua_pushnumber( L, p->GetEffectDelta() ); return 1; }
 	static int GetDiffuseAlpha( T* p, lua_State *L )	{ lua_pushnumber( L, p->GetDiffuseAlpha() ); return 1; }
 
-	static int GetName( T* p, lua_State *L )			{ lua_pushstring( L, p->GetName() ); return 1; }
+	static int GetName( T* p, lua_State *L )		{ lua_pushstring( L, p->GetName() ); return 1; }
 
 	static void Register(lua_State *L) {
   		ADD_METHOD( sleep );
 		ADD_METHOD( linear );
 		ADD_METHOD( accelerate );
 		ADD_METHOD( decelerate );
-		ADD_METHOD( smooth );
-		ADD_METHOD( bouncebegin );
-		ADD_METHOD( bounceend );
 		ADD_METHOD( spring );
+		ADD_METHOD( tween );
 		ADD_METHOD( stoptweening );
 		ADD_METHOD( finishtweening );
 		ADD_METHOD( hurrytweening );
@@ -1442,6 +1472,8 @@ public:
 		ADD_METHOD( zoomto );
 		ADD_METHOD( zoomtowidth );
 		ADD_METHOD( zoomtoheight );
+		ADD_METHOD( setsize );
+		ADD_METHOD( basealpha );
 		ADD_METHOD( basezoomx );
 		ADD_METHOD( basezoomy );
 		ADD_METHOD( stretchto );
@@ -1527,12 +1559,16 @@ public:
 		ADD_METHOD( playcommand );
 		ADD_METHOD( queuecommand );
 		ADD_METHOD( queuemessage );
+		ADD_METHOD( addcommand );
+		ADD_METHOD( GetCommand );
 
 		ADD_METHOD( GetX );
 		ADD_METHOD( GetY );
 		ADD_METHOD( GetZ );
 		ADD_METHOD( GetWidth );
 		ADD_METHOD( GetHeight );
+		ADD_METHOD( GetZoomedWidth );
+		ADD_METHOD( GetZoomedHeight );
 		ADD_METHOD( GetZoom );
 		ADD_METHOD( GetZoomX );
 		ADD_METHOD( GetZoomY );

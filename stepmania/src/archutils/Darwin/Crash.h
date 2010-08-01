@@ -1,15 +1,18 @@
 #ifndef DARWIN_CRASH_H
 #define DARWIN_CRASH_H
 
-extern "C"
+namespace CrashHandler
 {
-	extern void InformUserOfCrash( const char *sPath );
+	RString GetLogsDirectory();
+	void InformUserOfCrash( const RString& sPath );
+	bool IsDebuggerPresent();
+	void DebugBreak();
 }
 
 #endif /* DARWIN_CRASH_H */
 
 /*
- * (c) 2003-2005 Steve Checkoway
+ * (c) 2003-2006 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

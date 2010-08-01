@@ -4,10 +4,10 @@
 #include "arch/arch_platform.h"
 
 /* Dialog drivers selector. */
-#if defined(HAVE_WIN32)
+#if defined(WIN32) && !defined(XBOX)
 #include "DialogDriver_Win32.h"
 
-#elif defined(HAVE_COCOA)
+#elif defined(MACOSX)
 #include "DialogDriver_Cocoa.h"
 #endif
 

@@ -8,7 +8,6 @@
 #include "RageDisplay.h"
 #include "SongManager.h"
 #include "Steps.h"
-#include "NoteFieldPositioning.h"
 #include "GameManager.h"
 #include "NotesLoaderSM.h"
 #include "GameSoundManager.h"
@@ -20,14 +19,15 @@
 #include "PrefsManager.h"
 #include "CharacterManager.h"
 #include "StatsManager.h"
+#include "SongUtil.h"
 
-static const ThemeMetric<CString>		STEPFILE			("ScreenHowToPlay","Stepfile");
-static const ThemeMetric<int>			NUM_PERFECTS		("ScreenHowToPlay","NumPerfects");
-static const ThemeMetric<int>			NUM_MISSES			("ScreenHowToPlay","NumMisses");
-static const ThemeMetric<bool>			USELIFEBAR			("ScreenHowToPlay","UseLifeMeterBar");
-static const ThemeMetric<bool>			USECHARACTER		("ScreenHowToPlay","UseCharacter");
-static const ThemeMetric<bool>			USEPAD				("ScreenHowToPlay","UsePad");
-static const ThemeMetric<bool>			USEPLAYER			("ScreenHowToPlay","UseNotefield");
+static const ThemeMetric<RString>	STEPFILE		("ScreenHowToPlay","Stepfile");
+static const ThemeMetric<int>		NUM_W2S			("ScreenHowToPlay","NumW2s");
+static const ThemeMetric<int>		NUM_MISSES		("ScreenHowToPlay","NumMisses");
+static const ThemeMetric<bool>		USELIFEBAR		("ScreenHowToPlay","UseLifeMeterBar");
+static const ThemeMetric<bool>		USECHARACTER	("ScreenHowToPlay","UseCharacter");
+static const ThemeMetric<bool>		USEPAD			("ScreenHowToPlay","UsePad");
+static const ThemeMetric<bool>		USEPLAYER		("ScreenHowToPlay","UseNotefield");
 
 enum Animation
 {
@@ -41,10 +41,10 @@ enum Animation
 	NUM_ANIMATIONS
 };
 
-static const CString anims[NUM_ANIMATIONS] =
+static const RString anims[NUM_ANIMATIONS] =
 {
-	"DancePad-DDR.txt",
-	"DancePads-DDR.txt",
+	"DancePad.txt",
+	"DancePads.txt",
 	"BeginnerHelper_step-up.bones.txt",
 	"BeginnerHelper_step-down.bones.txt",
 	"BeginnerHelper_step-left.bones.txt",
@@ -53,9 +53,9 @@ static const CString anims[NUM_ANIMATIONS] =
 };
 
 
-static CString GetAnimPath( Animation a )
+static RString GetAnimPath( Animation a )
 {
-	return CString("Characters/") + anims[a];
+	return RString("Characters/") + anims[a];
 }
 
 static bool HaveAllCharAnimations()
@@ -67,10 +67,10 @@ static bool HaveAllCharAnimations()
 }
 
 REGISTER_SCREEN_CLASS( ScreenHowToPlay );
-ScreenHowToPlay::ScreenHowToPlay( CString sName ) : ScreenAttract( sName )
+ScreenHowToPlay::ScreenHowToPlay()
 {
-	m_iPerfects = 0;
-	m_iNumPerfects = NUM_PERFECTS;
+	m_iW2s = 0;
+	m_iNumW2s = NUM_W2S;
 
 	// initialize these because they might not be used.
 	m_pPlayer = NULL;
@@ -99,7 +99,7 @@ void ScreenHowToPlay::Init()
 	{
 		Character* rndchar = CHARMAN->GetRandomCharacter();
 
-		CString sModelPath = rndchar->GetModelPath();
+		RString sModelPath = rndchar->GetModelPath();
 		if( sModelPath != "" )
 		{
 			m_pmCharacter = new Model;
@@ -110,13 +110,15 @@ void ScreenHowToPlay::Init()
 			m_pmCharacter->LoadMilkshapeAsciiBones( "Step-UP", GetAnimPath( ANIM_UP ) );
 			m_pmCharacter->LoadMilkshapeAsciiBones( "Step-RIGHT", GetAnimPath( ANIM_RIGHT ) );
 			m_pmCharacter->LoadMilkshapeAsciiBones( "Step-JUMPLR", GetAnimPath( ANIM_JUMPLR ) );
+			RString sRestFile = rndchar->GetRestAnimationPath();
+			ASSERT( !sRestFile.empty() );
 			m_pmCharacter->LoadMilkshapeAsciiBones( "rest",rndchar->GetRestAnimationPath() );
 			m_pmCharacter->SetDefaultAnimation( "rest" );
 			m_pmCharacter->PlayAnimation( "rest" );
 			m_pmCharacter->m_bRevertToDefaultAnimation = true;		// Stay bouncing after a step has finished animating.
 			
 			m_pmCharacter->SetRotationX( 40 );
-			m_pmCharacter->SetCullMode( CULL_NONE );	// many of the DDR PC character models have the vertex order flipped
+			m_pmCharacter->SetCullMode( CULL_NONE );	// many of the models floating around have the vertex order flipped
 			SET_XY_AND_ON_COMMAND( m_pmCharacter );
 		}
 	}
@@ -128,7 +130,7 @@ void ScreenHowToPlay::Init()
 		m_pLifeMeterBar->SetName("LifeMeterBar");
 		m_pLifeMeterBar->Load( GAMESTATE->m_pPlayerState[PLAYER_1], &STATSMAN->m_CurStageStats.m_player[PLAYER_1] );
 		SET_XY_AND_ON_COMMAND( m_pLifeMeterBar );
-		m_pLifeMeterBar->FillForHowToPlay( NUM_PERFECTS, NUM_MISSES );
+		m_pLifeMeterBar->FillForHowToPlay( NUM_W2S, NUM_MISSES );
 	}
 
 	GAMESTATE->m_pCurStyle.Set( GAMEMAN->GetHowToPlayStyleForGame(GAMESTATE->m_pCurGame) );
@@ -141,7 +143,7 @@ void ScreenHowToPlay::Init()
 
 		const Style* pStyle = GAMESTATE->GetCurrentStyle();
 		
-		Steps *pSteps = m_Song.GetStepsByDescription( pStyle->m_StepsType, "" );
+		Steps *pSteps = SongUtil::GetStepsByDescription( &m_Song, pStyle->m_StepsType, "" );
 		ASSERT_M( pSteps != NULL, ssprintf("%i", pStyle->m_StepsType) );
 
 		NoteData tempNoteData;
@@ -149,10 +151,10 @@ void ScreenHowToPlay::Init()
 		pStyle->GetTransformedNoteDataForStyle( PLAYER_1, tempNoteData, m_NoteData );
 
 		GAMESTATE->m_pCurSong.Set( &m_Song );
-		GAMESTATE->m_bPastHereWeGo = true;
+		GAMESTATE->m_bGameplayLeadIn.Set( false );
 		GAMESTATE->m_pPlayerState[PLAYER_1]->m_PlayerController = PC_AUTOPLAY;
 
-		m_pPlayer = new Player;
+		m_pPlayer = new PlayerPlus;
 		m_pPlayer->Init( 
 			"Player",
 			GAMESTATE->m_pPlayerState[PLAYER_1], 
@@ -205,7 +207,7 @@ void ScreenHowToPlay::Step()
 	int iStep = 0;
 	const int iNoteRow = BeatToNoteRowNotRounded( GAMESTATE->m_fSongBeat + 0.6f );
 	// if we want to miss from here on out, don't process steps.
-	if( m_iPerfects < m_iNumPerfects && m_NoteData.IsThereATapAtRow( iNoteRow ) )
+	if( m_iW2s < m_iNumW2s && m_NoteData.IsThereATapAtRow( iNoteRow ) )
 	{
 		const int iNumTracks = m_NoteData.GetNumTracks();
 		for( int k=0; k<iNumTracks; k++ )
@@ -248,19 +250,19 @@ void ScreenHowToPlay::Update( float fDelta )
 		{
 			if( m_pLifeMeterBar && !m_pPlayer )
 			{
-				if ( m_iPerfects < m_iNumPerfects )
-					m_pLifeMeterBar->ChangeLife(TNS_PERFECT);
+				if ( m_iW2s < m_iNumW2s )
+					m_pLifeMeterBar->ChangeLife(TNS_W2);
 				else
-					m_pLifeMeterBar->ChangeLife(TNS_MISS);
+					m_pLifeMeterBar->ChangeLife(TNS_Miss);
 			}
-			m_iPerfects++;
+			m_iW2s++;
 			iLastNoteRowCounted = iCurNoteRow;
 		}
 
 		// once we hit the number of perfects we want, we want to fail.
 		// switch the controller to HUMAN. since we aren't taking input,
 		// the steps will always be misses.
-		if(m_iPerfects > m_iNumPerfects)
+		if(m_iW2s > m_iNumW2s)
 			GAMESTATE->m_pPlayerState[PLAYER_1]->m_PlayerController = PC_HUMAN;
 
 		if ( m_pmCharacter )
@@ -279,18 +281,18 @@ void ScreenHowToPlay::Update( float fDelta )
 
 void ScreenHowToPlay::HandleScreenMessage( const ScreenMessage SM )
 {
-	switch( SM )
+	if( SM == SM_GainFocus )
 	{
-	case SM_GainFocus:
 		/* We do this ourself. */
 		SOUND->HandleSongTimer( false );
-		break;
-	case SM_LoseFocus:
+	}
+	else if( SM == SM_LoseFocus )
+	{
 		SOUND->HandleSongTimer( true );
-		break;
-	case SM_GoToNextScreen:
+	}
+	else if( SM == SM_GoToNextScreen )
+	{
 		GAMESTATE->Reset();
-		break;
 	}
 	ScreenAttract::HandleScreenMessage( SM );
 }
@@ -329,7 +331,7 @@ void ScreenHowToPlay::DrawPrimitives()
 }
 
 /*
- * (c) 2001-2004 Chris Danford
+ * (c) 2001-2004 Chris Danford, Thad Ward
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

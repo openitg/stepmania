@@ -10,19 +10,19 @@
 #include "DifficultyRating.h"
 #include "ModeSwitcher.h"
 #include "RageTexturePreloader.h"
+#include "RageSound.h"
 
 class ScreenEz2SelectMusic : public ScreenWithMenuElements
 {
 public:
-	ScreenEz2SelectMusic( CString sName );
 	virtual void Init();
 
 	virtual void Update( float fDeltaTime );
 	virtual void Input( const InputEventPlus &input );
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 	virtual void MenuStart( PlayerNumber pn );
-	virtual void MenuLeft( PlayerNumber pn, const InputEventType type );
-	virtual void MenuRight( PlayerNumber pn, const InputEventType type );
+	virtual void MenuLeft( const InputEventPlus &input );
+	virtual void MenuRight( const InputEventPlus &input );
 	virtual void MenuBack( PlayerNumber pn );
 
 protected:
@@ -34,8 +34,8 @@ protected:
 
 	void UpdateOptions( PlayerNumber pn, int nosound );
 
-	CString sOptions;
-	CStringArray asOptions;
+	RString sOptions;
+	vector<RString> asOptions;
 
 	void TweenOffScreen();
 

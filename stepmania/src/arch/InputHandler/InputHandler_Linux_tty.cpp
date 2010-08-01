@@ -161,7 +161,7 @@ InputHandler_Linux_tty::~InputHandler_Linux_tty()
 	handler = NULL;
 }
 
-void InputHandler_Linux_tty::Update(float fDeltaTime)
+void InputHandler_Linux_tty::Update()
 {
 	while (1)
 	{
@@ -189,10 +189,9 @@ void InputHandler_Linux_tty::Update(float fDeltaTime)
 	InputHandler::UpdateTimer();
 }
 
-void InputHandler_Linux_tty::GetDevicesAndDescriptions(vector<InputDevice>& vDevicesOut, vector<CString>& vDescriptionsOut)
+void InputHandler_Linux_tty::GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut )
 {
-	vDevicesOut.push_back( InputDevice(DEVICE_KEYBOARD) );
-	vDescriptionsOut.push_back( "Keyboard" );
+	vDevicesOut.push_back( InputDeviceInfo(DEVICE_KEYBOARD,"Keyboard") );
 }
 
 /*

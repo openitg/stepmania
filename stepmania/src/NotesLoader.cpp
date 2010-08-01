@@ -2,30 +2,63 @@
 #include "NotesLoader.h"
 #include "NoteTypes.h"
 #include "GameManager.h"
+#include "RageUtil.h"
 
-bool NotesLoader::Loadable( CString sPath )
+#include "NotesLoaderSM.h"
+#include "NotesLoaderDWI.h"
+#include "NotesLoaderBMS.h"
+#include "NotesLoaderKSF.h"
+
+bool NotesLoader::Loadable( const RString &sPath )
 {
-	CStringArray list;
+	vector<RString> list;
 	GetApplicableFiles( sPath, list );
 	return !list.empty();
 }
 
-void NotesLoader::GetMainAndSubTitlesFromFullTitle( const CString sFullTitle, CString &sMainTitleOut, CString &sSubTitleOut )
+void NotesLoader::GetMainAndSubTitlesFromFullTitle( const RString &sFullTitle, RString &sMainTitleOut, RString &sSubTitleOut )
 {
-	const CString sLeftSeps[]  = { " -", " ~", " (", " [" };
+	const RString sLeftSeps[]  = { " -", " ~", " (", " [", "\t" };
 
 	for( unsigned i=0; i<ARRAYSIZE(sLeftSeps); i++ )
 	{
-		int iBeginIndex = sFullTitle.Find( sLeftSeps[i] );
-		if( iBeginIndex == -1 )
+		size_t iBeginIndex = sFullTitle.find( sLeftSeps[i] );
+		if( iBeginIndex == string::npos )
 			continue;
-		sMainTitleOut = sFullTitle.Left( iBeginIndex );
-		sSubTitleOut = sFullTitle.substr( iBeginIndex+1, sFullTitle.GetLength()-iBeginIndex+1 );
+		sMainTitleOut = sFullTitle.Left( (int) iBeginIndex );
+		sSubTitleOut = sFullTitle.substr( iBeginIndex+1, sFullTitle.size()-iBeginIndex+1 );
 		return;
 	}
 	sMainTitleOut = sFullTitle; 
 	sSubTitleOut = ""; 
-};	
+};
+
+NotesLoader *NotesLoader::MakeLoader( const RString &sDir )
+{
+	NotesLoader *ret;
+	
+	/* Actually, none of these have any persistant data, so we 
+	* could optimize this, but since they don't have any data,
+	* there's no real point ... */
+	ret = new SMLoader;
+	if(ret->Loadable( sDir )) return ret;
+	delete ret;
+	
+	ret = new DWILoader;
+	if(ret->Loadable( sDir )) return ret;
+	delete ret;
+	
+	ret = new BMSLoader;
+	if(ret->Loadable( sDir )) return ret;
+	delete ret;
+	
+	ret = new KSFLoader;
+	if(ret->Loadable( sDir )) return ret;
+	delete ret;
+	
+	return NULL;
+}
+
 
 /*
  * (c) 2001-2004 Chris Danford, Glenn Maynard

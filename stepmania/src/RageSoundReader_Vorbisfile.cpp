@@ -11,21 +11,9 @@
 #endif
 
 #if defined(_MSC_VER)
-#if defined(_XBOX)
-#ifdef _DEBUG
-#pragma comment(lib, "vorbis/xbox/ogg_static_d.lib")
-#pragma comment(lib, "vorbis/xbox/vorbis_static_d.lib")
-#pragma comment(lib, "vorbis/xbox/vorbisfile_static_d.lib")
-#else
-#pragma comment(lib, "vorbis/xbox/ogg_static.lib")
-#pragma comment(lib, "vorbis/xbox/vorbis_static.lib")
-#pragma comment(lib, "vorbis/xbox/vorbisfile_static.lib")
-#endif // _DEBUG
-#else
-#pragma comment(lib, "vorbis/win32/ogg_static.lib")
-#pragma comment(lib, "vorbis/win32/vorbis_static.lib")
-#pragma comment(lib, "vorbis/win32/vorbisfile_static.lib")
-#endif // _XBOX
+#pragma comment(lib, OGG_LIB_DIR "ogg_static.lib")
+#pragma comment(lib, OGG_LIB_DIR "vorbis_static.lib")
+#pragma comment(lib, OGG_LIB_DIR "vorbisfile_static.lib")
 #endif // _MSC_VER
 
 #include <cstring>
@@ -56,14 +44,14 @@ static long OggRageFile_tell_func( void *datasource )
 	return f->Tell();
 }
 
-static CString ov_ssprintf( int err, const char *fmt, ...)
+static RString ov_ssprintf( int err, const char *fmt, ...)
 {
-    va_list	va;
-    va_start(va, fmt);
-    CString s = vssprintf( fmt, va );
-    va_end(va);
+	va_list	va;
+	va_start( va, fmt );
+	RString s = vssprintf( fmt, va );
+	va_end( va );
 
-	CString errstr;
+	RString errstr;
 	switch( err )
 	{
 	/* XXX: In the case of OV_EREAD, can we snoop at errno? */
@@ -78,13 +66,13 @@ static CString ov_ssprintf( int err, const char *fmt, ...)
 	case OV_EBADPACKET:	errstr = "OV_EBADPACKET"; break;
 	case OV_EBADLINK:	errstr = "Link corrupted"; break;
 	case OV_ENOSEEK:	errstr = "Stream is not seekable"; break;
-	default:			errstr = ssprintf( "unknown error %i", err ); break;
+	default:		errstr = ssprintf( "unknown error %i", err ); break;
 	}
 
 	return s + ssprintf( " (%s)", errstr.c_str() );
 }
 
-SoundReader_FileReader::OpenResult RageSoundReader_Vorbisfile::Open(CString filename_)
+SoundReader_FileReader::OpenResult RageSoundReader_Vorbisfile::Open(RString filename_)
 {
 	filename=filename_;
 
@@ -112,7 +100,7 @@ SoundReader_FileReader::OpenResult RageSoundReader_Vorbisfile::Open( RageFileBas
 	callbacks.tell_func  = OggRageFile_tell_func;
 
 	int ret = ov_open_callbacks( f, vf, NULL, 0, callbacks );
-	if(ret < 0)
+	if( ret < 0 )
 	{
 		SetError( ov_ssprintf(ret, "ov_open failed") );
 		delete f;
@@ -134,7 +122,7 @@ SoundReader_FileReader::OpenResult RageSoundReader_Vorbisfile::Open( RageFileBas
 	ASSERT_M( vi->channels == 1 || vi->channels == 2, ssprintf("%i", vi->channels) );
 	channels = vi->channels;
 
-    return OPEN_OK;
+	return OPEN_OK;
 }
 
 int RageSoundReader_Vorbisfile::GetLength() const
@@ -144,7 +132,7 @@ int RageSoundReader_Vorbisfile::GetLength() const
 #else
 	int len = int(ov_time_total(vf, -1) * 1000);
 #endif
-	if(len == OV_EINVAL)
+	if( len == OV_EINVAL )
 		RageException::Throw("RageSoundReader_Vorbisfile::GetLength: ov_time_total returned OV_EINVAL");
 
 	return len; 

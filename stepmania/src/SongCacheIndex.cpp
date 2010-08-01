@@ -5,6 +5,7 @@
 #include "RageUtil.h"
 #include "RageFileManager.h"
 #include "song.h"
+#include "SpecialFiles.h"
 
 /*
  * A quick explanation of song cache hashes: Each song has two hashes; a hash of the
@@ -23,17 +24,18 @@
  * path; we don't have to actually look in the directory (to find out the directory hash)
  * in order to find the cache file.
  */
-#define CACHE_DIR "Cache/"
-#define CACHE_INDEX CACHE_DIR "index.cache"
+#define CACHE_INDEX SpecialFiles::CACHE_DIR + "index.cache"
 
 
 SongCacheIndex *SONGINDEX;
 
-CString SongCacheIndex::GetCacheFilePath( const CString &sGroup, const CString &sPath )
+RString SongCacheIndex::GetCacheFilePath( const RString &sGroup, const RString &sPath )
 {
-	/* Use GetHashForString, not ForFile, since we don't want to spend time
+	/* Don't use GetHashForFile, since we don't want to spend time
 	 * checking the file size and date. */
-	return ssprintf( "%s/%s/%u", CACHE_DIR, sGroup.c_str(), GetHashForString(sPath) );
+	RString s = sPath;
+	s.Replace( '/', '_' );
+	return ssprintf( "%s/%s/%s", SpecialFiles::CACHE_DIR.c_str(), sGroup.c_str(), s.c_str() );
 }
 
 SongCacheIndex::SongCacheIndex()
@@ -46,11 +48,16 @@ SongCacheIndex::~SongCacheIndex()
 
 }
 
-static void EmptyDir( CString dir )
+void SongCacheIndex::ReadFromDisk()
+{
+	ReadCacheIndex();
+}
+
+static void EmptyDir( RString dir )
 {
 	ASSERT(dir[dir.size()-1] == '/');
 
-	CStringArray asCacheFileNames;
+	vector<RString> asCacheFileNames;
 	GetDirListing( dir, asCacheFileNames );
 	for( unsigned i=0; i<asCacheFileNames.size(); i++ )
 	{
@@ -69,15 +76,15 @@ void SongCacheIndex::ReadCacheIndex()
 		return; /* OK */
 
 	LOG->Trace( "Cache format is out of date.  Deleting all cache files." );
-	EmptyDir( CACHE_DIR );
-	EmptyDir( CACHE_DIR "Banners/" );
-	EmptyDir( CACHE_DIR "Songs/" );
-	EmptyDir( CACHE_DIR "Courses/" );
+	EmptyDir( SpecialFiles::CACHE_DIR );
+	EmptyDir( SpecialFiles::CACHE_DIR+"Banners/" );
+	EmptyDir( SpecialFiles::CACHE_DIR+"Songs/" );
+	EmptyDir( SpecialFiles::CACHE_DIR+"Courses/" );
 
 	CacheIndex.Clear();
 }
 
-void SongCacheIndex::AddCacheIndex(const CString &path, unsigned hash)
+void SongCacheIndex::AddCacheIndex(const RString &path, unsigned hash)
 {
 	if( hash == 0 )
 		++hash; /* no 0 hash values */
@@ -86,9 +93,9 @@ void SongCacheIndex::AddCacheIndex(const CString &path, unsigned hash)
 	CacheIndex.WriteFile( CACHE_INDEX );
 }
 
-unsigned SongCacheIndex::GetCacheHash( const CString &path ) const
+unsigned SongCacheIndex::GetCacheHash( const RString &path ) const
 {
-	unsigned iDirHash;
+	unsigned iDirHash = 0;
 	if( !CacheIndex.GetValue( "Cache", MangleName(path), iDirHash ) )
 		return 0;
 	if( iDirHash == 0 )
@@ -96,10 +103,10 @@ unsigned SongCacheIndex::GetCacheHash( const CString &path ) const
 	return iDirHash;
 }
 
-CString SongCacheIndex::MangleName( const CString &Name )
+RString SongCacheIndex::MangleName( const RString &Name )
 {
 	/* We store paths in an INI.  We can't store '='. */
-	CString ret = Name;
+	RString ret = Name;
 	ret.Replace( "=", "");
 	return ret;
 }

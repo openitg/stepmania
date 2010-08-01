@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
 			if (4!=sscanf(line, "%lx:%lx %s %lx", &grp, &start, symname, &rva))
 				break;
 
-			if (!(codeseg_flags & (1<<grp)))
+			if (!(codeseg_flags & (1<<grp)) && strcmp(symname, "___ImageBase") )
 				continue;
 
 			RVAEnt entry = { rva, strdup(line) };
@@ -267,7 +267,7 @@ int main(int argc, char **argv) {
 
 		// dump data
 
-		static const char header[64]="StepMania symbolic debug information\r\n\x1A";
+		static const char header[64]="symbolic debug information\r\n\x1A";
 
 		fwrite(header, 64, 1, fo);
 

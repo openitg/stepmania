@@ -1,13 +1,13 @@
 #include "global.h"
 #include "ScreenMiniMenu.h"
 #include "ScreenManager.h"
-#include "GameSoundManager.h"
 #include "GameConstantsAndTypes.h"
 #include "ThemeManager.h"
 #include "Foreach.h"
 #include "ScreenDimensions.h"
 #include "GameState.h"
 #include "FontCharAliases.h"
+#include "OptionRowHandler.h"
 
 AutoScreenMessage( SM_GoToOK )
 AutoScreenMessage( SM_GoToCancel )
@@ -16,64 +16,67 @@ bool ScreenMiniMenu::s_bCancelled = false;
 int	ScreenMiniMenu::s_iLastRowCode = -1;
 vector<int>	ScreenMiniMenu::s_viLastAnswers;
 
-void ScreenMiniMenu::MiniMenu( MenuDef* pDef, ScreenMessage SM_SendOnOK, ScreenMessage SM_SendOnCancel, float fX, float fY )
+// Hooks for profiling
+void PrepareToLoadScreen( const RString &sScreenName ) {}
+void FinishedLoadingScreen() {}
+
+/* Settings: */
+namespace
 {
-	ScreenMiniMenu *pNewScreen = new ScreenMiniMenu( pDef->sClassName );
-	pNewScreen->Init();
-	pNewScreen->LoadMenu( pDef );
-	pNewScreen->SetOKMessage( SM_SendOnOK );
-	pNewScreen->SetCancelMessage( SM_SendOnCancel );
+	const MenuDef* g_pMenuDef = NULL;
+	ScreenMessage g_SendOnOK;
+	ScreenMessage g_SendOnCancel;
+};
+
+void ScreenMiniMenu::MiniMenu( const MenuDef* pDef, ScreenMessage SM_SendOnOK, ScreenMessage SM_SendOnCancel, float fX, float fY )
+{
+	PrepareToLoadScreen( pDef->sClassName );
+	
+	g_pMenuDef = pDef;
+	g_SendOnOK = SM_SendOnOK;
+	g_SendOnCancel = SM_SendOnCancel;
+
+	SCREENMAN->AddNewScreenToTop( pDef->sClassName );
+	Screen *pNewScreen = SCREENMAN->GetTopScreen();
 	pNewScreen->SetXY( fX, fY );
-	SCREENMAN->ZeroNextUpdate();
-	SCREENMAN->PushScreen( pNewScreen, true );
+
+	FinishedLoadingScreen();
 }
 
-//REGISTER_SCREEN_CLASS( ScreenMiniMenu );
-ScreenMiniMenu::ScreenMiniMenu( CString sClassName ) :ScreenOptions( sClassName )
+REGISTER_SCREEN_CLASS( ScreenMiniMenu );
+
+void ScreenMiniMenu::BeginScreen()
 {
+	ASSERT( g_pMenuDef != NULL );
+
+	LoadMenu( g_pMenuDef );
+	m_SMSendOnOK = g_SendOnOK;
+	m_SMSendOnCancel = g_SendOnCancel;
+	g_pMenuDef = NULL;
+
+	ScreenOptions::BeginScreen();
+
+	/* HACK: An OptionRow exits if a screen is set.  ScreenMiniMenu is always pushed, so we
+	 * don't set screens to load.  Set a dummy screen, so ScreenOptions::GetNextScreenForSelection
+	 * will know to move on. */
+	m_sNextScreen = "xxx";
 }
 
 void ScreenMiniMenu::LoadMenu( const MenuDef* pDef )
 {
 	m_vMenuRows = pDef->rows;
 
+	s_viLastAnswers.resize( m_vMenuRows.size() );
 	// Convert from m_vMenuRows to vector<OptionRowDefinition>
-	vector<OptionRowDefinition> vDefs;
-	vDefs.resize( m_vMenuRows.size() );
+	vector<OptionRowHandler*> vHands;
 	for( unsigned r=0; r<m_vMenuRows.size(); r++ )
 	{
 		const MenuRowDef &mr = m_vMenuRows[r];
-		OptionRowDefinition &def = vDefs[r];
-
-		def.m_sName = mr.sName;
-		FontCharAliases::ReplaceMarkers( def.m_sName );	// Allow special characters
-		
-		if( mr.bEnabled )
-		{
-			def.m_vEnabledForPlayers.clear();
-			FOREACH_EnabledPlayer( pn )
-				def.m_vEnabledForPlayers.insert( pn );
-		}
-		else
-		{
-			def.m_vEnabledForPlayers.clear();
-		}
-
-		def.m_bOneChoiceForAllPlayers = true;
-		def.m_selectType = SELECT_ONE;
-		def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
-		def.m_bExportOnChange = false;
-			
-		def.m_vsChoices = mr.choices;
-
-		FOREACH( CString, def.m_vsChoices, c )
-			FontCharAliases::ReplaceMarkers( *c );	// Allow special characters
+		OptionRowHandler *pHand = OptionRowHandlerUtil::MakeSimple( mr );
+		vHands.push_back( pHand );
 	}
 
-	vector<OptionRowHandler*> vHands;
-	vHands.resize( vDefs.size(), NULL );
-
-	ScreenOptions::InitMenu( vDefs, vHands );
+	ScreenOptions::InitMenu( vHands );
 }
 
 void ScreenMiniMenu::AfterChangeValueOrRow( PlayerNumber pn )
@@ -81,28 +84,30 @@ void ScreenMiniMenu::AfterChangeValueOrRow( PlayerNumber pn )
 	ScreenOptions::AfterChangeValueOrRow( pn );
 
 	vector<PlayerNumber> vpns;
-	vpns.push_back( GAMESTATE->m_MasterPlayerNumber );
+	FOREACH_PlayerNumber( p )
+		vpns.push_back( p );
 	for( unsigned i=0; i<m_pRows.size(); i++ )
 		ExportOptions( i, vpns );
-
+	
+	// Changing one option can affect whether other options are available.
 	for( unsigned i=0; i<m_pRows.size(); i++ )
 	{
-		MenuRowDef &mr = m_vMenuRows[i];
-		OptionRow &optrow = *m_pRows[i];
+		const MenuRowDef &mr = m_vMenuRows[i];
 		if( mr.pfnEnabled )
 		{
+			OptionRow &optrow = *m_pRows[i];
 			optrow.GetRowDef().m_vEnabledForPlayers.clear();
 			if( mr.pfnEnabled() )
 				optrow.GetRowDef().m_vEnabledForPlayers.insert( GAMESTATE->m_MasterPlayerNumber );
 		}
+		m_pRows[i]->UpdateEnabledDisabled();
 	}
-	UpdateEnabledDisabled();
 }
 
 void ScreenMiniMenu::ImportOptions( int r, const vector<PlayerNumber> &vpns )
 {
 	OptionRow &optrow = *m_pRows[r];
-	MenuRowDef &mr = m_vMenuRows[r];
+	const MenuRowDef &mr = m_vMenuRows[r];
 	if( !mr.choices.empty() )
 		optrow.SetOneSharedSelection( mr.iDefaultChoice );
 }

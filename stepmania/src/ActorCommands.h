@@ -11,14 +11,14 @@
 class ActorCommands: public LuaReference
 {
 public:
-	ActorCommands( const CString &sCommands );
+	ActorCommands( const RString &sCommands );
 
 private:
 	void Register();
-	CString m_sLuaFunction;
+	RString m_sLuaFunction;
 };
 
-typedef AutoPtrCopyOnWrite<ActorCommands> apActorCommands;
+typedef AutoPtrCopyOnWrite<LuaReference> apActorCommands;
 
 #endif
 

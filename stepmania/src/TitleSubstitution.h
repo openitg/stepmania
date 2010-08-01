@@ -5,29 +5,31 @@
 
 struct TitleFields
 {
-	void SaveToStrings( CString &sTitle, CString &sSubtitle, CString &sArtist,
-		CString &sTitleTranslit, CString &sSubtitleTranslit, CString &sArtistTranslit ) const
+	void SaveToStrings( 
+		RString &sTitle, RString &sSubtitle, RString &sArtist,
+		RString &sTitleTranslit, RString &sSubtitleTranslit, RString &sArtistTranslit ) const
 	{
-			sTitle = Title;
-			sSubtitle = Subtitle;
-			sArtist = Artist;
-			sTitleTranslit = TitleTranslit;
-			sSubtitleTranslit = SubtitleTranslit;
-			sArtistTranslit = ArtistTranslit;
+		sTitle = Title;
+		sSubtitle = Subtitle;
+		sArtist = Artist;
+		sTitleTranslit = TitleTranslit;
+		sSubtitleTranslit = SubtitleTranslit;
+		sArtistTranslit = ArtistTranslit;
 	}
 
-	void LoadFromStrings( CString sTitle, CString sSubtitle, CString sArtist,
-		CString sTitleTranslit, CString sSubtitleTranslit, CString sArtistTranslit )
+	void LoadFromStrings( 
+		RString sTitle, RString sSubtitle, RString sArtist,
+		RString sTitleTranslit, RString sSubtitleTranslit, RString sArtistTranslit )
 	{
-			Title = sTitle;
-			Subtitle = sSubtitle;
-			Artist = sArtist;
-			TitleTranslit = sTitleTranslit;
-			SubtitleTranslit = sSubtitleTranslit;
-			ArtistTranslit = sArtistTranslit;
+		Title = sTitle;
+		Subtitle = sSubtitle;
+		Artist = sArtist;
+		TitleTranslit = sTitleTranslit;
+		SubtitleTranslit = sSubtitleTranslit;
+		ArtistTranslit = sArtistTranslit;
 	}
-	CString Title, Subtitle, Artist;
-	CString TitleTranslit, SubtitleTranslit, ArtistTranslit;
+	RString Title, Subtitle, Artist;
+	RString TitleTranslit, SubtitleTranslit, ArtistTranslit;
 };
 struct TitleTrans;
 
@@ -37,10 +39,10 @@ class TitleSubst
 
 	void AddTrans(const TitleTrans &tr);
 public:
-	TitleSubst(const CString &section);
+	TitleSubst(const RString &section);
 	~TitleSubst();
 
-	void Load(const CString &filename, const CString &section);
+	void Load(const RString &filename, const RString &section);
 
 	void Subst( TitleFields &tf );
 };

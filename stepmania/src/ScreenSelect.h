@@ -8,24 +8,20 @@
 #include "CodeDetector.h"
 #include "ThemeMetric.h"
 
-// Derived classes must send this when done
-AutoScreenMessage( SM_AllDoneChoosing )
-
 class ScreenSelect : public ScreenWithMenuElements
 {
 public:
-	ScreenSelect( CString sClassName );
 	virtual void Init();
+	virtual void BeginScreen();
 	virtual ~ScreenSelect();
 
 	virtual void Update( float fDelta );
 	virtual void DrawPrimitives();
 	virtual void Input( const InputEventPlus &input );
 	virtual void HandleScreenMessage( const ScreenMessage SM );
-	virtual void HandleMessage( const CString &sMessage );
+	virtual void HandleMessage( const RString &sMessage );
 	
 	virtual void MenuBack( PlayerNumber pn );
-	virtual CString GetNextScreen() const { return m_sNextScreen; }
 
 protected:
 	virtual int GetSelectionIndex( PlayerNumber pn ) = 0;
@@ -35,7 +31,7 @@ protected:
 
 	vector<CodeItem>	m_aCodes;
 	vector<GameCommand>	m_aCodeChoices;
-	vector<CString>		m_asSubscribedMessages;
+	vector<RString>		m_asSubscribedMessages;
 
 	RageTimer		m_timerIdleComment;	// count up to time between idle comment announcer sounds
 	RageTimer		m_timerIdleTimeout;	// count up to go to the timeout screen
@@ -45,7 +41,6 @@ protected:
 	ThemeMetric<bool> ALLOW_DISABLED_PLAYER_INPUT;
 
 private:
-	CString			m_sNextScreen;
 	bool			m_bTimeToFinalizePlayers;
 };
 

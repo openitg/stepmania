@@ -16,11 +16,155 @@
 
 const float ARROW_SPACING	= ARROW_SIZE;// + 2;
 
-float		g_fExpandSeconds = 0;
-
 static float GetNoteFieldHeight( const PlayerState* pPlayerState )
 {
 	return SCREEN_HEIGHT + fabsf(pPlayerState->m_CurrentPlayerOptions.m_fPerspectiveTilt)*200;
+}
+
+namespace
+{
+	float g_fExpandSeconds = 0;
+	struct PerPlayerData
+	{
+		float m_fMinTornadoX[MAX_COLS_PER_PLAYER];
+		float m_fMaxTornadoX[MAX_COLS_PER_PLAYER];
+		float m_fInvertDistance[MAX_COLS_PER_PLAYER];
+		float m_fBeatFactor;
+	};
+	PerPlayerData g_EffectData[NUM_PLAYERS];
+};
+
+void ArrowEffects::Update()
+{
+	const Style* pStyle = GAMESTATE->GetCurrentStyle();
+
+	{
+		static float fLastTime = 0;
+		float fTime = RageTimer::GetTimeSinceStartFast();
+		if( !GAMESTATE->m_bFreeze )
+		{
+			g_fExpandSeconds += fTime - fLastTime;
+			g_fExpandSeconds = fmodf( g_fExpandSeconds, PI*2 );
+		}
+		fLastTime = fTime;
+	}
+
+	FOREACH_PlayerNumber( pn )
+	{
+		const Style::ColumnInfo* pCols = pStyle->m_ColumnInfo[pn];
+	
+		PerPlayerData &data = g_EffectData[pn];
+		//
+		// Update Tornado
+		//
+		for( int iColNum = 0; iColNum < MAX_COLS_PER_PLAYER; ++iColNum )
+		{
+			// TRICKY: Tornado is very unplayable in doubles, so use a smaller
+			// tornado width if there are many columns
+			bool bWideField = pStyle->m_iColsPerPlayer > 4;
+			int iTornadoWidth = bWideField ? 2 : 3;
+
+			int iStartCol = iColNum - iTornadoWidth;
+			int iEndCol = iColNum + iTornadoWidth;
+			CLAMP( iStartCol, 0, pStyle->m_iColsPerPlayer-1 );
+			CLAMP( iEndCol, 0, pStyle->m_iColsPerPlayer-1 );
+
+			data.m_fMinTornadoX[iColNum] = FLT_MAX;
+			data.m_fMaxTornadoX[iColNum] = FLT_MIN;
+			
+			for( int i=iStartCol; i<=iEndCol; i++ )
+			{
+				data.m_fMinTornadoX[iColNum] = min( data.m_fMinTornadoX[iColNum], pCols[i].fXOffset );
+				data.m_fMaxTornadoX[iColNum] = max( data.m_fMaxTornadoX[iColNum], pCols[i].fXOffset );
+			}
+		}
+
+		//
+		// Update Invert
+		//
+		for( int iColNum = 0; iColNum < MAX_COLS_PER_PLAYER; ++iColNum )
+		{
+			const int iNumCols = pStyle->m_iColsPerPlayer;
+			const int iNumSides = (pStyle->m_StyleType==ONE_PLAYER_TWO_SIDES ||
+					       pStyle->m_StyleType==TWO_PLAYERS_SHARED_SIDES) ? 2 : 1;
+			const int iNumColsPerSide = iNumCols / iNumSides;
+			const int iSideIndex = iColNum / iNumColsPerSide;
+			const int iColOnSide = iColNum % iNumColsPerSide;
+
+			const int iColLeftOfMiddle = (iNumColsPerSide-1)/2;
+			const int iColRightOfMiddle = (iNumColsPerSide+1)/2;
+
+			int iFirstColOnSide = -1;
+			int iLastColOnSide = -1;
+			if( iColOnSide <= iColLeftOfMiddle )
+			{
+				iFirstColOnSide = 0;
+				iLastColOnSide = iColLeftOfMiddle;
+			}
+			else if( iColOnSide >= iColRightOfMiddle )
+			{
+				iFirstColOnSide = iColRightOfMiddle;
+				iLastColOnSide = iNumColsPerSide-1;
+			}
+			else
+			{
+				iFirstColOnSide = iColOnSide/2;
+				iLastColOnSide = iColOnSide/2;
+			}
+
+			// mirror
+			const int iNewColOnSide = SCALE( iColOnSide, iFirstColOnSide, iLastColOnSide, iLastColOnSide, iFirstColOnSide );
+			const int iNewCol = iSideIndex*iNumColsPerSide + iNewColOnSide;
+
+			const float fOldPixelOffset = pCols[iColNum].fXOffset;
+			const float fNewPixelOffset = pCols[iNewCol].fXOffset;
+			data.m_fInvertDistance[iColNum] = fNewPixelOffset - fOldPixelOffset;
+		}
+
+		//
+		// Update Beat
+		//
+		{
+			float fAccelTime = 0.2f, fTotalTime = 0.5f;
+			
+			/* If the song is really fast, slow down the rate, but speed up the
+			 * acceleration to compensate or it'll look weird. */
+			const float fBPM = GAMESTATE->m_fCurBPS * 60;
+			const float fDiv = max(1.0f, truncf( fBPM / 150.0f ));
+			fAccelTime /= fDiv;
+			fTotalTime /= fDiv;
+
+			float fBeat = GAMESTATE->m_fSongBeat + fAccelTime;
+			fBeat /= fDiv;
+
+			const bool bEvenBeat = ( int(fBeat) % 2 ) != 0;
+
+			data.m_fBeatFactor = 0;
+			if( fBeat < 0 )
+				break;
+
+			/* -100.2 -> -0.2 -> 0.2 */
+			fBeat -= truncf( fBeat );
+			fBeat += 1;
+			fBeat -= truncf( fBeat );
+
+			if( fBeat >= fTotalTime )
+				break;
+
+			if( fBeat < fAccelTime )
+			{
+				data.m_fBeatFactor = SCALE( fBeat, 0.0f, fAccelTime, 0.0f, 1.0f);
+				data.m_fBeatFactor *= data.m_fBeatFactor;
+			} else /* fBeat < fTotalTime */ {
+				data.m_fBeatFactor = SCALE( fBeat, fAccelTime, fTotalTime, 1.0f, 0.0f);
+				data.m_fBeatFactor = 1 - (1-data.m_fBeatFactor) * (1-data.m_fBeatFactor);
+			}
+
+			if( bEvenBeat )
+				data.m_fBeatFactor *= -1;
+			data.m_fBeatFactor *= 20.0f;
+		} while(0);
+	}
 }
 
 /* For visibility testing: if bAbsolute is false, random modifiers must return the
@@ -94,12 +238,11 @@ float ArrowEffects::GetYOffset( const PlayerState* pPlayerState, int iCol, float
 	//
 	if( fAccels[PlayerOptions::ACCEL_BOOMERANG] != 0 )
 	{
-		float fOriginalYOffset = fYOffset;
-
-		fYOffset = (-1*fOriginalYOffset*fOriginalYOffset/SCREEN_HEIGHT) + 1.5f*fOriginalYOffset;
-		float fPeakAtYOffset = SCREEN_HEIGHT * 0.75f;	// zero point of function above
+		float fPeakAtYOffset = SCREEN_HEIGHT * 0.75f;	// zero point of boomerang function
 		fPeakYOffsetOut = (-1*fPeakAtYOffset*fPeakAtYOffset/SCREEN_HEIGHT) + 1.5f*fPeakAtYOffset;
-		bIsPastPeakOut = fOriginalYOffset < fPeakAtYOffset;
+		bIsPastPeakOut = fYOffset < fPeakAtYOffset;
+
+		fYOffset = (-1*fYOffset*fYOffset/SCREEN_HEIGHT) + 1.5f*fYOffset;
 	}
 
 	//
@@ -126,12 +269,6 @@ float ArrowEffects::GetYOffset( const PlayerState* pPlayerState, int iCol, float
 
 	if( fAccels[PlayerOptions::ACCEL_EXPAND] != 0 )
 	{
-		/* Timers can't be global, since they'll be initialized before SDL. */
-		static RageTimer timerExpand;
-		if( !GAMESTATE->m_bFreeze )
-			g_fExpandSeconds += timerExpand.GetDeltaTime();
-		else
-			timerExpand.GetDeltaTime();	// throw away
 		float fExpandMultiplier = SCALE( RageFastCos(g_fExpandSeconds*3), -1, 1, 0.75f, 1.75f );
 		fScrollSpeed *=	SCALE( fAccels[PlayerOptions::ACCEL_EXPAND], 0.f, 1.f, 1.f, fExpandMultiplier );
 	}
@@ -142,11 +279,11 @@ float ArrowEffects::GetYOffset( const PlayerState* pPlayerState, int iCol, float
 	return fYOffset;
 }
 
-void ArrowGetReverseShiftAndScale( const PlayerState* pPlayerState, int iCol, float fYReverseOffsetPixels, float &fShiftOut, float &fScaleOut )
+static void ArrowGetReverseShiftAndScale( const PlayerState* pPlayerState, int iCol, float fYReverseOffsetPixels, float &fShiftOut, float &fScaleOut )
 {
 	/* XXX: Hack: we need to scale the reverse shift by the zoom. */
-	float fMiniPercent = pPlayerState->m_CurrentPlayerOptions.m_fEffects[PlayerOptions::EFFECT_MINI];
-	float fZoom = 1 - fMiniPercent*0.5f;
+	float fTinyPercent = pPlayerState->m_CurrentPlayerOptions.m_fEffects[PlayerOptions::EFFECT_TINY];
+	float fZoom = 1 - fTinyPercent*0.5f;
 	
 	// don't divide by 0
 	if( fabsf(fZoom) < 0.01 )
@@ -155,9 +292,9 @@ void ArrowGetReverseShiftAndScale( const PlayerState* pPlayerState, int iCol, fl
 	float fPercentReverse = pPlayerState->m_CurrentPlayerOptions.GetReversePercentForColumn(iCol);
 	fShiftOut = SCALE( fPercentReverse, 0.f, 1.f, -fYReverseOffsetPixels/fZoom/2, fYReverseOffsetPixels/fZoom/2 );
 	float fPercentCentered = pPlayerState->m_CurrentPlayerOptions.m_fScrolls[PlayerOptions::SCROLL_CENTERED];
-	fShiftOut = SCALE( fPercentCentered, 0.f, 1.f, fShiftOut, 0.5f );
+	fShiftOut = SCALE( fPercentCentered, 0.f, 1.f, fShiftOut, 0.0f );
 
-	fScaleOut = SCALE( fPercentReverse, 0.f, 1.f, 1.f, -1.f);
+	fScaleOut = SCALE( fPercentReverse, 0.f, 1.f, 1.f, -1.f );
 }
 
 float ArrowEffects::GetYPos( const PlayerState* pPlayerState, int iCol, float fYOffset, float fYReverseOffsetPixels, bool WithReverse )
@@ -205,36 +342,18 @@ float ArrowEffects::GetXPos( const PlayerState* pPlayerState, int iColNum, float
 	const Style* pStyle = GAMESTATE->GetCurrentStyle();
 	const float* fEffects = pPlayerState->m_CurrentPlayerOptions.m_fEffects;
 
+	// TODO: Don't index by PlayerNumber.
+	const Style::ColumnInfo* pCols = pStyle->m_ColumnInfo[pPlayerState->m_PlayerNumber];
+	PerPlayerData &data = g_EffectData[pPlayerState->m_PlayerNumber];
+
 	if( fEffects[PlayerOptions::EFFECT_TORNADO] != 0 )
 	{
-		// TRICKY: Tornado is very unplayable in doubles, so use a smaller
-		// tornado width if there are many columns
-		bool bWideField = pStyle->m_iColsPerPlayer > 4;
-		int iTornadoWidth = bWideField ? 2 : 3;
-
-		int iStartCol = iColNum - iTornadoWidth;
-		int iEndCol = iColNum + iTornadoWidth;
-		CLAMP( iStartCol, 0, pStyle->m_iColsPerPlayer-1 );
-		CLAMP( iEndCol, 0, pStyle->m_iColsPerPlayer-1 );
-
-		float fMinX = FLT_MAX;
-		float fMaxX = FLT_MIN;
-		
-		// TODO: Don't index by PlayerNumber.
-		PlayerNumber pn = pPlayerState->m_PlayerNumber;
-
-		for( int i=iStartCol; i<=iEndCol; i++ )
-		{
-			fMinX = min( fMinX, pStyle->m_ColumnInfo[pn][i].fXOffset );
-			fMaxX = max( fMaxX, pStyle->m_ColumnInfo[pn][i].fXOffset );
-		}
-
-		const float fRealPixelOffset = pStyle->m_ColumnInfo[pn][iColNum].fXOffset;
-		const float fPositionBetween = SCALE( fRealPixelOffset, fMinX, fMaxX, -1, 1 );
+		const float fRealPixelOffset = pCols[iColNum].fXOffset;
+		const float fPositionBetween = SCALE( fRealPixelOffset, data.m_fMinTornadoX[iColNum], data.m_fMaxTornadoX[iColNum], -1, 1 );
 		float fRads = acosf( fPositionBetween );
 		fRads += fYOffset * 6 / SCREEN_HEIGHT;
 		
-		const float fAdjustedPixelOffset = SCALE( RageFastCos(fRads), -1, 1, fMinX, fMaxX );
+		const float fAdjustedPixelOffset = SCALE( RageFastCos(fRads), -1, 1, data.m_fMinTornadoX[iColNum], data.m_fMaxTornadoX[iColNum] );
 
 		fPixelOffsetFromCenter += (fAdjustedPixelOffset - fRealPixelOffset) * fEffects[PlayerOptions::EFFECT_TORNADO];
 	}
@@ -243,103 +362,32 @@ float ArrowEffects::GetXPos( const PlayerState* pPlayerState, int iColNum, float
 		fPixelOffsetFromCenter += fEffects[PlayerOptions::EFFECT_DRUNK] * ( RageFastCos( RageTimer::GetTimeSinceStartFast() + iColNum*0.2f + fYOffset*10/SCREEN_HEIGHT) * ARROW_SIZE*0.5f );
 	if( fEffects[PlayerOptions::EFFECT_FLIP] != 0 )
 	{
-		// TODO: Don't index by PlayerNumber.
-		PlayerNumber pn = pPlayerState->m_PlayerNumber;
-
-		const int iNumCols = pStyle->m_iColsPerPlayer;
-		int iFirstCol = 0;
-		int iLastCol = iNumCols-1;
+		const int iFirstCol = 0;
+		const int iLastCol = pStyle->m_iColsPerPlayer-1;
 		const int iNewCol = SCALE( iColNum, iFirstCol, iLastCol, iLastCol, iFirstCol );
-		const float fOldPixelOffset = pStyle->m_ColumnInfo[pn][iColNum].fXOffset;
-		const float fNewPixelOffset = pStyle->m_ColumnInfo[pn][iNewCol].fXOffset;
+		const float fOldPixelOffset = pCols[iColNum].fXOffset;
+		const float fNewPixelOffset = pCols[iNewCol].fXOffset;
 		const float fDistance = fNewPixelOffset - fOldPixelOffset;
 		fPixelOffsetFromCenter += fDistance * fEffects[PlayerOptions::EFFECT_FLIP];
 	}
 	if( fEffects[PlayerOptions::EFFECT_INVERT] != 0 )
-	{
-		// TODO: Don't index by PlayerNumber.
-		PlayerNumber pn = pPlayerState->m_PlayerNumber;
-		
-		const int iNumCols = pStyle->m_iColsPerPlayer;
-		const int iNumSides = pStyle->m_StyleType==ONE_PLAYER_TWO_SIDES ? 2 : 1;
-		const int iNumColsPerSide = iNumCols / iNumSides;
-		const int iSideIndex = iColNum / iNumColsPerSide;
-		const int iColOnSide = iColNum % iNumColsPerSide;
-
-		const int iColLeftOfMiddle = (iNumColsPerSide-1)/2;
-		const int iColRightOfMidde = (iNumColsPerSide+1)/2;
-
-		int iFirstColOnSide = -1;
-		int iLastColOnSide = -1;
-		if( iColOnSide <= iColLeftOfMiddle )
-		{
-			iFirstColOnSide = 0;
-			iLastColOnSide = iColLeftOfMiddle;
-		}
-		else if( iColOnSide >= iColRightOfMidde )
-		{
-			iFirstColOnSide = iColRightOfMidde;
-			iLastColOnSide = iNumColsPerSide-1;
-		}
-		else
-		{
-			iFirstColOnSide = iColOnSide/2;
-			iLastColOnSide = iColOnSide/2;
-		}
-
-		// mirror
-		const int iNewColOnSide = SCALE( iColOnSide, iFirstColOnSide, iLastColOnSide, iLastColOnSide, iFirstColOnSide );
-		const int iNewCol = iSideIndex*iNumColsPerSide + iNewColOnSide;
-
-		const float fOldPixelOffset = pStyle->m_ColumnInfo[pn][iColNum].fXOffset;
-		const float fNewPixelOffset = pStyle->m_ColumnInfo[pn][iNewCol].fXOffset;
-		const float fDistance = fNewPixelOffset - fOldPixelOffset;
-		fPixelOffsetFromCenter += fDistance * fEffects[PlayerOptions::EFFECT_INVERT];
-	}
+		fPixelOffsetFromCenter += data.m_fInvertDistance[iColNum] * fEffects[PlayerOptions::EFFECT_INVERT];
 
 	if( fEffects[PlayerOptions::EFFECT_BEAT] != 0 )
-	do {
-		float fAccelTime = 0.2f, fTotalTime = 0.5f;
-		
-		/* If the song is really fast, slow down the rate, but speed up the
-		 * acceleration to compensate or it'll look weird. */
-		const float fBPM = GAMESTATE->m_fCurBPS * 60;
-		const float fDiv = max(1.0f, truncf( fBPM / 150.0f ));
-		fAccelTime /= fDiv;
-		fTotalTime /= fDiv;
-
-		float fBeat = GAMESTATE->m_fSongBeat + fAccelTime;
-		fBeat /= fDiv;
-
-		const bool bEvenBeat = ( int(fBeat) % 2 ) != 0;
-
-		/* -100.2 -> -0.2 -> 0.2 */
-		if( fBeat < 0 )
-			break;
-
-		fBeat -= truncf( fBeat );
-		fBeat += 1;
-		fBeat -= truncf( fBeat );
-
-		if( fBeat >= fTotalTime )
-			break;
-
-		float fAmount;
-		if( fBeat < fAccelTime )
-		{
-			fAmount = SCALE( fBeat, 0.0f, fAccelTime, 0.0f, 1.0f);
-			fAmount *= fAmount;
-		} else /* fBeat < fTotalTime */ {
-			fAmount = SCALE( fBeat, fAccelTime, fTotalTime, 1.0f, 0.0f);
-			fAmount = 1 - (1-fAmount) * (1-fAmount);
-		}
-
-		if( bEvenBeat )
-			fAmount *= -1;
-
-		const float fShift = 20.0f*fAmount*RageFastSin( fYOffset / 15.0f + PI/2.0f );
+	{
+		const float fShift = data.m_fBeatFactor*RageFastSin( fYOffset / 15.0f + PI/2.0f );
 		fPixelOffsetFromCenter += fEffects[PlayerOptions::EFFECT_BEAT] * fShift;
-	} while(0);
+	}
+
+	fPixelOffsetFromCenter += pCols[iColNum].fXOffset;
+
+	if( fEffects[PlayerOptions::EFFECT_MINI] != 0 )
+	{
+		/* Allow Mini to pull tracks together, but not to push them apart. */
+		float fMiniPercent = fEffects[PlayerOptions::EFFECT_MINI];
+		fMiniPercent = min( powf(0.5f, fMiniPercent), 1.0f );
+		fPixelOffsetFromCenter *= fMiniPercent;
+	}
 
 	return fPixelOffsetFromCenter;
 }
@@ -367,7 +415,7 @@ static float GetCenterLine( const PlayerState* pPlayerState )
 {
 	/* Another mini hack: if EFFECT_MINI is on, then our center line is at eg. 320, 
 	 * not 160. */
-	const float fMiniPercent = pPlayerState->m_CurrentPlayerOptions.m_fEffects[PlayerOptions::EFFECT_MINI];
+	const float fMiniPercent = pPlayerState->m_CurrentPlayerOptions.m_fEffects[PlayerOptions::EFFECT_TINY];
 	const float fZoom = 1 - fMiniPercent*0.5f;
 	return CENTER_LINE_Y / fZoom;
 }
@@ -522,11 +570,19 @@ bool ArrowEffects::NeedZBuffer( const PlayerState* pPlayerState )
 
 float ArrowEffects::GetZoom( const PlayerState* pPlayerState )
 {
+	float fZoom = 1.0f;
 	// FIXME: Move the zoom values into Style
 	if( GAMESTATE->m_pCurStyle->m_bNeedsZoomOutWith2Players &&
 		(GAMESTATE->GetNumSidesJoined()==2 || GAMESTATE->AnyPlayersAreCpu()) )
-		return 0.6f;
-	return 1.0f;
+		fZoom *= 0.6f;
+
+	float fMiniPercent = pPlayerState->m_CurrentPlayerOptions.m_fEffects[PlayerOptions::EFFECT_MINI];
+	if( fMiniPercent != 0 )
+	{
+		fMiniPercent = powf( 0.5f, fMiniPercent );
+		fZoom *= fMiniPercent;
+	}
+	return fZoom;
 }
 
 /*

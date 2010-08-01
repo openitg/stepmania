@@ -7,8 +7,6 @@
 class ScreenOptionsEditCourse : public ScreenOptionsEditCourseSubMenu
 {
 public:
-	ScreenOptionsEditCourse( CString sName );
-
 	void Init();
 	virtual void BeginScreen();
 
@@ -20,7 +18,8 @@ protected:
 	
 	virtual void AfterChangeRow( PlayerNumber pn );
 	virtual void AfterChangeValueInRow( int iRow, PlayerNumber pn );
-	virtual void ProcessMenuStart( PlayerNumber pn, const InputEventType type );
+	virtual void ProcessMenuStart( const InputEventPlus &input );
+	virtual void HandleMessage( const RString& sMessage );
 
 	int GetCourseEntryIndexWithFocus() const;
 
@@ -32,7 +31,7 @@ protected:
 #endif
 
 /*
- * (c) 2003-2004 Chris Danford
+ * (c) 2003-2006 Chris Danford, Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

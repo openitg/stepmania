@@ -11,7 +11,7 @@
 static HMIDIIN g_device;
 static void CALLBACK midiCallback(HMIDIIN g_device, UINT status, DWORD instancePtr, DWORD data, DWORD timestamp);
 
-static CString GetMidiError( MMRESULT result )
+static RString GetMidiError( MMRESULT result )
 {
 	char szError[256];
 	midiOutGetErrorText( result, szError, 256 );
@@ -28,22 +28,22 @@ InputHandler_Win32_MIDI::InputHandler_Win32_MIDI()
 	{
 		m_bFoundDevice = false;
 		return;
-    }
+	}
 	m_bFoundDevice = true;
 
 	MMRESULT result = midiInOpen( &g_device, device_id, (DWORD) &midiCallback, (DWORD) this, CALLBACK_FUNCTION );
-    if( result != MMSYSERR_NOERROR )
-	{
-		LOG->Warn( "Error with MIDI Opening: %s", GetMidiError(result).c_str() );
-        return;
-    }
-
-    result = midiInStart(g_device);
 	if( result != MMSYSERR_NOERROR )
 	{
-		LOG->Warn( "Error with MIDI Starting: %s", GetMidiError(result).c_str() );
-        return;
-    }
+		LOG->Warn( "Error opening MIDI device: %s", GetMidiError(result).c_str() );
+		return;
+	}
+
+	result = midiInStart(g_device);
+	if( result != MMSYSERR_NOERROR )
+	{
+		LOG->Warn( "Error starting MIDI device: %s", GetMidiError(result).c_str() );
+		return;
+	}
 }
 
 InputHandler_Win32_MIDI::~InputHandler_Win32_MIDI()
@@ -53,25 +53,23 @@ InputHandler_Win32_MIDI::~InputHandler_Win32_MIDI()
 	result = midiInReset( g_device );
 	if( result != MMSYSERR_NOERROR )
 	{
-		LOG->Warn( "Error with MIDI Reset: %s", GetMidiError(result).c_str() );
-        return;
-    }
+		LOG->Warn( "Error resetting MIDI device: %s", GetMidiError(result).c_str() );
+		return;
+	}
 
 	result = midiInClose( g_device );
 	if( result != MMSYSERR_NOERROR )
 	{
-		LOG->Warn( "Error with MIDI Close: %s", GetMidiError(result).c_str() );
-        return;
-    }
-
+		LOG->Warn( "Error closing MIDI device: %s", GetMidiError(result).c_str() );
+		return;
+	}
 }
 
-void InputHandler_Win32_MIDI::GetDevicesAndDescriptions( vector<InputDevice>& vDevicesOut, vector<CString>& vDescriptionsOut )
+void InputHandler_Win32_MIDI::GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut )
 {
 	if( m_bFoundDevice )
 	{
-		vDevicesOut.push_back( InputDevice(DEVICE_MIDI) );
-		vDescriptionsOut.push_back( "Win32_MIDI" );
+		vDevicesOut.push_back( InputDeviceInfo(DEVICE_MIDI,"Win32_MIDI") );
 	}
 }
 
@@ -89,19 +87,14 @@ static void CALLBACK midiCallback( HMIDIIN device, UINT status, DWORD instancePt
 
 		if( iType == 144 )
 		{
-			DeviceInput di = DeviceInput( DEVICE_MIDI, iChannel );
+			DeviceInput di = DeviceInput( DEVICE_MIDI, enum_add2(MIDI_FIRST, iChannel) );
 			di.ts.Touch();
 			if( iValue > 0 )
 				((InputHandler_Win32_MIDI *)instancePtr)->SetDev( di, true );
 			else
 				((InputHandler_Win32_MIDI *)instancePtr)->SetDev( di, false );
 		}
-    }
-}
-
-void InputHandler_Win32_MIDI::Update( float fDeltaTime )
-{
-
+	}
 }
 
 /*

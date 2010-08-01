@@ -14,20 +14,28 @@
 #include "GameSoundManager.h"
 #include "CommonMetrics.h"
 #include "InputEventPlus.h"
+#include "RageSoundManager.h"
 
 #define START_SCREEN(sScreenName)	THEME->GetMetric (sScreenName,"StartScreen")
 
 ThemeMetric<bool>	BACK_GOES_TO_START_SCREEN( "ScreenAttract", "BackGoesToStartScreen" );
 
 REGISTER_SCREEN_CLASS( ScreenAttract );
-ScreenAttract::ScreenAttract( CString sName, bool bResetGameState ) : ScreenWithMenuElements( sName )
+ScreenAttract::ScreenAttract( bool bResetGameState )
 {
 	if( bResetGameState )
 		GAMESTATE->Reset();
-
-	GAMESTATE->VisitAttractScreen( sName );
 }
 
+
+void ScreenAttract::Init()
+{
+	SOUNDMAN->SetPlayOnlyCriticalSounds( !GAMESTATE->IsTimeToPlayAttractSounds() );	// mute attract sounds
+
+	GAMESTATE->VisitAttractScreen( m_sName );
+
+	ScreenWithMenuElements::Init();
+}
 
 void ScreenAttract::Input( const InputEventPlus &input )
 {
@@ -69,6 +77,7 @@ void ScreenAttract::AttractInput( const InputEventPlus &input, ScreenWithMenuEle
 				if( input.MenuI.button != MENU_BUTTON_COIN )
 					SCREENMAN->PlayCoinSound();
 				
+				SOUNDMAN->SetPlayOnlyCriticalSounds( false );	// unmute attract sounds
 				pScreen->Cancel( SM_GoToStartScreen );
 				break;
 			default:
@@ -97,12 +106,6 @@ void ScreenAttract::AttractInput( const InputEventPlus &input, ScreenWithMenuEle
 
 void ScreenAttract::StartPlayingMusic()
 {
-	if( !GAMESTATE->IsTimeToPlayAttractSounds() )
-	{
-		SOUND->StopMusic();
-		return;
-	}
-
 	ScreenWithMenuElements::StartPlayingMusic();
 }
 
@@ -112,7 +115,7 @@ void ScreenAttract::HandleScreenMessage( const ScreenMessage SM )
 		SM == SM_BeginFadingOut )
 	{
 		if( !IsTransitioning() )
-			StartTransitioning( SM_GoToNextScreen );
+			StartTransitioningScreen( SM_GoToNextScreen );
 	}
 	else if( SM == SM_GoToStartScreen )
 	{
@@ -134,7 +137,7 @@ void ScreenAttract::HandleScreenMessage( const ScreenMessage SM )
 	ScreenWithMenuElements::HandleScreenMessage( SM );
 }
 
-void ScreenAttract::GoToStartScreen( CString sScreenName )
+void ScreenAttract::GoToStartScreen( RString sScreenName )
 {
 	SCREENMAN->SetNewScreen( START_SCREEN(sScreenName) );
 }

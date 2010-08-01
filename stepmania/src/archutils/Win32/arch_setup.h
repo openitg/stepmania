@@ -3,6 +3,8 @@
 
 #if !defined(XBOX)
 #define HAVE_FFMPEG
+#define HAVE_THEORA
+#define HAVE_CRYPTOPP
 #endif
 
 #if defined(__MINGW32__)
@@ -11,9 +13,28 @@
 #endif
 
 #if defined(_MSC_VER)
+#pragma warning (disable : 4201) // nonstandard extension used : nameless struct/union (Windows headers do this)
+#pragma warning (disable : 4786) // turn off broken debugger warning
+#pragma warning (disable : 4512) // assignment operator could not be generated (so?)
+/* "unreachable code".  This warning crops up in incorrect places (end of do ... while(0)
+ * blocks, try/catch blocks), and I've never found it to be useful. */
+#pragma warning (disable : 4702) // assignment operator could not be generated (so?)
+/* "unreferenced formal parameter"; we *want* that in many cases */
+#pragma warning (disable : 4100)
+/* "case 'aaa' is not a valid value for switch of enum 'bbb'
+ * Actually, this is a valid warning, but we do it all over the
+ * place, eg. with ScreenMessages.  Those should be fixed, but later. XXX */
+#pragma warning (disable : 4063)
+#pragma warning (disable : 4127)
+#pragma warning (disable : 4786) /* VC6: identifier was truncated to '255' characters in the debug information */
+
 
 /* Fix VC breakage. */
 #define PATH_MAX _MAX_PATH
+
+/* Disable false deprecation warnings in VC2005. */
+#define _CRT_SECURE_NO_DEPRECATE
+#define _SCL_SECURE_NO_DEPRECATE 
 
 #if _MSC_VER < 1300 /* VC6, not VC7 */
 template<class T>
@@ -24,6 +45,20 @@ template<class T>
 inline const T& min(const T &a, const T &b)			{ return b < a? b:a; }
 template<class T, class P>
 inline const T& min(const T &a, const T &b, P Pr)	{ return Pr(b, a)? b:a; }
+
+typedef long int intptr_t;
+typedef unsigned int uintptr_t;
+
+// might not be defined in vc6 with an older PSDK
+#if !defined(DWORD_PTR)
+typedef unsigned long DWORD_PTR;
+#endif
+#if !defined(ULONG_PTR)
+typedef unsigned long ULONG_PTR;
+#endif
+#if !defined(LONG_PTR)
+typedef long LONG_PTR;
+#endif
 #endif
 
 // HACK: Fake correct scoping rules in VC6.
@@ -50,7 +85,7 @@ inline const T& min(const T &a, const T &b, P Pr)	{ return Pr(b, a)? b:a; }
 #define lstat stat
 #define fsync _commit
 #define isnan _isnan
-#define finite _finite
+#define isfinite _finite
 
 /* mkdir is missing the mode arg */
 #define mkdir(p,m) mkdir(p)
@@ -80,28 +115,6 @@ typedef unsigned int uint32_t;
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
 static inline int64_t llabs( int64_t i ) { return i >= 0? i: -i; }
-
-#if _MSC_VER < 1300 /* VC6 */
-typedef unsigned int uintptr_t;
-#endif
-
-#endif
-
-#if defined(_MSC_VER)
-#pragma warning (disable : 4201) // nonstandard extension used : nameless struct/union (Windows headers do this)
-#pragma warning (disable : 4786) // turn off broken debugger warning
-#pragma warning (disable : 4512) // assignment operator could not be generated (so?)
-/* "unreachable code".  This warning crops up in incorrect places (end of do ... while(0)
- * blocks, try/catch blocks), and I've never found it to be useful. */
-#pragma warning (disable : 4702) // assignment operator could not be generated (so?)
-/* "unreferenced formal parameter"; we *want* that in many cases */
-#pragma warning (disable : 4100)
-/* "case 'aaa' is not a valid value for switch of enum 'bbb'
- * Actually, this is a valid warning, but we do it all over the
- * place, eg. with ScreenMessages.  Those should be fixed, but later. XXX */
-#pragma warning (disable : 4063)
-#pragma warning (disable : 4127)
-#pragma warning (disable : 4786) /* VC6: identifier was truncated to '255' characters in the debug information */
 #endif
 
 #undef min
@@ -135,13 +148,21 @@ inline int lrintf( float f )
 
 /* We implement the crash handler interface (though that interface isn't completely
  * uniform across platforms yet). */
-#if defined(_XBOX)
-	// no crash handler on Xbox
-#else
-#  define CRASH_HANDLER
+#if !defined(_XBOX) && !defined(SMPACKAGE)
+#define CRASH_HANDLER
 #endif
 
 #define ENDIAN_LITTLE
+
+#if defined(_XBOX)
+#if defined(_DEBUG)
+#define OGG_LIB_DIR "vorbis/xbox/debug/"
+#else
+#define OGG_LIB_DIR "vorbis/xbox/release/"
+#endif
+#else
+#define OGG_LIB_DIR "vorbis/win32/"
+#endif
 
 #if defined(XBOX)
 #include "ArchUtils/Xbox/arch_setup.h"

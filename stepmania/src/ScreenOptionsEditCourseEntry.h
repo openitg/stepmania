@@ -5,33 +5,35 @@
 #include "Course.h"
 class Song;
 
+class OptionRowHandler;
+class OptionRowHandlerSongChoices;
 class ScreenOptionsEditCourseEntry : public ScreenOptionsEditCourseSubMenu
 {
 public:
-	ScreenOptionsEditCourseEntry( CString sName );
-
 	void Init();
 	void BeginScreen();
 
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
 protected:
+	OptionRowHandler *m_pModChangesHandler;
+	OptionRowHandlerSongChoices *m_pSongHandler;
 
 	virtual void ImportOptions( int iRow, const vector<PlayerNumber> &vpns );
 	virtual void ExportOptions( int iRow, const vector<PlayerNumber> &vpns );
 	
 	virtual void AfterChangeValueInRow( int iRow, PlayerNumber pn );
-	virtual void ProcessMenuStart( PlayerNumber pn, const InputEventType type );
-
-	vector<Song*>	m_vpDisplayedSongs;	// corresponds with the choices in the Song row
+	virtual void ProcessMenuStart( const InputEventPlus &input );
 
 	CourseEntry m_Original;	// use this to revert when cancelling
+	Song *m_pLongSong;
+	ThemeMetric<bool> SHOW_MODS_ROW;
 };
 
 #endif
 
 /*
- * (c) 2003-2004 Chris Danford
+ * (c) 2003-2006 Chris Danford, Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

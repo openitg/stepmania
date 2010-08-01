@@ -10,6 +10,7 @@
 #include "Profile.h"
 #include "Character.h"
 #include "CharacterManager.h"
+#include "OptionRowHandler.h"
 
 enum EditProfileRow
 {
@@ -17,11 +18,6 @@ enum EditProfileRow
 };
 
 REGISTER_SCREEN_CLASS( ScreenOptionsEditProfile );
-ScreenOptionsEditProfile::ScreenOptionsEditProfile( CString sName ) : 
-	ScreenOptions( sName )
-{
-
-}
 
 void ScreenOptionsEditProfile::Init()
 {
@@ -32,32 +28,31 @@ void ScreenOptionsEditProfile::BeginScreen()
 {
 	m_Original = *GAMESTATE->GetEditLocalProfile();
 
-	vector<OptionRowDefinition> vDefs;
 	vector<OptionRowHandler*> vHands;
 
-	OptionRowDefinition def;
-	def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
-	def.m_bOneChoiceForAllPlayers = true;
-	def.m_bAllowThemeItems = false;
-	def.m_bAllowThemeTitles = false;
-	def.m_bAllowExplanation = false;
-	def.m_bExportOnChange = true;
-	
 	Profile *pProfile = PROFILEMAN->GetLocalProfile( GAMESTATE->m_sEditLocalProfileID );
 	ASSERT( pProfile );
 
 	{
+		vHands.push_back( OptionRowHandlerUtil::MakeNull() );
+		OptionRowDefinition &def = vHands.back()->m_Def;
+		def.m_layoutType = LAYOUT_SHOW_ONE_IN_ROW;
+		def.m_bOneChoiceForAllPlayers = true;
+		def.m_bAllowThemeItems = false;
+		def.m_bAllowThemeTitle = false;
+		def.m_bAllowExplanation = false;
+		def.m_bExportOnChange = true;
 		def.m_sName = "Character";
 		def.m_vsChoices.clear();
 		vector<Character*> vpCharacters;
 		CHARMAN->GetCharacters( vpCharacters );
 		FOREACH_CONST( Character*, vpCharacters, c )
 			def.m_vsChoices.push_back( (*c)->GetDisplayName() );
-		vDefs.push_back( def );
-		vHands.push_back( NULL );
+		if( def.m_vsChoices.empty() )
+			def.m_vsChoices.push_back( RString() );
 	}
 
-	InitMenu( vDefs, vHands );
+	InitMenu( vHands );
 
 	ScreenOptions::BeginScreen();
 }
@@ -87,7 +82,7 @@ void ScreenOptionsEditProfile::ExportOptions( int iRow, const vector<PlayerNumbe
 	ASSERT( pProfile );
 	OptionRow &row = *m_pRows[iRow];
 	int iIndex = row.GetOneSharedSelection( true );
-	CString sValue;
+	RString sValue;
 	if( iIndex >= 0 )
 		sValue = row.GetRowDef().m_vsChoices[ iIndex ];
 
@@ -129,8 +124,11 @@ void ScreenOptionsEditProfile::AfterChangeValueInRow( int iRow, PlayerNumber pn 
 	GAMESTATE->m_sEditLocalProfileID.Set( GAMESTATE->m_sEditLocalProfileID );
 }
 
-void ScreenOptionsEditProfile::ProcessMenuStart( PlayerNumber pn, const InputEventType type )
+void ScreenOptionsEditProfile::ProcessMenuStart( const InputEventPlus &input )
 {
+	if( IsTransitioning() )
+		return;
+
 	int iRow = GetCurrentRow();;
 	//OptionRow &row = *m_pRows[iRow];
 
@@ -141,7 +139,7 @@ void ScreenOptionsEditProfile::ProcessMenuStart( PlayerNumber pn, const InputEve
 		}
 		break;
 	default:
-		ScreenOptions::ProcessMenuStart( pn, type );
+		ScreenOptions::ProcessMenuStart( input );
 		break;
 	}
 }

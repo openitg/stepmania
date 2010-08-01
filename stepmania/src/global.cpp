@@ -1,21 +1,27 @@
 #include "global.h"
 
 #if defined(_WINDOWS)
-#  define _WIN32_WINDOWS 0x0410 // include Win98 stuff
-#  include "windows.h"
-#  include "archutils/Win32/Crash.h"
+#  if defined(CRASH_HANDLER)
+#    define _WIN32_WINDOWS 0x0410 // include Win98 stuff
+#    include "windows.h"
+#    include "archutils/Win32/Crash.h"
+#  endif
+#elif defined(MACOSX)
+#  include "archutils/Darwin/Crash.h"
+using CrashHandler::IsDebuggerPresent;
+using CrashHandler::DebugBreak;
 #elif defined(_XBOX)
 #else
 #  include <unistd.h>
 #endif
 
-#if defined(CRASH_HANDLER) && (defined(LINUX) || defined(__MACOSX__))
+#if defined(CRASH_HANDLER) && (defined(LINUX) || defined(MACOSX))
 #include "archutils/Unix/CrashHandler.h"
 #endif
 
 void NORETURN sm_crash( const char *reason )
 {
-#if defined(_WINDOWS)
+#if ( defined(_WINDOWS) && defined(CRASH_HANDLER) ) || defined(MACOSX)
 	/* If we're being debugged, throw a debug break so it'll suspend the process. */
 	if( IsDebuggerPresent() )
 	{
@@ -25,7 +31,7 @@ void NORETURN sm_crash( const char *reason )
 #endif
 
 #if defined(CRASH_HANDLER)
-	ForceCrashHandler( reason );
+	CrashHandler::ForceCrash( reason );
 #else
 	*(char*)0=0;
 
@@ -40,7 +46,7 @@ void NORETURN sm_crash( const char *reason )
 #if defined(_MSC_VER)
 	_asm nop;
 #elif defined(__GNUC__) // MinGW or similar
-      asm("nop");
+	asm("nop");
 #endif
 #else
 	_exit( 1 );

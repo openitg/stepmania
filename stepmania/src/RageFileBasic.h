@@ -11,7 +11,7 @@ class RageFileBasic
 public:
 	virtual ~RageFileBasic() { }
 
-	virtual CString GetError() const = 0;
+	virtual RString GetError() const = 0;
 	virtual void ClearError() = 0;
 	virtual bool AtEOF() const = 0;
 
@@ -27,12 +27,12 @@ public:
 	 * does not necessarily mean that the end of the stream has been reached;
 	 * keep reading until 0 is returned. */
 	virtual int Read( void *pBuffer, size_t iBytes ) = 0;
-	virtual int Read( CString &buffer, int bytes = -1 ) = 0;
+	virtual int Read( RString &buffer, int bytes = -1 ) = 0;
 	virtual int Read( void *buffer, size_t bytes, int nmemb ) = 0;
 
 	/* Write iSize bytes of data from pBuf.  Return 0 on success, -1 on error. */
 	virtual int Write( const void *pBuffer, size_t iBytes ) = 0;
-	virtual int Write( const CString &sString ) = 0;
+	virtual int Write( const RString &sString ) = 0;
 	virtual int Write( const void *buffer, size_t bytes, int nmemb ) = 0;
 
 	/* Due to buffering, writing may not happen by the end of a Write() call, so not
@@ -42,12 +42,12 @@ public:
 	virtual int Flush() = 0;
 
 	/* This returns a descriptive path for the file, or "". */
-	virtual CString GetDisplayPath() const { return CString(); }
+	virtual RString GetDisplayPath() const { return RString(); }
 
 	virtual RageFileBasic *Copy() const = 0;
 
-	virtual int GetLine( CString &out ) = 0;
-	virtual int PutLine( const CString &str ) = 0;
+	virtual int GetLine( RString &out ) = 0;
+	virtual int PutLine( const RString &str ) = 0;
 
 	virtual void EnableCRC32( bool on=true ) = 0;
 	virtual bool GetCRC32( uint32_t *iRet ) = 0;
@@ -62,7 +62,7 @@ public:
 	RageFileObj( const RageFileObj &cpy );
 	virtual ~RageFileObj();
 
-	virtual CString GetError() const { return m_sError; }
+	virtual RString GetError() const { return m_sError; }
 	virtual void ClearError() { SetError(""); }
 	
 	bool AtEOF() const { return m_bEOF; }
@@ -72,23 +72,23 @@ public:
 	int Tell() const { return m_iFilePos; }
 
 	int Read( void *pBuffer, size_t iBytes );
-	int Read( CString &buffer, int bytes = -1 );
+	int Read( RString &buffer, int bytes = -1 );
 	int Read( void *buffer, size_t bytes, int nmemb );
 
 	int Write( const void *pBuffer, size_t iBytes );
-	int Write( const CString &sString ) { return Write( sString.data(), sString.size() ); }
+	int Write( const RString &sString ) { return Write( sString.data(), sString.size() ); }
 	int Write( const void *buffer, size_t bytes, int nmemb );
 
 	int Flush();
 
-	int GetLine( CString &out );
-	int PutLine( const CString &str );
+	int GetLine( RString &out );
+	int PutLine( const RString &str );
 
 	void EnableCRC32( bool on=true );
 	bool GetCRC32( uint32_t *iRet );
 
 	virtual int GetFileSize() const = 0;
-	virtual CString GetDisplayPath() const { return CString(); }
+	virtual RString GetDisplayPath() const { return RString(); }
 	virtual RageFileBasic *Copy() const { FAIL_M( "Copying unimplemented" ); }
 
 protected:
@@ -97,28 +97,29 @@ protected:
 	virtual int WriteInternal( const void *pBuffer, size_t iBytes ) = 0;
 	virtual int FlushInternal() { return 0; }
 
-	void EnableBuffering();
+	void EnableReadBuffering();
+	void EnableWriteBuffering( int iBytes=1024*64 );
 
-	void SetError( const CString &sError ) { m_sError = sError; }
-	CString m_sError;
+	void SetError( const RString &sError ) { m_sError = sError; }
+	RString m_sError;
 
 private:
-	int FillBuf();
-	void ResetBuf();
+	int FillReadBuf();
+	void ResetReadBuf();
+	int EmptyWriteBuf();
 
 	bool m_bEOF;
 	int m_iFilePos;
 
 	/*
-	 * If buffering is enabled, m_pBuffer is the buffer, m_pBuf is the current read
-	 * position in the buffer and m_iBufAvail is the number of bytes at m_pBuf.  Note
-	 * that buffering is only enabled if:
+	 * If read buffering is enabled, m_pReadBuffer is the buffer, m_pReadBuf is the
+	 * current read position in the buffer, and m_iReadBufAvail is the number of
+	 * bytes at m_pReadBuf.  Note that read buffering is only enabled if:
 	 *
 	 *  - GetLine() is called (which requires buffering to efficiently search for newlines);
-	 *  - or EnableBuffering() is called
+	 *  - or EnableReadBuffering() is called
 	 *
-	 * Currently, once buffering is enabled, it stays enabled for the life of the
-	 * object.
+	 * Once buffering is enabled, it stays enabled for the life of the object.
 	 *
 	 * If buffering is not enabled, this buffer will not be allocated, keeping the
 	 * size overhead of each file down.  Layered RageFileBasic implementations, which
@@ -127,9 +128,18 @@ private:
 	 * memory.
 	 */
 	enum { BSIZE = 1024 };
-	char *m_pBuffer;
-	char *m_pBuf;
-	int  m_iBufAvail;
+	char *m_pReadBuffer;
+	char *m_pReadBuf;
+	int  m_iReadBufAvail;
+
+	/*
+	 * If write buffering is enabled, m_pWriteBuffer will be allocated, and m_iWriteBufferPos
+	 * is the file position of the start of the buffer.
+	 */
+	char *m_pWriteBuffer;
+	int m_iWriteBufferPos;
+	int m_iWriteBufferSize;
+	int m_iWriteBufferUsed;
 
 	/* If EnableCRC32() is called, a CRC32 will be calculated as the file is read.
 	 * This is only meaningful if EnableCRC32() is called at the very start of the

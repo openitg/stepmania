@@ -81,25 +81,25 @@ uint8_t mySDL_EventState( uint8_t type, int state )
 /* SDL sometimes fails to set an error, in which case we get the null string.  We
  * sometimes use that as a sentinel return value.  This function returns "(none)"
  * if no error is set. */
-CString mySDL_GetError()
+RString mySDL_GetError()
 {
-	CString error = SDL_GetError();
+	RString error = SDL_GetError();
 	if( error == "" )
 		return "(none)"; /* SDL sometimes fails to set an error */
 	return error;
 }
 
 
-void mySDL_WM_SetIcon( CString sIconFile )
+void mySDL_WM_SetIcon( RString sIconFile )
 {
-#if !defined(__MACOSX__)
+#if !defined(MACOSX)
 	if( sIconFile.empty() )
 	{
 		SDL_WM_SetIcon(NULL, NULL);
 		return;
 	}
 
-	CString error;
+	RString error;
 	RageSurface *srf = RageSurfaceUtils::LoadFile( sIconFile, error );
 	if( srf == NULL )
 		return;

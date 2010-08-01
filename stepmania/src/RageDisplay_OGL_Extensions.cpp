@@ -8,7 +8,7 @@
 
 #include <set>
 
-#if !defined(__MACOSX__)
+#if !defined(MACOSX)
 # include <GL/gl.h>
 # include <GL/glu.h>
 #else
@@ -29,7 +29,7 @@ GLExt_t GLExt;
 /* Available extensions: */
 static set<string> g_glExts;
 
-bool GLExt_t::HasExtension( const CString &sExt ) const
+bool GLExt_t::HasExtension( const RString &sExt ) const
 {
 	return g_glExts.find(sExt) != g_glExts.end();
 }
@@ -69,7 +69,7 @@ static void GetGLExtensions( set<string> &ext )
 {
     const char *szBuf = (const char *) glGetString( GL_EXTENSIONS );
 
-	vector<CString> asList;
+	vector<RString> asList;
 	split( szBuf, " ", asList );
 
 	for( unsigned i = 0; i < asList.size(); ++i )
@@ -82,14 +82,13 @@ void GLExt_t::Load( LowLevelWindow *pWind )
 
 	GetGLExtensions( g_glExts );
 
+	m_bARB_texture_env_combine = HasExtension("GL_ARB_texture_env_combine");
 	m_bEXT_texture_env_combine = HasExtension("GL_EXT_texture_env_combine");
 	m_bGL_EXT_bgra = HasExtension("GL_EXT_bgra");
 
 #if defined(WIN32)
 	if( HasExtension("WGL_EXT_swap_control") )
 		wglSwapIntervalEXT = (PWSWAPINTERVALEXTPROC) pWind->GetProcAddress("wglSwapIntervalEXT");
-#elif defined(__MACOSX__)
-	wglSwapIntervalEXT = wglSwapIntervalEXT;
 #endif
 
 	if( HasExtension("GL_EXT_paletted_texture") )
@@ -184,7 +183,7 @@ void GLExt_t::Load( LowLevelWindow *pWind )
 		}
 		else
 		{
-			const float fVersion = strtof( pzVersion, NULL );
+			const float fVersion = StringToFloat( pzVersion );
 			m_iShadingLanguageVersion = int(roundf(fVersion * 100));
 			/* The version string may contain extra information beyond the version number. */
 			LOG->Info( "OpenGL shading language: %s", pzVersion );

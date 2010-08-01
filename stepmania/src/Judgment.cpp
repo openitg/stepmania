@@ -5,27 +5,58 @@
 #include "GameState.h"
 #include "ThemeManager.h"
 #include "ThemeMetric.h"
+#include "ActorUtil.h"
+#include "StatsManager.h"
+#include "XmlFile.h"
 
-static ThemeMetric<apActorCommands>	MARVELOUS_COMMAND		("Judgment","MarvelousCommand");
-static ThemeMetric<apActorCommands>	PERFECT_COMMAND			("Judgment","PerfectCommand");
-static ThemeMetric<apActorCommands>	GREAT_COMMAND			("Judgment","GreatCommand");
-static ThemeMetric<apActorCommands>	GOOD_COMMAND			("Judgment","GoodCommand");
-static ThemeMetric<apActorCommands>	BOO_COMMAND				("Judgment","BooCommand");
-static ThemeMetric<apActorCommands>	MISS_COMMAND			("Judgment","MissCommand");
+static ThemeMetric<apActorCommands>	W1_COMMAND	("Judgment","W1Command");
+static ThemeMetric<apActorCommands>	W2_COMMAND	("Judgment","W2Command");
+static ThemeMetric<apActorCommands>	W3_COMMAND	("Judgment","W3Command");
+static ThemeMetric<apActorCommands>	W4_COMMAND	("Judgment","W4Command");
+static ThemeMetric<apActorCommands>	W5_COMMAND	("Judgment","W5Command");
+static ThemeMetric<apActorCommands>	MISS_COMMAND	("Judgment","MissCommand");
+
+REGISTER_ACTOR_CLASS( Judgment )
 
 Judgment::Judgment()
 {
+	m_mpToTrack = MultiPlayer_INVALID;
 }
 
-void Judgment::Load( bool bBeginner )
+void Judgment::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
-	m_sprJudgment.Load( THEME->GetPathG("Judgment",bBeginner?"BeginnerLabel":"label") );
+	RString sFile;
+	if( pNode->GetAttrValue("File", sFile) )
+	{
+		LuaHelpers::RunAtExpressionS( sFile );
+
+		if( sFile.Left(1) != "/" )
+			sFile = sDir+sFile;
+
+		CollapsePath( sFile );
+		LoadNormal( sFile );
+	}
+	else
+	{
+		LoadNormal();
+	}
+
+	ActorFrame::LoadFromNode( sDir, pNode );
+}
+
+void Judgment::LoadNormal()
+{
+	LoadNormal( THEME->GetPathG("Judgment","label") );
+}
+
+void Judgment::LoadNormal( const RString &sPath )
+{
+	m_sprJudgment.Load( sPath );
 	ASSERT( m_sprJudgment.GetNumStates() == 6  ||  m_sprJudgment.GetNumStates() == 12 );
 	m_sprJudgment.StopAnimating();
 	Reset();
 	this->AddChild( &m_sprJudgment );
 }
-
 
 void Judgment::Reset()
 {
@@ -48,27 +79,27 @@ void Judgment::SetJudgment( TapNoteScore score, bool bEarly )
 
 	switch( score )
 	{
-	case TNS_MARVELOUS:
+	case TNS_W1:
 		m_sprJudgment.SetState( 0 * iStateMult + iStateAdd );
-		m_sprJudgment.RunCommands( MARVELOUS_COMMAND );
+		m_sprJudgment.RunCommands( W1_COMMAND );
 		break;
-	case TNS_PERFECT:
+	case TNS_W2:
 		m_sprJudgment.SetState( 1 * iStateMult + iStateAdd );
-		m_sprJudgment.RunCommands( PERFECT_COMMAND );
+		m_sprJudgment.RunCommands( W2_COMMAND );
 		break;
-	case TNS_GREAT:
+	case TNS_W3:
 		m_sprJudgment.SetState( 2 * iStateMult + iStateAdd );
-		m_sprJudgment.RunCommands( GREAT_COMMAND );
+		m_sprJudgment.RunCommands( W3_COMMAND );
 		break;
-	case TNS_GOOD:
+	case TNS_W4:
 		m_sprJudgment.SetState( 3 * iStateMult + iStateAdd );
-		m_sprJudgment.RunCommands( GOOD_COMMAND );
+		m_sprJudgment.RunCommands( W4_COMMAND );
 		break;
-	case TNS_BOO:
+	case TNS_W5:
 		m_sprJudgment.SetState( 4 * iStateMult + iStateAdd );
-		m_sprJudgment.RunCommands( BOO_COMMAND );
+		m_sprJudgment.RunCommands( W5_COMMAND );
 		break;
-	case TNS_MISS:
+	case TNS_Miss:
 		m_sprJudgment.SetState( 5 * iStateMult + iStateAdd );
 		m_sprJudgment.RunCommands( MISS_COMMAND );
 		break;
@@ -76,6 +107,43 @@ void Judgment::SetJudgment( TapNoteScore score, bool bEarly )
 		ASSERT(0);
 	}
 }
+
+void Judgment::LoadFromMultiPlayer( MultiPlayer mp )
+{
+	ASSERT( m_mpToTrack == MultiPlayer_INVALID );	// assert only load once
+	m_mpToTrack = mp;
+	this->SubscribeToMessage( enum_add2(Message_ShowJudgmentMuliPlayerP1,m_mpToTrack) );
+}
+
+void Judgment::HandleMessage( const RString &sMessage )
+{
+	if( m_mpToTrack != MultiPlayer_INVALID  &&  sMessage == MessageToString( enum_add2(Message_ShowJudgmentMuliPlayerP1,m_mpToTrack) ) )
+		SetJudgment( STATSMAN->m_CurStageStats.m_multiPlayer[m_mpToTrack].tnsLast, false );	// FIXME: save and pass early bool?
+
+	ActorFrame::HandleMessage( sMessage );
+}
+
+
+// lua start
+#include "LuaBinding.h"
+
+class LunaJudgment: public Luna<Judgment>
+{
+public:
+	LunaJudgment() { LUA->Register( Register ); }
+
+	static int LoadFromMultiPlayer( T* p, lua_State *L ) { p->LoadFromMultiPlayer( (MultiPlayer)IArg(1) ); return 0; }
+
+	static void Register(lua_State *L) 
+	{
+		ADD_METHOD( LoadFromMultiPlayer );
+
+		Luna<T>::Register( L );
+	}
+};
+
+LUA_REGISTER_DERIVED_CLASS( Judgment, ActorFrame )
+// lua end
 
 /*
  * (c) 2001-2004 Chris Danford

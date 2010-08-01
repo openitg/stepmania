@@ -19,6 +19,8 @@
 #include "CommonMetrics.h"
 #include "PrefsManager.h"
 #include "InputEventPlus.h"
+#include "AdjustSync.h"
+#include "SongUtil.h"
 
 #define SHOW_COURSE_MODIFIERS_PROBABILITY	THEME->GetMetricF(m_sName,"ShowCourseModifiersProbability")
 
@@ -35,7 +37,8 @@ void ScreenJukebox::SetSong()
 	Course *pCourse = SONGMAN->GetCourseFromName( THEME->GetCurThemeName() );
 	if( pCourse != NULL )
 		for ( unsigned i = 0; i < pCourse->m_vEntries.size(); i++ )
-			vSongs.push_back( pCourse->m_vEntries[i].pSong );
+			if( pCourse->m_vEntries[i].IsFixedSong() )
+				vSongs.push_back( pCourse->m_vEntries[i].pSong );
 
 	if ( vSongs.size() == 0 )
 		SONGMAN->GetSongs( vSongs, GAMESTATE->m_sPreferredSongGroup );
@@ -64,7 +67,7 @@ void ScreenJukebox::SetSong()
 		}
 	}
 
-	ASSERT( !vDifficultiesToShow.empty() )
+	ASSERT( !vDifficultiesToShow.empty() );
 
 	//
 	// Search for a Song and Steps to play during the demo
@@ -74,8 +77,9 @@ void ScreenJukebox::SetSong()
 		if( vSongs.size() == 0 )
 			return;
 
-		Song* pSong = vSongs[rand()%vSongs.size()];
+		Song* pSong = vSongs[RandomInt(vSongs.size())];
 
+		ASSERT( pSong != NULL );
 		if( !pSong->HasMusic() )
 			continue;	// skip
 		if( UNLOCKMAN->SongIsLocked(pSong) )
@@ -83,8 +87,8 @@ void ScreenJukebox::SetSong()
 		if( !pSong->ShowInDemonstrationAndRanking() )
 			continue;	// skip
 
-		Difficulty dc = vDifficultiesToShow[ rand()%vDifficultiesToShow.size() ];
-		Steps* pSteps = pSong->GetStepsByDifficulty( GAMESTATE->GetCurrentStyle()->m_StepsType, dc );
+		Difficulty dc = vDifficultiesToShow[ RandomInt(vDifficultiesToShow.size()) ];
+		Steps* pSteps = SongUtil::GetStepsByDifficulty( pSong, GAMESTATE->GetCurrentStyle()->m_StepsType, dc );
 
 		if( pSteps == NULL )
 			continue;	// skip
@@ -95,7 +99,7 @@ void ScreenJukebox::SetSong()
 		// Found something we can use!
 		GAMESTATE->m_pCurSong.Set( pSong );
 		// We just changed the song. Reset the original sync data.
-		GAMESTATE->ResetOriginalSyncData();
+		AdjustSync::ResetOriginalSyncData();
 		FOREACH_PlayerNumber( p )
 			GAMESTATE->m_pCurSteps[p].Set( pSteps );
 		
@@ -126,10 +130,10 @@ void ScreenJukebox::SetSong()
 						aAttacks.push_back( Attack::FromGlobalCourseModifier( pEntry->sModifiers ) );
 					FOREACH_CONST( Attack, aAttacks, a )
 					{
-						CString s = a->sModifiers;
+						RString s = a->sModifiers;
 						s.MakeLower();
-						if( s.Find("dark") != -1 ||
-							s.Find("stealth") != -1 )
+						if( s.find("dark") != string::npos ||
+							s.find("stealth") != string::npos )
 						{
 							bModsAreOkToShow = false;
 							break;
@@ -146,7 +150,7 @@ void ScreenJukebox::SetSong()
 
 			if( !apOptions.empty() )
 			{
-				int iIndex = rand()%apOptions.size();
+				int iIndex = RandomInt( apOptions.size() );
 				m_pCourseEntry = apOptions[iIndex];
 				Course *pCourse = apPossibleCourses[iIndex]; 
 			
@@ -167,9 +171,8 @@ void ScreenJukebox::SetSong()
 	return;	// didn't find a song
 }
 
-ScreenJukebox::ScreenJukebox( CString sName ) : ScreenGameplayNormal( sName )
+ScreenJukebox::ScreenJukebox()
 {
-	LOG->Trace( "ScreenJukebox::ScreenJukebox()" );
 	m_bDemonstration = false;
 
 	m_pCourseEntry = NULL;
@@ -213,14 +216,12 @@ void ScreenJukebox::Init()
 
 		if( GAMESTATE->m_bJukeboxUsesModifiers )
 		{
-			GAMESTATE->m_pPlayerState[p]->m_PlayerOptions.Init();
-			GAMESTATE->m_pPlayerState[p]->m_PlayerOptions.FromString( PREFSMAN->m_sDefaultModifiers );
+			GAMESTATE->GetDefaultPlayerOptions( GAMESTATE->m_pPlayerState[p]->m_PlayerOptions );
 			GAMESTATE->m_pPlayerState[p]->m_PlayerOptions.ChooseRandomModifiers();
 		}
 	}
 
-	GAMESTATE->m_SongOptions.Init();
-	GAMESTATE->m_SongOptions.FromString( PREFSMAN->m_sDefaultModifiers );
+	GAMESTATE->GetDefaultSongOptions( GAMESTATE->m_SongOptions );
 
 	GAMESTATE->m_SongOptions.m_FailType = SongOptions::FAIL_OFF;
 
@@ -237,7 +238,7 @@ void ScreenJukebox::Init()
 
 	ClearMessageQueue();	// remove all of the messages set in ScreenGameplay that animate "ready", "here we go", etc.
 
-	GAMESTATE->m_bPastHereWeGo = true;
+	GAMESTATE->m_bGameplayLeadIn.Set( false );
 
 	m_DancingState = STATE_DANCING;
 }

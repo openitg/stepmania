@@ -1,5 +1,3 @@
-#if !defined(SM_PCH) || SM_PCH == FALSE
-
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
@@ -29,6 +27,8 @@
 /* Define standard endianness macros, if they're missing. */
 #if defined(HAVE_ENDIAN_H)
 #include <endian.h>
+#elif defined(HAVE_MACHINE_ENDIAN_H)
+#include <machine/endian.h>
 #else
 #define LITTLE_ENDIAN 1234
 #define BIG_ENDIAN 4321
@@ -55,8 +55,8 @@
 
 /* Branch optimizations: */
 #if defined(__GNUC__)
-#define likely(x) (!!__builtin_expect((x), 1))
-#define unlikely(x) (!!__builtin_expect((x), 0))
+#define likely(x) (__builtin_expect(!!(x), 1))
+#define unlikely(x) (__builtin_expect(!!(x), 0))
 #else
 #define likely(x) (x)
 #define unlikely(x) (x)
@@ -99,9 +99,14 @@ void NORETURN sm_crash( const char *reason = "Internal error" );
  * we get a backtrace.  This should probably be used instead of throwing an
  * exception in most cases we expect never to happen (but not in cases that
  * we do expect, such as DSound init failure.) */
-#define FAIL_M(MESSAGE) { CHECKPOINT_M(MESSAGE); sm_crash(MESSAGE); }
-#define ASSERT_M(COND, MESSAGE) { if(unlikely(!(COND))) { FAIL_M(MESSAGE); } }
+#define FAIL_M(MESSAGE) do { CHECKPOINT_M(MESSAGE); sm_crash(MESSAGE); } while(0)
+#define ASSERT_M(COND, MESSAGE) do { if(unlikely(!(COND))) { FAIL_M(MESSAGE); } } while(0)
+#if !defined(CO_EXIST_WITH_MFC)
 #define ASSERT(COND) ASSERT_M((COND), "Assertion '" #COND "' failed")
+#endif
+
+/* Use this to catch switching on invalid values */
+#define DEFAULT_FAIL(i) 	default: FAIL_M( ssprintf("%i", i) )
 
 void ShowWarning( const char *file, int line, const char *message ); // don't pull in LOG here
 #define WARN(MESSAGE) (ShowWarning(__FILE__, __LINE__, MESSAGE))
@@ -114,32 +119,26 @@ void ShowWarning( const char *file, int line, const char *message ); // don't pu
 #define DEBUG_ASSERT_M(x,y)
 #endif
 
-/* Define a macro to tell the compiler that a function has printf() semantics, to
- * aid warning output. */
 #if defined(__GNUC__)
+/* Define a macro to tell the compiler that a function has printf() semantics, to aid warning output. */
 #define PRINTF(a,b) __attribute__((format(__printf__,a,b)))
-#else
-#define PRINTF(a,b)
-#endif
-
-#if !defined(ALIGN)
-#if defined(__GNUC__)
-#define ALIGN(n) __attribute__((aligned(n)))
 #define CONST_FUNCTION __attribute__((const))
 #else
-#define ALIGN(n)
+#define PRINTF(a,b)
 #define CONST_FUNCTION
 #endif
+
+#if defined(__GNUC__)
+#define SM_ALIGN(n) __attribute__((aligned(n)))
+#else
+#define SM_ALIGN(n)
 #endif
+
 
 /* Use CStdString: */
 #include "StdString.h"
+typedef StdString::CStdString RString;
 
-typedef const CString& CCStringRef;
-
-/* Include this here to make sure our assertion handler is always
- * used.  (This file is a dependency of most everything anyway,
- * so there's no real problem putting it here.) */
 #include "RageException.h"
 
 #if !defined(WIN32)
@@ -149,36 +148,49 @@ typedef const CString& CCStringRef;
 
 /* Define a few functions if necessary */
 #include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.1415926535897932384626433832795
+#endif
+
 #ifdef NEED_POWF
-inline float powf (float x, float y) { return float(pow(double(x),double(y))); }
+inline float powf( float x, float y ) CONST_FUNCTION;
+float powf( float x, float y ) { return float( pow(double(x), double(y)) ); }
 #endif
 
 #ifdef NEED_SQRTF
-inline float sqrtf(float x) { return float(sqrt(double(x))); }
+inline float sqrtf( float x ) CONST_FUNCTION;
+float sqrtf( float x ) { return float( sqrt(double(x)) ); }
 #endif
 
 #ifdef NEED_SINF
-inline float sinf(float x) { return float(sin(double(x))); }
+inline float sinf( float x ) CONST_FUNCTION;
+float sinf( float x ) { return float( sin(double(x)) ); }
 #endif
 
 #ifdef NEED_TANF
-inline float tanf(float x) { return float(tan(double(x))); }
+inline float tanf( float x ) CONST_FUNCTION;
+float tanf( float x ) { return float( tan(double(x)) ); }
 #endif
 
 #ifdef NEED_COSF
-inline float cosf(float x) { return float(cos(double(x))); }
+inline float cosf( float x ) CONST_FUNCTION;
+float cosf( float x ){ return float( cos(double(x)) ); }
 #endif
 
 #ifdef NEED_ACOSF
-inline float acosf(float x) { return float(acos(double(x))); }
+inline float acosf( float x ) CONST_FUNCTION;
+float acosf( float x ) { return float( acos(double(x)) ); }
 #endif
 
 #ifdef NEED_TRUNCF
-inline float truncf( float f )	{ return float(int(f)); };
+inline float truncf( float f ) CONST_FUNCTION;
+float truncf( float f ) { return float( int(f) ); }
 #endif
 
 #ifdef NEED_ROUNDF
-inline float roundf( float f )	{ if(f < 0) return truncf(f-0.5f); return truncf(f+0.5f); };
+inline float roundf( float f ) CONST_FUNCTION;
+float roundf( float f ) { if( f < 0.0f ) return truncf( f-0.5f ); return truncf( f+0.5f ); }
 #endif
 
 #ifdef NEED_STRTOF
@@ -188,8 +200,6 @@ inline float strtof( const char *s, char **se ) { return (float) strtod( s, se )
 /* Don't include our own headers here, since they tend to change often. */
 
 #endif
-
-#endif /* SM_PCH */
 
 /*
  * (c) 2001-2004 Chris Danford, Glenn Maynard

@@ -3,53 +3,53 @@
 
 #include "ScreenAttract.h"
 #include "GameConstantsAndTypes.h"	// for NUM_RANKING_LINES
-#include "Sprite.h"
+#include "Course.h"
 #include "BitmapText.h"
 #include "Banner.h"
 #include "ActorScroller.h"
+#include "DynamicActorScroller.h"
 #include "ActorUtil.h"
 #include "Difficulty.h"
 #include "ThemeMetric.h"
 #include "CommonMetrics.h"
+#include "RageSound.h"
 
 class Course;
 class Song;
 class Trail;
+struct HighScoreList;
 
 enum PageType
 {
-	PAGE_TYPE_CATEGORY, 
-	PAGE_TYPE_TRAIL, 
-	PAGE_TYPE_ALL_STEPS, 
-	PAGE_TYPE_NONSTOP_COURSES,
-	PAGE_TYPE_ONI_COURSES,
-	PAGE_TYPE_SURVIVAL_COURSES,
+	PageType_Category, 
+	PageType_Trail, 
+	PageType_AllSteps, 
+	PageType_NonstopCourses,
+	PageType_OniCourses,
+	PageType_SurvivalCourses,
+	PageType_AllCourses,
 	NUM_PAGE_TYPES
 };
 #define FOREACH_PageType( pt ) FOREACH_ENUM( PageType, NUM_PAGE_TYPES, pt )
-const CString& PageTypeToString( PageType pt );
-
+const RString& PageTypeToString( PageType pt );
+PageType StringToPageType( const RString& s );
 
 class ScreenRanking : public ScreenAttract
 {
 public:
-	ScreenRanking( CString sName );
+	ScreenRanking();
 	virtual void Init();
-	~ScreenRanking();
+	virtual void BeginScreen();
 
 	virtual void Input( const InputEventPlus &input );
-	virtual void MenuLeft( PlayerNumber pn, const InputEventType type )		{ Scroll(-1); }
-	virtual void MenuRight( PlayerNumber pn, const InputEventType type )	{ Scroll(+1); }
-	virtual void MenuUp( PlayerNumber pn, const InputEventType type )		{ Scroll(-1); }
-	virtual void MenuDown( PlayerNumber pn, const InputEventType type )		{ Scroll(+1); }
-	virtual void Scroll( int iDir );
 	virtual void MenuStart( PlayerNumber pn );
 	virtual void MenuBack( PlayerNumber pn );
 
-	
 	void HandleScreenMessage( const ScreenMessage SM );
 
 protected:
+	virtual bool GenericTweenOn() const { return true; }
+
 	struct PageToShow
 	{
 		PageToShow()
@@ -58,7 +58,6 @@ protected:
 			pTrail = NULL;
 		}
 
-		PageType		type;
 		int				colorIndex;
 		StepsType		st;
 		RankingCategory	category;
@@ -66,67 +65,127 @@ protected:
 		Trail*			pTrail;
 	};
 
-	float SetPage( PageToShow pts );
-	void TweenPageOnScreen();
-	void TweenPageOffScreen();
+	virtual float SetPage( const PageToShow &pts );
 
+	PageType m_PageType;
 
-	Banner m_Banner;	// for course
-	Sprite m_sprBannerFrame;	// for course
-	BitmapText m_textCourseTitle; // for course
-	BitmapText m_textCategory;	// for category
 	BitmapText m_textStepsType;	// for category, course, all_steps
 	AutoActor  m_sprPageType;
 
-	Sprite	   m_sprBullets[NUM_RANKING_LINES];	// for category and course
-	BitmapText m_textNames[NUM_RANKING_LINES];	// for category and course
-	BitmapText m_textScores[NUM_RANKING_LINES];	// for category and course
-	BitmapText m_textPoints[NUM_RANKING_LINES];	// for course
-	BitmapText m_textTime[NUM_RANKING_LINES];	// for course
-	
-	AutoActor  m_sprDifficulty[NUM_DIFFICULTIES];	// for all_steps
-	AutoActor m_sprCourseDifficulty[NUM_DIFFICULTIES];	// for all_courses
-	struct ScoreRowItem : public ActorFrame		// for all_steps and all_courses
-	{
-		ScoreRowItem() { m_pSong = NULL; m_pCourse = NULL; }
-
-		Song *m_pSong;
-		Course *m_pCourse;
-		AutoActor	m_sprFrame;
-		BitmapText	m_textTitle;
-		BitmapText m_textScore[NUM_DIFFICULTIES];
-	};
-	vector<ScoreRowItem> m_vScoreRowItem;	// for all_steps
-	ActorScroller m_ListScoreRowItems;
-
 	vector<PageToShow>	m_vPagesToShow;
+	unsigned m_iNextPageToShow;
 
 	// Don't use the version in CommonMetrics because we may have multiple 
 	// ranking screens that want to show different types and difficulties.
 	ThemeMetricStepsTypesToShow			STEPS_TYPES_TO_SHOW;
-	ThemeMetricDifficultiesToShow		DIFFICULTIES_TO_SHOW;
-	ThemeMetricCourseDifficultiesToShow	COURSE_DIFFICULTIES_TO_SHOW;
-
-	ThemeMetric<bool>			SHOW_CATEGORIES;
-	ThemeMetric<bool>			SHOW_STEPS_SCORES;
-	ThemeMetric<bool>			SHOW_NONSTOP_COURSE_SCORES;
-	ThemeMetric<bool>			SHOW_ONI_COURSE_SCORES;
-	ThemeMetric<bool>			SHOW_SURVIVAL_COURSE_SCORES;
-	ThemeMetric<bool>			SHOW_ONLY_MOST_RECENT_SCORES;
-	ThemeMetric<int>			NUM_MOST_RECENT_SCORES_TO_SHOW;
-	ThemeMetric<float>			SECONDS_PER_PAGE;
-	ThemeMetric<float>			PAGE_FADE_SECONDS;
-	ThemeMetric<CString>		NO_SCORE_NAME;
-
 	ThemeMetric<float>			ROW_SPACING_X;
 	ThemeMetric<float>			ROW_SPACING_Y;
+	ThemeMetric1D<RageColor>	STEPS_TYPE_COLOR;
+
+	ThemeMetric<bool>			SHOW_ONLY_MOST_RECENT_SCORES;
+	ThemeMetric<float>			SECONDS_PER_PAGE;
+	ThemeMetric<float>			PAGE_FADE_SECONDS;
+	LocalizedString				NO_SCORE_NAME;
+	ThemeMetric<bool>			MANUAL_SCROLLING;
+};
+
+class ScoreScroller: public DynamicActorScroller
+{
+public:
+	ScoreScroller();
+	void LoadSongs( bool bOnlyRecentScores, int iNumRecentScores );
+	void LoadCourses( CourseType ct, bool bOnlyRecentScores, int iNumRecentScores );
+	void Load(
+		RString sClassName,
+		const vector<Difficulty> &DifficultiesToShow,
+		float fItemHeight );
+	void SetStepsType( StepsType st, RageColor color );
+	bool Scroll( int iDir );
+	void ScrollTop();
+
+protected:
+	virtual void ConfigureActor( Actor *pActor, int iItem );
+	void SetScoreFromHighScoreList( BitmapText *pTextStepsScore, const HighScoreList &hsl );
+	StepsType m_StepsType;
+	vector<Difficulty> m_DifficultiesToShow;
+
+	struct ScoreRowItem: public ActorFrame
+	{
+		ScoreRowItem();
+		ScoreRowItem( const ScoreRowItem &cpy );
+		AutoActor	m_sprFrame;
+		BitmapText	m_textTitle;
+		vector<BitmapText> m_textScore;
+	};
+
+	struct ScoreRowItemData // for all_steps and all_courses
+	{
+		ScoreRowItemData() { m_pSong = NULL; m_pCourse = NULL; }
+
+		Song *m_pSong;
+		Course *m_pCourse;
+	};
+	vector<ScoreRowItemData> m_vScoreRowItemData;
+
+	ThemeMetric<float>			SCORE_OFFSET_START_X;
+	ThemeMetric<float>			SCORE_OFFSET_Y;
+	ThemeMetric<bool>			SHOW_SURVIVAL_TIME;
+	LocalizedString				NO_SCORE_NAME;
+	ThemeMetric<float>			COL_SPACING_X;
+	ThemeMetric<float>			SONG_SCORE_SECONDS_PER_ROW;
+	ThemeMetric<int>			m_metricSongScoreRowsToDraw;
+};
+
+class ScreenRankingScroller: public ScreenRanking 
+{
+public:
+	virtual void Init();
+	virtual void BeginScreen();
+
+	virtual void MenuLeft( const InputEventPlus &input )	{ DoScroll(-1); }
+	virtual void MenuRight( const InputEventPlus &input )	{ DoScroll(+1); }
+	virtual void MenuUp( const InputEventPlus &input )	{ DoScroll(-1); }
+	virtual void MenuDown( const InputEventPlus &input )	{ DoScroll(+1); }
+
+private:
+	void DoScroll( int iDir );
+	virtual float SetPage( const PageToShow &pts );
+
+	ScoreScroller m_ListScoreRowItems;
+
+	AutoActor  m_sprDifficulty[NUM_Difficulty];	// for all_steps
+
+	ThemeMetricDifficultiesToShow		DIFFICULTIES_TO_SHOW;
 	ThemeMetric<float>			COL_SPACING_X;
 	ThemeMetric<float>			COL_SPACING_Y;
-	ThemeMetric1D<RageColor>	STEPS_TYPE_COLOR;
-	ThemeMetric<int>			SONG_SCORE_ROWS_TO_SHOW;
-	ThemeMetric<float>			SONG_SCORE_SECONDS_PER_ROW;
-	ThemeMetric<bool>			MANUAL_SCROLLING;
-	ThemeMetric<bool>			SHOW_SURVIVAL_TIME;
+
+	ThemeMetric<float>			DIFFICULTY_START_X;
+	ThemeMetric<float>			DIFFICULTY_Y;
+	ThemeMetric<int>			NUM_MOST_RECENT_SCORES_TO_SHOW;
+
+	RageSound	m_soundChange;
+};
+
+static const int NUM_RANKING_LINES = 5;
+
+class ScreenRankingLines: public ScreenRanking 
+{
+public:
+	virtual void Init();
+	virtual void BeginScreen();
+
+private:
+	virtual float SetPage( const PageToShow &pts );
+
+	Banner m_Banner;	// for course
+	BitmapText m_textCategory;	// for category
+	BitmapText m_textCourseTitle; // for course
+
+	AutoActor  m_sprBullets[NUM_RANKING_LINES];	// for category and course
+	BitmapText m_textNames[NUM_RANKING_LINES];	// for category and course
+	BitmapText m_textScores[NUM_RANKING_LINES];	// for category and course
+	BitmapText m_textPoints[NUM_RANKING_LINES];	// for course
+	BitmapText m_textTime[NUM_RANKING_LINES];	// for course
 
 	ThemeMetric<float>			BULLET_START_X;
 	ThemeMetric<float>			BULLET_START_Y;
@@ -138,24 +197,12 @@ protected:
 	ThemeMetric<float>			POINTS_START_Y;
 	ThemeMetric<float>			TIME_START_X;
 	ThemeMetric<float>			TIME_START_Y;
-	ThemeMetric<float>			DIFFICULTY_START_X;
-	ThemeMetric<float>			DIFFICULTY_Y;
-	ThemeMetric<float>			COURSE_DIFFICULTY_START_X;
-	ThemeMetric<float>			COURSE_DIFFICULTY_Y;
-	ThemeMetric<float>			SONG_TITLE_OFFSET_X;
-	ThemeMetric<float>			SONG_TITLE_OFFSET_Y;
-	ThemeMetric<float>			SONG_FRAME_OFFSET_X;
-	ThemeMetric<float>			SONG_FRAME_OFFSET_Y;
-	ThemeMetric<float>			STEPS_SCORE_OFFSET_START_X;
-	ThemeMetric<float>			STEPS_SCORE_OFFSET_Y;
-	ThemeMetric<float>			COURSE_SCORE_OFFSET_START_X;
-	ThemeMetric<float>			COURSE_SCORE_OFFSET_Y;
 };
 
 #endif
 
 /*
- * (c) 2001-2004 Chris Danford, Ben Nordstrom
+ * (c) 2001-2005 Chris Danford, Ben Nordstrom, Glenn Maynard
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

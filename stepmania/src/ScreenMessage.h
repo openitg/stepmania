@@ -1,68 +1,32 @@
 /* ScreenMessage - Definition of common ScreenMessages. */
 
-#ifndef SCREENMESSAGE_H
-#define SCREENMESSAGE_H
+#ifndef SCREEN_MESSAGE_H
+#define SCREEN_MESSAGE_H
 
-#include <map>
+typedef int ScreenMessage;
 
-enum ScreenMessage {
-	SM_None = 0,
-	SM_MenuTimer,
-	SM_DoneFadingIn,
-	SM_BeginFadingOut,
-	SM_GoToNextScreen,
-	SM_GoToPrevScreen,
-	SM_GainFocus,
-	SM_LoseFocus,
-	SM_Pause,
-	SM_Success,
-	SM_Failure,
+extern const ScreenMessage SM_Invalid;
+extern const ScreenMessage SM_None;
+extern const ScreenMessage SM_MenuTimer;
+extern const ScreenMessage SM_DoneFadingIn;
+extern const ScreenMessage SM_BeginFadingOut;
+extern const ScreenMessage SM_GoToNextScreen;
+extern const ScreenMessage SM_GoToPrevScreen;
+extern const ScreenMessage SM_GainFocus;
+extern const ScreenMessage SM_LoseFocus;
+extern const ScreenMessage SM_Pause;
+extern const ScreenMessage SM_Success;
+extern const ScreenMessage SM_Failure;
 
-	// messages sent by Combo
-	SM_PlayToasty,
-	SM_100Combo,
-	SM_200Combo,
-	SM_300Combo,
-	SM_400Combo,
-	SM_500Combo,
-	SM_600Combo,
-	SM_700Combo,
-	SM_800Combo,
-	SM_900Combo,
-	SM_1000Combo,
-	SM_ComboStopped,
-	SM_ComboContinuing,
-	SM_MissComboAborted,
-
-	SM_BattleTrickLevel1,
-	SM_BattleTrickLevel2,
-	SM_BattleTrickLevel3,
-	SM_BattleDamageLevel1,
-	SM_BattleDamageLevel2,
-	SM_BattleDamageLevel3,
-
-	SM_User,
-
-	SM_Invalid = 999999
-};
-
-//AutoScreenMessageHandler Class
-class ASMHClass
+namespace ScreenMessageHelpers
 {
-public:
-	ScreenMessage ToMessageNumber( const CString & Name );
-	CString	NumberToString( ScreenMessage SM );
-	void LogMessageNumbers();
-private:
-	map < CString, ScreenMessage > *m_pScreenMessages;
-	ScreenMessage m_iCurScreenMessage;
+	ScreenMessage ToMessageNumber( const RString & Name );
+	RString	NumberToString( ScreenMessage SM );
 };
-
-extern ASMHClass AutoScreenMessageHandler;
 
 // Automatically generate a unique ScreenMessage value
 #define AutoScreenMessage( x ) \
-	const ScreenMessage x = AutoScreenMessageHandler.ToMessageNumber( #x );
+	const ScreenMessage x = ScreenMessageHelpers::ToMessageNumber( #x );
 
 
 #endif

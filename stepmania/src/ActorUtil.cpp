@@ -6,8 +6,10 @@
 #include "ThemeManager.h"
 #include "RageFileManager.h"
 #include "RageLog.h"
+#include "RageUtil.h"
 #include "EnumHelper.h"
 #include "XmlFile.h"
+#include "XmlFileUtil.h"
 #include "LuaManager.h"
 #include "Foreach.h"
 
@@ -15,37 +17,37 @@
 
 
 // Actor registration
-static map<CString,CreateActorFn>	*g_pmapRegistrees = NULL;
+static map<RString,CreateActorFn>	*g_pmapRegistrees = NULL;
 
-static bool IsRegistered( const CString& sClassName )
+static bool IsRegistered( const RString& sClassName )
 {
 	return g_pmapRegistrees->find( sClassName ) != g_pmapRegistrees->end();
 }
 
-void ActorUtil::Register( const CString& sClassName, CreateActorFn pfn )
+void ActorUtil::Register( const RString& sClassName, CreateActorFn pfn )
 {
 	if( g_pmapRegistrees == NULL )
-		g_pmapRegistrees = new map<CString,CreateActorFn>;
+		g_pmapRegistrees = new map<RString,CreateActorFn>;
 
-	map<CString,CreateActorFn>::iterator iter = g_pmapRegistrees->find( sClassName );
+	map<RString,CreateActorFn>::iterator iter = g_pmapRegistrees->find( sClassName );
 	ASSERT_M( iter == g_pmapRegistrees->end(), ssprintf("Actor class '%s' already registered.", sClassName.c_str()) );
 
 	(*g_pmapRegistrees)[sClassName] = pfn;
 }
 
-Actor* ActorUtil::Create( const CString& sClassName, const CString& sDir, const XNode* pNode )
+Actor* ActorUtil::Create( const RString& sClassName, const RString& sDir, const XNode* pNode )
 {
-	map<CString,CreateActorFn>::iterator iter = g_pmapRegistrees->find( sClassName );
-	ASSERT_M( iter != g_pmapRegistrees->end(), ssprintf("Actor '%s' is not registered.",sClassName.c_str()) )
+	map<RString,CreateActorFn>::iterator iter = g_pmapRegistrees->find( sClassName );
+	ASSERT_M( iter != g_pmapRegistrees->end(), ssprintf("Actor '%s' is not registered.",sClassName.c_str()) );
 
 	CreateActorFn pfn = iter->second;
 	return (*pfn)( sDir, pNode );
 }
 
 /* Return false to retry. */
-void ActorUtil::ResolvePath( CString &sPath, const CString &sName )
+void ActorUtil::ResolvePath( RString &sPath, const RString &sName )
 {
-	const CString sOriginalPath( sPath );
+	const RString sOriginalPath( sPath );
 
 retry:
 	CollapsePath( sPath );
@@ -55,12 +57,12 @@ retry:
 	RageFileManager::FileType ft = FILEMAN->GetFileType( sPath );
 	if( ft != RageFileManager::TYPE_FILE && ft != RageFileManager::TYPE_DIR )
 	{
-		CStringArray asPaths;
+		vector<RString> asPaths;
 		GetDirListing( sPath + "*", asPaths, false, true );	// return path too
 
 		if( asPaths.empty() )
 		{
-			CString sError = ssprintf( "A file in '%s' references a file '%s' which doesn't exist.", sName.c_str(), sPath.c_str() );
+			RString sError = ssprintf( "A file in '%s' references a file '%s' which doesn't exist.", sName.c_str(), sPath.c_str() );
 			switch( Dialog::AbortRetryIgnore( sError, "BROKEN_FILE_REFERENCE" ) )
 			{
 			case Dialog::abort:
@@ -78,9 +80,12 @@ retry:
 				ASSERT(0);
 			}
 		}
-		else if( asPaths.size() > 1 )
+
+		THEME->FilterFileLanguages( asPaths );
+
+		if( asPaths.size() > 1 )
 		{
-			CString sError = ssprintf( "A file in '%s' references a file '%s' which has multiple matches.", sName.c_str(), sPath.c_str() );
+			RString sError = ssprintf( "A file in '%s' references a file '%s' which has multiple matches.", sName.c_str(), sPath.c_str() );
 			switch( Dialog::AbortRetryIgnore( sError, "BROKEN_FILE_REFERENCE" ) )
 			{
 			case Dialog::abort:
@@ -103,13 +108,77 @@ retry:
 	sPath = DerefRedir( sPath );
 }
 
+static void PushParamsTable( Lua *L )
+{
+	lua_pushstring( L, "P" );
+	lua_rawget( L, LUA_GLOBALSINDEX );
+	if( lua_isnil(L, -1) )
+	{
+		lua_pop( L, 1 );
+		lua_newtable( L );
+		lua_pushstring( L, "P" );
+		lua_pushvalue( L, -2 );
+		lua_rawset( L, LUA_GLOBALSINDEX );
+	}
+}
 
-Actor* ActorUtil::LoadFromActorFile( const CString& sDir, const XNode* pNode )
+/* Set an input parameter to the first value on the stack.  If pOld is non-NULL,
+ * set it to the old value.  The value used on the stack will be removed. */
+void ActorUtil::SetParamFromStack( Lua *L, RString sName, LuaReference *pOld )
+{
+	int iValue = lua_gettop(L);
+
+	PushParamsTable( L );
+	int iParams = lua_gettop(L);
+
+	LuaHelpers::Push( sName, L );
+	int iName = lua_gettop(L);
+
+	/* Save the old value. */
+	if( pOld != NULL )
+	{
+		lua_pushvalue( L, iName );
+		lua_rawget( L, iParams );
+		pOld->SetFromStack( L );
+	}
+
+	/* Backwards-compatibility: set the value as a global.  This is strongly
+	 * deprecated. */
+	lua_pushvalue( L, iName );
+	lua_pushvalue( L, iValue );
+	lua_rawset( L, LUA_GLOBALSINDEX );
+
+	/* Set the value in the table. */
+	lua_pushvalue( L, iName );
+	lua_pushvalue( L, iValue );
+	lua_rawset( L, iParams );
+
+	lua_settop( L, iValue-1 );
+}
+
+/* Look up a param set with SetParamFromStack, and push it on the stack. */
+void ActorUtil::GetParam( Lua *L, const RString &sName )
+{
+	/* Search the params table. */
+	PushParamsTable( L );
+	LuaHelpers::Push( sName, L );
+	lua_rawget( L, -2 );
+	lua_remove( L, -2 );
+
+	if( lua_isnil(L, -1) )
+	{
+		/* Deprecated: search globals. */
+		lua_pop( L, 1 );
+		lua_getglobal( L, sName );
+	}
+}
+
+Actor* ActorUtil::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	ASSERT( pNode );
 
 	{
-		CString expr;
+		RString expr;
 		if( pNode->GetAttrValue("Condition",expr) )
 		{
 			LuaHelpers::RunAtExpressionS( expr );
@@ -119,12 +188,13 @@ Actor* ActorUtil::LoadFromActorFile( const CString& sDir, const XNode* pNode )
 	}
 
 	// Load Params
+	map<RString, LuaReference> setOldParams;
 	{
 		FOREACH_CONST_Child( pNode, pChild )
 		{
 			if( pChild->m_sName == "Param" )
 			{
-				CString sName;
+				RString sName;
 				if( !pChild->GetAttrValue( "Name", sName ) )
 				{
 					RageException::Throw( ssprintf("Param node in '%s' is missing the attribute 'Name'", sDir.c_str()) );
@@ -132,11 +202,15 @@ Actor* ActorUtil::LoadFromActorFile( const CString& sDir, const XNode* pNode )
 
 				LuaHelpers::RunAtExpressionS( sName );
 
-				CString s;
+				RString s;
 				if( pChild->GetAttrValue( "Value", s ) )
 				{
-					THEME->EvaluateString( s );
-					LUA->SetGlobalFromExpression( sName, s );
+					Lua *L = LUA->Get();
+					LuaHelpers::RunScript( L, "return " + s, "", 1 );
+
+					
+					SetParamFromStack( L, sName, &setOldParams[sName] );
+					LUA->Release(L);
 				}
 				else
 				{
@@ -149,7 +223,8 @@ Actor* ActorUtil::LoadFromActorFile( const CString& sDir, const XNode* pNode )
 
 	// Element name is the type in XML.
 	// Type= is the name in INI.
-	CString sClass = pNode->m_sName;
+	// TODO: Remove the backward compat fallback
+	RString sClass = pNode->m_sName;
 	bool bHasClass = pNode->GetAttrValue( "Class", sClass );
 	if( !bHasClass )
 		bHasClass = pNode->GetAttrValue( "Type", sClass );	// for backward compatibility
@@ -157,7 +232,7 @@ Actor* ActorUtil::LoadFromActorFile( const CString& sDir, const XNode* pNode )
 	// backward compat hack
 	if( !bHasClass )
 	{
-		CString sText;
+		RString sText;
 		if( pNode->GetAttrValue( "Text", sText ) )
 			sClass = "BitmapText";
 	}
@@ -168,10 +243,10 @@ Actor* ActorUtil::LoadFromActorFile( const CString& sDir, const XNode* pNode )
 	{
 		pReturn = ActorUtil::Create( sClass, sDir, pNode );
 	}
-	else // sClass is empty or garbage (e.g. "1" // 0==Sprite")
+	else // sClass is empty or garbage (e.g. "1" or "0 // 0==Sprite")
 	{
 		// automatically figure out the type
-		CString sFile;
+		RString sFile;
 		pNode->GetAttrValue( "File", sFile );
 
 		LuaHelpers::RunAtExpressionS( sFile );
@@ -182,105 +257,150 @@ Actor* ActorUtil::LoadFromActorFile( const CString& sDir, const XNode* pNode )
 		 * loading the layer we're in. */
 		if( sFile == "" )
 		{
-			CString sError = ssprintf( "An xml file in '%s' is missing the File attribute or has an invalid Class \"%s\"",
+			RString sError = ssprintf( "An xml file in '%s' is missing the File attribute or has an invalid Class \"%s\"",
 				sDir.c_str(), sClass.c_str() );
 			Dialog::OK( sError );
 			pReturn = new Actor;	// Return a dummy object so that we don't crash in AutoActor later.
 			goto all_done;
 		}
 
-		CString sNewPath = bIsAbsolutePath ? sFile : sDir+sFile;
+		RString sNewPath = bIsAbsolutePath ? sFile : sDir+sFile;
 
 		ActorUtil::ResolvePath( sNewPath, sDir );
 
-		pReturn = ActorUtil::MakeActor( sNewPath );
+		pReturn = ActorUtil::MakeActor( sNewPath, pNode );
 		if( pReturn == NULL )
 			goto all_done;
-	 	pReturn->LoadFromNode( sDir, pNode );
 	}
 
 all_done:
 
 	// Unload Params
 	{
-		FOREACH_CONST_Child( pNode, pChild )
+		Lua *L = LUA->Get();
+		FOREACHM( RString, LuaReference, setOldParams, old )
 		{
-			if( pChild->m_sName == "Param" )
-			{
-				CString sName;
-				if( !pChild->GetAttrValue( "Name", sName ) )
-				{
-					RageException::Throw( ssprintf("Param node in '%s' is missing the attribute 'Name'", sDir.c_str()) );
-				}
-
-				LUA->UnsetGlobal( sName );
-			}
+			old->second.PushSelf( L );
+			SetParamFromStack( L, old->first, NULL );
 		}
+		LUA->Release(L);
 	}
 
 	return pReturn;
 }
 
-Actor* ActorUtil::MakeActor( const RageTextureID &ID )
+/*
+ * Merge a parent and child XML.  For example,
+ *
+ * parent.xml: <Layer File="child" OnCommand="x,10" />
+ * child.xml:  <Layer1 File="image" OffCommand="y,10" />
+ *
+ * results in:
+ *
+ * <Layer1 File="image" OnCommand="x,10" OffCommand="y,10" />
+ *
+ * The result is a copy of the child, with attributes and children
+ * from the parent merged, excluding the attribute "File".  Warn
+ * about duplicate attributes.
+ */
+static void MergeActorXML( XNode *pChild, const XNode *pParent )
 {
-	FileType ft = GetFileType(ID.filename);
+	FOREACH_CONST_Child( pParent, p )
+		pChild->AppendChild( new XNode(*p) );
+
+	FOREACH_CONST_Attr( pParent, p )
+	{
+		if( p->first == "File" )
+			continue;
+
+		RString sOld;
+		if( pChild->GetChildValue(p->first, sOld) )
+		{
+			RString sWarning = 
+					ssprintf( "Overriding \"%s\" (\"%s\") in XML node \"%s\" with \"%s\" in XML node \"%s\"",
+				p->first.c_str(),
+				p->second.c_str(),
+				pChild->m_sName.c_str(),
+				sOld.c_str(),
+				pParent->m_sName.c_str() );
+			Dialog::OK( sWarning, "XML_ATTRIB_OVERRIDE" );
+		}
+		pChild->AppendAttr( p->first, p->second );
+	}
+}
+
+/*
+ * If pParent is non-NULL, it's the parent node when nesting XML, which is
+ * used only by ActorUtil::LoadFromNode.
+ */
+Actor* ActorUtil::MakeActor( const RString &sPath_, const XNode *pParent )
+{
+	static const XNode dummy;
+	if( pParent == NULL )
+		pParent = &dummy;
+
+	RString sPath( sPath_ );
+
+	/* If @ expressions are allowed through this path, we've already
+	 * evaluated them.  Make sure we don't allow double-evaluation. */
+	ASSERT_M( sPath.empty() || sPath[0] != '@', sPath );
+
+	RString sDir = Dirname( sPath );
+	FileType ft = GetFileType( sPath );
 	switch( ft )
 	{
-	case FT_Xml:
-		{
-			XNode xml;
-			if( !xml.LoadFromFile(ID.filename) )
-			{
-				// XNode will warn about the error
-				return new Actor;
-			}
-			CString sDir = Dirname( ID.filename );
-			return LoadFromActorFile( sDir, &xml );
-		}
 	case FT_Directory:
 		{
-			CString sDir = ID.filename;
+			sDir = sPath;
 			if( sDir.Right(1) != "/" )
 				sDir += '/';
 
-			CString sXml = sDir + "default.xml";
-			if( DoesFileExist(sXml) )
-			{
-				XNode xml;
-				if( !xml.LoadFromFile(sXml) )
-				{
-					// XNode will warn about the error
-					return new Actor;
-				}
-				return LoadFromActorFile( sDir, &xml );
-			}
-			else
+			sPath = sDir + "default.xml";
+			if( !DoesFileExist(sPath) )
 			{
 				BGAnimation *pBGA = new BGAnimation;
 				pBGA->LoadFromAniDir( sDir );
 				return pBGA;
 			}
+
+			/* fall through */
+		}
+	case FT_Xml:
+		{
+			XNode xml;
+			if( !XmlFileUtil::LoadFromFileShowErrors(xml, sPath) )
+			{
+				// XNode will warn about the error
+				return new Actor;
+			}
+
+			MergeActorXML( &xml, pParent );
+			return ActorUtil::LoadFromNode( sDir, &xml );
 		}
 	case FT_Bitmap:
 	case FT_Movie:
 		{
-			Sprite* pSprite = new Sprite;
-			pSprite->Load( ID );
-			return pSprite;
+			XNode xml( *pParent );
+			xml.AppendAttr( "Texture", sPath );
+
+			return ActorUtil::Create( "Sprite", sDir, &xml );
 		}
 	case FT_Model:
 		{
-			Model* pModel = new Model;
-			pModel->Load( ID.filename );
-			return pModel;
+			XNode xml( *pParent );
+			xml.AppendAttr( "Meshes", sPath );
+			xml.AppendAttr( "Materials", sPath );
+			xml.AppendAttr( "Bones", sPath );
+
+			return ActorUtil::Create( "Model", sDir, &xml );
 		}
 	default:
 		RageException::Throw("File \"%s\" has unknown type, \"%s\"",
-			ID.filename.c_str(), FileTypeToString(ft).c_str() );
+			sPath.c_str(), FileTypeToString(ft).c_str() );
 	}
 }
 
-void ActorUtil::SetXY( Actor& actor, const CString &sType )
+void ActorUtil::SetXY( Actor& actor, const RString &sType )
 {
 	ASSERT( !actor.GetName().empty() );
 
@@ -292,20 +412,28 @@ void ActorUtil::SetXY( Actor& actor, const CString &sType )
 	if( !actor.HasCommand("On") )	// this actor hasn't loaded commands yet
 		LoadAllCommands( actor, sType );
 
-	actor.SetXY( THEME->GetMetricF(sType,actor.GetName()+"X"), THEME->GetMetricF(sType,actor.GetName()+"Y") );
+	/*
+	 * Hack: This is run after InitCommand, and InitCommand might set X/Y.  If
+	 * these are both 0, leave the actor where it is.  If InitCommand doesn't,
+	 * then 0,0 is the default, anyway.
+	 */
+	float fX = THEME->GetMetricF(sType,actor.GetName()+"X");
+	float fY = THEME->GetMetricF(sType,actor.GetName()+"Y");
+	if( fX != 0 || fY != 0 )
+		actor.SetXY( fX, fY );
 }
 
-void ActorUtil::LoadCommand( Actor& actor, const CString &sType, const CString &sCommandName )
+void ActorUtil::LoadCommand( Actor& actor, const RString &sType, const RString &sCommandName )
 {
 	ActorUtil::LoadCommandFromName( actor, sType, sCommandName, actor.GetName() );
 }
 
-void ActorUtil::LoadCommandFromName( Actor& actor, const CString &sType, const CString &sCommandName, const CString &sName )
+void ActorUtil::LoadCommandFromName( Actor& actor, const RString &sType, const RString &sCommandName, const RString &sName )
 {
 	actor.AddCommand( sCommandName, THEME->GetMetricA(sType,sName+sCommandName+"Command") );
 }
 
-void ActorUtil::LoadAndPlayCommand( Actor& actor, const CString &sType, const CString &sCommandName, Actor* pParent )
+void ActorUtil::LoadAndPlayCommand( Actor& actor, const RString &sType, const RString &sCommandName, Actor* pParent )
 {
 	// HACK:  It's very often that we command things to TweenOffScreen 
 	// that we aren't drawing.  We know that an Actor is not being
@@ -336,22 +464,23 @@ void ActorUtil::LoadAndPlayCommand( Actor& actor, const CString &sType, const CS
 	actor.PlayCommand( sCommandName, pParent );
 }
 
-void ActorUtil::LoadAllCommands( Actor& actor, const CString &sType )
+void ActorUtil::LoadAllCommands( Actor& actor, const RString &sType )
 {
 	LoadAllCommandsFromName( actor, sType, actor.GetName() );
 }
 
-void ActorUtil::LoadAllCommandsFromName( Actor& actor, const CString &sType, const CString &sName )
+void ActorUtil::LoadAllCommandsFromName( Actor& actor, const RString &sType, const RString &sName )
 {
-	set<CString> vsValueNames;
+	set<RString> vsValueNames;
 	THEME->GetMetricsThatBeginWith( sType, sName, vsValueNames );
 
-	FOREACHS_CONST( CString, vsValueNames, v )
+	FOREACHS_CONST( RString, vsValueNames, v )
 	{
-		const CString &sv = *v;
-		if( sv.Right(7) == "Command" )
+		const RString &sv = *v;
+		static RString sEnding = "Command"; 
+		if( EndsWith(sv,sEnding) )
 		{
-			CString sCommandName( sv.begin()+sName.size(), sv.end()-7 );
+			RString sCommandName( sv.begin()+sName.size(), sv.end()-sEnding.size() );
 			LoadCommandFromName( actor, sType, sCommandName, sName );
 		}
 	}
@@ -368,7 +497,7 @@ void ActorUtil::SortByZPosition( vector<Actor*> &vActors )
 	stable_sort( vActors.begin(), vActors.end(), CompareActorsByZPosition );
 }
 
-static const CString FileTypeNames[] = {
+static const char *FileTypeNames[] = {
 	"Bitmap", 
 	"Movie", 
 	"Directory", 
@@ -377,9 +506,9 @@ static const CString FileTypeNames[] = {
 };
 XToString( FileType, NUM_FileType );
 
-FileType ActorUtil::GetFileType( const CString &sPath )
+FileType ActorUtil::GetFileType( const RString &sPath )
 {
-	CString sExt = GetExtension( sPath );
+	RString sExt = GetExtension( sPath );
 	sExt.MakeLower();
 	
 	if( sExt=="xml" )		return FT_Xml;
@@ -397,6 +526,35 @@ FileType ActorUtil::GetFileType( const CString &sPath )
 	/* Do this last, to avoid the IsADirectory in most cases. */
 	else if( IsADirectory(sPath)  )	return FT_Directory;
 	else					return FT_Invalid;
+}
+
+/* Helper: set actor parameters, and return them to their original value when released. */
+ActorUtil::ActorParam::ActorParam( RString sName, RString sValue )
+{
+	m_pOld = new LuaReference;
+	m_sName = sName;
+	Lua *L = LUA->Get();
+	LuaHelpers::Push( sValue, L );
+	ActorUtil::SetParamFromStack( L, m_sName, m_pOld );
+	LUA->Release( L );
+}
+
+ActorUtil::ActorParam::~ActorParam()
+{
+	Release();
+	delete m_pOld;
+}
+
+void ActorUtil::ActorParam::Release()
+{
+	if( !m_pOld->IsSet() )
+		return;
+	/* Restore the old value. */
+	Lua *L = LUA->Get();
+	m_pOld->PushSelf( L );
+	ActorUtil::SetParamFromStack( L, m_sName );
+	m_pOld->Unset();
+	LUA->Release( L );
 }
 
 /*

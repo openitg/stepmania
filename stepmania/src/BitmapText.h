@@ -13,14 +13,16 @@ class BitmapText : public Actor
 public:
 	BitmapText();
 	BitmapText( const BitmapText &cpy );
+	BitmapText &operator =( const BitmapText &cpy );
 	virtual ~BitmapText();
 
-	void LoadFromNode( const CString& sDir, const XNode* pNode );
+	virtual void LoadFromNode( const RString& sDir, const XNode* pNode );
 	virtual Actor *Copy() const;
 
-	bool LoadFromFont( const CString& sFontName );
-	bool LoadFromTextureAndChars( const CString& sTexturePath, const CString& sChars );
-	void SetText( const CString& sText, const CString& sAlternateText = "", int iWrapWidthPixels = -1 );
+	bool LoadFromFont( const RString& sFontName );
+	bool LoadFromTextureAndChars( const RString& sTexturePath, const RString& sChars );
+	void SetText( const RString& sText, const RString& sAlternateText = "", int iWrapWidthPixels = -1 );
+	void SetVertSpacing( int iSpacing );
 	void SetMaxWidth( float fMaxWidth );
 	void SetMaxHeight( float fMaxHeight );
 	void SetWrapWidthPixels( int iWrapWidthPixels );
@@ -29,17 +31,17 @@ public:
 	virtual bool EarlyAbortDraw() const;
 	virtual void DrawPrimitives();
 
-	void TurnRainbowOn()	{ m_bRainbow = true; };
-	void TurnRainbowOff()	{ m_bRainbow = false; };
+	void TurnRainbowOn()	{ m_bRainbow = true; }
+	void TurnRainbowOff()	{ m_bRainbow = false; }
 
 	void SetHorizAlign( HorizAlign ha );
 	void SetVertAlign( VertAlign va );
 
 	void GetLines( vector<wstring> &wTextLines ) { wTextLines = m_wTextLines; }
 
-	CString GetText() const { return m_sText; }
+	RString GetText() const { return m_sText; }
 	/* Return true if the string 's' will use an alternate string, if available. */
-	bool StringWillUseAlternate(const CString& sText, const CString& sAlternateText) const;
+	bool StringWillUseAlternate( const RString& sText, const RString& sAlternateText ) const;
 
 	//
 	// Commands
@@ -50,20 +52,19 @@ public:
 	Font* m_pFont;
 
 protected:
+	RString				m_sText;
+	vector<wstring>			m_wTextLines;
+	vector<int>			m_iLineWidths;		// in source pixels
+	int				m_iWrapWidthPixels;	// -1 = no wrap
+	float				m_fMaxWidth;
+	float				m_fMaxHeight;
+	bool				m_bRainbow;
+	int				m_iVertSpacing;
+
+	vector<RageSpriteVertex>	m_aVertices;
+	vector<RageTexture *>		m_pTextures;
 	
 	// recalculate the items in SetText()
-	CString			m_sText;
-	vector<wstring>	m_wTextLines;
-	vector<int>		m_iLineWidths;			// in source pixels
-	int				m_iWrapWidthPixels;	// -1 = no wrap
-	float			m_fMaxWidth;
-	float			m_fMaxHeight;
-
-	bool m_bRainbow;
-
-	vector<RageSpriteVertex> m_aVertices;
-	vector<RageTexture *> m_pTextures;
-	
 	void BuildChars();
 	void DrawChars();
 	void UpdateBaseZoom();
@@ -73,10 +74,10 @@ class ColorBitmapText : public BitmapText
 {
 public:
 	ColorBitmapText();
-	void SetText( const CString &sText, const CString &sAlternateText = "", int iWrapWidthPixels = -1 );
+	void SetText( const RString &sText, const RString &sAlternateText = "", int iWrapWidthPixels = -1 );
 	void DrawPrimitives();
 	void SetMaxLines( int iLines, bool bCutBottom = true );	//if bCutBottom = false then, it will crop the top
-	void SimpleAddLine( const CString &sAddition, int iWidthPixels );
+	void SimpleAddLine( const RString &sAddition, int iWidthPixels );
 	void SetMaxLines( int iNumLines, int iDirection );
 protected:
 	struct ColorChange

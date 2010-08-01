@@ -6,7 +6,7 @@
 
 #include "ActorFrame.h"
 #include "OptionIcon.h"
-struct PlayerOptions;
+class PlayerOptions;
 struct lua_State;
 
 const unsigned NUM_OPTION_COLS = 8;
@@ -18,7 +18,7 @@ public:
 	OptionIconRow();
 
 	void Load();
-	virtual void LoadFromNode( const CString& sDir, const XNode* pNode );
+	virtual void LoadFromNode( const RString& sDir, const XNode* pNode );
 	virtual Actor *Copy() const;
 	void SetFromGameState( PlayerNumber pn );
 

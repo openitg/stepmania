@@ -10,6 +10,8 @@
 #include "RageDisplay.h"
 #include "Foreach.h"
 
+#define MS_MAX_NAME	32
+
 AnimatedTexture::AnimatedTexture()
 {
 	m_iCurState = 0;
@@ -25,12 +27,12 @@ AnimatedTexture::~AnimatedTexture()
 	Unload();
 }
 
-void AnimatedTexture::Load( CString sTexOrIniPath )
+void AnimatedTexture::Load( RString sTexOrIniPath )
 {
 	ASSERT( vFrames.empty() );	// don't load more than once
 
-	m_bSphereMapped = sTexOrIniPath.Find("sphere") != -1;
-	if( sTexOrIniPath.Find("add") != -1 )
+	m_bSphereMapped = sTexOrIniPath.find("sphere") != RString::npos;
+	if( sTexOrIniPath.find("add") != string::npos )
 		m_BlendMode = BLEND_ADD;
 	else
 		m_BlendMode = BLEND_NORMAL;
@@ -52,16 +54,16 @@ void AnimatedTexture::Load( CString sTexOrIniPath )
 		
 		for( int i=0; i<1000; i++ )
 		{
-			CString sFileKey = ssprintf( "Frame%04d", i );
-			CString sDelayKey = ssprintf( "Delay%04d", i );
+			RString sFileKey = ssprintf( "Frame%04d", i );
+			RString sDelayKey = ssprintf( "Delay%04d", i );
 
-			CString sFileName;
+			RString sFileName;
 			float fDelay = 0;
 			if( pAnimatedTexture->GetAttrValue( sFileKey, sFileName ) &&
 				pAnimatedTexture->GetAttrValue( sDelayKey, fDelay ) ) 
 			{
-				CString sTranslateXKey = ssprintf( "TranslateX%04d", i );
-				CString sTranslateYKey = ssprintf( "TranslateY%04d", i );
+				RString sTranslateXKey = ssprintf( "TranslateX%04d", i );
+				RString sTranslateYKey = ssprintf( "TranslateY%04d", i );
 
 				RageVector2 vOffset(0,0);
 				pAnimatedTexture->GetAttrValue( sTranslateXKey, vOffset.x );
@@ -204,7 +206,6 @@ RageVector2 AnimatedTexture::GetTextureTranslate()
 
 msMesh::msMesh()
 {
-	ZERO( szName );
 }
 
 msMesh::~msMesh()
@@ -213,126 +214,126 @@ msMesh::~msMesh()
 
 #define THROW RageException::Throw( "Parse error in \"%s\" at line %d: '%s'", sPath.c_str(), iLineNum, sLine.c_str() )
 
-bool msAnimation::LoadMilkshapeAsciiBones( CString sAniName, CString sPath )
+bool msAnimation::LoadMilkshapeAsciiBones( RString sAniName, RString sPath )
 {
 	FixSlashesInPlace(sPath);
-	const CString sDir = Dirname( sPath );
+	const RString sDir = Dirname( sPath );
 
 	RageFile f;
 	if ( !f.Open(sPath) )
 		RageException::Throw( "Model:: Could not open \"%s\": %s", sPath.c_str(), f.GetError().c_str() );
 
-	CString sLine;
+	RString sLine;
 	int iLineNum = 0;
 
 	msAnimation &Animation = *this;
 
 	bool bLoaded = false;
-    while( f.GetLine( sLine ) > 0 )
-    {
+	while( f.GetLine( sLine ) > 0 )
+	{
 		iLineNum++;
 
-        if (!strncmp (sLine, "//", 2))
-            continue;
-
-        //
-        // bones
-        //
-        int nNumBones = 0;
-        if( sscanf (sLine, "Bones: %d", &nNumBones) != 1 )
+		if (!strncmp (sLine, "//", 2))
 			continue;
 
-        char szName[MS_MAX_NAME];
+		//
+		// bones
+		//
+		int nNumBones = 0;
+		if( sscanf (sLine, "Bones: %d", &nNumBones) != 1 )
+			continue;
 
-        Animation.Bones.resize( nNumBones );
+		char szName[MS_MAX_NAME];
 
-        for( int i = 0; i < nNumBones; i++ )
-        {
+		Animation.Bones.resize( nNumBones );
+
+		for( int i = 0; i < nNumBones; i++ )
+		{
 			msBone& Bone = Animation.Bones[i];
 
-            // name
+			// name
 			if( f.GetLine( sLine ) <= 0 )
 				THROW;
-            if (sscanf (sLine, "\"%[^\"]\"", szName) != 1)
+			if (sscanf (sLine, "\"%[^\"]\"", szName) != 1)
 				THROW;
-            strcpy( Bone.szName, szName );
+			Bone.sName = szName;
 
-            // parent
+			// parent
 			if( f.GetLine( sLine ) <= 0 )
 				THROW;
-            strcpy (szName, "");
-            sscanf (sLine, "\"%[^\"]\"", szName);
+			strcpy (szName, "");
+			sscanf (sLine, "\"%[^\"]\"", szName);
 
-            strcpy( Bone.szParentName, szName );
+			Bone.sParentName = szName;
 
-            // flags, position, rotation
-            RageVector3 Position, Rotation;
+			// flags, position, rotation
+			RageVector3 Position, Rotation;
 			if( f.GetLine( sLine ) <= 0 )
 				THROW;
 
 			int nFlags;
-            if (sscanf (sLine, "%d %f %f %f %f %f %f",
-                &nFlags,
-                &Position[0], &Position[1], &Position[2],
-                &Rotation[0], &Rotation[1], &Rotation[2]) != 7)
-            {
+			if (sscanf (sLine, "%d %f %f %f %f %f %f",
+				&nFlags,
+				&Position[0], &Position[1], &Position[2],
+				&Rotation[0], &Rotation[1], &Rotation[2]) != 7)
+			{
 				THROW;
-            }
+			}
 			Rotation = RadianToDegree(Rotation);
 
 			Bone.nFlags = nFlags;
-            memcpy( &Bone.Position, &Position, sizeof(Bone.Position) );
-            memcpy( &Bone.Rotation, &Rotation, sizeof(Bone.Rotation) );
+			memcpy( &Bone.Position, &Position, sizeof(Bone.Position) );
+			memcpy( &Bone.Rotation, &Rotation, sizeof(Bone.Rotation) );
 
-            // position key count
+			// position key count
 			if( f.GetLine( sLine ) <= 0 )
 				THROW;
-            int nNumPositionKeys = 0;
-            if (sscanf (sLine, "%d", &nNumPositionKeys) != 1)
+			int nNumPositionKeys = 0;
+			if (sscanf (sLine, "%d", &nNumPositionKeys) != 1)
 				THROW;
 
-            Bone.PositionKeys.resize( nNumPositionKeys );
+			Bone.PositionKeys.resize( nNumPositionKeys );
 
-            for( int j = 0; j < nNumPositionKeys; ++j )
-            {
+			for( int j = 0; j < nNumPositionKeys; ++j )
+			{
 				if( f.GetLine( sLine ) <= 0 )
 					THROW;
 
 				float fTime;
-                if (sscanf (sLine, "%f %f %f %f", &fTime, &Position[0], &Position[1], &Position[2]) != 4)
+				if (sscanf (sLine, "%f %f %f %f", &fTime, &Position[0], &Position[1], &Position[2]) != 4)
 					THROW;
 
 				msPositionKey key;
 				key.fTime = fTime;
 				key.Position = RageVector3( Position[0], Position[1], Position[2] );
 				Bone.PositionKeys[j] = key;
-            }
+			}
 
-            // rotation key count
+			// rotation key count
 			if( f.GetLine( sLine ) <= 0 )
 				THROW;
-            int nNumRotationKeys = 0;
-            if (sscanf (sLine, "%d", &nNumRotationKeys) != 1)
+			int nNumRotationKeys = 0;
+			if (sscanf (sLine, "%d", &nNumRotationKeys) != 1)
 				THROW;
 
-            Bone.RotationKeys.resize( nNumRotationKeys );
+			Bone.RotationKeys.resize( nNumRotationKeys );
 
-            for( int j = 0; j < nNumRotationKeys; ++j )
-            {
+			for( int j = 0; j < nNumRotationKeys; ++j )
+			{
 				if( f.GetLine( sLine ) <= 0 )
 					THROW;
 
 				float fTime;
-                if (sscanf (sLine, "%f %f %f %f", &fTime, &Rotation[0], &Rotation[1], &Rotation[2]) != 4)
+				if (sscanf (sLine, "%f %f %f %f", &fTime, &Rotation[0], &Rotation[1], &Rotation[2]) != 4)
 					THROW;
 				Rotation = RadianToDegree(Rotation);
 
 				msRotationKey key;
 				key.fTime = fTime;
 				key.Rotation = RageVector3( Rotation[0], Rotation[1], Rotation[2] );
-                Bone.RotationKeys[j] = key;
-            }
-        }
+				Bone.RotationKeys[j] = key;
+			}
+		}
 
 		// Ignore "Frames:" in file.  Calculate it ourself
 		Animation.nTotalFrames = 0;

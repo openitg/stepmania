@@ -5,7 +5,7 @@
 
 #include "ActorFrame.h"
 #include "Quad.h"
-struct XNode;
+class XNode;
 #include "LuaExpressionTransform.h"
 
 class ActorScroller : public ActorFrame
@@ -13,38 +13,37 @@ class ActorScroller : public ActorFrame
 public:
 	ActorScroller();
 
+	void SetTransformFromExpression( const RString &sTransformFunction );
+	void SetTransformFromHeight( float fItemHeight );
+
 	void Load2(
 		float fNumItemsToDraw, 
-		float fItemWidth, 
-		float fItemHeight, 
-		bool bLoop, 
-		float fSecondsPerItem, 
-		float fSecondsPauseBetweenItems );
-
-	void Load3(
-		float fSecondsPerItem, 
-		float fNumItemsToDraw, 
-		bool bFastCatchup,
-		const CString &sTransformFunction,
-		int iSubdivisions,
-		bool bUseMask,
 		bool bLoop );
+
+	void EnableMask( float fWidth, float fHeight );
+	void DisableMask();
 
 	virtual void UpdateInternal( float fDelta );
 	virtual void DrawPrimitives();	// handles drawing and doesn't call ActorFrame::DrawPrimitives
 
 	void PositionItems();
 
-	void LoadFromNode( const CString &sDir, const XNode *pNode );
+	void LoadFromNode( const RString &sDir, const XNode *pNode );
 	virtual Actor *Copy() const;
 	
 	void SetDestinationItem( float fItemIndex )				{ m_fDestinationItem = fItemIndex; }
 	void SetCurrentAndDestinationItem( float fItemIndex )	{ m_fCurrentItem = m_fDestinationItem = fItemIndex; }
-	float GetCurrentItem()									{ return m_fCurrentItem; }
-	float GetDestinationItem()								{ return m_fDestinationItem; }
+	float GetCurrentItem() const							{ return m_fCurrentItem; }
+	float GetDestinationItem() const						{ return m_fDestinationItem; }
+	void ScrollThroughAllItems();
+	void ScrollWithPadding( float fItemPaddingStart, float fItemPaddingEnd );
 	void SetPauseCountdownSeconds( float fSecs )			{ m_fPauseCountdownSeconds = fSecs; }
-
-	float	GetSecondsForCompleteScrollThrough();
+	void SetFastCatchup( bool bOn ) { m_bFastCatchup = bOn; }
+	void SetSecondsPerItem( float fSeconds ) { m_fSecondsPerItem = fSeconds; }
+	void SetSecondsPauseBetweenItems( float fSeconds ) { m_fSecondsPauseBetweenItems = fSeconds; }
+	void SetNumSubdivisions( int iNumSubdivisions ) { m_exprTransformFunction.SetNumSubdivisions( iNumSubdivisions ); }
+	float GetSecondsForCompleteScrollThrough() const;
+	float GetSecondsToDestination() const;
 
 	//
 	// Commands
@@ -52,24 +51,23 @@ public:
 	void PushSelf( lua_State *L );
 
 protected:
-	void PositionItemsAndDrawPrimitives( bool bPosition, bool bDrawPrimitives );
+	void PositionItemsAndDrawPrimitives( bool bDrawPrimitives );
+	virtual void ShiftSubActors( int iDist );
 
-	const Actor::TweenState &GetPosition( float fPositionOffsetFromCenter, int iItemIndex, int iNumItems );
-
-	bool	m_bLoaded;
-	float	m_fCurrentItem; // Item at top of list, usually between 0 and m_SubActors.size(), approaches destination
+	int		m_iNumItems;
+	float	m_fCurrentItem; // Item at center of list, usually between 0 and m_SubActors.size(), approaches destination
 	float	m_fDestinationItem;
 	float	m_fSecondsPerItem;		// <= 0 means don't scroll
 	float	m_fSecondsPauseBetweenItems;
 	float	m_fNumItemsToDraw;
+	int		m_iFirstSubActorIndex;
 	bool	m_bLoop; 
 	bool	m_bFastCatchup; 
+	bool	m_bFunctionDependsOnPositionOffset;
+	bool	m_bFunctionDependsOnItemIndex;
 	float	m_fPauseCountdownSeconds;
 	float	m_fQuantizePixels;
 
-	bool	m_bUseMask;
-	float	m_fMaskWidth;
-	float	m_fMaskHeight;
 	Quad	m_quadMask;
 
 	LuaExpressionTransform m_exprTransformFunction;	// params: self,offset,itemIndex,numItems
@@ -79,14 +77,7 @@ class ActorScrollerAutoDeleteChildren : public ActorScroller
 {
 public:
 	ActorScrollerAutoDeleteChildren() { DeleteChildrenWhenDone(true); }
-	void LoadFromNode( const CString& sDir, const XNode* pNode )
-	{
-		// Load children before ActorScroller::LoadFromNode or
-		// else it won't SetDestinationItem correctly.
-		LoadChildrenFromNode( sDir, pNode );
-
-		ActorScroller::LoadFromNode( sDir, pNode );
-	}
+	virtual bool AutoLoadChildren() const { return true; }
 	virtual Actor *Copy() const;
 };
 

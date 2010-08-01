@@ -10,7 +10,6 @@
 class ScreenEz2SelectPlayer : public ScreenWithMenuElements
 {
 public:
-	ScreenEz2SelectPlayer( CString sName );
 	virtual void Init();
 	virtual ~ScreenEz2SelectPlayer();
 	
@@ -23,8 +22,8 @@ public:
 	virtual void MenuStart( PlayerNumber pn );
 	virtual void MenuBack( PlayerNumber pn );
 private:
-	void TweenOursOffScreen();
-	void TweenOursOnScreen();
+	void TweenOffScreen();
+	void TweenOnScreen();
 	
 	Sprite	m_sprJoinMessage[NUM_PLAYERS];
 	Sprite	m_sprJoinFrame[NUM_PLAYERS];

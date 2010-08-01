@@ -11,7 +11,7 @@
 #include "ActorUtil.h"
 #include "Course.h"
 
-static const CString GAIN_LIFE_COMMAND_NAME = "GainLife";
+static const RString GAIN_LIFE_COMMAND_NAME = "GainLife";
 
 ScoreDisplayLifeTime::ScoreDisplayLifeTime()
 {
@@ -22,7 +22,7 @@ void ScoreDisplayLifeTime::Init( const PlayerState* pPlayerState, const PlayerSt
 {
 	ScoreDisplay::Init( pPlayerState, pPlayerStageStats );
 
-	const CString sType = "ScoreDisplayLifeTime";
+	const RString sType = "ScoreDisplayLifeTime";
 
 	// TODO: Remove use of PlayerNumber.
 	PlayerNumber pn = pPlayerState->m_PlayerNumber;
@@ -36,7 +36,7 @@ void ScoreDisplayLifeTime::Init( const PlayerState* pPlayerState, const PlayerSt
 	m_textTimeRemaining.SetName( "TimeRemaining" );
 	this->AddChild( &m_textTimeRemaining );
 	ActorUtil::OnCommand( m_textTimeRemaining, sType );
-	m_textTimeRemaining.RunCommands( PLAYER_COLOR.GetValue(pn) );
+	m_textTimeRemaining.RunCommands( CommonMetrics::PLAYER_COLOR.GetValue(pn) );
 	
 	m_textDeltaSeconds.LoadFromFont( THEME->GetPathF(sType,"DeltaSeconds") );
 	m_textDeltaSeconds.SetName( "DeltaSeconds" );
@@ -45,13 +45,13 @@ void ScoreDisplayLifeTime::Init( const PlayerState* pPlayerState, const PlayerSt
 
 	FOREACH_TapNoteScore( tns )
 	{
-		const CString &sCommand = TapNoteScoreToString(tns);
+		const RString &sCommand = TapNoteScoreToString(tns);
 		if( !m_textDeltaSeconds.HasCommand( sCommand ) )
 			ActorUtil::LoadCommand( m_textDeltaSeconds, sType, sCommand );
 	}
 	FOREACH_HoldNoteScore( hns )
 	{
-		const CString &sCommand = HoldNoteScoreToString(hns);
+		const RString &sCommand = HoldNoteScoreToString(hns);
 		if( !m_textDeltaSeconds.HasCommand( sCommand ) )
 			ActorUtil::LoadCommand( m_textDeltaSeconds, sType, sCommand );
 	}
@@ -67,7 +67,7 @@ void ScoreDisplayLifeTime::Update( float fDelta )
 
 	float fSecs = m_pPlayerStageStats->fLifeRemainingSeconds;
 
-	CString s = SecondsToMSSMsMs(fSecs);
+	RString s = SecondsToMSSMsMs(fSecs);
 	m_textTimeRemaining.SetText( s );
 }
 
@@ -95,13 +95,13 @@ void ScoreDisplayLifeTime::OnJudgment( TapNoteScore tns )
 	float fMeterChange = 0;
 	switch( tns )
 	{
-	case TNS_MARVELOUS:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeMarvelous;	break;
-	case TNS_PERFECT:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangePerfect;		break;
-	case TNS_GREAT:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeGreat;		break;
-	case TNS_GOOD:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeGood;			break;
-	case TNS_BOO:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeBoo;			break;
-	case TNS_MISS:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeMiss;			break;
-	case TNS_HIT_MINE:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeHitMine;		break;
+	case TNS_W1:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W1];		break;
+	case TNS_W2:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W2];		break;
+	case TNS_W3:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W3];		break;
+	case TNS_W4:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W4];		break;
+	case TNS_W5:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_W5];		break;
+	case TNS_Miss:		fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_Miss];	break;
+	case TNS_HitMine:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_HitMine];	break;
 	default:	ASSERT(0);
 	}
 
@@ -116,20 +116,21 @@ void ScoreDisplayLifeTime::OnJudgment( HoldNoteScore hns, TapNoteScore tns )
 	float fMeterChange = 0;
 	switch( hns )
 	{
-	case HNS_OK:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeOK;	break;
-	case HNS_NG:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChangeNG;	break;
+	case HNS_Held:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_Held];	break;
+	case HNS_LetGo:	fMeterChange = PREFSMAN->m_fTimeMeterSecondsChange[SE_LetGo];	break;
 	default:	ASSERT(0);
 	}
 
 	PlayGainLoss( HoldNoteScoreToString(hns), fMeterChange );
 }
 
-void ScoreDisplayLifeTime::PlayGainLoss( const CString &sCommand, float fDeltaLifeSecs )
+void ScoreDisplayLifeTime::PlayGainLoss( const RString &sCommand, float fDeltaLifeSecs )
 {
-	CString s;
-	if( fDeltaLifeSecs != 0 )
-		s = ssprintf( "%+1.1fs", fDeltaLifeSecs);
+	if( fDeltaLifeSecs == 0 )
+		return;	// don't animate if no change
+	RString s = ssprintf( "%+1.1fs", fDeltaLifeSecs);
 	m_textDeltaSeconds.SetText( s );
+	m_textDeltaSeconds.FinishTweening();
 	m_textDeltaSeconds.PlayCommand( sCommand );
 }
 

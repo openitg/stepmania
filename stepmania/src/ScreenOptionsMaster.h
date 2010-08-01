@@ -8,25 +8,16 @@ class OptionRowHandler;
 class ScreenOptionsMaster : public ScreenOptions
 {
 public:
-	ScreenOptionsMaster( CString sName );
 	virtual void Init();
-	virtual ~ScreenOptionsMaster();
 
-protected:
+private:
 	int m_iChangeMask;
-	bool m_bExportWillSetANewScreen;	// from an OptionRowHandler
-
-	vector<OptionRowHandler*> m_OptionRowHandlers;
 	
 protected:
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
 	virtual void ImportOptions( int iRow, const vector<PlayerNumber> &vpns );
 	virtual void ExportOptions( int iRow, const vector<PlayerNumber> &vpns );
-
-	virtual void BeginFadingOut();
-
-	virtual void RefreshIcons( int row, PlayerNumber pn );
 };
 
 #endif

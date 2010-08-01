@@ -22,7 +22,8 @@
 const int NUM_EDIT_BUTTON_COLUMNS = 10;
 struct MenuDef;
 
-enum EditState {
+enum EditState
+{
 	STATE_EDITING,
 	STATE_RECORDING,
 	STATE_RECORDING_PAUSED,
@@ -117,12 +118,15 @@ enum EditButton
 	EDIT_BUTTON_ADJUST_FINE,
 
 	EDIT_BUTTON_UNDO,
+	
+	EDIT_BUTTON_ADD_COURSE_MODS,
 
 	NUM_EDIT_BUTTONS,		// leave this at the end
 	EDIT_BUTTON_INVALID
 };
 #define FOREACH_EditButton( e ) FOREACH_ENUM( EditButton, NUM_EDIT_BUTTONS, e )
-#define NUM_EDIT_TO_DEVICE_SLOTS 2
+const int NUM_EDIT_TO_DEVICE_SLOTS = 2;
+const int NUM_EDIT_TO_MENU_SLOTS = 2;
 
 /*
  * g_MapEditToDI is a simple mapping: edit functions map to DeviceInputs.
@@ -145,11 +149,25 @@ struct MapEditToDI
 	}
 };
 
+// Like MapEditToDI, but maps MenuButton instead of DeviceInput.
+struct MapEditButtonToMenuButton
+{
+	MenuButton button[NUM_EDIT_BUTTONS][NUM_EDIT_TO_MENU_SLOTS];
+	void Clear()
+	{
+		FOREACH_EditButton(e)
+			for( int slot = 0; slot < NUM_EDIT_TO_MENU_SLOTS; ++slot )
+				button[e][slot] = MenuButton_INVALID;
+	}
+};
+
 class ScreenEdit : public ScreenWithMenuElements
 {
 public:
-	ScreenEdit( CString sName );
 	virtual void Init();
+	virtual void BeginScreen();
+	virtual void EndScreen();
+
 	virtual ~ScreenEdit();
 	virtual void Update( float fDeltaTime );
 	virtual void DrawPrimitives();
@@ -161,7 +179,7 @@ public:
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
 protected:
-	virtual ScreenType GetScreenType() const { return m_EditState==STATE_PLAYING ? gameplay : system_menu; }
+	virtual ScreenType GetScreenType() const { return m_EditState==STATE_PLAYING ? gameplay : ScreenWithMenuElements::GetScreenType(); }
 
 	void TransitionEditState( EditState em );
 	void ScrollTo( float fDestinationBeat );
@@ -172,17 +190,17 @@ protected:
 	void SaveUndo();
 	// Revert m_NoteDataEdit using m_Undo.
 	void Undo();
+	void ClearUndo();
 	// Call this after modifying m_NoteDataEdit.  It will Undo() if 
 	// MAX_NOTES_PER_MEASURE was exceeded.
 	void CheckNumberOfNotesAndUndo();
 
 	void OnSnapModeChange();
-	void MenuItemGainFocus( BitmapText* menuitem );
-	void MenuItemLoseFocus( BitmapText* menuitem );
 
 	float GetMaximumBeatForNewNote() const;	// don't allow Down key to go past this beat.
 	float GetMaximumBeatForMoving() const;	// don't allow Down key to go past this beat.
 
+	void DoHelp();
 
 	EditState		m_EditState;
 
@@ -203,22 +221,24 @@ protected:
 	BitmapText		m_textPlayRecordHelp;
 
 	// keep track of where we are and what we're doing
-	float				m_fTrailingBeat;	// this approaches GAMESTATE->m_fSongBeat, which is the actual beat
+	float			m_fTrailingBeat;	// this approaches GAMESTATE->m_fSongBeat, which is the actual beat
 	/* The location we were at when shift was pressed, or
 	 * -1 when shift isn't pressed: */
-	int m_iShiftAnchor;
+	int			m_iShiftAnchor;
 
-	NoteData			m_Clipboard;
-	bool				m_bHasUndo;
-	NoteData			m_Undo;
+	NoteData		m_Clipboard;
+	bool			m_bHasUndo;
+	NoteData		m_Undo;
 
-	RageSound			m_soundAddNote;
-	RageSound			m_soundRemoveNote;
-	RageSound			m_soundChangeLine;
-	RageSound			m_soundChangeSnap;
-	RageSound			m_soundMarker;
-	RageSound			m_soundSwitch;
-	RageSound			m_soundSave;
+	RageSound		m_soundAddNote;
+	RageSound		m_soundRemoveNote;
+	RageSound		m_soundChangeLine;
+	RageSound		m_soundChangeSnap;
+	RageSound		m_soundMarker;
+	RageSound		m_soundValueIncrease;
+	RageSound		m_soundValueDecrease;
+	RageSound		m_soundSwitchSteps;
+	RageSound		m_soundSave;
 
 	// used for reverting
 	void CopyToLastSave();
@@ -238,25 +258,29 @@ protected:
 
 // for MODE_PLAY
 	void SetupCourseAttacks();
-	Player			m_Player;
+	PlayerPlus		m_Player;
 	Background		m_Background;
 	Foreground		m_Foreground;
 	bool			m_bReturnToRecordMenuAfterPlay;
 
 // for MODE_RECORD and MODE_PLAY
-	int				m_iStartPlayingAt, m_iStopPlayingAt;
+	int			m_iStartPlayingAt, m_iStopPlayingAt;
 	float			m_fBeatToReturnTo;
 
 	RageSound		m_soundMusic;
-
 	RageSound		m_soundAssistTick;
 
 	ThemeMetricEnum<EditMode> EDIT_MODE;
 
 public:
-	enum MainMenuChoice {
+	enum MainMenuChoice
+	{
+		play_selection,
+		set_selection_start,
+		set_selection_end,
 		edit_steps_information,
 		play_whole_song,
+		play_selection_start_to_end,
 		play_current_beat_to_end,
 		save,
 		revert_to_last_save,
@@ -275,7 +299,8 @@ public:
 	void HandleMainMenuChoice( MainMenuChoice c ) { const vector<int> v; HandleMainMenuChoice( c, v ); }
 	MainMenuChoice m_CurrentAction;
 
-	enum AreaMenuChoice {
+	enum AreaMenuChoice
+	{
 		cut,
 		copy,
 		paste_at_current_beat,
@@ -292,7 +317,7 @@ public:
 		delete_and_shift,
 		shift_pauses_forward,
 		shift_pauses_backward,
-		convert_beat_to_pause,
+		convert_to_pause,
 		convert_pause_to_beat,
 		undo,
 		NUM_AREA_MENU_CHOICES
@@ -355,7 +380,8 @@ public:
 		NUM_TEMPO_TYPES 
 	};
 
-	enum StepsInformationChoice {
+	enum StepsInformationChoice
+	{
 		difficulty,
 		meter,
 		description,
@@ -375,7 +401,8 @@ public:
 	};
 	void HandleStepsInformationChoice( StepsInformationChoice c, const vector<int> &iAnswers );
 
-	enum SongInformationChoice {
+	enum SongInformationChoice
+	{
 		main_title,
 		sub_title,
 		artist,
@@ -387,7 +414,8 @@ public:
 	};
 	void HandleSongInformationChoice( SongInformationChoice c, const vector<int> &iAnswers );
 
-	enum BGChangeChoice {
+	enum BGChangeChoice
+	{
 		layer,
 		rate,
 		transition,
@@ -416,7 +444,8 @@ public:
 
 	void HandleBGChangeChoice( BGChangeChoice c, const vector<int> &iAnswers );
 
-	enum CourseAttackChoice {
+	enum CourseAttackChoice
+	{
 		duration,
 		set_mods,
 		remove,
@@ -424,28 +453,24 @@ public:
 	};
 
 	void InitEditMappings();
-	bool DeviceToEdit( DeviceInput DeviceI, EditButton &button ) const;
+	bool DeviceToEdit( const DeviceInput &DeviceI, EditButton &button ) const;
+	bool MenuInputToEditButton( const MenuInput &MenuI, EditButton &button ) const;
 	bool EditToDevice( EditButton button, int iSlotNum, DeviceInput &DeviceI ) const;
 	bool EditPressed( EditButton button, const DeviceInput &DeviceI );
 	bool EditIsBeingPressed( EditButton button ) const;
-	const MapEditToDI *GetCurrentMap() const;
-	MapEditToDI m_EditMappings, m_PlayMappings, m_RecordMappings, m_RecordPausedMappings;
+	const MapEditToDI *GetCurrentDeviceInputMap() const;
+	const MapEditButtonToMenuButton *GetCurrentMenuButtonMap() const;
+	MapEditToDI		m_EditMappingsDeviceInput;
+	MapEditToDI		m_PlayMappingsDeviceInput;
+	MapEditToDI		m_RecordMappingsDeviceInput;
+	MapEditToDI		m_RecordPausedMappingsDeviceInput;
+	MapEditButtonToMenuButton m_EditMappingsMenuButton;
+	MapEditButtonToMenuButton m_PlayMappingsMenuButton;
+	MapEditButtonToMenuButton m_RecordMappingsMenuButton;
+	MapEditButtonToMenuButton m_RecordPausedMappingsMenuButton;
 
 	void MakeFilteredMenuDef( const MenuDef* pDef, MenuDef &menu );
-	ScreenMiniMenu *LoadEditMiniMenu( const MenuDef* pDef );
-	void EditMiniMenu( ScreenMiniMenu *pScreen, ScreenMessage SM_SendOnOK = SM_None, ScreenMessage SM_SendOnCancel = SM_None, const MenuDef* pDef = NULL );
-
-	ScreenMiniMenu *m_pHelpMenu;
-	ScreenMiniMenu *m_pMiniMenu;
-	ScreenMiniMenu *m_pMainMenu;
-	ScreenMiniMenu *m_pAreaMenu;
-	ScreenMiniMenu *m_pStepsInformation;
-	ScreenMiniMenu *m_pSongInformation;
-	ScreenMiniMenu *m_pBackgroundChangeMenu;
-	ScreenMiniMenu *m_pInsertTapAttackMenu;
-	ScreenMiniMenu *m_pInsertCourseAttackMenu;
-	ScreenMiniMenu *m_pCourseModeMenu;
-	Screen *m_pScreenOptions;
+	void EditMiniMenu( const MenuDef* pDef, ScreenMessage SM_SendOnOK = SM_None, ScreenMessage SM_SendOnCancel = SM_None );
 };
 
 #endif

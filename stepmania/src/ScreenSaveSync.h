@@ -3,10 +3,14 @@
 #ifndef ScreenSaveSync_H
 #define ScreenSaveSync_H
 
-class ScreenSaveSync
+#include "ScreenPrompt.h"
+
+class ScreenSaveSync : public ScreenPrompt
 {
 public:
-	static void SaveSync();
+	virtual void Init();
+
+	static void PromptSaveSync( ScreenMessage sm = SM_None );
 };
 
 

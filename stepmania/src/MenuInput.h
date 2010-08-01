@@ -16,10 +16,13 @@ enum MenuButton
 	MENU_BUTTON_BACK,
 	MENU_BUTTON_COIN,
 	MENU_BUTTON_OPERATOR,
-	NUM_MENU_BUTTONS,		// leave this at the end
-	MENU_BUTTON_INVALID
+	NUM_MenuButton,		// leave this at the end
+	MenuButton_INVALID
 };
-#define FOREACH_MenuButton( m ) FOREACH_ENUM( MenuButton, NUM_MENU_BUTTONS, m )
+#define FOREACH_MenuButton( m ) FOREACH_ENUM( MenuButton, NUM_MenuButton, m )
+
+const RString &MenuButtonToString( MenuButton mb );
+const RString &MenuButtonToLocalizedString( MenuButton mb );
 
 struct MenuInput
 {
@@ -29,10 +32,11 @@ struct MenuInput
 	PlayerNumber	player;
 	MenuButton		button;
 
-//	bool operator==( const MenuInput &other ) { return player == other.player && button == other.button; };
+	bool operator==( const MenuInput &other ) const { return player == other.player && button == other.button; };
+	bool operator!=( const MenuInput &other ) const { return !operator==(other); };
 
 	inline bool IsValid() const { return player != PLAYER_INVALID; };
-	inline void MakeInvalid() { player = PLAYER_INVALID; button = MENU_BUTTON_INVALID; };
+	inline void MakeInvalid() { player = PLAYER_INVALID; button = MenuButton_INVALID; };
 };
 
 #endif

@@ -10,14 +10,15 @@
 #include "RageSurfaceUtils_Zoom.h"
 #include "RageSurface.h"
 #include "Preference.h"
-#include "ScreenDimensions.h"
+#include "LocalizedString.h"
+#include "arch/ArchHooks/ArchHooks.h"
 
 //
 // Statistics stuff
 //
-RageTimer			g_LastCheckTimer;
-int					g_iNumVerts;
-int					g_iFPS, g_iVPF, g_iCFPS;
+RageTimer	g_LastCheckTimer;
+int		g_iNumVerts;
+int		g_iFPS, g_iVPF, g_iCFPS;
 
 int RageDisplay::GetFPS() const { return g_iFPS; }
 int RageDisplay::GetVPF() const { return g_iVPF; }
@@ -29,47 +30,49 @@ static int			g_iFramesRenderedSinceLastCheck,
 					g_iNumChecksSinceLastReset;
 static RageTimer g_LastFrameEndedAt( RageZeroTimer );
 
+static int g_iTranslateX = 0, g_iTranslateY = 0, g_iAddWidth = 0, g_iAddHeight = 0;
+
 RageDisplay*		DISPLAY	= NULL;
 
 Preference<bool>  LOG_FPS( "LogFPS", true );
-Preference<bool>  g_fFrameLimitPercent( "FrameLimitPercent", 0.0f );
+Preference<float> g_fFrameLimitPercent( "FrameLimitPercent", 0.0f );
 
-CString RageDisplay::PixelFormatToString( PixelFormat pixfmt )
-{
-	const CString s[NUM_PIX_FORMATS] = {
-		"FMT_RGBA8",
-		"FMT_RGBA4",
-		"FMT_RGB5A1",
-		"FMT_RGB5",
-		"FMT_RGB8",
-		"FMT_PAL" };
-	return s[pixfmt];
+static const char *PixelFormatNames[] = {
+	"RGBA8",
+	"RGBA4",
+	"RGB5A1",
+	"RGB5",
+	"RGB8",
+	"PAL",
+	"BGR8",
+	"A1BGR5",
 };
+XToString( PixelFormat, NUM_PixelFormat );
 
 /* bNeedReloadTextures is set to true if the device was re-created and we need
  * to reload textures.  On failure, an error message is returned. 
  * XXX: the renderer itself should probably be the one to try fallback modes */
-CString RageDisplay::SetVideoMode( VideoModeParams p, bool &bNeedReloadTextures )
+static LocalizedString SETVIDEOMODE_FAILED ( "RageDisplay", "SetVideoMode failed:" );
+RString RageDisplay::SetVideoMode( VideoModeParams p, bool &bNeedReloadTextures )
 {
-	CString err;
+	RString err;
 	err = this->TryVideoMode(p,bNeedReloadTextures);
 	if( err == "" )
-		return CString();
+		return RString();
 	LOG->Trace( "TryVideoMode failed: %s", err.c_str() );
 	
 	// fall back
-	p.windowed = false;
 	if( this->TryVideoMode(p,bNeedReloadTextures) == "" )
-		return CString();
+		return RString();
 	p.bpp = 16;
 	if( this->TryVideoMode(p,bNeedReloadTextures) == "" )
-		return CString();
+		return RString();
 	p.width = 640;
 	p.height = 480;
 	if( this->TryVideoMode(p,bNeedReloadTextures) == "" )
-		return CString();
+		return RString();
 
-	return ssprintf( "SetVideoMode failed: %s", err.c_str() );
+	return SETVIDEOMODE_FAILED.GetValue() + " " + err;
 }
 
 void RageDisplay::ProcessStatsOnFlip()
@@ -79,15 +82,16 @@ void RageDisplay::ProcessStatsOnFlip()
 
 	if( g_LastCheckTimer.PeekDeltaTime() >= 1.0f )	// update stats every 1 sec.
 	{
-		g_LastCheckTimer.GetDeltaTime();
+		float fActualTime = g_LastCheckTimer.GetDeltaTime();
 		g_iNumChecksSinceLastReset++;
-		g_iFPS = g_iFramesRenderedSinceLastCheck;
+		g_iFPS = lrintf( g_iFramesRenderedSinceLastCheck / fActualTime );
 		g_iCFPS = g_iFramesRenderedSinceLastReset / g_iNumChecksSinceLastReset;
-		g_iVPF = g_iVertsRenderedSinceLastCheck / g_iFPS;
+		g_iCFPS = lrintf( g_iCFPS / fActualTime );
+		g_iVPF = g_iVertsRenderedSinceLastCheck / g_iFramesRenderedSinceLastCheck;
 		g_iFramesRenderedSinceLastCheck = g_iVertsRenderedSinceLastCheck = 0;
 		if( LOG_FPS )
 		{
-			CString sStats = GetStats();
+			RString sStats = GetStats();
 			sStats.Replace( "\n", ", " );
 			LOG->Trace( "%s", sStats.c_str() );
 		}
@@ -103,13 +107,18 @@ void RageDisplay::ResetStats()
 	g_LastCheckTimer.GetDeltaTime();
 }
 
-CString RageDisplay::GetStats() const
+RString RageDisplay::GetStats() const
 {
+	RString s;
 	/* If FPS == 0, we don't have stats yet. */
 	if( !GetFPS() )
-		return "-- FPS\n-- av FPS\n-- VPF";
+		s = "-- FPS\n-- av FPS\n-- VPF";
 
-	return ssprintf( "%i FPS\n%i av FPS\n%i VPF", GetFPS(), GetCumFPS(), GetVPF() );
+	s = ssprintf( "%i FPS\n%i av FPS\n%i VPF", GetFPS(), GetCumFPS(), GetVPF() );
+	
+	s += "\n"+this->GetApiDescription();
+	
+	return s;
 }
 
 void RageDisplay::EndFrame()
@@ -198,7 +207,8 @@ void RageDisplay::SetDefaultRenderStates()
 	SetAlphaTest( true );
 	SetBlendMode( BLEND_NORMAL );
 	SetTextureFiltering( true );
-	LoadMenuPerspective(0, SCREEN_CENTER_X, SCREEN_CENTER_Y);	// 0 FOV = ortho
+	SetZBias( 0 );
+	LoadMenuPerspective( 0, 640, 480, 320, 240 ); // 0 FOV = ortho
 	ChangeCentering(0,0,0,0);
 }
 
@@ -349,10 +359,10 @@ public:
 };
 
 
-MatrixStack	g_ProjectionStack;
-MatrixStack	g_ViewStack;
-MatrixStack	g_WorldStack;
-MatrixStack	g_TextureStack;
+static MatrixStack g_ProjectionStack;
+static MatrixStack g_ViewStack;
+static MatrixStack g_WorldStack;
+static MatrixStack g_TextureStack;
 
 const RageMatrix* RageDisplay::GetProjectionTop()
 {
@@ -445,25 +455,19 @@ void RageDisplay::TexturePopMatrix()
 	g_TextureStack.Pop();
 }
 
-void RageDisplay::TextureTranslate( float x, float y, float z )
+void RageDisplay::TextureTranslate( float x, float y )
 {
-	g_TextureStack.TranslateLocal(x, y, z);
+	g_TextureStack.TranslateLocal(x, y, 0);
 }
 
 
-void RageDisplay::LoadMenuPerspective( float fovDegrees, float fVanishPointX, float fVanishPointY )
+void RageDisplay::LoadMenuPerspective( float fovDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY )
 {
-	/* fovDegrees == 0 looks the same as an ortho projection.  However,
-	 * we don't want to mess with the ModelView stack because 
-	 * EnterPerspectiveMode's preserve location feature expectes there 
-	 * not to be any camera transforms.  So, do a true ortho projection
-	 * if fovDegrees == 0.  Perhaps it would be more convenient to keep 
-	 * separate model and view stacks like D3D?
-	 */
+	/* fovDegrees == 0 gives ortho projection. */
 	if( fovDegrees == 0 )
 	{
- 		float left = 0, right = SCREEN_WIDTH, bottom = SCREEN_HEIGHT, top = 0;
-		g_ProjectionStack.LoadMatrix( GetOrthoMatrix(left, right, bottom, top, SCREEN_NEAR, SCREEN_FAR) );
+ 		float left = 0, right = fWidth, bottom = fHeight, top = 0;
+		g_ProjectionStack.LoadMatrix( GetOrthoMatrix(left, right, bottom, top, -1000, +1000) );
  		g_ViewStack.LoadIdentity();
 	}
 	else
@@ -471,29 +475,29 @@ void RageDisplay::LoadMenuPerspective( float fovDegrees, float fVanishPointX, fl
 		CLAMP( fovDegrees, 0.1f, 179.9f );
 		float fovRadians = fovDegrees / 180.f * PI;
 		float theta = fovRadians/2;
-		float fDistCameraFromImage = SCREEN_WIDTH/2 / tanf( theta );
+		float fDistCameraFromImage = fWidth/2 / tanf( theta );
 
-		fVanishPointX = SCALE( fVanishPointX, SCREEN_LEFT, SCREEN_RIGHT, SCREEN_RIGHT, SCREEN_LEFT );
-		fVanishPointY = SCALE( fVanishPointY, SCREEN_TOP, SCREEN_BOTTOM, SCREEN_BOTTOM, SCREEN_TOP );
+		fVanishPointX = SCALE( fVanishPointX, 0, fWidth, fWidth, 0 );
+		fVanishPointY = SCALE( fVanishPointY, 0, fHeight, fHeight, 0 );
 
-		fVanishPointX -= SCREEN_CENTER_X;
-		fVanishPointY -= SCREEN_CENTER_Y;
+		fVanishPointX -= fWidth/2;
+		fVanishPointY -= fHeight/2;
 
 
 		/* It's the caller's responsibility to push first. */
 		g_ProjectionStack.LoadMatrix(
 			GetFrustumMatrix(
-			  (fVanishPointX-SCREEN_WIDTH/2)/fDistCameraFromImage,
-			  (fVanishPointX+SCREEN_WIDTH/2)/fDistCameraFromImage,
-			  (fVanishPointY+SCREEN_HEIGHT/2)/fDistCameraFromImage,
-			  (fVanishPointY-SCREEN_HEIGHT/2)/fDistCameraFromImage,
+			  (fVanishPointX-fWidth/2)/fDistCameraFromImage,
+			  (fVanishPointX+fWidth/2)/fDistCameraFromImage,
+			  (fVanishPointY+fHeight/2)/fDistCameraFromImage,
+			  (fVanishPointY-fHeight/2)/fDistCameraFromImage,
 			  1,
 			  fDistCameraFromImage+1000	) );
 
 		g_ViewStack.LoadMatrix( 
 			RageLookAt(
-				-fVanishPointX+SCREEN_CENTER_X, -fVanishPointY+SCREEN_CENTER_Y, fDistCameraFromImage,
-				-fVanishPointX+SCREEN_CENTER_X, -fVanishPointY+SCREEN_CENTER_Y, 0,
+				-fVanishPointX+fWidth/2, -fVanishPointY+fHeight/2, fDistCameraFromImage,
+				-fVanishPointX+fWidth/2, -fVanishPointY+fHeight/2, 0,
 				0.0f, 1.0f, 0.0f) );
 	}
 }
@@ -514,14 +518,15 @@ void RageDisplay::CameraPopMatrix()
 
 /* gluLookAt.  The result is pre-multiplied to the matrix (M = L * M) instead of
  * post-multiplied. */
-void RageDisplay::LoadLookAt(float fov, const RageVector3 &Eye, const RageVector3 &At, const RageVector3 &Up)
+void RageDisplay::LoadLookAt( float fFOV, const RageVector3 &Eye, const RageVector3 &At, const RageVector3 &Up )
 {
-	float aspect = SCREEN_WIDTH/(float)SCREEN_HEIGHT;
-	g_ProjectionStack.LoadMatrix( GetPerspectiveMatrix(fov, aspect, 1, 1000) );
-	/* Flip the Y coordinate, so positive numbers go down. */
-	g_ProjectionStack.Scale(1, -1, 1);
+	float fAspect = GetActualVideoModeParams().fDisplayAspectRatio;
+	g_ProjectionStack.LoadMatrix( GetPerspectiveMatrix(fFOV, fAspect, 1, 1000) );
 
-	g_ViewStack.LoadMatrix(RageLookAt(Eye.x, Eye.y, Eye.z, At.x, At.y, At.z, Up.x, Up.y, Up.z));
+	/* Flip the Y coordinate, so positive numbers go down. */
+	g_ProjectionStack.Scale( 1, -1, 1 );
+
+	g_ViewStack.LoadMatrix( RageLookAt(Eye.x, Eye.y, Eye.z, At.x, At.y, At.z, Up.x, Up.y, Up.z) );
 }
 
 
@@ -548,23 +553,22 @@ RageSurface *RageDisplay::CreateSurfaceFromPixfmt( PixelFormat pixfmt,
 	return surf;
 }
 
-RageDisplay::PixelFormat RageDisplay::FindPixelFormat( 
-	int bpp, int Rmask, int Gmask, int Bmask, int Amask, bool realtime )
+PixelFormat RageDisplay::FindPixelFormat( int iBPP, int iRmask, int iGmask, int iBmask, int iAmask, bool bRealtime )
 {
-	PixelFormatDesc tmp = { bpp, { Rmask, Gmask, Bmask, Amask } };
+	PixelFormatDesc tmp = { iBPP, { iRmask, iGmask, iBmask, iAmask } };
 
-	for(int pixfmt = 0; pixfmt < NUM_PIX_FORMATS; ++pixfmt)
+	FOREACH_ENUM2( PixelFormat, iPixFmt )
 	{
-		const PixelFormatDesc *pf = GetPixelFormatDesc(PixelFormat(pixfmt));
-		if(!SupportsTextureFormat( PixelFormat(pixfmt), realtime ))
+		const PixelFormatDesc *pf = GetPixelFormatDesc( PixelFormat(iPixFmt) );
+		if( !SupportsTextureFormat(PixelFormat(iPixFmt), bRealtime) )
 			continue;
 
-		if(memcmp(pf, &tmp, sizeof(tmp)))
+		if( memcmp(pf, &tmp, sizeof(tmp)) )
 			continue;
-		return PixelFormat(pixfmt);
+		return iPixFmt;
 	}
 
-	return NUM_PIX_FORMATS;
+	return PixelFormat_INVALID;
 }
 	
 /* These convert to OpenGL's coordinate system: -1,-1 is the bottom-left, +1,+1 is the
@@ -595,13 +599,31 @@ RageMatrix RageDisplay::GetFrustumMatrix( float l, float r, float b, float t, fl
 	return m;
 }
 
-void RageDisplay::ChangeCentering( int trans_x, int trans_y, int add_width, int add_height )
+void RageDisplay::ResolutionChanged()
+{
+	/* The centering matrix depends on the resolution. */
+	UpdateCentering();
+}
+
+void RageDisplay::ChangeCentering( int iTranslateX, int iTranslateY, int iAddWidth, int iAddHeight )
+{
+	g_iTranslateX = iTranslateX;
+	g_iTranslateY = iTranslateY;
+	g_iAddWidth = iAddWidth;
+	g_iAddHeight = iAddHeight;
+
+	UpdateCentering();
+}
+
+RageMatrix RageDisplay::GetCenteringMatrix( float fTranslateX, float fTranslateY, float fAddWidth, float fAddHeight ) const
 {
 	// in screen space, left edge = -1, right edge = 1, bottom edge = -1. top edge = 1
-	float fPercentShiftX = 2*trans_x/640.f;
-	float fPercentShiftY = -2*trans_y/480.f;
-	float fPercentScaleX = (640.f+add_width)/640.f;
-	float fPercentScaleY = (480.f+add_height)/480.f;
+	float fWidth = (float) GetActualVideoModeParams().width;
+	float fHeight = (float) GetActualVideoModeParams().height;
+	float fPercentShiftX = SCALE( fTranslateX, 0, fWidth, 0, +2.0f );
+	float fPercentShiftY = SCALE( fTranslateY, 0, fHeight, 0, -2.0f );
+	float fPercentScaleX = SCALE( fAddWidth, 0, fWidth, 1.0f, 2.0f );
+	float fPercentScaleY = SCALE( fAddHeight, 0, fHeight, 1.0f, 2.0f );
 
 	RageMatrix m1;
 	RageMatrix m2;
@@ -615,10 +637,17 @@ void RageDisplay::ChangeCentering( int trans_x, int trans_y, int add_width, int 
 		fPercentScaleX, 
 		fPercentScaleY, 
 		1 );
-	RageMatrixMultiply( &m_Centering, &m1, &m2 );
+	RageMatrix mOut;
+	RageMatrixMultiply( &mOut, &m1, &m2 );
+	return mOut;
 }
 
-bool RageDisplay::SaveScreenshot( CString sPath, GraphicsFileFormat format )
+void RageDisplay::UpdateCentering()
+{
+	m_Centering = GetCenteringMatrix( (float) g_iTranslateX, (float) g_iTranslateY, (float) g_iAddWidth, (float) g_iAddHeight );
+}
+
+bool RageDisplay::SaveScreenshot( RString sPath, GraphicsFileFormat format )
 {
 	RageSurface* surface = this->CreateScreenshot();
 
@@ -628,9 +657,10 @@ bool RageDisplay::SaveScreenshot( CString sPath, GraphicsFileFormat format )
 	if( format != SAVE_LOSSLESS )
 	{
 		/* Maintain the DAR. */
-		int iWidth = lrintf( 640 / GetVideoModeParams().fDisplayAspectRatio );
-		LOG->Trace( "%ix%i -> %ix%i (%.3f)", surface->w, surface->h, 640, iWidth, GetVideoModeParams().fDisplayAspectRatio );
-		RageSurfaceUtils::Zoom( surface, 640, iWidth );
+		ASSERT( GetActualVideoModeParams().fDisplayAspectRatio > 0 );
+		int iHeight = lrintf( 640 / GetActualVideoModeParams().fDisplayAspectRatio );
+		LOG->Trace( "%ix%i -> %ix%i (%.3f)", surface->w, surface->h, 640, iHeight, GetActualVideoModeParams().fDisplayAspectRatio );
+		RageSurfaceUtils::Zoom( surface, 640, iHeight );
 	}
 
 	RageFile out;
@@ -746,24 +776,33 @@ void RageDisplay::FrameLimitBeforeVsync( int iFPS )
 {
 	ASSERT( iFPS != 0 );
 
-	if( g_LastFrameEndedAt.IsZero() )
-		return;
+	int iDelayMicroseconds = 0;
+	if( g_fFrameLimitPercent.Get() > 0.0f && !g_LastFrameEndedAt.IsZero() )
+	{
+		float fFrameTime = g_LastFrameEndedAt.GetDeltaTime();
+		float fExpectedTime = 1.0f / iFPS;
 
-	if( g_fFrameLimitPercent.Get() == 0.0f )
-		return;
+		/* This is typically used to turn some of the delay that would normally
+		 * be waiting for vsync and turn it into a usleep, to make sure we give
+		 * up the CPU.  If we overshoot the sleep, then we'll miss the vsync,
+		 * so allow tweaking the amount of time we expect a frame to take.
+		 * Frame limiting is disabled by setting this to 0. */
+		fExpectedTime *= g_fFrameLimitPercent.Get();
+		float fExtraTime = fExpectedTime - fFrameTime;
 
-	float fFrameTime = g_LastFrameEndedAt.GetDeltaTime();
-	float fExpectedTime = 1.0f / iFPS;
+		iDelayMicroseconds = int(fExtraTime * 1000000);
+	}
 
-	/* This is typically used to turn some of the delay that would normally
-	 * be waiting for vsync and turn it into a usleep, to make sure we give
-	 * up the CPU.  If we overshoot the sleep, then we'll miss the vsync,
-	 * so allow tweaking the amount of time we expect a frame to take.
-	 * Frame limiting is disabled by setting this to 0. */
-	fExpectedTime *= g_fFrameLimitPercent.Get();
-	float fExtraTime = fExpectedTime - fFrameTime;
-	if( fExtraTime > 0 )
-		usleep( int(fExtraTime * 1000000) );
+	if( !HOOKS->AppHasFocus() )
+		iDelayMicroseconds = max( iDelayMicroseconds, 10000 ); // give some time to other processes and threads
+
+#if defined(_WINDOWS)
+	/* In Windows, always explicitly give up a minimum amount of CPU for other threads. */
+	iDelayMicroseconds = max( iDelayMicroseconds, 1000 );
+#endif
+
+	if( iDelayMicroseconds > 0 )
+		usleep( iDelayMicroseconds );
 }
 
 void RageDisplay::FrameLimitAfterVsync()
@@ -784,9 +823,10 @@ void RageCompiledGeometry::Set( const vector<msMesh> &vMeshes, bool bNeedsNormal
 {
 	m_bNeedsNormals = bNeedsNormals;
 
-	m_bNeedsTextureMatrixScale = false;
 	size_t totalVerts = 0;
 	size_t totalTriangles = 0;
+
+	m_bAnyNeedsTextureMatrixScale = false;
 
 	m_vMeshInfo.resize( vMeshes.size() );
 	for( unsigned i=0; i<vMeshes.size(); i++ )
@@ -796,6 +836,7 @@ void RageCompiledGeometry::Set( const vector<msMesh> &vMeshes, bool bNeedsNormal
 		const vector<msTriangle> &Triangles = mesh.Triangles;
 
 		MeshInfo& meshInfo = m_vMeshInfo[i];
+		meshInfo.m_bNeedsTextureMatrixScale = false;
 
 		meshInfo.iVertexStart = totalVerts;
 		meshInfo.iVertexCount = Vertices.size();
@@ -806,8 +847,13 @@ void RageCompiledGeometry::Set( const vector<msMesh> &vMeshes, bool bNeedsNormal
 		totalTriangles += Triangles.size();
 
 		for( unsigned j = 0; j < Vertices.size(); ++j )
+		{
 			if( Vertices[j].TextureMatrixScale.x != 1.0f || Vertices[j].TextureMatrixScale.y != 1.0f )
-				m_bNeedsTextureMatrixScale = true;
+			{
+				meshInfo.m_bNeedsTextureMatrixScale = true;
+				m_bAnyNeedsTextureMatrixScale = true;
+			}
+		}
 	}
 
 	this->Allocate( vMeshes );

@@ -4,24 +4,19 @@
 #include "GameConstantsAndTypes.h"
 #include "RageLog.h"
 #include "GameState.h"
-#include "GameSoundManager.h"
 #include "ThemeManager.h"
 #include "LightsManager.h"
 #include "Game.h"
 #include "ScreenDimensions.h"
 #include "InputEventPlus.h"
-
+#include "LocalizedString.h"
 
 REGISTER_SCREEN_CLASS( ScreenTestLights );
-ScreenTestLights::ScreenTestLights( CString sClassName ) : ScreenWithMenuElements( sClassName )
-{
-	LOG->Trace( "ScreenTestLights::ScreenTestLights()" );
-
-	LIGHTSMAN->SetLightsMode( LIGHTSMODE_TEST_AUTO_CYCLE );
-}
 
 void ScreenTestLights::Init()
 {
+	LIGHTSMAN->SetLightsMode( LIGHTSMODE_TEST_AUTO_CYCLE );
+
 	ScreenWithMenuElements::Init();
 
 	m_textInputs.SetName( "Text" );
@@ -40,7 +35,10 @@ ScreenTestLights::~ScreenTestLights()
 	LOG->Trace( "ScreenTestLights::~ScreenTestLights()" );
 }
 
-
+static LocalizedString AUTO_CYCLE	( "ScreenTestLights", "Auto Cycle" );
+static LocalizedString MANUAL_CYCLE	( "ScreenTestLights", "Manual Cycle" );
+static LocalizedString CABINET_LIGHT( "ScreenTestLights", "cabinet light" );
+static LocalizedString CONTROLLER_LIGHT( "ScreenTestLights", "controller light" );
 void ScreenTestLights::Update( float fDeltaTime )
 {
 	Screen::Update( fDeltaTime );
@@ -58,31 +56,32 @@ void ScreenTestLights::Update( float fDeltaTime )
 	GameButton gb;
 	LIGHTSMAN->GetFirstLitGameButtonLight( gc, gb );
 
-	CString s;
+	RString s;
 
 	switch( LIGHTSMAN->GetLightsMode() )
 	{
 	case LIGHTSMODE_TEST_AUTO_CYCLE:
-		s += "Auto Cycle\n";
+		s += AUTO_CYCLE.GetValue()+"\n";
 		break;
 	case LIGHTSMODE_TEST_MANUAL_CYCLE:
-		s += "Manual Cycle\n";
+		s += MANUAL_CYCLE.GetValue()+"\n";
 		break;
 	}
 
 	if( cl == LIGHT_INVALID )
-		s += "cabinet light: -----\n";
+		s += CABINET_LIGHT.GetValue()+": -----\n";
 	else
-		s += ssprintf( "cabinet light: %d %s\n", cl, CabinetLightToString(cl).c_str() );
+		s += ssprintf( CABINET_LIGHT.GetValue()+": %d %s\n", cl, CabinetLightToString(cl).c_str() );
 
 	if( gc == GAME_CONTROLLER_INVALID )
 	{
-		s += ssprintf( "controller light: -----\n" );
+		s += ssprintf( CONTROLLER_LIGHT.GetValue()+": -----\n" );
 	}
 	else
 	{
-		CString sGameButton = GAMESTATE->GetCurrentGame()->m_szButtonNames[gb];
-		s += ssprintf( "controller light: P%d %d %s\n", gc+1, gb, sGameButton.c_str() );
+		RString sGameButton = GameButtonToLocalizedString( GAMESTATE->GetCurrentGame(), gb );
+		PlayerNumber pn = (PlayerNumber)(gc+1);
+		s += ssprintf( CONTROLLER_LIGHT.GetValue()+": %s %d %s\n", PlayerNumberToString(pn).c_str(), gb, sGameButton.c_str() );
 	}
 
 	m_textInputs.SetText( s );
@@ -99,12 +98,8 @@ void ScreenTestLights::Input( const InputEventPlus &input )
 
 void ScreenTestLights::HandleScreenMessage( const ScreenMessage SM )
 {
-	switch( SM )
-	{
-	case SM_LoseFocus:
+	if( SM == SM_LoseFocus )
 		LIGHTSMAN->SetLightsMode( LIGHTSMODE_MENU );
-		break;
-	}
 }
 
 void ScreenTestLights::MenuLeft( PlayerNumber pn )
@@ -138,7 +133,7 @@ void ScreenTestLights::MenuBack( PlayerNumber pn )
 	{
 		SCREENMAN->PlayStartSound();
 		OFF_COMMAND( m_textInputs );
-		StartTransitioning( SM_GoToPrevScreen );		
+		StartTransitioningScreen( SM_GoToPrevScreen );		
 	}
 }
 

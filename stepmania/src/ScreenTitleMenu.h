@@ -8,13 +8,13 @@
 class ScreenTitleMenu : public ScreenSelectMaster
 {
 public:
-	ScreenTitleMenu( CString sName );
+	ScreenTitleMenu();
 	virtual void Init();
 	virtual ~ScreenTitleMenu();
 
 	virtual void Input( const InputEventPlus &input );
 
-	virtual void HandleMessage( const CString& sMessage );
+	virtual void HandleMessage( const RString& sMessage );
 
 protected:
 	RageSound			m_soundSelectPressed;

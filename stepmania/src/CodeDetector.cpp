@@ -9,10 +9,9 @@
 #include "Game.h"
 #include "Style.h"
 #include "RageUtil.h"
-#include "PrefsManager.h"
 #include "PlayerState.h"
 
-const CString CodeNames[] = {
+const char *CodeNames[] = {
 	"Easier1",
 	"Easier2",
 	"Harder1",
@@ -46,8 +45,6 @@ const CString CodeNames[] = {
 	"NextTheme2",
 	"NextAnnouncer",
 	"NextAnnouncer2",
-	"NextGame",
-	"NextGame2",
 	"NextBannerGroup",
 	"NextBannerGroup2",
 	"SaveScreenshot1",
@@ -92,15 +89,15 @@ bool CodeItem::EnteredCode( GameController controller ) const
 	}
 }
 
-bool CodeItem::Load( CString sButtonsNames )
+bool CodeItem::Load( RString sButtonsNames )
 {
 	buttons.clear();
 
 	const Game* pGame = GAMESTATE->GetCurrentGame();
-	CStringArray asButtonNames;
+	vector<RString> asButtonNames;
 
-	bool bHasAPlus = sButtonsNames.Find( '+' ) != -1;
-	bool bHasADash = sButtonsNames.Find( '-' ) != -1;
+	bool bHasAPlus = sButtonsNames.find( '+' ) != string::npos;
+	bool bHasADash = sButtonsNames.find( '-' ) != string::npos;
 
 	if( bHasAPlus )
 	{
@@ -127,7 +124,7 @@ bool CodeItem::Load( CString sButtonsNames )
 
 	for( unsigned i=0; i<asButtonNames.size(); i++ )	// for each button in this code
 	{
-		const CString sButtonName = asButtonNames[i];
+		const RString sButtonName = asButtonNames[i];
 
 		// Search for the corresponding GameButton
 		const GameButton gb = pGame->ButtonNameToIndex( sButtonName );
@@ -169,15 +166,15 @@ bool CodeDetector::EnteredCode( GameController controller, Code code )
 }
 
 
-void CodeDetector::RefreshCacheItems( CString sClass )
+void CodeDetector::RefreshCacheItems( RString sClass )
 {
 	if( sClass == "" )
 		sClass = "CodeDetector";
 	FOREACH_Code( c )
 	{
 		CodeItem& item = g_CodeItems[c];
-		const CString sCodeName = CodeToString(c);
-		const CString sButtonsNames = THEME->GetMetric(sClass,sCodeName);
+		const RString sCodeName = CodeToString(c);
+		const RString sButtonsNames = THEME->GetMetric(sClass,sCodeName);
 
 		item.Load( sButtonsNames );
 	}
@@ -236,29 +233,26 @@ bool CodeDetector::DetectAndAdjustMusicOptions( GameController controller )
 		{
 			switch( code )
 			{
-			case CODE_MIRROR:					po.ToggleOneTurn( PlayerOptions::TURN_MIRROR );		break;
-			case CODE_LEFT:						po.ToggleOneTurn( PlayerOptions::TURN_LEFT );		break;
-			case CODE_RIGHT:					po.ToggleOneTurn( PlayerOptions::TURN_RIGHT );		break;
-			case CODE_SHUFFLE:					po.ToggleOneTurn( PlayerOptions::TURN_SHUFFLE );	break;
-			case CODE_SUPER_SHUFFLE:			po.ToggleOneTurn( PlayerOptions::TURN_SUPER_SHUFFLE );	break;
-			case CODE_NEXT_TRANSFORM:			po.NextTransform();									break;
+			case CODE_MIRROR:			po.ToggleOneTurn( PlayerOptions::TURN_MIRROR );		break;
+			case CODE_LEFT:				po.ToggleOneTurn( PlayerOptions::TURN_LEFT );		break;
+			case CODE_RIGHT:			po.ToggleOneTurn( PlayerOptions::TURN_RIGHT );		break;
+			case CODE_SHUFFLE:			po.ToggleOneTurn( PlayerOptions::TURN_SHUFFLE );	break;
+			case CODE_SUPER_SHUFFLE:		po.ToggleOneTurn( PlayerOptions::TURN_SUPER_SHUFFLE );	break;
+			case CODE_NEXT_TRANSFORM:		po.NextTransform();					break;
 			case CODE_NEXT_SCROLL_SPEED:		INCREMENT_SCROLL_SPEED( po.m_fScrollSpeed );		break;
-			case CODE_PREVIOUS_SCROLL_SPEED:	DECREMENT_SCROLL_SPEED( po.m_fScrollSpeed );	break;
-			case CODE_NEXT_ACCEL:				po.NextAccel();										break;
-			case CODE_NEXT_EFFECT:				po.NextEffect();									break;
-			case CODE_NEXT_APPEARANCE:			po.NextAppearance();								break;
-			case CODE_NEXT_TURN:				po.NextTurn();										break;
-			case CODE_REVERSE:					po.NextScroll();									break;
-			case CODE_HOLDS:					TOGGLE( po.m_bTransforms[PlayerOptions::TRANSFORM_NOHOLDS], true, false );				break;
-			case CODE_MINES:					TOGGLE( po.m_bTransforms[PlayerOptions::TRANSFORM_NOMINES], true, false );					break;
-			case CODE_DARK:						FLOAT_TOGGLE( po.m_fDark );							break;
-			case CODE_CANCEL_ALL:				po.Init();
-												po.FromString( PREFSMAN->m_sDefaultModifiers );		break;
-			case CODE_HIDDEN:					TOGGLE_HIDDEN; break;
-			case CODE_RANDOMVANISH:				TOGGLE_RANDOMVANISH; break;
-				
-				// po.SetOneAppearance(po.GetFirstAppearance()); break;
-			default: ;
+			case CODE_PREVIOUS_SCROLL_SPEED:	DECREMENT_SCROLL_SPEED( po.m_fScrollSpeed );		break;
+			case CODE_NEXT_ACCEL:			po.NextAccel();						break;
+			case CODE_NEXT_EFFECT:			po.NextEffect();					break;
+			case CODE_NEXT_APPEARANCE:		po.NextAppearance();					break;
+			case CODE_NEXT_TURN:			po.NextTurn();						break;
+			case CODE_REVERSE:			po.NextScroll();					break;
+			case CODE_HOLDS:			TOGGLE( po.m_bTransforms[PlayerOptions::TRANSFORM_NOHOLDS], true, false );	break;
+			case CODE_MINES:			TOGGLE( po.m_bTransforms[PlayerOptions::TRANSFORM_NOMINES], true, false );	break;
+			case CODE_DARK:				FLOAT_TOGGLE( po.m_fDark );				break;
+			case CODE_CANCEL_ALL:			GAMESTATE->GetDefaultPlayerOptions( po );		break;
+			case CODE_HIDDEN:			TOGGLE_HIDDEN;						break;
+			case CODE_RANDOMVANISH:			TOGGLE_RANDOMVANISH;					break;
+			default:	break;
 			}
 			return true;	// don't check any more
 		}

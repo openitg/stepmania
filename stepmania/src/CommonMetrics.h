@@ -7,33 +7,37 @@
 #include "PlayerNumber.h"
 #include "Difficulty.h"
 #include "GameConstantsAndTypes.h"
+#include "LocalizedString.h"
 
 
 //
 // Types
 //
-class ThemeMetricDifficultiesToShow : ThemeMetric<CString>
+class ThemeMetricDifficultiesToShow : public ThemeMetric<RString>
 {
 public:
-	ThemeMetricDifficultiesToShow( const CString& sGroup, const CString& sName );
+	ThemeMetricDifficultiesToShow() { }
+	ThemeMetricDifficultiesToShow( const RString& sGroup, const RString& sName );
 	void Read();
 	const vector<Difficulty> &GetValue();
 private:
 	vector<Difficulty> m_v;
 };
-class ThemeMetricCourseDifficultiesToShow : ThemeMetric<CString>
+class ThemeMetricCourseDifficultiesToShow : public ThemeMetric<RString>
 {
 public:
-	ThemeMetricCourseDifficultiesToShow( const CString& sGroup, const CString& sName );
+	ThemeMetricCourseDifficultiesToShow() { }
+	ThemeMetricCourseDifficultiesToShow( const RString& sGroup, const RString& sName );
 	void Read();
 	const vector<CourseDifficulty> &GetValue();
 private:
 	vector<CourseDifficulty> m_v;
 };
-class ThemeMetricStepsTypesToShow : ThemeMetric<CString>
+class ThemeMetricStepsTypesToShow : public ThemeMetric<RString>
 {
 public:
-	ThemeMetricStepsTypesToShow( const CString& sGroup, const CString& sName );
+	ThemeMetricStepsTypesToShow() { }
+	ThemeMetricStepsTypesToShow( const RString& sGroup, const RString& sName );
 	void Read();
 	const vector<StepsType> &GetValue();
 private:
@@ -44,20 +48,22 @@ private:
 //
 // Metrics
 //
-extern ThemeMetric<CString>		INITIAL_SCREEN;
-extern ThemeMetric<CString>		FIRST_ATTRACT_SCREEN;
-extern ThemeMetric<CString>		DEFAULT_MODIFIERS;
-extern ThemeMetric<CString>		DEFAULT_CPU_MODIFIERS;
-extern ThemeMetric1D<apActorCommands> PLAYER_COLOR;
-extern ThemeMetric<CString>		WINDOW_TITLE;
-extern ThemeMetric<int>			MAX_COURSE_ENTRIES_BEFORE_VARIOUS;
-extern ThemeMetric<float>		TICK_EARLY_SECONDS;
-extern ThemeMetricDifficultiesToShow		DIFFICULTIES_TO_SHOW;
-extern ThemeMetricCourseDifficultiesToShow	COURSE_DIFFICULTIES_TO_SHOW;
-extern ThemeMetricStepsTypesToShow			STEPS_TYPES_TO_SHOW;
+namespace CommonMetrics
+{
+	extern ThemeMetric<RString>					INITIAL_SCREEN;
+	extern ThemeMetric<RString>					FIRST_ATTRACT_SCREEN;
+	extern ThemeMetric<RString>					DEFAULT_MODIFIERS;
+	extern ThemeMetric<RString>					DEFAULT_CPU_MODIFIERS;
+	extern ThemeMetric1D<apActorCommands>		PLAYER_COLOR;
+	extern LocalizedString						WINDOW_TITLE;
+	extern ThemeMetric<int>						MAX_COURSE_ENTRIES_BEFORE_VARIOUS;
+	extern ThemeMetric<float>					TICK_EARLY_SECONDS;
+	extern ThemeMetricDifficultiesToShow		DIFFICULTIES_TO_SHOW;
+	extern ThemeMetricCourseDifficultiesToShow	COURSE_DIFFICULTIES_TO_SHOW;
+	extern ThemeMetricStepsTypesToShow			STEPS_TYPES_TO_SHOW;
 
-CString THEME_OPTION_ITEM( CString s, bool bOptional );
-
+	RString LocalizeOptionItem( const RString &s, bool bOptional );
+};
 
 #endif
 

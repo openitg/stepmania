@@ -1,6 +1,6 @@
 #include "global.h"
 #include "BitmapText.h"
-#include "IniFile.h"
+#include "XmlFile.h"
 #include "FontManager.h"
 #include "RageLog.h"
 #include "RageException.h"
@@ -11,6 +11,7 @@
 #include "Font.h"
 #include "ActorUtil.h"	// for BeginHandleArgs
 #include "LuaBinding.h"
+#include "Foreach.h"
 
 REGISTER_ACTOR_CLASS( BitmapText )
 
@@ -50,6 +51,7 @@ BitmapText::BitmapText()
 	m_iWrapWidthPixels = -1;
 	m_fMaxWidth = 0;
 	m_fMaxHeight = 0;
+	m_iVertSpacing = 0;
 
 	SetShadowLength( 4 );
 }
@@ -63,6 +65,12 @@ BitmapText::~BitmapText()
 BitmapText::BitmapText( const BitmapText &cpy ):
 	Actor( cpy )
 {
+	m_pFont = NULL;
+	*this = cpy;
+}
+
+BitmapText &BitmapText::operator =( const BitmapText &cpy )
+{
 #define CPY(a) a = cpy.a
 	CPY( m_sText );
 	CPY( m_wTextLines );
@@ -71,27 +79,33 @@ BitmapText::BitmapText( const BitmapText &cpy ):
 	CPY( m_fMaxWidth );
 	CPY( m_fMaxHeight );
 	CPY( m_bRainbow );
+	CPY( m_iVertSpacing );
 	CPY( m_aVertices );
 	CPY( m_pTextures );
 #undef CPY
 
+	if( m_pFont )
+		FONT->UnloadFont( m_pFont );
+	
 	if( cpy.m_pFont != NULL )
 		m_pFont = FONT->CopyFont( cpy.m_pFont );
 	else
 		m_pFont = NULL;
+
+	return *this;
 }
 
-void BitmapText::LoadFromNode( const CString& sDir, const XNode* pNode )
+void BitmapText::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
-	CString sText;
+	RString sText;
 	pNode->GetAttrValue( "Text", sText );
-	CString sAltText;
+	RString sAltText;
 	pNode->GetAttrValue( "AltText", sAltText );
 
 	ThemeManager::EvaluateString( sText );
 	ThemeManager::EvaluateString( sAltText );
 
-	CString sFont;
+	RString sFont;
 	pNode->GetAttrValue( "Font", sFont );
 	if( sFont.empty() )
 		pNode->GetAttrValue("File", sFont );	// accept "File" for backward compatibility
@@ -108,7 +122,7 @@ void BitmapText::LoadFromNode( const CString& sDir, const XNode* pNode )
 }
 
 
-bool BitmapText::LoadFromFont( const CString& sFontFilePath )
+bool BitmapText::LoadFromFont( const RString& sFontFilePath )
 {
 	CHECKPOINT_M( ssprintf("BitmapText::LoadFromFont(%s)", sFontFilePath.c_str()) );
 
@@ -126,7 +140,7 @@ bool BitmapText::LoadFromFont( const CString& sFontFilePath )
 }
 
 
-bool BitmapText::LoadFromTextureAndChars( const CString& sTexturePath, const CString& sChars )
+bool BitmapText::LoadFromTextureAndChars( const RString& sTexturePath, const RString& sChars )
 {
 	CHECKPOINT_M( ssprintf("BitmapText::LoadFromTextureAndChars(\"%s\",\"%s\")", sTexturePath.c_str(), sChars.c_str()) );
 
@@ -166,56 +180,61 @@ void BitmapText::BuildChars()
 		return;
 
 	m_size.y = float(m_pFont->GetHeight() * m_wTextLines.size());
-	int MinSpacing = 0;
 
 	/* The height (from the origin to the baseline): */
-	int Padding = max(m_pFont->GetLineSpacing(), MinSpacing) - m_pFont->GetHeight();
+	int iPadding = m_pFont->GetLineSpacing() - m_pFont->GetHeight();
+	iPadding += m_iVertSpacing;
 
 	/* There's padding between every line: */
-	m_size.y += Padding * (m_wTextLines.size()-1);
+	m_size.y += iPadding * int(m_wTextLines.size()-1);
 
 	int iY;	//	 the top position of the first row of characters
 	switch( m_VertAlign )
 	{
 	case align_top:		iY = 0;					break;
 	case align_middle:	iY = -(int)roundf(m_size.y/2.0f);	break;
-	case align_bottom:	iY = -(int)m_size.y;	break;
-	default:			ASSERT( false );		return;
+	case align_bottom:	iY = -(int)m_size.y;			break;
+	default:		ASSERT( false );
 	}
 
 	for( unsigned i=0; i<m_wTextLines.size(); i++ )		// foreach line
 	{
 		iY += m_pFont->GetHeight();
 
-		const wstring &szLine = m_wTextLines[i];
+		wstring sLine = m_wTextLines[i];
+		if( m_pFont->IsRightToLeft() )
+			reverse( sLine.begin(), sLine.end() );
 		const int iLineWidth = m_iLineWidths[i];
 		
 		int iX;
 		switch( m_HorizAlign )
 		{
-		case align_left:	iX = 0;				break;
+		case align_left:	iX = 0;					break;
 		case align_center:	iX = -(int)roundf(iLineWidth/2.0f);	break;
-		case align_right:	iX = -iLineWidth;	break;
-		default:			ASSERT( false );	return;
+		case align_right:	iX = -iLineWidth;			break;
+		default:		ASSERT( false );
 		}
 
-		for( unsigned j=0; j<szLine.size(); j++ )	// for each character in the line
+		for( unsigned i = 0; i < sLine.size(); ++i )
 		{
 			RageSpriteVertex v[4];
-			const glyph &g = m_pFont->GetGlyph(szLine[j]);
+			const glyph &g = m_pFont->GetGlyph( sLine[i] );
+
+			if( m_pFont->IsRightToLeft() )
+				iX -= g.m_iHadvance;
 
 			/* set vertex positions */
-			v[0].p = RageVector3( iX+g.m_fHshift,				iY+g.m_pPage->m_fVshift,		  0 );	// top left
-			v[1].p = RageVector3( iX+g.m_fHshift,				iY+g.m_pPage->m_fVshift+g.m_fHeight, 0 );	// bottom left
-			v[2].p = RageVector3( iX+g.m_fHshift+g.m_fWidth,	iY+g.m_pPage->m_fVshift+g.m_fHeight, 0 );	// bottom right
-			v[3].p = RageVector3( iX+g.m_fHshift+g.m_fWidth,	iY+g.m_pPage->m_fVshift,		  0 );	// top right
+			v[0].p = RageVector3( iX+g.m_fHshift,			iY+g.m_pPage->m_fVshift,		0 );	// top left
+			v[1].p = RageVector3( iX+g.m_fHshift,			iY+g.m_pPage->m_fVshift+g.m_fHeight,	0 );	// bottom left
+			v[2].p = RageVector3( iX+g.m_fHshift+g.m_fWidth,	iY+g.m_pPage->m_fVshift+g.m_fHeight,	0 );	// bottom right
+			v[3].p = RageVector3( iX+g.m_fHshift+g.m_fWidth,	iY+g.m_pPage->m_fVshift,		0 );	// top right
 
 			/* Advance the cursor. */
 			iX += g.m_iHadvance;
 
 			/* set texture coordinates */
-			v[0].t = RageVector2( g.m_TexRect.left,	g.m_TexRect.top );
-			v[1].t = RageVector2( g.m_TexRect.left,	g.m_TexRect.bottom );
+			v[0].t = RageVector2( g.m_TexRect.left,		g.m_TexRect.top );
+			v[1].t = RageVector2( g.m_TexRect.left,		g.m_TexRect.bottom );
 			v[2].t = RageVector2( g.m_TexRect.right,	g.m_TexRect.bottom );
 			v[3].t = RageVector2( g.m_TexRect.right,	g.m_TexRect.top );
 
@@ -224,7 +243,7 @@ void BitmapText::BuildChars()
 		}
 
 		/* The amount of padding a line needs: */
-		iY += Padding;
+		iY += iPadding;
 	}
 }
 
@@ -308,7 +327,7 @@ void BitmapText::DrawChars()
 		while( end < iEndGlyph && m_pTextures[end] == m_pTextures[start] )
 			end++;
 		DISPLAY->ClearAllTextures();
-		DISPLAY->SetTexture( 0, m_pTextures[start] );
+		DISPLAY->SetTexture( TextureUnit_1, m_pTextures[start] );
 		// don't bother setting texture render states for text.  We never go outside of 0..1.
 		//Actor::SetTextureRenderStates();
 		RageSpriteVertex &start_vertex = m_aVertices[start*4];
@@ -322,11 +341,11 @@ void BitmapText::DrawChars()
 /* sText is UTF-8.  If not all of the characters in sText are available in the
  * font, sAlternateText will be used instead.  If there are unavailable characters
  * in sAlternateText, too, just use sText. */
-void BitmapText::SetText( const CString& _sText, const CString& _sAlternateText, int iWrapWidthPixels )
+void BitmapText::SetText( const RString& _sText, const RString& _sAlternateText, int iWrapWidthPixels )
 {
 	ASSERT( m_pFont );
 
-	CString sNewText = StringWillUseAlternate(_sText,_sAlternateText) ? _sAlternateText : _sText;
+	RString sNewText = StringWillUseAlternate(_sText,_sAlternateText) ? _sAlternateText : _sText;
 
 	if( iWrapWidthPixels == -1 )	// wrap not specified
 		iWrapWidthPixels = m_iWrapWidthPixels;
@@ -343,7 +362,7 @@ void BitmapText::SetText( const CString& _sText, const CString& _sAlternateText,
 
 	if( iWrapWidthPixels == -1 )
 	{
-		split( CStringToWstring(m_sText), L"\n", m_wTextLines, false );
+		split( RStringToWstring(m_sText), L"\n", m_wTextLines, false );
 	}
 	else
 	{
@@ -355,21 +374,21 @@ void BitmapText::SetText( const CString& _sText, const CString& _sAlternateText,
 		/* It doesn't.  I can add Japanese wrapping, at least.  We could handle hyphens
 		 * and soft hyphens and pretty easily, too. -glenn */
 		// TODO: Move this wrapping logic into Font
-		CStringArray asLines;
+		vector<RString> asLines;
 		split( m_sText, "\n", asLines, false );
 
 		for( unsigned line = 0; line < asLines.size(); ++line )
 		{
-			CStringArray asWords;
+			vector<RString> asWords;
 			split( asLines[line], " ", asWords );
 
-			CString sCurLine;
+			RString sCurLine;
 			int iCurLineWidth = 0;
 
 			for( unsigned i=0; i<asWords.size(); i++ )
 			{
-				const CString &sWord = asWords[i];
-				int iWidthWord = m_pFont->GetLineWidthInSourcePixels( CStringToWstring(sWord) );
+				const RString &sWord = asWords[i];
+				int iWidthWord = m_pFont->GetLineWidthInSourcePixels( RStringToWstring(sWord) );
 
 				if( sCurLine.empty() )
 				{
@@ -378,7 +397,7 @@ void BitmapText::SetText( const CString& _sText, const CString& _sAlternateText,
 					continue;
 				}
 
-				CString sToAdd = " " + sWord;
+				RString sToAdd = " " + sWord;
 				int iWidthToAdd = m_pFont->GetLineWidthInSourcePixels(L" ") + iWidthWord;
 				if( iCurLineWidth + iWidthToAdd <= iWrapWidthPixels )	// will fit on current line
 				{
@@ -387,17 +406,23 @@ void BitmapText::SetText( const CString& _sText, const CString& _sAlternateText,
 				}
 				else
 				{
-					m_wTextLines.push_back( CStringToWstring(sCurLine) );
+					m_wTextLines.push_back( RStringToWstring(sCurLine) );
 					sCurLine = sWord;
 					iCurLineWidth = iWidthWord;
 				}
 			}
-			m_wTextLines.push_back( CStringToWstring(sCurLine) );
+			m_wTextLines.push_back( RStringToWstring(sCurLine) );
 		}
 	}
 
 	BuildChars();
 	UpdateBaseZoom();
+}
+
+void BitmapText::SetVertSpacing( int iSpacing )
+{
+	m_iVertSpacing = iSpacing;
+	BuildChars();
 }
 
 void BitmapText::SetMaxWidth( float fMaxWidth )
@@ -445,7 +470,7 @@ void BitmapText::UpdateBaseZoom()
 	}
 }
 
-bool BitmapText::StringWillUseAlternate( const CString& sText, const CString& sAlternateText ) const
+bool BitmapText::StringWillUseAlternate( const RString& sText, const RString& sAlternateText ) const
 {
 	ASSERT( m_pFont );
 
@@ -454,11 +479,11 @@ bool BitmapText::StringWillUseAlternate( const CString& sText, const CString& sA
 		return false;
 
 	/* False if the alternate isn't needed. */
-	if( m_pFont->FontCompleteForString(CStringToWstring(sText)) )
+	if( m_pFont->FontCompleteForString(RStringToWstring(sText)) )
 		return false;
 
 	/* False if the alternate is also incomplete. */
-	if( !m_pFont->FontCompleteForString(CStringToWstring(sAlternateText)) )
+	if( !m_pFont->FontCompleteForString(RStringToWstring(sAlternateText)) )
 		return false;
 
 	return true;
@@ -581,11 +606,11 @@ ColorBitmapText::ColorBitmapText( ) : BitmapText()
 	m_vColors.clear();
 }
 
-void ColorBitmapText::SetText( const CString& _sText, const CString& _sAlternateText, int iWrapWidthPixels )
+void ColorBitmapText::SetText( const RString& _sText, const RString& _sAlternateText, int iWrapWidthPixels )
 {
 	ASSERT( m_pFont );
 
-	CString sNewText = StringWillUseAlternate(_sText,_sAlternateText) ? _sAlternateText : _sText;
+	RString sNewText = StringWillUseAlternate(_sText,_sAlternateText) ? _sAlternateText : _sText;
 
 	if( iWrapWidthPixels == -1 )	// wrap not specified
 		iWrapWidthPixels = m_iWrapWidthPixels;
@@ -604,10 +629,10 @@ void ColorBitmapText::SetText( const CString& _sText, const CString& _sAlternate
 
 	m_wTextLines.clear();
 
-	CString sCurrentLine = "";
+	RString sCurrentLine = "";
 	int		iLineWidth = 0;
 
-	CString sCurrentWord = "";
+	RString sCurrentWord = "";
 	int		iWordWidth = 0;
 	int		iGlyphsSoFar = 0;
 
@@ -617,7 +642,7 @@ void ColorBitmapText::SetText( const CString& _sText, const CString& _sAlternate
 
 		// First: Check for the special (color) case.
 
-		CString FirstThree = m_sText.substr( i, 3 );
+		RString FirstThree = m_sText.substr( i, 3 );
 		if( FirstThree.CompareNoCase("|c0") == 0 && iCharsLeft > 8 )
 		{
 			ColorChange change;
@@ -635,9 +660,9 @@ void ColorBitmapText::SetText( const CString& _sText, const CString& _sAlternate
 			continue;
 		}
 
-		CString curCStr = m_sText.substr( i, 1 );
+		RString curCStr = m_sText.substr( i, 1 );
 		char curChar = curCStr.c_str()[0];
-		int iCharLen = m_pFont->GetLineWidthInSourcePixels( CStringToWstring( curCStr ) );
+		int iCharLen = m_pFont->GetLineWidthInSourcePixels( RStringToWstring( curCStr ) );
 
 		switch( curChar )
 		{
@@ -656,7 +681,7 @@ void ColorBitmapText::SetText( const CString& _sText, const CString& _sAlternate
 				SimpleAddLine( sCurrentLine, iLineWidth );
 				if( iWordWidth > 0 )
 					iLineWidth = iWordWidth +	//Add the width of a space
-						m_pFont->GetLineWidthInSourcePixels( CStringToWstring( " " ) );
+						m_pFont->GetLineWidthInSourcePixels( RStringToWstring( " " ) );
 				sCurrentLine = sCurrentWord + " ";
 				iWordWidth = 0;
 				sCurrentWord = "";
@@ -706,9 +731,9 @@ void ColorBitmapText::SetText( const CString& _sText, const CString& _sAlternate
 	UpdateBaseZoom();
 }
 
-void ColorBitmapText::SimpleAddLine( const CString &sAddition, const int iWidthPixels) 
+void ColorBitmapText::SimpleAddLine( const RString &sAddition, const int iWidthPixels) 
 {
-	m_wTextLines.push_back( CStringToWstring( sAddition ) );
+	m_wTextLines.push_back( RStringToWstring( sAddition ) );
 	m_iLineWidths.push_back( iWidthPixels );
 }
 
@@ -770,7 +795,6 @@ void ColorBitmapText::DrawPrimitives( )
 			m_aVertices[i].c = m_pTempState->glow;
 		DrawChars();
 	}
-	Actor::DrawPrimitives();
 }
 
 void ColorBitmapText::SetMaxLines( int iNumLines, int iDirection )
@@ -833,9 +857,10 @@ public:
 	static int wrapwidthpixels( T* p, lua_State *L )	{ p->SetWrapWidthPixels( IArg(1) ); return 0; }
 	static int maxwidth( T* p, lua_State *L )			{ p->SetMaxWidth( FArg(1) ); return 0; }
 	static int maxheight( T* p, lua_State *L )			{ p->SetMaxHeight( FArg(1) ); return 0; }
+	static int vertspacing( T* p, lua_State *L )			{ p->SetVertSpacing( IArg(1) ); return 0; }
 	static int settext( T* p, lua_State *L )
 	{
-		CString s = SArg(1);
+		RString s = SArg(1);
 		// XXX: Lua strings should simply use "\n" natively.  However, some
 		// settext calls may be made from GetMetric() calls to other strings,
 		// and it's confusing for :: to work in some strings and not others.
@@ -853,6 +878,7 @@ public:
 		ADD_METHOD( wrapwidthpixels );
 		ADD_METHOD( maxwidth );
 		ADD_METHOD( maxheight );
+		ADD_METHOD( vertspacing );
 		ADD_METHOD( settext );
 		ADD_METHOD( GetText );
 		Luna<T>::Register( L );

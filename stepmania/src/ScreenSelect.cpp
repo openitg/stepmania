@@ -11,28 +11,21 @@
 #include "Command.h"
 #include "InputEventPlus.h"
 
-#define CHOICE_NAMES			THEME->GetMetric (m_sName,"ChoiceNames")
-#define CHOICE( s )				THEME->GetMetricM(m_sName,ssprintf("Choice%s",s.c_str()))
-#define CODE_NAMES				THEME->GetMetric (m_sName,"CodeNames")
-#define CODE( s )				THEME->GetMetric (m_sName,ssprintf("Code%s",s.c_str()))
-#define CODE_ACTION( s )		THEME->GetMetricM(m_sName,ssprintf("Code%sAction",s.c_str()))
-#define IDLE_TIMEOUT_SCREEN		THEME->GetMetric (m_sName,"IdleTimeoutScreen")
-#define UPDATE_ON_MESSAGE		THEME->GetMetric (m_sName,"UpdateOnMessage")
-
-ScreenSelect::ScreenSelect( CString sClassName ) : 
-	ScreenWithMenuElements(sClassName),
-	IDLE_COMMENT_SECONDS(m_sName,"IdleCommentSeconds"),
-	IDLE_TIMEOUT_SECONDS(m_sName,"IdleTimeoutSeconds"),
-	ALLOW_DISABLED_PLAYER_INPUT(m_sName,"AllowDisabledPlayerInput")
-{
-	LOG->Trace( "ScreenSelect::ScreenSelect()" );
-}
+#define CHOICE_NAMES		THEME->GetMetric (m_sName,"ChoiceNames")
+#define CHOICE( s )		THEME->GetMetricM(m_sName,ssprintf("Choice%s",s.c_str()))
+#define CODE_NAMES		THEME->GetMetric (m_sName,"CodeNames")
+#define CODE( s )		THEME->GetMetric (m_sName,ssprintf("Code%s",s.c_str()))
+#define CODE_ACTION( s )	THEME->GetMetricM(m_sName,ssprintf("Code%sAction",s.c_str()))
+#define IDLE_TIMEOUT_SCREEN	THEME->GetMetric (m_sName,"IdleTimeoutScreen")
+#define UPDATE_ON_MESSAGE	THEME->GetMetric (m_sName,"UpdateOnMessage")
 
 void ScreenSelect::Init()
 {
-	ScreenWithMenuElements::Init();
+	IDLE_COMMENT_SECONDS.Load( m_sName, "IdleCommentSeconds" );
+	IDLE_TIMEOUT_SECONDS.Load( m_sName, "IdleTimeoutSeconds" );
+	ALLOW_DISABLED_PLAYER_INPUT.Load( m_sName, "AllowDisabledPlayerInput" );
 
-	m_bTimeToFinalizePlayers = false;
+	ScreenWithMenuElements::Init();
 
 	//
 	// Load messages to update on
@@ -49,14 +42,15 @@ void ScreenSelect::Init()
 		// element in the list is a choice name.  This level of indirection 
 		// makes it easier to add or remove items without having to change a bunch
 		// of indices.
-		CStringArray asChoiceNames;
+		vector<RString> asChoiceNames;
 		split( CHOICE_NAMES, ",", asChoiceNames, true );
 
 		for( unsigned c=0; c<asChoiceNames.size(); c++ )
 		{
-			CString sChoiceName = asChoiceNames[c];
+			RString sChoiceName = asChoiceNames[c];
 
 			GameCommand mc;
+			mc.ApplyCommitsScreens( false );
 			mc.m_sName = sChoiceName;
 			mc.Load( c, CHOICE(sChoiceName) );
 			m_aGameCommands.push_back( mc );
@@ -67,12 +61,12 @@ void ScreenSelect::Init()
 	// Load codes
 	//
 	{
-		CStringArray vsCodeNames;
+		vector<RString> vsCodeNames;
 		split( CODE_NAMES, ",", vsCodeNames, true );
 
 		for( unsigned c=0; c<vsCodeNames.size(); c++ )
 		{
-			CString sCodeName = vsCodeNames[c];
+			RString sCodeName = vsCodeNames[c];
 
 			CodeItem code;
 			if( !code.Load( CODE(sCodeName) ) )
@@ -87,6 +81,16 @@ void ScreenSelect::Init()
 
 	if( !m_aGameCommands.size() )
 		RageException::Throw( "Screen \"%s\" does not set any choices", m_sName.c_str() );
+}
+
+void ScreenSelect::BeginScreen()
+{
+	ScreenWithMenuElements::BeginScreen();
+
+	m_bTimeToFinalizePlayers = false;
+
+	m_timerIdleComment.GetDeltaTime();
+	m_timerIdleTimeout.GetDeltaTime();
 
 	// derived classes can override if they want
 	LIGHTSMAN->SetLightsMode( LIGHTSMODE_MENU );
@@ -196,25 +200,24 @@ void ScreenSelect::HandleScreenMessage( const ScreenMessage SM )
 
 		if( bAllPlayersChoseTheSame )
 		{
-			GameCommand &gc = m_aGameCommands[iMastersIndex];
-			CString sThisScreen = gc.GetAndClearScreen();
-			if( m_sNextScreen == "" )
-				m_sNextScreen = sThisScreen;
-			gc.ApplyToAllPlayers();
+			const GameCommand &gc = m_aGameCommands[iMastersIndex];
+			m_sNextScreen = gc.m_sScreen;
+			if( !gc.m_bInvalid )
+				gc.ApplyToAllPlayers();
 		}
 		else
 		{
 			FOREACH_HumanPlayer( p )
 			{
 				int iIndex = this->GetSelectionIndex(p);
-				GameCommand &gc = m_aGameCommands[iIndex];
-				CString sThisScreen = gc.GetAndClearScreen();
-				if( m_sNextScreen == "" )
-					m_sNextScreen = sThisScreen;
-				gc.Apply( p );
+				const GameCommand &gc = m_aGameCommands[iIndex];
+				m_sNextScreen = gc.m_sScreen;
+				if( !gc.m_bInvalid )
+					gc.Apply( p );
 			}
 		}
 
+		StopTimer();
 
 		SCREENMAN->RefreshCreditsMessages();
 
@@ -231,12 +234,10 @@ void ScreenSelect::HandleScreenMessage( const ScreenMessage SM )
 			}
 		}
 
-		SCREENMAN->ConcurrentlyPrepareScreen( m_sNextScreen );
-	}
-	else if( SM == SM_AllDoneChoosing ) 	/* It's our turn to tween out. */
-	{
 		if( !IsTransitioning() )
-			StartTransitioning( SM_GoToNextScreen );
+			StartTransitioningScreen( SM_GoToNextScreen );
+
+		SCREENMAN->ConcurrentlyPrepareScreen( GetNextScreen() );
 	}
 	else if( SM == SM_GoToNextScreen )
 	{
@@ -249,7 +250,7 @@ void ScreenSelect::HandleScreenMessage( const ScreenMessage SM )
 	Screen::HandleScreenMessage( SM );
 }
 
-void ScreenSelect::HandleMessage( const CString &sMessage )
+void ScreenSelect::HandleMessage( const RString &sMessage )
 {
 	this->UpdateSelectableChoices();
 
@@ -258,8 +259,6 @@ void ScreenSelect::HandleMessage( const CString &sMessage )
 
 void ScreenSelect::MenuBack( PlayerNumber pn )
 {
-	SOUND->StopMusic();
-
 	Cancel( SM_GoToPrevScreen );
 }
 

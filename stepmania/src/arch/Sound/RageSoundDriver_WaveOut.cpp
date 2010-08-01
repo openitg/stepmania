@@ -10,10 +10,10 @@
 #include "RageSound.h"
 #include "RageUtil.h"
 #include "RageSoundManager.h"
+#include "PrefsManager.h"
 
 const int channels = 2;
 const int bytes_per_frame = channels*2;		/* 16-bit */
-const int samplerate = 44100;
 const int buffersize_frames = 1024*8;	/* in frames */
 const int buffersize = buffersize_frames * bytes_per_frame; /* in bytes */
 
@@ -21,14 +21,14 @@ const int num_chunks = 8;
 const int chunksize_frames = buffersize_frames / num_chunks;
 const int chunksize = buffersize / num_chunks; /* in bytes */
 
-static CString wo_ssprintf( MMRESULT err, const char *szFmt, ...)
+static RString wo_ssprintf( MMRESULT err, const char *szFmt, ...)
 {
 	char szBuf[MAXERRORLENGTH];
 	waveOutGetErrorText( err, szBuf, MAXERRORLENGTH );
 
     va_list	va;
     va_start( va, szFmt );
-    CString s = vssprintf( szFmt, va );
+    RString s = vssprintf( szFmt, va );
     va_end( va );
 
 	return s += ssprintf( "(%s)", szBuf );
@@ -106,13 +106,14 @@ RageSound_WaveOut::RageSound_WaveOut()
 	m_hWaveOut = NULL;
 }
 
-CString RageSound_WaveOut::Init()
+RString RageSound_WaveOut::Init()
 {
 	WAVEFORMATEX fmt;
 	fmt.wFormatTag = WAVE_FORMAT_PCM;
     fmt.nChannels = channels;
 	fmt.cbSize = 0;
-	fmt.nSamplesPerSec = samplerate;
+	m_iSampleRate = PREFSMAN->m_iSoundPreferredSampleRate;
+	fmt.nSamplesPerSec = m_iSampleRate;
 	fmt.wBitsPerSample = 16;
 	fmt.nBlockAlign = fmt.nChannels * fmt.wBitsPerSample / 8;
 	fmt.nAvgBytesPerSec = fmt.nSamplesPerSec * fmt.nBlockAlign;
@@ -132,6 +133,8 @@ CString RageSound_WaveOut::Init()
 		m_aBuffers[b].dwFlags |= WHDR_DONE;
 	}
 
+	LOG->Info( "WaveOut software mixing at %i hz", m_iSampleRate );
+
 	/* We have a very large writeahead; make sure we have a large enough decode
 	 * buffer to recover cleanly from underruns. */
 	SetDecodeBufferSize( buffersize_frames * 3/2 );
@@ -140,7 +143,7 @@ CString RageSound_WaveOut::Init()
 	MixingThread.SetName( "Mixer thread" );
 	MixingThread.Create( MixerThread_start, this );
 
-	return CString();
+	return RString();
 }
 
 RageSound_WaveOut::~RageSound_WaveOut()
@@ -173,7 +176,7 @@ float RageSound_WaveOut::GetPlayLatency() const
 {
 	/* If we have a 1000-byte buffer, and we fill 100 bytes at a time, we
 	 * almost always have between 900 and 1000 bytes filled; on average, 950. */
-	return (buffersize_frames - chunksize_frames/2) * (1.0f / samplerate);
+	return (buffersize_frames - chunksize_frames/2) * (1.0f / m_iSampleRate);
 }
 
 /*

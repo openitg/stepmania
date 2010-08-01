@@ -5,6 +5,17 @@
 #include <stdint.h>
 #endif
 
+#ifdef BSD
+#include <sys/param.h>
+#undef ALIGN
+#undef MACHINE
+#if defined(__NetBSD_Version__) && __NetBSD_Version < 299000900
+#define lrintf(x) ((int)rint(x))
+#endif
+#endif
+
+#define HAVE_CRYPTOPP
+
 // XXX: Maybe we should make sure we're using GCC first?
 // But if not, then what DO we use?
 #include "archutils/Common/gcc_byte_swaps.h"

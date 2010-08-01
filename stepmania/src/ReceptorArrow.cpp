@@ -1,78 +1,51 @@
 #include "global.h"
 #include "ReceptorArrow.h"
-#include "PrefsManager.h"
 #include "GameState.h"
-#include "ThemeManager.h"
-#include "NoteFieldPositioning.h"
 #include "NoteSkinManager.h"
 #include "RageLog.h"
 #include "RageUtil.h"
 #include "Game.h"
 #include "PlayerState.h"
 
-// eventually, these will replace the pressblocks
-const CString PRESS_COMMAND_NAME = "Press";
-const CString LIFT_COMMAND_NAME = "Lift";
-
 ReceptorArrow::ReceptorArrow()
 {
 	m_bIsPressed = false;
 	m_bWasPressed = false;
-	StopAnimating();
+	m_bWasReverse = false;
 }
 
-bool ReceptorArrow::Load( const PlayerState* pPlayerState, int iColNo )
+void ReceptorArrow::Load( const PlayerState* pPlayerState, int iColNo )
 {
 	m_pPlayerState = pPlayerState;
 	m_iColNo = iColNo;
 
-	CString sButton = GAMESTATE->GetCurrentGame()->ColToButtonName( iColNo );
+	RString sButton = GAMESTATE->GetCurrentGame()->ColToButtonName( iColNo );
+	m_pReceptor.Load( NOTESKIN->GetPath(sButton,"receptor") );
+	this->AddChild( m_pReceptor );
 
-	m_pReceptorWaiting.Load( NOTESKIN->GetPath(sButton,"receptor waiting") );
-	m_pReceptorGo.Load( NOTESKIN->GetPath(sButton,"receptor go") );
-	FOREACH_TapNoteScore( i )
-	{
-		CString sJudge = TapNoteScoreToString( i );
-		CString sCommand = Capitalize(sJudge)+"Command";
-		m_sScoreCommand[i] = NOTESKIN->GetMetricA(m_sName,sCommand);
-	}
-
-	m_pPressBlock.Load( NOTESKIN->GetPath(sButton,"KeypressBlock") );
-
-	m_pReceptorWaiting->SetEffectClock( Actor::CLOCK_BGM_BEAT );
-	m_pReceptorGo->SetEffectClock( Actor::CLOCK_BGM_BEAT );
-	m_pPressBlock->SetEffectClock( Actor::CLOCK_BGM_BEAT );
-
-	// draw pressblock before receptors
-	this->AddChild( m_pPressBlock );
-	this->AddChild( m_pReceptorWaiting );
-	this->AddChild( m_pReceptorGo );
-	
-	return true;
+	bool bReverse = m_pPlayerState->m_PlayerOptions.GetReversePercentForColumn(m_iColNo) > 0.5f;
+	m_pReceptor->PlayCommand( bReverse? "ReverseOn":"ReverseOff" );
+	m_bWasReverse = bReverse;
 }
 
 void ReceptorArrow::Update( float fDeltaTime )
 {
 	ActorFrame::Update( fDeltaTime );
 
-	// update pressblock alignment based on scroll direction
 	bool bReverse = m_pPlayerState->m_PlayerOptions.GetReversePercentForColumn(m_iColNo) > 0.5f;
-	m_pPressBlock->SetVertAlign( bReverse ? Actor::align_bottom : Actor::align_top );
-
-
-	m_pReceptorGo->SetHidden( !GAMESTATE->m_bPastHereWeGo );
-	m_pReceptorWaiting->SetHidden( GAMESTATE->m_bPastHereWeGo );
-
-	m_pPressBlock->SetHidden( !m_bIsPressed );
+	if( bReverse != m_bWasReverse )
+	{
+		m_pReceptor->PlayCommand( bReverse? "ReverseOn":"ReverseOff" );
+		m_bWasReverse = bReverse;
+	}
 }
 
 void ReceptorArrow::DrawPrimitives()
 {
 	if( m_bWasPressed  &&  !m_bIsPressed )
-	{
-		m_pReceptorGo->PlayCommand( LIFT_COMMAND_NAME );
-		m_pReceptorWaiting->PlayCommand( LIFT_COMMAND_NAME );	
-	}
+		m_pReceptor->PlayCommand( "Lift" );
+	else if( !m_bWasPressed  &&  m_bIsPressed )
+		m_pReceptor->PlayCommand( "Press" );
 
 	m_bWasPressed = m_bIsPressed;
 	m_bIsPressed = false;	// it may get turned back on next update
@@ -84,13 +57,8 @@ void ReceptorArrow::Step( TapNoteScore score )
 {
 	m_bIsPressed = true;
 
-	m_pReceptorGo->FinishTweening();
-	m_pReceptorWaiting->FinishTweening();
-	m_pReceptorGo->RunCommands( *m_sScoreCommand[score] );
-	m_pReceptorWaiting->RunCommands( *m_sScoreCommand[score] );
-
-	m_pReceptorGo->PlayCommand( PRESS_COMMAND_NAME );
-	m_pReceptorWaiting->PlayCommand( PRESS_COMMAND_NAME );	
+	RString sJudge = TapNoteScoreToString( score );
+	m_pReceptor->PlayCommand( Capitalize(sJudge) );
 }
 
 /*

@@ -3,9 +3,9 @@
 #ifndef GET_FILE_INFORMATION_H
 #define GET_FILE_INFORMATION_H
 
-bool GetFileVersion( CString fn, CString &out );
-CString FindSystemFile( CString fn );
-bool GetProcessFileName( uint32_t iProcessID, CString &sName );
+bool GetFileVersion( RString fsFile, RString &sOut );
+RString FindSystemFile( RString sFile );
+bool GetProcessFileName( uint32_t iProcessID, RString &sName );
 
 #endif
 

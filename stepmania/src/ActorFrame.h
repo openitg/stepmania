@@ -12,13 +12,14 @@ public:
 	ActorFrame( const ActorFrame &cpy );
 	virtual ~ActorFrame();
 
-	void LoadFromNode( const CString& sDir, const XNode* pNode );
-	void LoadChildrenFromNode( const CString& sDir, const XNode* pNode );
+	virtual void InitDefaults();
+	virtual void InitState();
+	void LoadFromNode( const RString& sDir, const XNode* pNode );
 	virtual Actor *Copy() const;
 
 	virtual void AddChild( Actor* pActor );
 	virtual void RemoveChild( Actor* pActor );
-	Actor* GetChild( const CString &sName );
+	Actor* GetChild( const RString &sName );
 	int GetNumChildren() const { return m_SubActors.size(); }
 
 	void RemoveAllChildren();
@@ -27,6 +28,7 @@ public:
 	void SortByDrawOrder();
 	void SetDrawByZPosition( bool b );
 
+	virtual bool AutoLoadChildren() const { return false; } // derived classes override to automatically LoadChildrenFromNode
 	void DeleteChildrenWhenDone( bool bDelete=true ) { m_bDeleteChildren = bDelete; }
 	void DeleteAllChildren();
 
@@ -34,16 +36,17 @@ public:
 	// Commands
 	//
 	virtual void PushSelf( lua_State *L );
+	void PlayCommandOnChildren( const RString &sCommandName );
+	void PlayCommandOnLeaves( const RString &sCommandName );
 	virtual void RunCommandsOnChildren( const LuaReference& cmds ); /* but not on self */
 	void RunCommandsOnChildren( const apActorCommands& cmds ) { this->RunCommandsOnChildren( *cmds ); }	// convenience
-	virtual void RunCommandsOnLeaves( const LuaReference& cmds, Actor* pParent ); /* but not on self */
+	virtual void RunCommandsOnLeaves( const LuaReference& cmds, Actor* pParent=NULL ); /* but not on self */
 
 	virtual void UpdateInternal( float fDeltaTime );
 	virtual void ProcessMessages( float fDeltaTime );
 	virtual void DrawPrimitives();
 
 	// propagated commands
-	virtual void Reset();
 	virtual void SetDiffuse( RageColor c );
 	virtual void SetDiffuseAlpha( float f );
 	virtual void SetBaseAlpha( float f );
@@ -54,7 +57,6 @@ public:
 
 	void SetUpdateRate( float fUpdateRate ) { m_fUpdateRate = fUpdateRate; }
 	void SetFOV( float fFOV ) { m_fFOV = fFOV; }
-	void SetSize( float fX, float fY ) { m_size.x = fX; m_size.y = fY; }
 	void SetVanishPoint( float fX, float fY) { m_fVanishX = fX; m_fVanishY = fY; }
 
 	virtual void SetPropagateCommands( bool b );
@@ -62,11 +64,13 @@ public:
 	/* Amount of time until all tweens (and all children's tweens) have stopped: */
 	virtual float GetTweenTimeLeft() const;
 
-	virtual void PlayCommand( const CString &sCommandName, Actor* pParent = NULL );
+	virtual void PlayCommand( const RString &sCommandName, Actor* pParent = NULL );
 	virtual void RunCommands( const LuaReference& cmds, Actor* pParent = NULL );
 	void RunCommands( const apActorCommands& cmds, Actor *pParent = NULL ) { this->RunCommands( *cmds, pParent ); }	// convenience
 
 protected:
+	void LoadChildrenFromNode( const RString& sDir, const XNode* pNode );
+
 	vector<Actor*>	m_SubActors;
 	bool m_bPropagateCommands;
 	bool m_bDeleteChildren;
@@ -77,7 +81,7 @@ protected:
 	float m_fFOV;	// -1 = no change
 	float m_fVanishX;
 	float m_fVanishY;
-	bool m_bOverrideLighting;	// if true, set ligthing to m_bLighting
+	bool m_bOverrideLighting;	// if true, set lighting to m_bLighting
 	bool m_bLighting;
 };
 
@@ -85,12 +89,7 @@ class ActorFrameAutoDeleteChildren : public ActorFrame
 {
 public:
 	ActorFrameAutoDeleteChildren() { DeleteChildrenWhenDone(true); }
-	void LoadFromNode( const CString& sDir, const XNode* pNode )
-	{
-		ActorFrame::LoadFromNode( sDir, pNode );
-
-		LoadChildrenFromNode( sDir, pNode );
-	}
+	virtual bool AutoLoadChildren() const { return true; }
 	virtual Actor *Copy() const;
 };
 

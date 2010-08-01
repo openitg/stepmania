@@ -213,7 +213,7 @@ BOOL CSmlobbyDlg::OnInitDialog()
 	// Find all group directories in "Songs" folder
 	CStringArray arrayGroupDirs;
 	GetDirListing( sDir+"\\*.*", arrayGroupDirs, true );
-	SortCStringArray( arrayGroupDirs );
+	SortRStringArray( arrayGroupDirs );
 	
 	//FILE *fp = fopen("SongHashes.txt","wt");
 	//int k=1000;
@@ -227,7 +227,7 @@ BOOL CSmlobbyDlg::OnInitDialog()
 		// Find all Song folders in this group directory
 		CStringArray arraySongDirs;
 		GetDirListing( ssprintf("%s\\%s\\*.*", sDir, sGroupDirName), arraySongDirs, true );
-		SortCStringArray( arraySongDirs );
+		SortRStringArray( arraySongDirs );
 
 		for( unsigned j=0; j< arraySongDirs.GetSize(); j++ )	// for each song dir
 		{
@@ -349,14 +349,14 @@ bool CSmlobbyDlg::OnIrc_RPL_ENDOFMOTD(const CIrcMessage *pmsg)
 bool CSmlobbyDlg::OnIrc_DDR_GAME_START(const CIrcMessage *pmsg)
 {
 	//incoming::
-	// PRIVMSG <recipient> :<0x01>DDR START
+	// PRIVMSG <recipient> :<0x01>SM START
 
 	//Make sure we have a parameter
 	if ( pmsg->parameters.size() < 1 ) 
 		return false;
 
-	//Make sure it's a DDR start
-	if ( std::string::npos == pmsg->parameters[1].find("\001DDR START") ) 
+	//Make sure it's a SM start
+	if ( std::string::npos == pmsg->parameters[1].find("\001SM START") ) 
 		return false;
 
 	//Get the info for this chat room

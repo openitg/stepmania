@@ -15,7 +15,7 @@ int	Game::GetNumGameplayButtons() const
 	return iIndexOfStart;
 }
 
-GameButton Game::ButtonNameToIndex( const CString &sButtonName ) const
+GameButton Game::ButtonNameToIndex( const RString &sButtonName ) const
 {
 	for( int i=0; i<m_iButtonsPerController; i++ ) 
 		if( stricmp(m_szButtonNames[i], sButtonName) == 0 )
@@ -67,6 +67,7 @@ void Game::MenuInputToGameInput( MenuInput MenuI, GameInput GameIout[4] ) const
 		iNumSidesUsing = 1;
 		break;
 	case ONE_PLAYER_TWO_SIDES:
+	case TWO_PLAYERS_SHARED_SIDES:
 		controller[0] = GAME_CONTROLLER_1;
 		controller[1] = GAME_CONTROLLER_2;
 		iNumSidesUsing = 2;
@@ -88,7 +89,7 @@ void Game::MenuInputToGameInput( MenuInput MenuI, GameInput GameIout[4] ) const
 	}
 }
 
-CString Game::ColToButtonName( int col ) const
+RString Game::ColToButtonName( int col ) const
 {
 	const Style *pStyle = GAMESTATE->GetCurrentStyle();
 	const char *pzColumnName = pStyle->m_ColumnInfo[PLAYER_1][col].pzName;
@@ -105,11 +106,11 @@ TapNoteScore Game::MapTapNoteScore( TapNoteScore tns ) const
 {
 	switch( tns )
 	{
-	case TNS_MARVELOUS: return	m_mapMarvelousTo;
-	case TNS_PERFECT: return m_mapPerfectTo;
-	case TNS_GREAT: return m_mapGreatTo;
-	case TNS_GOOD: return m_mapGoodTo;
-	case TNS_BOO: return m_mapBooTo;
+	case TNS_W1: return m_mapW1To;
+	case TNS_W2: return m_mapW2To;
+	case TNS_W3: return m_mapW3To;
+	case TNS_W4: return m_mapW4To;
+	case TNS_W5: return m_mapW5To;
 	default: return tns;
 	}
 }

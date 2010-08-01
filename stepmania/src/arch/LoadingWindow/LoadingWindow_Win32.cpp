@@ -1,5 +1,5 @@
-#include "../../global.h"
-#include "../../RageUtil.h"
+#include "global.h"
+#include "RageUtil.h"
 
 #include "LoadingWindow_Win32.h"
 #include "RageFileManager.h"
@@ -9,23 +9,24 @@
 #include "RageSurface_Load.h"
 #include "RageSurface.h"
 #include "RageSurfaceUtils.h"
+#include "RageLog.h"
+#include "ProductInfo.h"
+#include "LocalizedString.h"
 
+#include "RageSurfaceUtils_Zoom.h"
 static HBITMAP g_hBitmap = NULL;
 
-/* Load a file into a GDI surface. */
-HBITMAP LoadWin32Surface( CString fn )
+/* Load a RageSurface into a GDI surface. */
+static HBITMAP LoadWin32Surface( RageSurface *&s )
 {
-	CString error;
-	RageSurface *s = RageSurfaceUtils::LoadFile( fn, error );
-	if( s == NULL )
-		return NULL;
-
 	RageSurfaceUtils::ConvertSurface( s, s->w, s->h, 32, 0xFF000000, 0x00FF0000, 0x0000FF00, 0 );
 
-	HBITMAP bitmap = CreateCompatibleBitmap( GetDC(NULL), s->w, s->h );
+	HDC hScreen = GetDC(NULL);
+
+	HBITMAP bitmap = CreateCompatibleBitmap( hScreen, s->w, s->h );
 	ASSERT( bitmap );
 
-	HDC BitmapDC = CreateCompatibleDC( GetDC(NULL) );
+	HDC BitmapDC = CreateCompatibleDC( hScreen );
 	SelectObject( BitmapDC, bitmap );
 
 	/* This is silly, but simple.  We only do this once, on a small image. */
@@ -43,8 +44,34 @@ HBITMAP LoadWin32Surface( CString fn )
 	SelectObject( BitmapDC, NULL );
 	DeleteObject( BitmapDC );
 
-	delete s;
+	ReleaseDC( NULL, hScreen );
+
 	return bitmap;
+}
+
+static HBITMAP LoadWin32Surface( RString sFile, HWND hWnd )
+{
+	RString error;
+	RageSurface *pSurface = RageSurfaceUtils::LoadFile( sFile, error );
+	if( pSurface == NULL )
+		return NULL;
+
+	/* Resize the splash image to fit the dialog.  Stretch to fit horizontally,
+	 * maintaining aspect ratio. */
+	{
+		RECT r;
+		GetClientRect( hWnd, &r );
+
+		int iWidth = r.right;
+		float fRatio = (float) iWidth / pSurface->w;
+		int iHeight = lrintf( pSurface->h * fRatio );
+
+		RageSurfaceUtils::Zoom( pSurface, iWidth, iHeight );
+	}
+
+	HBITMAP ret = LoadWin32Surface( pSurface );
+	delete pSurface;
+	return ret;
 }
 
 BOOL CALLBACK LoadingWindow_Win32::WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
@@ -52,14 +79,20 @@ BOOL CALLBACK LoadingWindow_Win32::WndProc( HWND hWnd, UINT msg, WPARAM wParam, 
 	switch( msg )
 	{
 	case WM_INITDIALOG:
-		g_hBitmap = LoadWin32Surface( "Data/splash.png" );
+		{
+			vector<RString> vs;
+			GetDirListing( "Data/splash*.png", vs, false, true );
+			if( !vs.empty() )
+				g_hBitmap = LoadWin32Surface( vs[0], hWnd );
+		}
 		if( g_hBitmap == NULL )
-			g_hBitmap = LoadWin32Surface( "Data/splash.bmp" );
+			g_hBitmap = LoadWin32Surface( "Data/splash.bmp", hWnd );
 		SendMessage( 
 			GetDlgItem(hWnd,IDC_SPLASH), 
 			STM_SETIMAGE, 
 			(WPARAM) IMAGE_BITMAP, 
 			(LPARAM) (HANDLE) g_hBitmap );
+		SetWindowTextA( hWnd, PRODUCT_ID );
 		break;
 
 	case WM_DESTROY:
@@ -84,10 +117,10 @@ void LoadingWindow_Win32::SetIcon( const RageSurface *pIcon )
 LoadingWindow_Win32::LoadingWindow_Win32()
 {
 	m_hIcon = NULL;
-	hwnd = CreateDialog(handle.Get(), MAKEINTRESOURCE(IDD_LOADING_DIALOG), NULL, WndProc);
+	hwnd = CreateDialog( handle.Get(), MAKEINTRESOURCE(IDD_LOADING_DIALOG), NULL, WndProc );
 	for( unsigned i = 0; i < 3; ++i )
 		text[i] = "ABC"; /* always set on first call */
-	SetText("Initializing hardware...");
+	SetText( "" );
 	Paint();
 }
 
@@ -113,22 +146,23 @@ void LoadingWindow_Win32::Paint()
 	}
 }
 
-void LoadingWindow_Win32::SetText(CString str)
+void LoadingWindow_Win32::SetText( RString sText )
 {
-	CStringArray asMessageLines;
-	split( str, "\n", asMessageLines, false );
+	vector<RString> asMessageLines;
+	split( sText, "\n", asMessageLines, false );
 	while( asMessageLines.size() < 3 )
 		asMessageLines.push_back( "" );
 	
-	const int msgs[] = { IDC_STATIC_MESSAGE1, IDC_STATIC_MESSAGE2, IDC_STATIC_MESSAGE3 };
+	const int msgid[] = { IDC_STATIC_MESSAGE1, IDC_STATIC_MESSAGE2, IDC_STATIC_MESSAGE3 };
 	for( unsigned i = 0; i < 3; ++i )
 	{
 		if( text[i] == asMessageLines[i] )
 			continue;
 		text[i] = asMessageLines[i];
 
-		SendDlgItemMessage( hwnd, msgs[i], WM_SETTEXT, 0, 
-			(LPARAM)asMessageLines[i].c_str());
+		HWND hwndItem = ::GetDlgItem( hwnd, msgid[i] );
+		
+		::SetWindowText( hwndItem, ConvertUTF8ToACP(asMessageLines[i]).c_str() );
 	}
 }
 

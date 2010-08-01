@@ -1,13 +1,13 @@
 #ifndef SELECTOR_MEMORY_CARD_DRIVER_H
 #define SELECTOR_MEMORY_CARD_DRIVER_H
 
-#include "arch/arch_platform.h"
-
 /* MemoryCardDriver selector. */
-#if defined(HAVE_LINUXKERNEL)
-#include "MemoryCardDriverThreaded_Linux.h"
-#elif defined(HAVE_WIN32)
-#include "MemoryCardDriverThreaded_Windows.h"
+#if defined(LINUX)
+# include "MemoryCardDriverThreaded_Linux.h"
+#elif defined(WINDOWS)
+# include "MemoryCardDriverThreaded_Windows.h"
+#elif defined(MACOSX)
+# include "MemoryCardDriverThreaded_OSX.h"
 #endif
 
 #endif

@@ -1,10 +1,18 @@
 // EditInsallations.cpp : implementation file
 //
 
+#define CO_EXIST_WITH_MFC
+#include "global.h"
 #include "stdafx.h"
 #include "smpackage.h"
 #include "EditInsallations.h"
-#include "smpackageUtil.h"
+#include "SMPackageUtil.h"
+#include "archutils/Win32/DialogUtil.h"
+#include ".\editinsallations.h"
+#include "LocalizedString.h"
+#include "RageFileManager.h"
+#include "RageUtil.h"
+#include "arch/Dialog/Dialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -41,6 +49,7 @@ BEGIN_MESSAGE_MAP(EditInsallations, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON_MAKE_DEFAULT, OnButtonMakeDefault)
 	ON_BN_CLICKED(IDC_BUTTON_ADD, OnButtonAdd)
 	//}}AFX_MSG_MAP
+	ON_LBN_SELCHANGE(IDC_LIST, OnLbnSelchangeList)
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
@@ -51,77 +60,127 @@ BOOL EditInsallations::OnInitDialog()
 	CDialog::OnInitDialog();
 	
 	// TODO: Add extra initialization here
-	
+	DialogUtil::LocalizeDialogAndContents( *this );	
 
-	CStringArray asInstallDirs;
-	GetStepManiaInstallDirs( asInstallDirs );
-	for( unsigned i=0; i<asInstallDirs.size(); i++ )
-		m_list.AddString( asInstallDirs[i] );
-
+	vector<RString> vs;
+	SMPackageUtil::GetGameInstallDirs( vs );
+	for( unsigned i=0; i<vs.size(); i++ )
+		m_list.AddString( vs[i] );
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	              // EXCEPTION: OCX Property Pages should return FALSE
 }
 
-
 void EditInsallations::OnButtonRemove() 
 {
 	// TODO: Add your control notification handler code here
-	if( m_list.GetCount() == 1 )
-	{
-		AfxMessageBox( "You cannot remove the list item in the list." );
-		return;
-	}
-
-	if( m_list.GetCurSel() == LB_ERR )
-	{
-		AfxMessageBox( "You must select an item from the list first." );
-		return;
-	}
+	ASSERT( m_list.GetCount() > 1 );	// cannot remove the list item in the list
+	ASSERT( m_list.GetCurSel() != LB_ERR );
 
 	m_list.DeleteString( m_list.GetCurSel() );
+	OnLbnSelchangeList();
 }
 
 void EditInsallations::OnButtonMakeDefault() 
 {
 	// TODO: Add your control notification handler code here
-	if( m_list.GetCurSel() == LB_ERR )
-	{
-		AfxMessageBox( "You must select an item from the list first." );
-		return;
-	}
+	ASSERT( m_list.GetCurSel() != LB_ERR );
 	
 	CString sText;
 	m_list.GetText( m_list.GetCurSel(), sText );
 	m_list.DeleteString( m_list.GetCurSel() );
 	m_list.InsertString( 0, sText );
+	m_list.SetCurSel( 0 );
 }
 
+static LocalizedString YOU_MUST_TYPE_IN			("EditInstallations","You must type a program directory before clicking Add.");
+static LocalizedString NOT_A_VALID_INSTALLATION_DIR	("EditInstallations","'%s' is not a valid installation directory.");
 void EditInsallations::OnButtonAdd() 
 {
 	// TODO: Add your control notification handler code here
-	CString sText;
-	m_edit.GetWindowText( sText );
-	
-	if( sText == "" )
+	RString sNewDir;
 	{
-		AfxMessageBox( "You must type a SM or DWI program directory before clicking add." );
+		CString s;
+		m_edit.GetWindowText( s );
+		sNewDir = s;
+	}
+	
+	if( sNewDir == "" )
+	{
+		Dialog::OK( YOU_MUST_TYPE_IN.GetValue() );
 		return;
 	}
 
-	m_list.AddString( sText );
+	bool bAlreadyInList = false;
+	for( int i=0; i<m_list.GetCount(); i++ )
+	{
+		CString sDir;
+		m_list.GetText( i, sDir );
+		if( sDir.CompareNoCase(sNewDir)==0 )
+			return;
+	}
+
+	if( !SMPackageUtil::IsValidInstallDir(sNewDir) )
+	{
+		Dialog::OK( ssprintf(NOT_A_VALID_INSTALLATION_DIR.GetValue(),sNewDir.c_str()) );
+		return;
+	}
+
+	m_list.AddString( sNewDir );
 }
 
 void EditInsallations::OnOK() 
 {
-	m_asReturnedInstallDirs.clear();
+	vector<RString> vs;
 
 	for( int i=0; i<m_list.GetCount(); i++ )
 	{
 		CString sDir;
 		m_list.GetText( i, sDir );
-		m_asReturnedInstallDirs.push_back( sDir );
+		RString s = sDir;
+		vs.push_back( s );
 	}
+	SMPackageUtil::WriteGameInstallDirs( vs );
+
+	// set the new default
+	vector<RString> asInstallDirs;
+	SMPackageUtil::GetGameInstallDirs( asInstallDirs );
+	FILEMAN->Remount( "/", asInstallDirs[0] );
 
 	CDialog::OnOK();
 }
+
+void EditInsallations::OnLbnSelchangeList()
+{
+	// TODO: Add your control notification handler code here
+	bool bSomethingSelected = m_list.GetCurSel() != LB_ERR;
+	bool bMoreThanOne = m_list.GetCount() > 1;
+
+	this->GetDlgItem(IDC_BUTTON_MAKE_DEFAULT)->EnableWindow( bSomethingSelected );
+	this->GetDlgItem(IDC_BUTTON_REMOVE)->EnableWindow( bMoreThanOne );
+}
+
+/*
+ * (c) 2002-2005 Chris Danford
+ * All rights reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, and/or sell copies of the Software, and to permit persons to
+ * whom the Software is furnished to do so, provided that the above
+ * copyright notice(s) and this permission notice appear in all copies of
+ * the Software and that both the above copyright notice(s) and this
+ * permission notice appear in supporting documentation.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+ * THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+ * INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT
+ * OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */

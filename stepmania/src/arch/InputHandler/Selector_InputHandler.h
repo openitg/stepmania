@@ -8,10 +8,8 @@
 #include "InputHandler_DirectInput.h"
 #endif
 
-#ifdef HAVE_LINUXKERNEL
+#if defined(LINUX)
 #include "InputHandler_Linux_Joystick.h"
-// XXX: Useless! Depends on SDL, which we'd use for input if it was available!
-// #include "InputHandler_Linux_tty.h"
 #endif
 
 #include "InputHandler_MonkeyKeyboard.h"
@@ -19,11 +17,13 @@
 // NOTE: If X11 is available, we don't use LLW_SDL, which IH_SDL depends on.
 #if defined(HAVE_X11)
 #include "InputHandler_X11.h"
+#elif defined(MACOSX)
+#include "InputHandler_Carbon.h"
 #elif defined(HAVE_SDL)
 #include "InputHandler_SDL.h"
 #endif
 
-#ifdef HAVE_WIN32
+#if defined(WINDOWS)
 #include "InputHandler_Win32_Pump.h"
 #include "InputHandler_Win32_Para.h"
 #include "InputHandler_Win32_MIDI.h"

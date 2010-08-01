@@ -20,9 +20,6 @@ const int NUM_SCORE_DIGITS	=	9;
 AutoScreenMessage( SM_GotEval ) 
 
 REGISTER_SCREEN_CLASS( ScreenNetEvaluation );
-ScreenNetEvaluation::ScreenNetEvaluation (const CString & sClassName) : ScreenEvaluation( sClassName )
-{
-}
 
 void ScreenNetEvaluation::Init()
 {
@@ -88,12 +85,12 @@ void ScreenNetEvaluation::RedoUserTexts()
 	}
 }
 
-void ScreenNetEvaluation::MenuLeft( PlayerNumber pn, const InputEventType type )
+void ScreenNetEvaluation::MenuLeft( const InputEventPlus &input )
 {
-	MenuUp( pn, type );
+	MenuUp( input );
 }
 
-void ScreenNetEvaluation::MenuUp( PlayerNumber pn, const InputEventType type )
+void ScreenNetEvaluation::MenuUp( const InputEventPlus &input )
 {
 	if ( m_iActivePlayers == 0 )
 		return;
@@ -105,12 +102,12 @@ void ScreenNetEvaluation::MenuUp( PlayerNumber pn, const InputEventType type )
 	UpdateStats();
 }
 
-void ScreenNetEvaluation::MenuRight( PlayerNumber pn, const InputEventType type )
+void ScreenNetEvaluation::MenuRight( const InputEventPlus &input )
 {
-	MenuDown( pn, type );
+	MenuDown( input );
 }
 
-void ScreenNetEvaluation::MenuDown( PlayerNumber pn, const InputEventType type )
+void ScreenNetEvaluation::MenuDown( const InputEventPlus &input )
 {
 	if ( m_iActivePlayers == 0 )
 		return;
@@ -188,8 +185,6 @@ void ScreenNetEvaluation::UpdateStats()
 		return;
 
 	m_Grades[m_pActivePlayer].SetGrade( m_pActivePlayer, (Grade)NSMAN->m_EvalPlayerData[m_iCurrentPlayer].grade );
-	m_Grades[m_pActivePlayer].Spin();
-	m_Grades[m_pActivePlayer].SettleImmediately();
 
 	m_textScore[m_pActivePlayer].SetText( ssprintf("%*.0i", NUM_SCORE_DIGITS, NSMAN->m_EvalPlayerData[m_iCurrentPlayer].score) );
 
@@ -199,7 +194,7 @@ void ScreenNetEvaluation::UpdateStats()
 
 	for (int j=0; j<NETNUMTAPSCORES; ++j)
 	{
-		int iNumDigits = (j==max_combo) ? MAX_COMBO_NUM_DIGITS : 4;
+		int iNumDigits = (j==JudgeLine_MaxCombo) ? MAX_COMBO_NUM_DIGITS : 4;
 		if (m_textJudgeNumbers[j][m_pActivePlayer].m_pFont != NULL)
 			m_textJudgeNumbers[j][m_pActivePlayer].SetText( ssprintf( "%*d", iNumDigits, NSMAN->m_EvalPlayerData[m_iCurrentPlayer].tapScores[j] ) );
 	}
@@ -208,4 +203,29 @@ void ScreenNetEvaluation::UpdateStats()
 }
 
 #endif
+
+/*
+ * (c) 2004-2005 Charles Lohr, Joshua Allen
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, and/or sell copies of the Software, and to permit persons to
+ * whom the Software is furnished to do so, provided that the above
+ * copyright notice(s) and this permission notice appear in all copies of
+ * the Software and that both the above copyright notice(s) and this
+ * permission notice appear in supporting documentation.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+ * THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+ * INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT
+ * OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
 

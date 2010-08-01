@@ -2,6 +2,7 @@
 #include "LuaExpressionTransform.h"
 #include "LuaReference.h"
 #include "LuaManager.h"
+#include "RageUtil.h"
 
 LuaExpressionTransform::LuaExpressionTransform()
 {
@@ -9,10 +10,9 @@ LuaExpressionTransform::LuaExpressionTransform()
 	m_iNumSubdivisions = 1;
 }
 
-void LuaExpressionTransform::SetFromExpression( const CString &sExpression, int iNumSubdivisions )
+void LuaExpressionTransform::SetFromExpression( const RString &sExpression )
 {
 	m_pexprTransformFunction->SetFromExpression( sExpression );
-	m_iNumSubdivisions = iNumSubdivisions;
 }
 
 const Actor::TweenState &LuaExpressionTransform::GetPosition( float fPositionOffsetFromCenter, int iItemIndex, int iNumItems ) const

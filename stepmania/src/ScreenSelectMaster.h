@@ -6,24 +6,37 @@
 #include "RandomSample.h"
 #include "ActorUtil.h"
 #include "ActorScroller.h"
+#include "MenuInput.h"
 
-#define MAX_CHOICES 30
+enum MenuDir
+{
+	MenuDir_Up,
+	MenuDir_Down,
+	MenuDir_Left,
+	MenuDir_Right,
+	MenuDir_Auto, // when players join and the selection becomes invalid
+	NUM_MenuDir,
+};
+#define FOREACH_MenuDir( md ) FOREACH_ENUM( MenuDir, NUM_MenuDir, md )
+const RString& MenuDirToString( MenuDir md );
 
 class ScreenSelectMaster : public ScreenSelect
 {
 public:
-	ScreenSelectMaster( CString sName );
+	ScreenSelectMaster();
 	virtual void Init();
+	virtual RString GetDefaultChoice();
+	virtual void BeginScreen();
 
 	virtual void Update( float fDelta );
 
-	virtual void MenuLeft( PlayerNumber pn, const InputEventType type );
-	virtual void MenuRight( PlayerNumber pn, const InputEventType type );
-	virtual void MenuUp( PlayerNumber pn, const InputEventType type );
-	virtual void MenuDown( PlayerNumber pn, const InputEventType type );
+	virtual void MenuLeft( const InputEventPlus &input );
+	virtual void MenuRight( const InputEventPlus &input );
+	virtual void MenuUp( const InputEventPlus &input );
+	virtual void MenuDown( const InputEventPlus &input );
 	virtual void MenuStart( PlayerNumber pn );
-	void TweenOursOnScreen();
-	void TweenOursOffScreen();
+	virtual void TweenOnScreen();
+	virtual void TweenOffScreen();
 
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
@@ -33,32 +46,30 @@ protected:
 	Page GetPage( int iChoiceIndex ) const;
 	Page GetCurrentPage() const;
 
-	ThemeMetric<bool>		SHOW_ICON;
-	ThemeMetric<bool>		SHOW_SCROLLER;
-	ThemeMetric<bool>		SHOW_CURSOR;
-	ThemeMetric<bool>		SHARED_SELECTION;
-	ThemeMetric<int>		NUM_CHOICES_ON_PAGE_1;
+	ThemeMetric<bool>	SHOW_ICON;
+	ThemeMetric<bool>	SHOW_SCROLLER;
+	ThemeMetric<bool>	SHOW_CURSOR;
+	ThemeMetric<bool>	SHARED_SELECTION;
+	ThemeMetric<bool>	USE_ICON_METRICS;
+	ThemeMetric<int>	NUM_CHOICES_ON_PAGE_1;
 	ThemeMetric1D<float>	CURSOR_OFFSET_X_FROM_ICON;
 	ThemeMetric1D<float>	CURSOR_OFFSET_Y_FROM_ICON;
-	ThemeMetric<bool>		OVERRIDE_LOCK_INPUT_SECONDS;
-	ThemeMetric<float>		LOCK_INPUT_SECONDS;
-	ThemeMetric<float>		PRE_SWITCH_PAGE_SECONDS;
-	ThemeMetric<float>		POST_SWITCH_PAGE_SECONDS;
-	ThemeMetric<bool>		OVERRIDE_SLEEP_AFTER_TWEEN_OFF_SECONDS;
-	ThemeMetric<float>		SLEEP_AFTER_TWEEN_OFF_SECONDS;
-	ThemeMetric1D<CString>	OPTION_ORDER;
-	ThemeMetric<bool>		WRAP_CURSOR;
-	ThemeMetric<bool>		WRAP_SCROLLER;
-	ThemeMetric<bool>		LOOP_SCROLLER;
-	ThemeMetric<bool>		SCROLLER_FAST_CATCHUP;
-	ThemeMetric<bool>		ALLOW_REPEATING_INPUT;
-	ThemeMetric<float>		SCROLLER_SECONDS_PER_ITEM;
-	ThemeMetric<float>		SCROLLER_NUM_ITEMS_TO_DRAW;
-	ThemeMetric<CString>	SCROLLER_TRANSFORM;
-	ThemeMetric<int>		SCROLLER_SUBDIVISIONS;
-	ThemeMetric<CString>	DEFAULT_CHOICE;
+	ThemeMetric<bool>	PER_CHOICE_ICON_ELEMENT;
+	ThemeMetric<float>	PRE_SWITCH_PAGE_SECONDS;
+	ThemeMetric<float>	POST_SWITCH_PAGE_SECONDS;
+	ThemeMetric1D<RString>	OPTION_ORDER;
+	ThemeMetric<bool>	WRAP_CURSOR;
+	ThemeMetric<bool>	WRAP_SCROLLER;
+	ThemeMetric<bool>	LOOP_SCROLLER;
+	ThemeMetric<bool>	PER_CHOICE_SCROLL_ELEMENT;
+	ThemeMetric<bool>	ALLOW_REPEATING_INPUT;
+	ThemeMetric<float>	SCROLLER_SECONDS_PER_ITEM;
+	ThemeMetric<float>	SCROLLER_NUM_ITEMS_TO_DRAW;
+	ThemeMetric<RString>	SCROLLER_TRANSFORM;
+	ThemeMetric<int>	SCROLLER_SUBDIVISIONS;
+	ThemeMetric<RString>	DEFAULT_CHOICE;
 
-	int m_Next[NUM_MENU_DIRS][MAX_CHOICES];
+	map<int,int> m_mapCurrentChoiceToNextChoice[NUM_MenuDir];
 
 	virtual int GetSelectionIndex( PlayerNumber pn );
 	virtual void UpdateSelectableChoices();
@@ -76,9 +87,9 @@ protected:
 	AutoActor	m_sprExplanation[NUM_PAGES];
 	AutoActor	m_sprMore[NUM_PAGES];
 	// icon is the shared, per-choice piece
-	AutoActor m_sprIcon[MAX_CHOICES];
+	vector<AutoActor> m_vsprIcon;
 	// preview is per-player, per-choice piece
-	AutoActor m_sprScroll[MAX_CHOICES][NUM_PLAYERS];
+	vector<AutoActor> m_vsprScroll[NUM_PLAYERS];
 	ActorScroller	m_Scroller[NUM_PLAYERS];
 	// cursor is the per-player, shared by all choices
 	AutoActor	m_sprCursor[NUM_PLAYERS];
@@ -90,7 +101,7 @@ protected:
 	int m_iChoice[NUM_PLAYERS];
 	bool m_bChosen[NUM_PLAYERS];
 
-	float m_fLockInputSecs;
+	MenuInput m_TrackingRepeatingInput;
 };
 
 

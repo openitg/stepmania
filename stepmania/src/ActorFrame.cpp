@@ -67,30 +67,41 @@ ActorFrame::ActorFrame( const ActorFrame &cpy ):
 	}
 }
 
-void ActorFrame::LoadFromNode( const CString& sDir, const XNode* pNode )
+void ActorFrame::InitDefaults()
 {
+	FOREACH( Actor*, m_SubActors, a )
+		(*a)->InitDefaults();
+	Actor::InitDefaults();
+}
+
+void ActorFrame::InitState()
+{
+	FOREACH( Actor*, m_SubActors, a )
+		(*a)->InitState();
+	Actor::InitState();
+}
+
+void ActorFrame::LoadFromNode( const RString& sDir, const XNode* pNode )
+{
+	if( AutoLoadChildren() )
+		LoadChildrenFromNode( sDir, pNode );
+
 	Actor::LoadFromNode( sDir, pNode );
 
 	pNode->GetAttrValue( "UpdateRate", m_fUpdateRate );
 	pNode->GetAttrValue( "FOV", m_fFOV );
 	
-	CString s;
+	RString s;
 	if( pNode->GetAttrValue( "VanishX", s ) )
-	{
-		LuaHelpers::PrepareExpression( s );
 		m_fVanishX = LuaHelpers::RunExpressionF( s );
-	}
 	if( pNode->GetAttrValue( "VanishY", s ) )
-	{
-		LuaHelpers::PrepareExpression( s );
 		m_fVanishY = LuaHelpers::RunExpressionF( s );
-	}
 	m_bOverrideLighting = pNode->GetAttrValue( "Lighting", m_bLighting );
 }
 
-void ActorFrame::LoadChildrenFromNode( const CString& sDir, const XNode* pNode )
+void ActorFrame::LoadChildrenFromNode( const RString& sDir, const XNode* pNode )
 {
-	// Shoudn't be calling this unless we're going to delete our children.
+	// Shouldn't be calling this unless we're going to delete our children.
 	ASSERT( m_bDeleteChildren );
 
 	//
@@ -101,7 +112,7 @@ void ActorFrame::LoadChildrenFromNode( const CString& sDir, const XNode* pNode )
 	{
 		FOREACH_CONST_Child( pChildren, pChild )
 		{
-			Actor* pChildActor = ActorUtil::LoadFromActorFile( sDir, pChild );
+			Actor* pChildActor = ActorUtil::LoadFromNode( sDir, pChild );
 			if( pChildActor )
 				AddChild( pChildActor );
 		}
@@ -130,7 +141,7 @@ void ActorFrame::RemoveChild( Actor* pActor )
 		m_SubActors.erase( iter );
 }
 
-Actor* ActorFrame::GetChild( const CString &sName )
+Actor* ActorFrame::GetChild( const RString &sName )
 {
 	FOREACH( Actor*, m_SubActors, a )
 	{
@@ -179,7 +190,7 @@ void ActorFrame::DrawPrimitives()
 	if( m_fFOV != -1 )
 	{
 		DISPLAY->CameraPushMatrix();
-		DISPLAY->LoadMenuPerspective( m_fFOV, m_fVanishX, m_fVanishY );
+		DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
 	}
 
 	if( m_bOverrideLighting )
@@ -227,6 +238,20 @@ void ActorFrame::DrawPrimitives()
 	{
 		DISPLAY->CameraPopMatrix();
 	}
+}
+
+void ActorFrame::PlayCommandOnChildren( const RString &sCommandName )
+{
+	const apActorCommands *pCmd = GetCommand( sCommandName );
+	if( pCmd != NULL )
+		RunCommandsOnChildren( *pCmd );
+}
+
+void ActorFrame::PlayCommandOnLeaves( const RString &sCommandName )
+{
+	const apActorCommands *pCmd = GetCommand( sCommandName );
+	if( pCmd != NULL )
+		RunCommandsOnLeaves( **pCmd );
 }
 
 void ActorFrame::RunCommandsOnChildren( const LuaReference& cmds )
@@ -289,7 +314,6 @@ void ActorFrame::ProcessMessages( float fDeltaTime )
 			m_SubActors[i]->cmd( f );	\
 	}
 
-PropagateActorFrameCommand( Reset )
 PropagateActorFrameCommand( FinishTweening )
 PropagateActorFrameCommand1Param( SetDiffuse,		RageColor )
 PropagateActorFrameCommand1Param( SetZTestMode,		ZTestMode )
@@ -344,7 +368,7 @@ void ActorFrame::SetPropagateCommands( bool b )
 	m_bPropagateCommands = b;
 }
 
-void ActorFrame::PlayCommand( const CString &sCommandName, Actor* pParent )
+void ActorFrame::PlayCommand( const RString &sCommandName, Actor* pParent )
 {
 	Actor::PlayCommand( sCommandName, pParent );
 
@@ -374,9 +398,10 @@ class LunaActorFrame : public Luna<ActorFrame>
 public:
 	LunaActorFrame() { LUA->Register( Register ); }
 
+	static int playcommandonchildren( T* p, lua_State *L )		{ p->PlayCommandOnChildren(SArg(1)); return 0; }
+	static int playcommandonleaves( T* p, lua_State *L )		{ p->PlayCommandOnLeaves(SArg(1)); return 0; }
 	static int propagate( T* p, lua_State *L )			{ p->SetPropagateCommands( !!IArg(1) ); return 0; }
 	static int fov( T* p, lua_State *L )				{ p->SetFOV( FArg(1) ); return 0; }
-	static int setsize( T* p, lua_State *L )			{ p->SetSize( FArg(1), FArg(2) ); return 0; }
 	static int SetUpdateRate( T* p, lua_State *L )		{ p->SetUpdateRate( FArg(1) ); return 0; }
 	static int SetFOV( T* p, lua_State *L )				{ p->SetFOV( FArg(1) ); return 0; }
 	static int vanishpoint( T* p, lua_State *L )		{ p->SetVanishPoint( FArg(1), FArg(2) ); return 0; }
@@ -394,9 +419,10 @@ public:
 
 	static void Register(lua_State *L) 
 	{
-		ADD_METHOD( propagate );
+		ADD_METHOD( playcommandonchildren );
+		ADD_METHOD( playcommandonleaves );
+		ADD_METHOD( propagate ); // deprecated
 		ADD_METHOD( fov );
-		ADD_METHOD( setsize );
 		ADD_METHOD( SetUpdateRate );
 		ADD_METHOD( SetFOV );
 		ADD_METHOD( vanishpoint );

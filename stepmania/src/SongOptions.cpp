@@ -1,7 +1,8 @@
 #include "global.h"
 #include "SongOptions.h"
 #include "RageUtil.h"
-#include "PrefsManager.h"
+#include "GameState.h"
+#include "CommonMetrics.h"
 
 void SongOptions::Init() 
 {
@@ -15,25 +16,23 @@ void SongOptions::Init()
 	m_bSaveScore = true;
 }
 
-CString SongOptions::GetString() const
+void SongOptions::GetMods( vector<RString> &AddTo ) const
 {
-	CString sReturn;
-
 	switch( m_LifeType )
 	{
 	case LIFE_BAR:		
 		switch( m_DrainType )
 		{
-		case DRAIN_NORMAL:										break;
-		case DRAIN_NO_RECOVER:		sReturn	+= "NoRecover, ";	break;
-		case DRAIN_SUDDEN_DEATH:	sReturn	+= "SuddenDeath, ";	break;
+		case DRAIN_NORMAL:						break;
+		case DRAIN_NO_RECOVER:		AddTo.push_back("NoRecover");	break;
+		case DRAIN_SUDDEN_DEATH:	AddTo.push_back("SuddenDeath");	break;
 		}
 		break;
 	case LIFE_BATTERY:
-		sReturn	+= ssprintf( "%dLives, ", m_iBatteryLives );
+		AddTo.push_back( ssprintf( "%dLives", m_iBatteryLives ) );
 		break;
 	case LIFE_TIME:
-		sReturn	+= "LifeTime, ";
+		AddTo.push_back( "LifeTime" );
 		break;
 	default:	ASSERT(0);
 	}
@@ -41,66 +40,81 @@ CString SongOptions::GetString() const
 
 	switch( m_FailType )
 	{
-	case FAIL_IMMEDIATE:											break;
-	case FAIL_END_OF_SONG:			sReturn	+= "FailEndOfSong, ";	break;
-	case FAIL_OFF:					sReturn	+= "FailOff, ";			break;
-	default:	ASSERT(0);
+	case FAIL_IMMEDIATE:						break;
+	case FAIL_END_OF_SONG:	AddTo.push_back("FailEndOfSong");	break;
+	case FAIL_OFF:		AddTo.push_back("FailOff");		break;
+	default:		ASSERT(0);
 	}
 
 	if( m_fMusicRate != 1 )
 	{
-		CString s = ssprintf( "%2.2f", m_fMusicRate );
-		if( s[s.GetLength()-1] == '0' )
-			s.erase(s.GetLength()-1);
-		sReturn += s + "xMusic, ";
+		RString s = ssprintf( "%2.2f", m_fMusicRate );
+		if( s[s.size()-1] == '0' )
+			s.erase( s.size()-1 );
+		AddTo.push_back( s + "xMusic" );
 	}
 
 	switch( m_AutosyncType )
 	{
-	case AUTOSYNC_OFF:										break;
-	case AUTOSYNC_SONG:		sReturn += "AutosyncSong, ";	break;
-	case AUTOSYNC_MACHINE:	sReturn += "AutosyncMachine, ";	break;
-	default:	ASSERT(0);
+	case AUTOSYNC_OFF:						break;
+	case AUTOSYNC_SONG:	AddTo.push_back("AutosyncSong");	break;
+	case AUTOSYNC_MACHINE:	AddTo.push_back("AutosyncMachine");	break;
+	default:		ASSERT(0);
 	}
-
-	if( sReturn.GetLength() > 2 )
-		sReturn.erase( sReturn.GetLength()-2 );	// delete the trailing ", "
-	return sReturn;
 }
+
+void SongOptions::GetLocalizedMods( vector<RString> &AddTo ) const
+{
+	vector<RString> vMods;
+	GetMods( vMods );
+	FOREACH( RString, vMods, s )
+	{
+		*s = CommonMetrics::LocalizeOptionItem( *s, true );
+	}
+}
+
+RString SongOptions::GetString() const
+{
+	vector<RString> v;
+	GetMods( v );
+	return join( ", ", v );
+}
+
+RString SongOptions::GetLocalizedString() const
+{
+	vector<RString> v;
+	GetLocalizedMods( v );
+	return join( ", ", v );
+}
+
 
 /* Options are added to the current settings; call Init() beforehand if
  * you don't want this. */
-void SongOptions::FromString( CString sOptions )
+void SongOptions::FromString( const RString &sOptions )
 {
 //	Init();
-	sOptions.MakeLower();
-	CStringArray asBits;
-	split( sOptions, ",", asBits, true );
+	RString sTemp = sOptions;
+	sTemp.MakeLower();
+	vector<RString> asBits;
+	split( sTemp, ",", asBits, true );
 
 	for( unsigned i=0; i<asBits.size(); i++ )
 	{
-		CString& sBit = asBits[i];
+		RString& sBit = asBits[i];
 		TrimLeft(sBit);
 		TrimRight(sBit);
 		
 		Regex mult("^([0-9]+(\\.[0-9]+)?)xmusic$");
-		vector<CString> matches;
+		vector<RString> matches;
 		if( mult.Compare(sBit, matches) )
-		{
-			char *p = NULL;
-			m_fMusicRate = strtof( matches[0], &p );
-			ASSERT( p != matches[0] );
-		}
+			m_fMusicRate = StringToFloat( matches[0] );
 
 		matches.clear();
 		Regex lives("^([0-9]+) ?(lives|life)$");
 		if( lives.Compare(sBit, matches) )
-		{
-			int ret = sscanf( matches[0], "%i", &m_iBatteryLives );
-			ASSERT( ret == 1 );
-		}
+			m_iBatteryLives = atoi( matches[0] );
 
-		CStringArray asParts;
+		vector<RString> asParts;
 		split( sBit, " ", asParts, true );
 		bool on = true;
 		if( asParts.size() > 1 )
@@ -111,31 +125,30 @@ void SongOptions::FromString( CString sOptions )
 				on = false;
 		}
 
-		if(	     sBit == "norecover" )		m_DrainType = DRAIN_NO_RECOVER;
+		if(	 sBit == "norecover" )	m_DrainType = DRAIN_NO_RECOVER;
 		else if( sBit == "suddendeath" )	m_DrainType = DRAIN_SUDDEN_DEATH;
 		else if( sBit == "power-drop" )		m_DrainType = DRAIN_NO_RECOVER;
-		else if( sBit == "death" )			m_DrainType = DRAIN_SUDDEN_DEATH;
+		else if( sBit == "death" )		m_DrainType = DRAIN_SUDDEN_DEATH;
 		else if( sBit == "normal-drain" )	m_DrainType = DRAIN_NORMAL;
 		else if( sBit == "failarcade" || 
-				 sBit == "failimmediate" )	m_FailType = FAIL_IMMEDIATE;
+			 sBit == "failimmediate" )	m_FailType = FAIL_IMMEDIATE;
 		else if( sBit == "failendofsong" )	m_FailType = FAIL_END_OF_SONG;
 		else if( sBit == "failoff" )		m_FailType = FAIL_OFF;
 		
 		else if( sBit == "faildefault" )
 		{
 			SongOptions so;
-			// TODO: Fix this so that SongOptions don't depend on PrefsManager
-			so.FromString( PREFSMAN->m_sDefaultModifiers );
+			GAMESTATE->GetDefaultSongOptions( so );
 			m_FailType = so.m_FailType;
 		}
 
 		else if( sBit == "assisttick" )		m_bAssistTick = on;
 		else if( sBit == "autosync" || sBit == "autosyncsong" )
-											m_AutosyncType = on ? AUTOSYNC_SONG : AUTOSYNC_OFF;
+							m_AutosyncType = on ? AUTOSYNC_SONG : AUTOSYNC_OFF;
 		else if( sBit == "autosyncmachine" )	
-											m_AutosyncType = on ? AUTOSYNC_MACHINE : AUTOSYNC_OFF;
+							m_AutosyncType = on ? AUTOSYNC_MACHINE : AUTOSYNC_OFF;
 		else if( sBit == "savescore" )		m_bSaveScore = on;
-		else if( sBit == "bar" )			m_LifeType = LIFE_BAR;
+		else if( sBit == "bar" )		m_LifeType = LIFE_BAR;
 		else if( sBit == "battery" )		m_LifeType = LIFE_BATTERY;
 		else if( sBit == "lifetime" )		m_LifeType = LIFE_TIME;
 	}

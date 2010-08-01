@@ -9,7 +9,6 @@
 #include "GameState.h"
 #include "GameSoundManager.h"
 #include "ThemeManager.h"
-#include "ScreenRanking.h"
 #include "Course.h"
 #include "ActorUtil.h"
 #include "FontCharAliases.h"
@@ -23,12 +22,14 @@
 #include "Style.h"
 #include "ScreenDimensions.h"
 #include "Command.h"
+#include "InputEventPlus.h"
+#include "RageInput.h"
 
 //
 // Defines specific to ScreenNameEntryTraditional
 //
 static const ThemeMetric<apActorCommands>	ALPHABET_INIT_COMMMAND	("ScreenNameEntryTraditional","AlphabetInitCommand");	// TODO: remove hard coded name
-static const ThemeMetric<apActorCommands>	OK_INIT_COMMMAND		("ScreenNameEntryTraditional","OKInitCommand");	// TODO: remove hard coded name
+static const ThemeMetric<apActorCommands>	OK_INIT_COMMMAND	("ScreenNameEntryTraditional","OKInitCommand");	// TODO: remove hard coded name
 
 #define COMMAND_OPTIONAL( actor, command_name ) \
 	if( !(actor).GetName().empty() ) \
@@ -107,7 +108,7 @@ void HighScoreWheel::Load( const HighScoreList& hsl, int iIndexToFocus )
 	if( m_iIndexToFocus >= 0  &&  m_iIndexToFocus < int(hsl.vHighScores.size()) )
 		m_Items[m_iIndexToFocus].ShowFocus();
 
-	CString sTransformFunction = 
+	RString sTransformFunction = 
 		"function(self,offset,itemIndex,numItems) "
 		"	local degrees=18*offset; "
 		"	local radians=degrees*math.pi/180; "
@@ -115,14 +116,11 @@ void HighScoreWheel::Load( const HighScoreList& hsl, int iIndexToFocus )
 		"	self:y(math.sin(radians)*90); "
 		"	self:z(math.cos(radians)*90); "
 		"end";
-	ActorScroller::Load3( 
-		0.2f,
+	ActorScroller::Load2( 
 		10.5,
-		false,
-		sTransformFunction,
-		1,
-		false,
 		false );
+	ActorScroller::SetTransformFromExpression( sTransformFunction );
+	ActorScroller::SetSecondsPerItem( 0.2f );
 	Scroll();
 }
 
@@ -135,11 +133,9 @@ float HighScoreWheel::Scroll()
 }
 
 REGISTER_SCREEN_CLASS( ScreenNameEntryTraditional );
-ScreenNameEntryTraditional::ScreenNameEntryTraditional( CString sClassName ) : ScreenWithMenuElements( sClassName ),
+ScreenNameEntryTraditional::ScreenNameEntryTraditional():
 	CHANGE_COMMAND("stoptweening;decelerate,.12")
 {
-	LOG->Trace( "ScreenNameEntryTraditional::ScreenNameEntryTraditional()" );
-
 	if( PREFSMAN->m_bScreenTestMode )
 	{
 		GAMESTATE->m_bSideIsJoined[PLAYER_1] = true;
@@ -187,16 +183,16 @@ ScreenNameEntryTraditional::ScreenNameEntryTraditional( CString sClassName ) : S
 		}
 
 	}
+}
 
+void ScreenNameEntryTraditional::Init()
+{
 	ALPHABET_GAP_X.Load( m_sName, "AlphabetGapX" );
 	NUM_ALPHABET_DISPLAYED.Load( m_sName, "NumAlphabetDisplayed" );
 	MAX_RANKING_NAME_LENGTH.Load( m_sName, "MaxRankingNameLength" );
 	FEAT_INTERVAL.Load( m_sName, "FeatInterval" );
 	KEYBOARD_LETTERS.Load( m_sName, "KeyboardLetters" );
-}
 
-void ScreenNameEntryTraditional::Init()
-{
 	ScreenWithMenuElements::Init();
 
 	// Find out if players deserve to enter their name
@@ -225,59 +221,59 @@ void ScreenNameEntryTraditional::Init()
 				continue;	// skip
 			}
 
-			m_sprNameFrame[p].SetName( ssprintf("EntryFrameP%i",p+1) );
 			m_sprNameFrame[p].Load( THEME->GetPathG(m_sName,ssprintf("name frame p%i",p+1)) );
+			m_sprNameFrame[p]->SetName( ssprintf("EntryFrameP%i",p+1) );
 			SET_XY_AND_ON_COMMAND( m_sprNameFrame[p] );
-			this->AddChild( &m_sprNameFrame[p] );
+			this->AddChild( m_sprNameFrame[p] );
 
 			m_Keyboard[p].SetName( ssprintf("KeyboardP%i",p+1) );
 			SET_XY_AND_ON_COMMAND( m_Keyboard[p] );
 			this->AddChild( &m_Keyboard[p] );
 
 			/* Add letters to m_Keyboard. */
-			const CString fontpath = THEME->GetPathF(m_sName,"letters");
-			const wstring Chars = CStringToWstring(KEYBOARD_LETTERS);
-			for( unsigned ch = 0; ch < Chars.size(); ++ch )
+			const RString sFontPath = THEME->GetPathF(m_sName,"letters");
+			const wstring sChars = RStringToWstring(KEYBOARD_LETTERS);
+			for( unsigned ch = 0; ch < sChars.size(); ++ch )
 			{
-				BitmapText *Letter = new BitmapText;
-				Letter->SetName( ssprintf("LetterP%i",p+1) );
-				Letter->LoadFromFont( fontpath );
-				Letter->SetText( ssprintf("%lc", Chars[ch]) );
-				m_textAlphabet[p].push_back( Letter );
-				m_Keyboard[p].AddChild( Letter );
-				Letter->RunCommands( ALPHABET_INIT_COMMMAND );
+				BitmapText *pLetter = new BitmapText;
+				pLetter->SetName( ssprintf("LetterP%i",p+1) );
+				pLetter->LoadFromFont( sFontPath );
+				pLetter->SetText( ssprintf("%lc", sChars[ch]) );
+				m_textAlphabet[p].push_back( pLetter );
+				m_Keyboard[p].AddChild( pLetter );
+				pLetter->RunCommands( ALPHABET_INIT_COMMMAND );
 
-				m_AlphabetLetter[p].push_back( Chars[ch] );
+				m_AlphabetLetter[p].push_back( sChars[ch] );
 			}
 
 			/* Add "<-". */
 			{
-				BitmapText *Letter = new BitmapText;
-				Letter->SetName( ssprintf("LetterP%i",p+1) );
-				Letter->LoadFromFont( fontpath );
-				CString text = "&leftarrow;";
-				FontCharAliases::ReplaceMarkers( text );
-				Letter->SetText( text );
-				m_textAlphabet[p].push_back( Letter );
-				m_Keyboard[p].AddChild( Letter );
+				BitmapText *pLetter = new BitmapText;
+				pLetter->SetName( ssprintf("LetterP%i",p+1) );
+				pLetter->LoadFromFont( sFontPath );
+				RString sText = "&leftarrow;";
+				FontCharAliases::ReplaceMarkers( sText );
+				pLetter->SetText( sText );
+				m_textAlphabet[p].push_back( pLetter );
+				m_Keyboard[p].AddChild( pLetter );
 
 				m_AlphabetLetter[p].push_back( CHAR_BACK );
-				Letter->RunCommands( OK_INIT_COMMMAND );
+				pLetter->RunCommands( OK_INIT_COMMMAND );
 			}
 
 			/* Add "OK". */
 			{
-				BitmapText *Letter = new BitmapText;
-				Letter->SetName( ssprintf("LetterP%i",p+1) );
-				Letter->LoadFromFont( fontpath );
-				CString text = "&ok;";
-				FontCharAliases::ReplaceMarkers( text );
-				Letter->SetText( text );
-				m_textAlphabet[p].push_back( Letter );
-				m_Keyboard[p].AddChild( Letter );
+				BitmapText *pLetter = new BitmapText;
+				pLetter->SetName( ssprintf("LetterP%i",p+1) );
+				pLetter->LoadFromFont( sFontPath );
+				RString sText = "&ok;";
+				FontCharAliases::ReplaceMarkers( sText );
+				pLetter->SetText( sText );
+				m_textAlphabet[p].push_back( pLetter );
+				m_Keyboard[p].AddChild( pLetter );
 
 				m_AlphabetLetter[p].push_back( CHAR_OK );
-				Letter->RunCommands( OK_INIT_COMMMAND );
+				pLetter->RunCommands( OK_INIT_COMMMAND );
 			}
 
 			m_sprCursor[p].SetName( ssprintf("CursorP%i",p+1) );
@@ -296,12 +292,12 @@ void ScreenNameEntryTraditional::Init()
 			const Profile* pProfile = PROFILEMAN->GetProfile(p);
 			if( pProfile && !pProfile->m_sLastUsedHighScoreName.empty() )
 			{
-				m_sSelection[p] = CStringToWstring( pProfile->m_sLastUsedHighScoreName );
+				m_sSelection[p] = RStringToWstring( pProfile->m_sLastUsedHighScoreName );
 				if( (int) m_sSelection[p].size() > MAX_RANKING_NAME_LENGTH )
 					m_sSelection[p].erase( MAX_RANKING_NAME_LENGTH );
 				ASSERT( (int) m_sSelection[p].size() <= MAX_RANKING_NAME_LENGTH );
 				if( m_sSelection[p].size() )
-					SelectChar(  p, CHAR_OK );
+					SelectChar(  p, CHAR_OK, false );
 			}
 
 			UpdateSelectionText( p );
@@ -374,7 +370,7 @@ void ScreenNameEntryTraditional::Init()
 			SET_ON( display.m_Wheel );
 			this->AddChild( &display.m_Wheel );
 
-			CString sBanner;
+			RString sBanner;
 			if( GAMESTATE->IsCourseMode() )
 				sBanner = pCourse->m_sBannerPath;
 			else
@@ -431,10 +427,10 @@ void ScreenNameEntryTraditional::Init()
 
 			/* We always show the banner frame (if any), because fading from a graphic to
 			 * itself is ugly. */
-			display.m_sprBannerFrame.SetName( ssprintf("BannerFrameP%i",p+1) );
 			display.m_sprBannerFrame.Load( THEME->GetPathG(m_sName,ssprintf("banner frame p%i",p+1)) );
+			display.m_sprBannerFrame->SetName( ssprintf("BannerFrameP%i",p+1) );
 			SET_XY_AND_ON_COMMAND( display.m_sprBannerFrame );
-			this->AddChild( &display.m_sprBannerFrame );
+			this->AddChild( display.m_sprBannerFrame );
 		}
 #undef SET_ON
 	}
@@ -456,26 +452,26 @@ static inline int wrapn( int x, int n )
 
 void ScreenNameEntryTraditional::PositionCharsAndCursor( int pn )
 {
-	const int Selected = m_SelectedChar[pn];
-	const int NumDisplayed = NUM_ALPHABET_DISPLAYED;
+	const int iSelected = m_SelectedChar[pn];
+	const int iNumDisplayed = NUM_ALPHABET_DISPLAYED;
 
-	const int TotalDisplayed = (int)m_textAlphabet[pn].size();
-	const int Start = wrapn( Selected - TotalDisplayed/2, TotalDisplayed );
+	const int iTotalDisplayed = (int)m_textAlphabet[pn].size();
+	const int iStart = wrapn( iSelected - iTotalDisplayed/2, iTotalDisplayed );
 
-	const int First = -NumDisplayed/2;
-	const int Last = NumDisplayed/2;
+	const int iFirst = -iNumDisplayed/2;
+	const int iLast = iNumDisplayed/2;
 	for( int i = 0; i < (int)m_textAlphabet[pn].size(); ++i )
 	{
-		const int Num = wrapn( Start+i, (int) m_textAlphabet[pn].size() );
-		BitmapText *bt = m_textAlphabet[pn][Num];
+		const int iNum = wrapn( iStart+i, (int) m_textAlphabet[pn].size() );
+		BitmapText *bt = m_textAlphabet[pn][iNum];
 
-		const int Pos = i - TotalDisplayed/2;
-		const bool hidden = ( Pos < First || Pos > Last );
-		const int ActualPos = clamp( Pos, First-1, Last+1 );
+		const int iPos = i - iTotalDisplayed/2;
+		const bool bHidden = ( iPos < iFirst || iPos > iLast );
+		const int iActualPos = clamp( iPos, iFirst-1, iLast+1 );
 
 		bt->RunCommands( CHANGE_COMMAND );
-		bt->SetX( ActualPos * ALPHABET_GAP_X );
-		bt->SetDiffuseAlpha( hidden? 0.0f:1.0f );
+		bt->SetX( iActualPos * ALPHABET_GAP_X );
+		bt->SetDiffuseAlpha( bHidden? 0.0f:1.0f );
 	}
 
 	m_sprCursor[pn].SetXY( 0,0 );
@@ -512,6 +508,34 @@ void ScreenNameEntryTraditional::Input( const InputEventPlus &input )
 {
 	if( IsTransitioning() )
 		return;
+
+
+	if( input.type == IET_FIRST_PRESS )
+	{
+		int c;
+		if( input.DeviceI == DeviceInput(DEVICE_KEYBOARD, KEY_BACK) )
+		{
+			c = CHAR_BACK;
+		}
+		else
+		{
+			wchar_t ch = INPUTMAN->DeviceInputToChar(input.DeviceI,true);
+			MakeUpper( &ch, 1 );
+			c = ch;
+		}
+
+		if( c )
+		{
+			PlayerNumber pn = GAMESTATE->m_MasterPlayerNumber;
+			bool bChanged = SelectChar( pn, c, true );
+			if( bChanged )
+			{
+				m_soundChange.Play();
+				HandleStart( GAMESTATE->m_MasterPlayerNumber );
+			}
+			return;
+		}
+	}
 
 	ScreenWithMenuElements::Input( input );
 }
@@ -561,7 +585,7 @@ void ScreenNameEntryTraditional::HandleScreenMessage( const ScreenMessage SM )
 		{
 			FOREACH_PlayerNumber( p )
 				Finish( p );
-			MenuStart( PLAYER_INVALID, IET_FIRST_PRESS );
+			HandleStart( PLAYER_INVALID );
 		}
 	}
 	else if( SM == SM_ChangeDisplayedFeat )
@@ -581,16 +605,16 @@ void ScreenNameEntryTraditional::Finish( PlayerNumber pn )
 
 	UpdateSelectionText( pn ); /* hide NAME_ cursor */
 
-	CString selection = WStringToCString( m_sSelection[pn] );
+	RString sSelection = WStringToRString( m_sSelection[pn] );
 
 	// save last used ranking name
 	Profile* pProfile = PROFILEMAN->GetProfile(pn);
-	pProfile->m_sLastUsedHighScoreName = selection;
+	pProfile->m_sLastUsedHighScoreName = sSelection;
 
-	TrimRight( selection, " " );
-	TrimLeft( selection, " " );
+	TrimRight( sSelection, " " );
+	TrimLeft( sSelection, " " );
 
-	GAMESTATE->StoreRankingName( pn, selection );
+	GAMESTATE->StoreRankingName( pn, sSelection );
 
 	OFF_COMMAND( m_Keyboard[pn] );
 	for( int i = 0; i < (int)m_textAlphabet[pn].size(); ++i )
@@ -607,10 +631,18 @@ void ScreenNameEntryTraditional::UpdateSelectionText( int pn )
 	if( m_bStillEnteringName[pn] && (int) text.size() < MAX_RANKING_NAME_LENGTH )
 		text += L"_";
 
-	m_textSelection[pn].SetText( WStringToCString(text) );
+	m_textSelection[pn].SetText( WStringToRString(text) );
 }
 
-void ScreenNameEntryTraditional::MenuStart( PlayerNumber pn, const InputEventType type )
+void ScreenNameEntryTraditional::MenuStart( const InputEventPlus &input )
+{
+	if( input.type != IET_FIRST_PRESS )
+		return;		// ignore
+
+	HandleStart( input.MenuI.player );
+}
+
+void ScreenNameEntryTraditional::HandleStart( PlayerNumber pn )
 {
 	/* The screen may have started out with nobody entering, in which case we're
 	 * just showing scores and the first Start press moves on. */
@@ -622,12 +654,10 @@ void ScreenNameEntryTraditional::MenuStart( PlayerNumber pn, const InputEventTyp
 
 	if( !m_bStillEnteringName[pn] )
 		return;	// ignore
-	if( type != IET_FIRST_PRESS )
-		return;		// ignore
 
-	const int CurrentSelection = m_SelectedChar[pn];
-	const int SelectedLetter = m_AlphabetLetter[pn][CurrentSelection];
-	switch( SelectedLetter )
+	const int iCurrentSelection = m_SelectedChar[pn];
+	const int iSelectedLetter = m_AlphabetLetter[pn][iCurrentSelection];
+	switch( iSelectedLetter )
 	{
 	case CHAR_OK:
 		m_soundKey.Play();
@@ -643,30 +673,32 @@ void ScreenNameEntryTraditional::MenuStart( PlayerNumber pn, const InputEventTyp
 		if( (int) m_sSelection[pn].size() == MAX_RANKING_NAME_LENGTH )
 		{
 			m_soundInvalid.Play();
-			SelectChar( pn, CHAR_BACK );
+			SelectChar( pn, CHAR_BACK, false );
 			break;
 		}
-		m_sSelection[pn] += wchar_t(SelectedLetter);
+		m_sSelection[pn] += wchar_t(iSelectedLetter);
 		UpdateSelectionText( pn );
 		m_soundKey.Play();
 
 		/* If that filled the string, set the cursor on OK. */
 		if( (int) m_sSelection[pn].size() == MAX_RANKING_NAME_LENGTH )
-			SelectChar( pn, CHAR_OK );
+			SelectChar( pn, CHAR_OK, false );
 	}
 }
 
-void ScreenNameEntryTraditional::MenuSelect( PlayerNumber pn, const InputEventType type )
+void ScreenNameEntryTraditional::MenuSelect( const InputEventPlus &input )
 {
+	PlayerNumber pn = input.MenuI.player;
+
 	if( !m_bStillEnteringName[pn] )
 		return;	// ignore
-	if( type != IET_FIRST_PRESS )
+	if( input.type != IET_FIRST_PRESS )
 		return;		// ignore
 
 	Backspace( pn );
 }
 
-void ScreenNameEntryTraditional::SelectChar( PlayerNumber pn, int c )
+bool ScreenNameEntryTraditional::SelectChar( PlayerNumber pn, int c, bool bOptional )
 {
 	FOREACH( int, m_AlphabetLetter[pn], letter )
 	{
@@ -674,10 +706,12 @@ void ScreenNameEntryTraditional::SelectChar( PlayerNumber pn, int c )
 		{
 			m_SelectedChar[pn] = letter - m_AlphabetLetter[pn].begin();
 			PositionCharsAndCursor( pn );
-			return;
+			return true;
 		}
 	}
-	ASSERT( false );	// character not found
+	if( !bOptional )
+		ASSERT( false );	// character not found
+	return false;
 }
 
 void ScreenNameEntryTraditional::Backspace( PlayerNumber pn )
@@ -693,8 +727,9 @@ void ScreenNameEntryTraditional::Backspace( PlayerNumber pn )
 	m_soundKey.Play();
 }
 
-void ScreenNameEntryTraditional::MenuLeft( PlayerNumber pn, const InputEventType type )
+void ScreenNameEntryTraditional::MenuLeft( const InputEventPlus &input )
 {
+	PlayerNumber pn = input.MenuI.player;
 	if( !m_bStillEnteringName[pn] || IsTransitioning()  )
 		return;
 
@@ -704,8 +739,9 @@ void ScreenNameEntryTraditional::MenuLeft( PlayerNumber pn, const InputEventType
 	m_soundChange.Play();
 }
 
-void ScreenNameEntryTraditional::MenuRight( PlayerNumber pn, const InputEventType type )
+void ScreenNameEntryTraditional::MenuRight( const InputEventPlus &input )
 {
+	PlayerNumber pn = input.MenuI.player;
 	if( !m_bStillEnteringName[pn] || IsTransitioning()  )
 		return;
 
@@ -717,7 +753,7 @@ void ScreenNameEntryTraditional::MenuRight( PlayerNumber pn, const InputEventTyp
 
 void ScreenNameEntryTraditional::AllFinished()
 {
-	StartTransitioning( SM_GoToNextScreen );
+	StartTransitioningScreen( SM_GoToNextScreen );
 
 	FOREACH_HumanPlayer( pn )
 	{

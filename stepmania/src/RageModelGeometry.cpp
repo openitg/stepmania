@@ -4,7 +4,8 @@
 #include "RageFile.h"
 #include "RageMath.h"
 #include "RageDisplay.h"
-#include "IniFile.h"
+
+#define MS_MAX_NAME	32
 
 RageModelGeometry::RageModelGeometry ()
 {
@@ -53,6 +54,27 @@ void RageModelGeometry::OptimizeBones()
 	}
 }
 
+void RageModelGeometry::MergeMeshes( int iFromIndex, int iToIndex )
+{
+	msMesh& meshFrom = m_Meshes[ iFromIndex ];
+	msMesh& meshTo = m_Meshes[ iToIndex ];
+
+	int iShiftTriangleVertexIndicesBy = meshTo.Vertices.size();
+	int iStartShiftingAtTriangleIndex = meshTo.Triangles.size();
+
+	meshTo.Vertices.insert( meshTo.Vertices.end(), meshFrom.Vertices.begin(), meshFrom.Vertices.end() );
+	meshTo.Triangles.insert( meshTo.Triangles.end(), meshFrom.Triangles.begin(), meshFrom.Triangles.end() );
+
+	for( unsigned i=iStartShiftingAtTriangleIndex; i<meshTo.Triangles.size(); i++ )
+	{
+		for( int j=0; j<3; j++ )
+		{
+			uint16_t &iIndex = meshTo.Triangles[i].nVertexIndices[j];
+			iIndex = uint16_t(iIndex + iShiftTriangleVertexIndicesBy);
+		}
+	}
+}
+
 bool RageModelGeometry::HasAnyPerVertexBones() const
 {
 	for( unsigned i = 0; i < m_Meshes.size(); ++i )
@@ -68,17 +90,17 @@ bool RageModelGeometry::HasAnyPerVertexBones() const
 
 #define THROW RageException::Throw( "Parse error in \"%s\" at line %d: '%s'", sPath.c_str(), iLineNum, sLine.c_str() )
 
-void RageModelGeometry::LoadMilkshapeAscii( const CString& _sPath, bool bNeedsNormals )
+void RageModelGeometry::LoadMilkshapeAscii( const RString& _sPath, bool bNeedsNormals )
 {
-	CString sPath = _sPath;
+	RString sPath = _sPath;
 	FixSlashesInPlace(sPath);
-	const CString sDir = Dirname( sPath );
+	const RString sDir = Dirname( sPath );
 
 	RageFile f;
 	if( !f.Open( sPath ) )
 		RageException::Throw( "RageModelGeometry::LoadMilkshapeAscii Could not open \"%s\": %s", sPath.c_str(), f.GetError().c_str() );
 
-	CString sLine;
+	RString sLine;
 	int iLineNum = 0;
 	char szName[MS_MAX_NAME];
 	int nFlags, nIndex;
@@ -123,7 +145,7 @@ void RageModelGeometry::LoadMilkshapeAscii( const CString& _sPath, bool bNeedsNo
 				if( sscanf (sLine, "\"%[^\"]\" %d %d",szName, &nFlags, &nIndex) != 3 )
 					THROW;
 
-				strcpy( mesh.szName, szName );
+				mesh.sName = szName;
 				// mesh.nFlags = nFlags;
 				mesh.nMaterialIndex = (uint8_t) nIndex;
 
@@ -225,6 +247,10 @@ void RageModelGeometry::LoadMilkshapeAscii( const CString& _sPath, bool bNeedsNo
 					// deflate the normals into vertices
 					for( int k=0; k<3; k++ )
 					{
+						ASSERT_M( nIndices[k] < Vertices.size(), ssprintf("mesh \"%s\" tri #%i accesses vertex %i, but we only have %i",
+							szName, j, nIndices[k], int(Vertices.size())) );
+						ASSERT_M( nNormalIndices[k] < Normals.size(), ssprintf("mesh \"%s\" tri #%i accesses normal %i, but we only have %i",
+							szName, j, nNormalIndices[k], int(Normals.size())) );
 						RageModelVertex& vertex = Vertices[ nIndices[k] ];
 						RageVector3& normal = Normals[ nNormalIndices[k] ];
 						vertex.n = normal;
@@ -241,6 +267,14 @@ void RageModelGeometry::LoadMilkshapeAscii( const CString& _sPath, bool bNeedsNo
 	}
 
 	OptimizeBones();
+
+	if( DISPLAY->SupportsPerVertexMatrixScale() )
+	{
+		if( m_Meshes.size() == 2  &&  m_Meshes[0].sName == m_Meshes[1].sName )
+		{
+			MergeMeshes( 1, 0 );
+		}
+	}
 
 	// send the finalized vertices to the graphics card
 	m_pCompiledGeometry->Set( m_Meshes, bNeedsNormals );

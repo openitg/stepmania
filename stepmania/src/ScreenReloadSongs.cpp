@@ -22,7 +22,7 @@ public:
 	{
 	}
 
-	void SetText( CString str )
+	void SetText( RString str )
 	{
 		m_BitmapText.SetText( str );
 		Paint();
@@ -45,9 +45,6 @@ public:
  * until we finish loading songs; that way, people can continue to use their
  * computer while songs load. */
 REGISTER_SCREEN_CLASS( ScreenReloadSongs );
-ScreenReloadSongs::ScreenReloadSongs( CString sClassName ): Screen(sClassName)
-{
-}
 
 void ScreenReloadSongs::Init()
 {
@@ -78,7 +75,7 @@ void ScreenReloadSongs::Update( float fDeltaTime )
 		return;
 	ASSERT( !IsFirstUpdate() );
 
-	SONGMAN->Reload( m_LoadingWindow );
+	SONGMAN->Reload( false, m_LoadingWindow );
 	UNLOCKMAN->UpdateCachedPointers();
 
 	SCREENMAN->PostMessageToTopScreen( SM_GoToNextScreen, 0 );

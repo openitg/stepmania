@@ -3,30 +3,13 @@
 
 // In here, you define which APIs are guaranteed to be available on which OSes.
 // Don't ever actually #include anything here -- that's for */Selector_*.h.
-#if defined(UNIX) && !defined(__MACOSX__)
-#define HAVE_UNIX
-#endif
-#if defined(__MACOSX__)
-#define HAVE_MACOSX
-#define HAVE_COCOA
-#define HAVE_COREAUDIO
-#define HAVE_SDL
-#define HAVE_CRYPTOPP
-#endif
 #if defined(_WINDOWS)
 #define HAVE_DIRECTX
 #define HAVE_FFMPEG
-#define HAVE_WIN32 // XXX: Better name for this API?
-#define HAVE_CRYPTOPP
 #endif
 #if defined(_XBOX)
 #define HAVE_DIRECTX
 #define HAVE_XDK
-#endif
-#if defined(LINUX)
-#define HAVE_UNIX	// Here just to be explicit.
-#define HAVE_LINUXKERNEL
-#define HAVE_CRYPTOPP
 #endif
 
 #endif

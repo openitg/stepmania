@@ -1,7 +1,6 @@
 #include "global.h"
 #include "PlayerStageStats.h"
 #include "RageLog.h"
-#include "PrefsManager.h"
 #include "ThemeManager.h"
 #include "Foreach.h"
 #include "LuaFunctions.h"
@@ -10,12 +9,15 @@
 #include "GameState.h"
 #include "Course.h"
 #include "Steps.h"
-#include "ScoreKeeperMAX2.h"
+#include "ScoreKeeperNormal.h"
+#include "PrefsManager.h"
 
-#define GRADE_PERCENT_TIER(i)			THEME->GetMetricF("PlayerStageStats",ssprintf("GradePercent%s",GradeToString((Grade)i).c_str()))
-#define GRADE_TIER02_IS_ALL_PERFECTS	THEME->GetMetricB("PlayerStageStats","GradeTier02IsAllPerfects")
+#define GRADE_PERCENT_TIER(i)	THEME->GetMetricF("PlayerStageStats",ssprintf("GradePercent%s",GradeToString((Grade)i).c_str()))
+#define GRADE_TIER02_IS_ALL_W2S	THEME->GetMetricB("PlayerStageStats","GradeTier02IsAllW2s")
 
 const float LESSON_PASS_THRESHOLD = 0.8f;
+
+Grade GetGradeFromPercent( float fPercent, bool bMerciful );
 
 void PlayerStageStats::Init()
 {
@@ -24,15 +26,14 @@ void PlayerStageStats::Init()
 	fAliveSeconds = 0;
 	bFailed = false;
 	bFailedEarlier = false;
-	bGaveUp = false;
 	iPossibleDancePoints = iCurPossibleDancePoints = iActualDancePoints = 0;
 	iPossibleGradePoints = 0;
 	iCurCombo = iMaxCombo = iCurMissCombo = iScore = iBonus = iMaxScore = iCurMaxScore = 0;
 	iSongsPassed = iSongsPlayed = 0;
-	iTotalError = 0;
-	fCaloriesBurned = 0;
-	iTotalError = 0;
 	fLifeRemainingSeconds = 0;
+	fCaloriesBurned = 0;
+	tnsLast = TNS_INVALID;
+	hnsLast = HNS_INVALID;
 
 	ZERO( iTapNoteScores );
 	ZERO( iHoldNoteScores );
@@ -59,15 +60,14 @@ void PlayerStageStats::AddStats( const PlayerStageStats& other )
 	fAliveSeconds += other.fAliveSeconds;
 	bFailed |= other.bFailed;
 	bFailedEarlier |= other.bFailedEarlier;
-	bGaveUp |= other.bGaveUp;
 	iPossibleDancePoints += other.iPossibleDancePoints;
 	iActualDancePoints += other.iActualDancePoints;
 	iCurPossibleDancePoints += other.iCurPossibleDancePoints;
 	iPossibleGradePoints += other.iPossibleGradePoints;
 	
-	for( int t=0; t<NUM_TAP_NOTE_SCORES; t++ )
+	for( int t=0; t<NUM_TapNoteScore; t++ )
 		iTapNoteScores[t] += other.iTapNoteScores[t];
-	for( int h=0; h<NUM_HOLD_NOTE_SCORES; h++ )
+	for( int h=0; h<NUM_HoldNoteScore; h++ )
 		iHoldNoteScores[h] += other.iHoldNoteScores[h];
 	iCurCombo += other.iCurCombo;
 	iMaxCombo += other.iMaxCombo;
@@ -79,7 +79,6 @@ void PlayerStageStats::AddStats( const PlayerStageStats& other )
 	radarActual += other.radarActual;
 	iSongsPassed += other.iSongsPassed;
 	iSongsPlayed += other.iSongsPlayed;
-	iTotalError += other.iTotalError;
 	fCaloriesBurned += other.fCaloriesBurned;
 	fLifeRemainingSeconds = other.fLifeRemainingSeconds;	// don't accumulate
 
@@ -123,8 +122,11 @@ void PlayerStageStats::AddStats( const PlayerStageStats& other )
 	}
 }
 
-Grade PlayerStageStats::GetGradeFromPercent( float fPercent )
+Grade GetGradeFromPercent( float fPercent, bool bMerciful )
 {
+	if( bMerciful )
+		fPercent = SCALE( fPercent, 0.0f, 1.0f, 0.5f, 1.0f );
+
 	Grade grade = Grade_Failed;
 
 	FOREACH_Grade(g)
@@ -140,7 +142,7 @@ Grade PlayerStageStats::GetGradeFromPercent( float fPercent )
 
 Grade PlayerStageStats::GetGrade() const
 {
-	if( bFailedEarlier )
+	if( bFailed )
 		return Grade_Failed;
 
 	/* XXX: This entire calculation should be in ScoreKeeper, but final evaluation
@@ -153,14 +155,14 @@ Grade PlayerStageStats::GetGrade() const
 
 	FOREACH_TapNoteScore( tns )
 	{
-		int iTapScoreValue = ScoreKeeperMAX2::TapNoteScoreToGradePoints( tns, bIsBeginner );
+		int iTapScoreValue = ScoreKeeperNormal::TapNoteScoreToGradePoints( tns, bIsBeginner );
 		fActual += iTapNoteScores[tns] * iTapScoreValue;
 		LOG->Trace( "GetGrade actual: %i * %i", iTapNoteScores[tns], iTapScoreValue );
 	}
 
 	FOREACH_HoldNoteScore( hns )
 	{
-		int iHoldScoreValue = ScoreKeeperMAX2::HoldNoteScoreToGradePoints( hns, bIsBeginner );
+		int iHoldScoreValue = ScoreKeeperNormal::HoldNoteScoreToGradePoints( hns, bIsBeginner );
 		fActual += iHoldNoteScores[hns] * iHoldScoreValue;
 		LOG->Trace( "GetGrade actual: %i * %i", iHoldNoteScores[hns], iHoldScoreValue );
 	}
@@ -170,28 +172,39 @@ Grade PlayerStageStats::GetGrade() const
 
 	float fPercent = (iPossibleGradePoints == 0) ? 0 : fActual / iPossibleGradePoints;
 
-	Grade grade = GetGradeFromPercent( fPercent );
 
-	LOG->Trace( "GetGrade: Grade: %s, %i", GradeToString(grade).c_str(), GRADE_TIER02_IS_ALL_PERFECTS );
-	if( GRADE_TIER02_IS_ALL_PERFECTS )
+	bool bMerciful = 
+		vpPlayedSteps.size() > 0  &&
+		GAMESTATE->m_PlayMode == PLAY_MODE_REGULAR &&
+		PREFSMAN->m_bMercifulBeginner;
+	FOREACH_CONST( Steps*, vpPlayedSteps, s )
 	{
-		if(	iTapNoteScores[TNS_MARVELOUS] > 0 &&
-			iTapNoteScores[TNS_PERFECT] == 0 &&
-			iTapNoteScores[TNS_GREAT] == 0 &&
-			iTapNoteScores[TNS_GOOD] == 0 &&
-			iTapNoteScores[TNS_BOO] == 0 &&
-			iTapNoteScores[TNS_MISS] == 0 &&
-			iTapNoteScores[TNS_HIT_MINE] == 0 &&
-			iHoldNoteScores[HNS_NG] == 0 )
+		if( (*s)->GetDifficulty() != DIFFICULTY_BEGINNER )
+			bMerciful = false;
+	}
+
+	Grade grade = GetGradeFromPercent( fPercent, bMerciful );
+
+	LOG->Trace( "GetGrade: Grade: %s, %i", GradeToString(grade).c_str(), GRADE_TIER02_IS_ALL_W2S );
+	if( GRADE_TIER02_IS_ALL_W2S )
+	{
+		if(	iTapNoteScores[TNS_W1] > 0 &&
+			iTapNoteScores[TNS_W2] == 0 &&
+			iTapNoteScores[TNS_W3] == 0 &&
+			iTapNoteScores[TNS_W4] == 0 &&
+			iTapNoteScores[TNS_W5] == 0 &&
+			iTapNoteScores[TNS_Miss] == 0 &&
+			iTapNoteScores[TNS_HitMine] == 0 &&
+			iHoldNoteScores[HNS_LetGo] == 0 )
 			return Grade_Tier01;
 
-		if( iTapNoteScores[TNS_PERFECT] > 0 &&
-			iTapNoteScores[TNS_GREAT] == 0 &&
-			iTapNoteScores[TNS_GOOD] == 0 &&
-			iTapNoteScores[TNS_BOO] == 0 &&
-			iTapNoteScores[TNS_MISS] == 0 &&
-			iTapNoteScores[TNS_HIT_MINE] == 0 &&
-			iHoldNoteScores[HNS_NG] == 0 )
+		if( iTapNoteScores[TNS_W2] > 0 &&
+			iTapNoteScores[TNS_W3] == 0 &&
+			iTapNoteScores[TNS_W4] == 0 &&
+			iTapNoteScores[TNS_W5] == 0 &&
+			iTapNoteScores[TNS_Miss] == 0 &&
+			iTapNoteScores[TNS_HitMine] == 0 &&
+			iHoldNoteScores[HNS_LetGo] == 0 )
 			return Grade_Tier02;
 
 		return max( grade, Grade_Tier03 );
@@ -237,12 +250,12 @@ int PlayerStageStats::GetLessonScoreActual() const
 	{
 		switch( tns )
 		{
-		case TNS_AVOIDED_MINE:
-		case TNS_BOO:
-		case TNS_GOOD:
-		case TNS_GREAT:
-		case TNS_PERFECT:
-		case TNS_MARVELOUS:
+		case TNS_AvoidMine:
+		case TNS_W5:
+		case TNS_W4:
+		case TNS_W3:
+		case TNS_W2:
+		case TNS_W1:
 			iScore += iTapNoteScores[tns];
 			break;
 		}
@@ -252,7 +265,7 @@ int PlayerStageStats::GetLessonScoreActual() const
 	{
 		switch( hns )
 		{
-		case HNS_OK:
+		case HNS_Held:
 			iScore += iHoldNoteScores[hns];
 			break;
 		}
@@ -263,13 +276,12 @@ int PlayerStageStats::GetLessonScoreActual() const
 
 int PlayerStageStats::GetLessonScoreNeeded() const
 {
-	int iScore = 0;
+	float fScore = 0;
 
 	FOREACH_CONST( Steps*, vpPossibleSteps, steps )
-		iScore += (*steps)->GetRadarValues().m_Values.v.fNumTapsAndHolds;
+		fScore += (*steps)->GetRadarValues().m_Values.v.fNumTapsAndHolds;
 
-	iScore = (int)floorf( iScore * LESSON_PASS_THRESHOLD );
-	return iScore;
+	return lrintf( fScore * LESSON_PASS_THRESHOLD );
 }
 
 void PlayerStageStats::ResetScoreForLesson()
@@ -357,10 +369,10 @@ float PlayerStageStats::GetLifeRecordLerpAt( float fStepsSecond ) const
 	if( earlier != fLifeRecord.begin() )
 		--earlier;
 
-	if( earlier->first == later->first )	// two samples from the same time.  Don't divide by zero in SCALE
-		return earlier->second;
-
 	if( later == fLifeRecord.end() )
+		return earlier->second;
+	
+	if( earlier->first == later->first )	// two samples from the same time.  Don't divide by zero in SCALE
 		return earlier->second;
 
 	/* earlier <= pos <= later */
@@ -377,9 +389,9 @@ void PlayerStageStats::GetLifeRecord( float *fLifeOut, int iNumSamples, float fS
 	}
 }
 
-/* If "rollover" is true, we're being called before gameplay begins, so we can record
+/* If bRollover is true, we're being called before gameplay begins, so we can record
  * the amount of the first combo that comes from the previous song. */
-void PlayerStageStats::UpdateComboList( float fSecond, bool rollover )
+void PlayerStageStats::UpdateComboList( float fSecond, bool bRollover )
 {
 	// Don't save combo stats in endless courses, or could run OOM in a few hours.
 	if( GAMESTATE->m_pCurCourse && GAMESTATE->m_pCurCourse->IsEndless() )
@@ -388,7 +400,7 @@ void PlayerStageStats::UpdateComboList( float fSecond, bool rollover )
 	if( fSecond < 0 )
 		return;
 
-	if( !rollover )
+	if( !bRollover )
 	{
 		fFirstSecond = min( fSecond, fFirstSecond );
 		fLastSecond = max( fSecond, fLastSecond );
@@ -412,7 +424,7 @@ void PlayerStageStats::UpdateComboList( float fSecond, bool rollover )
 		 * recording rollover, the combo hasn't started yet (within this song), so put
 		 * a placeholder in and set it on the next call.  (Otherwise, start will be less
 		 * than fFirstPos.) */
-		if( rollover )
+		if( bRollover )
 			NewCombo.fStartSecond = -9999;
 		else
 			NewCombo.fStartSecond = fSecond;
@@ -420,12 +432,13 @@ void PlayerStageStats::UpdateComboList( float fSecond, bool rollover )
 	}
 
 	Combo_t &combo = ComboList.back();
+	if( !bRollover && combo.fStartSecond == -9999 )
+		combo.fStartSecond = 0;
+
 	combo.fSizeSeconds = fSecond - combo.fStartSecond;
 	combo.cnt = cnt;
-	if( !rollover && combo.fStartSecond == -9999 )
-		combo.fStartSecond = fSecond;
 
-	if( rollover )
+	if( bRollover )
 		combo.rollover = cnt;
 }
 
@@ -456,22 +469,22 @@ int	PlayerStageStats::GetComboAtStartOfStage() const
 
 bool PlayerStageStats::FullComboOfScore( TapNoteScore tnsAllGreaterOrEqual ) const
 {
-	ASSERT( tnsAllGreaterOrEqual >= TNS_GREAT );
-	ASSERT( tnsAllGreaterOrEqual <= TNS_MARVELOUS );
+	ASSERT( tnsAllGreaterOrEqual >= TNS_W3 );
+	ASSERT( tnsAllGreaterOrEqual <= TNS_W1 );
 
 	// If missed any holds, then it's not a full combo
-	if( iHoldNoteScores[HNS_NG] > 0 )
+	if( iHoldNoteScores[HNS_LetGo] > 0 )
 		return false;
 
 	// If has any of the judgments below, then not a full combo
-	for( int i=TNS_MISS; i<tnsAllGreaterOrEqual; i++ )
+	for( int i=TNS_Miss; i<tnsAllGreaterOrEqual; i++ )
 	{
 		if( iTapNoteScores[i] > 0 )
 			return false;
 	}
 
 	// If has at least one of the judgments equal to or above, then is a full combo.
-	for( int i=tnsAllGreaterOrEqual; i<NUM_TAP_NOTE_SCORES; i++ )
+	for( int i=tnsAllGreaterOrEqual; i<NUM_TapNoteScore; i++ )
 	{
 		if( iTapNoteScores[i] > 0 )
 			return true;
@@ -495,7 +508,7 @@ bool PlayerStageStats::OneOfScore( TapNoteScore tnsAllGreaterOrEqual ) const
 int PlayerStageStats::GetTotalTaps() const
 {
 	int iTotalTaps = 0;
-	for( int i=TNS_MISS; i<NUM_TAP_NOTE_SCORES; i++ )
+	for( int i=TNS_Miss; i<NUM_TapNoteScore; i++ )
 	{
 		iTotalTaps += iTapNoteScores[i];
 	}
@@ -505,16 +518,21 @@ int PlayerStageStats::GetTotalTaps() const
 float PlayerStageStats::GetPercentageOfTaps( TapNoteScore tns ) const
 {
 	int iTotalTaps = 0;
-	for( int i=TNS_MISS; i<NUM_TAP_NOTE_SCORES; i++ )
+	for( int i=TNS_Miss; i<NUM_TapNoteScore; i++ )
 	{
 		iTotalTaps += iTapNoteScores[i];
 	}
 	return iTapNoteScores[tns] / (float)iTotalTaps;
 }
 
-void PlayerStageStats::CalcAwards( PlayerNumber p )
+void PlayerStageStats::CalcAwards( PlayerNumber p, bool bGaveUp, bool bUsedAutoplay )
 {
 	LOG->Trace( "hand out awards" );
+	
+	m_pcaToShow = PEAK_COMBO_AWARD_INVALID;
+
+	if( bGaveUp || bUsedAutoplay )
+		return;
 	
 	deque<PerDifficultyAward> &vPdas = GAMESTATE->m_vLastPerDifficultyAwards[p];
 
@@ -524,29 +542,29 @@ void PlayerStageStats::CalcAwards( PlayerNumber p )
 	// don't give per-difficutly awards if using easy mods
 	if( !GAMESTATE->IsDisqualified(p) )
 	{
-		if( FullComboOfScore( TNS_GREAT ) )
-			vPdas.push_back( AWARD_FULL_COMBO_GREATS );
-		if( SingleDigitsOfScore( TNS_GREAT ) )
-			vPdas.push_back( AWARD_SINGLE_DIGIT_GREATS );
-		if( FullComboOfScore( TNS_PERFECT ) )
-			vPdas.push_back( AWARD_FULL_COMBO_PERFECTS );
-		if( SingleDigitsOfScore( TNS_PERFECT ) )
-			vPdas.push_back( AWARD_SINGLE_DIGIT_PERFECTS );
-		if( FullComboOfScore( TNS_MARVELOUS ) )
-			vPdas.push_back( AWARD_FULL_COMBO_MARVELOUSES );
+		if( FullComboOfScore( TNS_W3 ) )
+			vPdas.push_back( AWARD_FULL_COMBO_W3 );
+		if( SingleDigitsOfScore( TNS_W3 ) )
+			vPdas.push_back( AWARD_SINGLE_DIGIT_W3 );
+		if( FullComboOfScore( TNS_W2 ) )
+			vPdas.push_back( AWARD_FULL_COMBO_W2 );
+		if( SingleDigitsOfScore( TNS_W2 ) )
+			vPdas.push_back( AWARD_SINGLE_DIGIT_W2 );
+		if( FullComboOfScore( TNS_W1 ) )
+			vPdas.push_back( AWARD_FULL_COMBO_W1 );
 		
-		if( OneOfScore( TNS_GREAT ) )
-			vPdas.push_back( AWARD_ONE_GREAT );
-		if( OneOfScore( TNS_PERFECT ) )
-			vPdas.push_back( AWARD_ONE_PERFECT );
+		if( OneOfScore( TNS_W3 ) )
+			vPdas.push_back( AWARD_ONE_W3 );
+		if( OneOfScore( TNS_W2 ) )
+			vPdas.push_back( AWARD_ONE_W2 );
 
-		float fPercentGreats = GetPercentageOfTaps( TNS_GREAT );
-		if( fPercentGreats >= 0.8f )
-			vPdas.push_back( AWARD_GREATS_80_PERCENT );
-		if( fPercentGreats >= 0.9f )
-			vPdas.push_back( AWARD_GREATS_90_PERCENT );
-		if( fPercentGreats >= 1.f )
-			vPdas.push_back( AWARD_GREATS_100_PERCENT );
+		float fPercentW3s = GetPercentageOfTaps( TNS_W3 );
+		if( fPercentW3s >= 0.8f )
+			vPdas.push_back( AWARD_PERCENT_80_W3 );
+		if( fPercentW3s >= 0.9f )
+			vPdas.push_back( AWARD_PERCENT_90_W3 );
+		if( fPercentW3s >= 1.f )
+			vPdas.push_back( AWARD_PERCENT_100_W3 );
 	}
 
 	// Max one PDA per stage
@@ -583,7 +601,7 @@ void PlayerStageStats::CalcAwards( PlayerNumber p )
 }
 
 
-LuaFunction( GetGradeFromPercent,	PlayerStageStats::GetGradeFromPercent( FArg(1) ) )
+LuaFunction( GetGradeFromPercent,	GetGradeFromPercent( FArg(1), false ) )
 
 
 // lua start
@@ -594,18 +612,18 @@ class LunaPlayerStageStats: public Luna<PlayerStageStats>
 public:
 	LunaPlayerStageStats() { LUA->Register( Register ); }
 
-	DEFINE_METHOD( GetCaloriesBurned,			fCaloriesBurned )
+	DEFINE_METHOD( GetCaloriesBurned,		fCaloriesBurned )
 	DEFINE_METHOD( GetLifeRemainingSeconds,		fLifeRemainingSeconds )
-	DEFINE_METHOD( GetSurvivalSeconds,			GetSurvivalSeconds() )
-	DEFINE_METHOD( FullCombo,					FullCombo() )
-	DEFINE_METHOD( MaxCombo,					GetMaxCombo().cnt )
-	DEFINE_METHOD( GetGrade,					GetGrade() )
+	DEFINE_METHOD( GetSurvivalSeconds,		GetSurvivalSeconds() )
+	DEFINE_METHOD( FullCombo,			FullCombo() )
+	DEFINE_METHOD( MaxCombo,			GetMaxCombo().cnt )
+	DEFINE_METHOD( GetGrade,			GetGrade() )
 	DEFINE_METHOD( GetLessonScoreActual,		GetLessonScoreActual() )
 	DEFINE_METHOD( GetLessonScoreNeeded,		GetLessonScoreNeeded() )
 	DEFINE_METHOD( GetPersonalHighScoreIndex,	m_iPersonalHighScoreIndex )
 	DEFINE_METHOD( GetMachineHighScoreIndex,	m_iMachineHighScoreIndex )
 	DEFINE_METHOD( GetPerDifficultyAward,		m_pdaToShow )
-	DEFINE_METHOD( GetPeakComboAward,			m_pcaToShow )
+	DEFINE_METHOD( GetPeakComboAward,		m_pcaToShow )
 
 	static void Register(lua_State *L)
 	{

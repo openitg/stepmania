@@ -12,16 +12,21 @@ class GradeDisplay : public Sprite
 {
 public:
 	GradeDisplay();
-	virtual bool Load( RageTextureID ID );
+	virtual void Load( RageTextureID ID );
 
 	virtual void Update( float fDeltaTime );
 
 	void SetGrade( PlayerNumber pn, Grade g );
-	void Spin();
+	void Scroll();
 	void SettleImmediately();
 	void SettleQuickly();
 
 	Grade GetGrade () const { return m_Grade; }
+
+	//
+	// Lua
+	//
+	virtual void PushSelf( lua_State *L );
 
 protected:
 	int GetFrameIndex( PlayerNumber pn, Grade g );

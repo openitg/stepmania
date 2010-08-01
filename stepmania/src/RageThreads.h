@@ -7,17 +7,12 @@ struct ThreadSlot;
 class RageTimer;
 class RageThread
 {
-	ThreadSlot *m_pSlot;
-	CString name;
-
-	static bool m_bSystemSupportsTLS;
-
 public:
 	RageThread();
 	~RageThread();
 
-	void SetName( const CString &n ) { name = n; }
-	CString GetName() const { return name; }
+	void SetName( const RString &n ) { name = n; }
+	RString GetName() const { return name; }
 	void Create( int (*fn)(void *), void *data );
 
 	/* For crash handlers: kill or suspend all threads (except for
@@ -38,9 +33,30 @@ public:
 	/* A system can define HAVE_TLS, indicating that it can compile thread_local
 	 * code, but an individual environment may not actually have functional TLS.
 	 * If this returns false, thread_local variables are considered undefined. */
-	static bool GetSupportsTLS() { return m_bSystemSupportsTLS; }
-	
-	static void SetSupportsTLS( bool b ) { m_bSystemSupportsTLS = b; }
+	static bool GetSupportsTLS() { return s_bSystemSupportsTLS; }
+	static void SetSupportsTLS( bool b ) { s_bSystemSupportsTLS = b; }
+
+	static bool GetIsShowingDialog() { return s_bIsShowingDialog; }
+	static void SetIsShowingDialog( bool b ) { s_bIsShowingDialog = b; }
+
+private:
+	ThreadSlot *m_pSlot;
+	RString name;
+
+	static bool s_bSystemSupportsTLS;
+	static bool s_bIsShowingDialog;
+};
+
+/* Register a thread created outside of RageThread.  This gives it a name for RageThread::GetCurThreadName,
+ * and allocates a slot for checkpoints. */
+class RageThreadRegister
+{
+public:
+	RageThreadRegister( const RString &sName );
+	~RageThreadRegister();
+
+private:
+	ThreadSlot *m_pSlot;
 };
 
 namespace Checkpoints
@@ -62,19 +78,19 @@ class MutexImpl;
 class RageMutex
 {
 public:
-	CString GetName() const { return m_sName; }
-	void SetName( const CString &s ) { m_sName = s; }
+	RString GetName() const { return m_sName; }
+	void SetName( const RString &s ) { m_sName = s; }
 	virtual void Lock();
 	virtual bool TryLock();
 	virtual void Unlock();
 	virtual bool IsLockedByThisThread() const;
 
-	RageMutex( CString name );
+	RageMutex( const RString &name );
 	virtual ~RageMutex();
 
 protected:
 	MutexImpl *m_pMutex;
-	CString m_sName;
+	RString m_sName;
 
 	int m_UniqueID;
 	
@@ -138,7 +154,7 @@ class EventImpl;
 class RageEvent: public RageMutex
 {
 public:
-	RageEvent( CString name );
+	RageEvent( RString name );
 	~RageEvent();
 
 	/*
@@ -159,10 +175,10 @@ class SemaImpl;
 class RageSemaphore
 {
 public:
-	RageSemaphore( CString sName, int iInitialValue = 0 );
+	RageSemaphore( RString sName, int iInitialValue = 0 );
 	~RageSemaphore();
 
-	CString GetName() const { return m_sName; }
+	RString GetName() const { return m_sName; }
 	int GetValue() const;
 	void Post();
 	void Wait( bool bFailOnTimeout=true );
@@ -170,7 +186,7 @@ public:
 
 private:
 	SemaImpl *m_pSema;
-	CString m_sName;
+	RString m_sName;
 };
 
 #endif

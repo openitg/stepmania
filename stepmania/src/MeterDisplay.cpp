@@ -6,6 +6,7 @@
 #include "ActorUtil.h"
 #include "XmlFile.h"
 #include "RageLog.h"
+#include "LuaManager.h"
 
 REGISTER_ACTOR_CLASS(MeterDisplay)
 REGISTER_ACTOR_CLASS(SongMeterDisplay)
@@ -14,7 +15,7 @@ MeterDisplay::MeterDisplay()
 {
 }
 
-void MeterDisplay::Load( CString sStreamPath, float fStreamWidth, CString sTipPath )
+void MeterDisplay::Load( RString sStreamPath, float fStreamWidth, RString sTipPath )
 {
 	m_fStreamWidth = fStreamWidth;
 
@@ -28,20 +29,26 @@ void MeterDisplay::Load( CString sStreamPath, float fStreamWidth, CString sTipPa
 	SetPercent( 0.5f );
 }
 
-void MeterDisplay::LoadFromNode( const CString& sDir, const XNode* pNode )
+void MeterDisplay::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	LOG->Trace( "MeterDisplay::LoadFromNode(%s,node)", sDir.c_str() );
 
-	if( !pNode->GetAttrValue( "StreamWidth", m_fStreamWidth ) )
+	RString sExpr;
+	if( !pNode->GetAttrValue( "StreamWidth", sExpr ) )
 		RageException::Throw( "MeterDisplay in " + sDir + " missing StreamWidth attribute" );
+	m_fStreamWidth = LuaHelpers::RunExpressionF( sExpr );
 
 	{
-		CString sStreamPath;
+		RString sStreamPath;
 		if( !pNode->GetAttrValue( "StreamPath", sStreamPath ) )
 			RageException::Throw( "MeterDisplay in " + sDir + " missing StreamPath attribute" );
 
-		sStreamPath = sDir + sStreamPath;
-		ActorUtil::ResolvePath( sStreamPath, sDir );
+		LuaHelpers::RunAtExpressionS( sStreamPath );
+		if( !sStreamPath.empty() && sStreamPath[0] != '/' )
+		{
+			sStreamPath = sDir + sStreamPath;
+			ActorUtil::ResolvePath( sStreamPath, sDir );
+		}
 
 		m_sprStream.Load( sStreamPath );
 		m_sprStream->SetZoomX( m_fStreamWidth / m_sprStream->GetUnzoomedWidth() );
@@ -71,12 +78,15 @@ void MeterDisplay::SetPercent( float fPercent )
 
 void SongMeterDisplay::Update( float fDeltaTime )
 {
-	float fSongStartSeconds = GAMESTATE->m_pCurSong->m_Timing.GetElapsedTimeFromBeat( GAMESTATE->m_pCurSong->m_fFirstBeat );
-	float fSongEndSeconds = GAMESTATE->m_pCurSong->m_Timing.GetElapsedTimeFromBeat( GAMESTATE->m_pCurSong->m_fLastBeat );
-	float fPercentPositionSong = SCALE( GAMESTATE->m_fMusicSeconds, fSongStartSeconds, fSongEndSeconds, 0.0f, 1.0f );
-	CLAMP( fPercentPositionSong, 0, 1 );
-	
-	SetPercent( fPercentPositionSong );
+	if( GAMESTATE->m_pCurSong )
+	{
+		float fSongStartSeconds = GAMESTATE->m_pCurSong->m_Timing.GetElapsedTimeFromBeat( GAMESTATE->m_pCurSong->m_fFirstBeat );
+		float fSongEndSeconds = GAMESTATE->m_pCurSong->m_Timing.GetElapsedTimeFromBeat( GAMESTATE->m_pCurSong->m_fLastBeat );
+		float fPercentPositionSong = SCALE( GAMESTATE->m_fMusicSeconds, fSongStartSeconds, fSongEndSeconds, 0.0f, 1.0f );
+		CLAMP( fPercentPositionSong, 0, 1 );
+		
+		SetPercent( fPercentPositionSong );
+	}
 
 	MeterDisplay::Update( fDeltaTime );
 }

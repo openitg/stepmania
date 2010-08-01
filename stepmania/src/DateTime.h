@@ -8,18 +8,19 @@ const int NUM_LAST_WEEKS = 52;
 const int DAYS_IN_YEAR = 366; // maximum (leap years)
 const int HOURS_IN_DAY = 24;
 const int DAYS_IN_WEEK = 7;
-const int MONTHS_IN_YEAR = 12;
+enum Month { NUM_Month = 12 };
 
-CString DayInYearToString( int iDayInYearIndex );
-CString LastDayToString( int iLastDayIndex );
-CString DayOfWeekToString( int iDayOfWeekIndex );
-CString HourInDayToString( int iHourIndex );
-CString MonthToString( int iMonthIndex );
-CString LastWeekToString( int iLastWeekIndex );
-
-CString LastDayToDisplayString( int iLastDayIndex );
-CString LastWeekToDisplayString( int iLastWeekIndex );
-CString HourInDayToDisplayString( int iHourIndex );
+RString DayInYearToString( int iDayInYearIndex );
+RString LastDayToString( int iLastDayIndex );
+RString LastDayToLocalizedString( int iLastDayIndex );
+RString DayOfWeekToString( int iDayOfWeekIndex );
+RString DayOfWeekToLocalizedString( int iDayOfWeekIndex );
+RString HourInDayToString( int iHourIndex );
+RString HourInDayToLocalizedString( int iHourIndex );
+const RString &MonthToString( Month month );
+const RString &MonthToLocalizedString( Month month );
+RString LastWeekToString( int iLastWeekIndex );
+RString LastWeekToLocalizedString( int iLastWeekIndex );
 
 tm AddDays( tm start, int iDaysToMove );
 tm GetYesterday( tm start );
@@ -31,12 +32,12 @@ tm GetDayInYearAndYear( int iDayInYearIndex, int iYear );
 
 struct DateTime 
 {
-    int tm_sec;     /* seconds after the minute - [0,59] */
-    int tm_min;     /* minutes after the hour - [0,59] */
-    int tm_hour;    /* hours since midnight - [0,23] */
-    int tm_mday;    /* day of the month - [1,31] */
-    int tm_mon;     /* months since January - [0,11] */
-    int tm_year;    /* years since 1900 */
+	int tm_sec;     /* seconds after the minute - [0,59] */
+	int tm_min;     /* minutes after the hour - [0,59] */
+	int tm_hour;    /* hours since midnight - [0,23] */
+	int tm_mday;    /* day of the month - [1,31] */
+	int tm_mon;     /* months since January - [0,11] */
+	int tm_year;    /* years since 1900 */
 
 	DateTime();
 	void Init();
@@ -50,8 +51,8 @@ struct DateTime
 	
 	void StripTime();
 
-	CString GetString() const;
-	bool FromString( const CString sDateTime );
+	RString GetString() const;
+	bool FromString( const RString sDateTime );
 };
 
 

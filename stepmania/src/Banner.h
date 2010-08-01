@@ -8,6 +8,7 @@
 class Song;
 class Course;
 class Character;
+class UnlockEntry;
 
 class Banner : public Sprite
 {
@@ -16,18 +17,20 @@ public:
 	virtual ~Banner() { }
 	virtual Actor *Copy() const;
 
-	virtual bool Load( RageTextureID ID, bool bIsBanner=true );
+	virtual void Load( RageTextureID ID, bool bIsBanner=true );
 
 	virtual void Update( float fDeltaTime );
 
 	void LoadFromSong( Song* pSong );		// NULL means no song
 	void LoadAllMusic();
 	void LoadMode();
-	void LoadFromSongGroup( CString sSongGroup );
+	void LoadFromSongGroup( RString sSongGroup );
 	void LoadFromCourse( Course* pCourse );
 	void LoadCardFromCharacter( Character* pCharacter );
 	void LoadIconFromCharacter( Character* pCharacter );
 	void LoadTABreakFromCharacter( Character* pCharacter );
+	void LoadBannerFromUnlockEntry( const UnlockEntry* pUE );
+	void LoadBackgroundFromUnlockEntry( const UnlockEntry* pUE );
 	void LoadRoulette();
 	void LoadRandom();
 	void LoadFallback();

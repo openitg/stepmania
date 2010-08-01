@@ -8,16 +8,13 @@ AutoScreenMessage( SM_PrepScreen )
 
 
 REGISTER_SCREEN_CLASS( ScreenSplash );
-ScreenSplash::ScreenSplash( CString sClassName ) : ScreenWithMenuElements( sClassName ),
-	ALLOW_START_TO_SKIP			(m_sName,"AllowStartToSkip"),
-	NEXT_SCREEN					(m_sName,"NextScreen"),
-	MINIMUM_LOAD_DELAY_SECONDS	(m_sName,"MinimumLoadDelaySeconds"),
-	PREPARE_SCREEN				(m_sName,"PrepareScreen")
-{
-}
 
 void ScreenSplash::Init()
 {
+	ALLOW_START_TO_SKIP.Load( m_sName, "AllowStartToSkip" );
+	MINIMUM_LOAD_DELAY_SECONDS.Load( m_sName, "MinimumLoadDelaySeconds" );
+	PREPARE_SCREEN.Load( m_sName, "PrepareScreen" );
+
 	ScreenWithMenuElements::Init();
 
 	/* Prep the new screen once m_sprOverlay is complete. */ 	 
@@ -30,7 +27,7 @@ void ScreenSplash::HandleScreenMessage( const ScreenMessage SM )
 	{
 		RageTimer length;
 		if( PREPARE_SCREEN )
-			SCREENMAN->PrepareScreen( NEXT_SCREEN );
+			SCREENMAN->PrepareScreen( GetNextScreen() );
 		float fScreenLoadSeconds = length.GetDeltaTime();
 
 		/* The screen load took fScreenLoadSeconds.  Move on to the next screen after
@@ -40,7 +37,7 @@ void ScreenSplash::HandleScreenMessage( const ScreenMessage SM )
 	}
 	else if( SM == SM_BeginFadingOut )
 	{
-		StartTransitioning( SM_GoToNextScreen );
+		StartTransitioningScreen( SM_GoToNextScreen );
 		return;
 	}
 

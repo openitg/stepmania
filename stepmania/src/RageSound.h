@@ -21,9 +21,9 @@ public:
 	virtual int GetPCM( char *buffer, int size, int64_t frameno ) = 0;
 	virtual int GetSampleRate() const = 0;
 	virtual RageTimer GetStartTime() const { return RageZeroTimer; }
-	virtual float GetVolume() const = 0;
+	virtual float GetAbsoluteVolume() const = 0;
 	virtual int GetID() const = 0;
-	virtual CString GetLoadedFilePath() const = 0;
+	virtual RString GetLoadedFilePath() const = 0;
 	virtual bool IsStreamingFromDisk() const = 0;
 };
 
@@ -42,7 +42,7 @@ struct RageSoundParams
 
 	void SetNoFade() { m_FadeLength = 0; }
 
-	float m_Volume;
+	float m_Volume;	// multiplies with SOUNDMAN->GetMixVolume()
 
 	/* Pan: -1, left; 1, right */
 	float m_Balance;
@@ -52,23 +52,27 @@ struct RageSoundParams
 	int speed_input_samples, speed_output_samples;
 	void SetPlaybackRate( float fScale );
 
-	bool AccurateSync;
+	/* If enabled, file seeking will prefer accuracy over speed. */
+	bool m_bAccurateSync;
 
 	/* Optional driver feature: time to actually start playing sounds.  If zero, or if not
-	 * supported, it'll start immediately. */
-	RageTimer StartTime;
+	 * supported, the sound will start immediately. */
+	RageTimer m_StartTime;
 
 	/*
-	 * M_STOP (default) stops the sound at the end.
+	 * M_STOP stops the sound at the end.
 	 * M_LOOP restarts.
 	 * M_CONTINUE feeds silence, which is useful to continue timing longer than the actual sound.
+	 * M_AUTO (default) stops, obeying filename hints.
 	 */
 	enum StopMode_t {
-		M_STOP,     /* stop when finished */
-		M_LOOP,     /* loop */
-		M_CONTINUE, /* keep playing silence */
-		M_AUTO     /* obey filename hints */
+		M_STOP,
+		M_LOOP,
+		M_CONTINUE,
+		M_AUTO
 	} StopMode;
+
+	bool m_bIsCriticalSound;	// "is a sound that should be played even during attract"
 };
 
 class RageSound: public RageSoundBase
@@ -94,13 +98,13 @@ public:
 	 * they can be ignored most of the time, so we continue to work if a file
 	 * is broken or missing.
 	 */
-	bool Load( CString sFile, bool bPrecache );
+	bool Load( RString sFile, bool bPrecache );
 
 	/* 
 	 * Using this version means the "don't care" about caching.  Currently, 
 	 * this always will not cache the sound; this may become a preference.
 	 */
-	bool Load( CString sFile );
+	bool Load( RString sFile );
 
 	/* Load a SoundReader that you've set up yourself.  Sample rate conversion will
 	 * be set up only if needed.  Doesn't fail. */
@@ -111,8 +115,7 @@ public:
 	void StartPlaying();
 	void StopPlaying();
 
-	CString GetError() const { return m_sError; }
-	bool Error() const { return !m_sError.empty(); }
+	RString GetError() const { return m_sError; }
 
 	RageSound *Play( const RageSoundParams *params=NULL );
 	void Stop();
@@ -126,16 +129,12 @@ public:
 	int GetSampleRate() const;
 	bool IsStreamingFromDisk() const;
 	bool SetPositionSeconds( float fSeconds );
-	CString GetLoadedFilePath() const { return m_sFilePath; }
+	RString GetLoadedFilePath() const { return m_sFilePath; }
 	bool IsPlaying() const { return m_bPlaying; }
-
-	/* Lock and unlock this sound. */
-	void LockSound();
-	void UnlockSound();
 
 	float GetPlaybackRate() const;
 	RageTimer GetStartTime() const;
-	float GetVolume() const;
+	float GetAbsoluteVolume() const;	// factors in SOUNDMAN->GetMixVolume()
 	int GetID() const { return m_iID; }
 	void SetParams( const RageSoundParams &p );
 	const RageSoundParams &GetParams() const { return m_Param; }
@@ -145,12 +144,12 @@ private:
 
 	SoundReader *m_pSource;
 	CircBuf<char> m_DataBuffer;
-	int FillBuf( int iBytes );
+	bool FillBuf( int iFrames );
 
 	/* We keep track of sound blocks we've sent out recently through GetDataToPlay. */
 	pos_map_queue m_PositionMapping;
 	
-	CString m_sFilePath;
+	RString m_sFilePath;
 
 	RageSoundParams m_Param;
 	
@@ -173,12 +172,12 @@ private:
 	/* Unique ID number for this instance of RageSound. */
 	int m_iID;
 
-	CString m_sError;
+	RString m_sError;
 
 	int64_t GetPositionSecondsInternal( bool *bApproximate=NULL ) const;
 	bool SetPositionFrames( int frames = -1 );
 	int GetData( char *pBuffer, int iSize );
-	void Fail( CString sReason );
+	void Fail( RString sReason );
 	int Bytes_Available() const;
 	RageSoundParams::StopMode_t GetStopMode() const; /* resolves M_AUTO */
 

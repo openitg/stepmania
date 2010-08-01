@@ -4,20 +4,42 @@
 class ArchHooks
 {
 public:
-	/* This is called as soon as SDL is set up, the loading window is shown
-	 * and we can safely log and throw. */
-	virtual void DumpDebugInfo() { }
-
 	virtual ~ArchHooks() { }
-	/* This is called once each time through the game loop */
-	virtual void Update(float delta) { }
+
+	/*
+	 * Return the general name of the architecture, eg. "Windows", "OSX", "Unix".
+	 */
+	virtual RString GetArchName() { return "generic"; }
+
+	/* This is called as soon as the loading window is shown, and we can
+	 * safely log. */
+	virtual void DumpDebugInfo() { }
 
 	/* Re-exec the game.  If this is implemented, it doesn't return. */
 	virtual void RestartProgram() { }
 
-	/* Call this to temporarily enter a high-priority or realtime scheduling (depending
+	/*
+	 * Get the 2-letter RFC-639 code of the user's preferred language
+	 * for localized messages, in lowercase.
+	 */
+	static RString GetPreferredLanguage();
+
+	/*
+	 * A string that uniquely identifies the machine in some way
+	 */
+	virtual RString GetMachineId() { return RString(); }
+
+	/*
+	 * If this is a second instance, return true.  Optionally, give focus to the existing
+	 * window.
+	 */
+	virtual bool CheckForMultipleInstances() { return false; }
+
+	/*
+	 * Call this to temporarily enter a high-priority or realtime scheduling (depending
 	 * on the implementation) mode.  This is used to improve timestamp accuracy.  Do as
-	 * little as possible in this mode; hanging in it might hang the system entirely. */
+	 * little as possible in this mode; hanging in it might hang the system entirely.
+	 */
 	virtual void EnterTimeCriticalSection() { }
 	virtual void ExitTimeCriticalSection() { }
 
@@ -31,6 +53,19 @@ public:
 	 * on some schedulers.
 	 */
 	virtual void SetupConcurrentRenderingThread() { }
+
+	/*
+	 * Returns true if the user wants to quit (eg. ^C, or clicked a "close window" button).
+	 */
+	static bool UserQuit() { return s_bQuitting; }
+	static void SetUserQuit() { s_bQuitting = true; }
+	
+	/*
+	 * Returns true if the user wants to toggle windowed mode and atomically clears
+	 * the boolean.
+	 */
+	static bool GetAndClearToggleWindowed();
+	static void SetToggleWindowed();
 
 	/*
 	 * Return the amount of time since the program started.  (This may actually be
@@ -58,11 +93,34 @@ public:
 	 */
 	static int64_t GetMicrosecondsSinceStart( bool bAccurate );
 
+	/* 
+	 * Add file search paths, higher priority first. 
+	 */
+	static void MountInitialFilesystems( const RString &sDirOfExecutable );
+
+	/*
+	 * Platform-specific code calls this to indicate focus changes.
+	 */
+	void SetHasFocus( bool bAppHasFocus );
+
+	/*
+	 * Return true if the application has input focus.
+	 */
+	bool AppHasFocus();
+
+	/*
+	 * Open a URL in the default web browser
+	 */
+	virtual bool GoToURL( RString sUrl );
+
 private:
 	/* This are helpers for GetMicrosecondsSinceStart on systems with a timer
 	 * that may loop or move backwards. */
-	static uint64_t FixupTimeIfLooped( uint64_t usecs );
-	static uint64_t FixupTimeIfBackwards( uint64_t usecs );
+	static int64_t FixupTimeIfLooped( int64_t usecs );
+	static int64_t FixupTimeIfBackwards( int64_t usecs );
+
+	static bool s_bQuitting;
+	static bool s_bToggleWindowed;
 };
 
 #endif

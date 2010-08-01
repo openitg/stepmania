@@ -1,10 +1,8 @@
 #include "global.h"
 #include "ScreenEz2SelectPlayer.h"
 #include "ScreenManager.h"
-#include "PrefsManager.h"
 #include "GameSoundManager.h"
 #include "GameConstantsAndTypes.h"
-#include "PrefsManager.h"
 #include "GameManager.h"
 #include "RageLog.h"
 #include "AnnouncerManager.h"
@@ -20,7 +18,7 @@
 #define JOIN_FRAME_Y( i )		THEME->GetMetricF("ScreenEz2SelectPlayer",ssprintf("JoinFrameP%dY",i+1))
 #define JOIN_MESSAGE_X( p )		THEME->GetMetricF("ScreenEz2SelectPlayer",ssprintf("JoinMessageP%dX",p+1))
 #define JOIN_MESSAGE_Y( i )		THEME->GetMetricF("ScreenEz2SelectPlayer",ssprintf("JoinMessageP%dY",i+1))
-#define HELP_TEXT				THEME->GetMetric("ScreenEz2SelectPlayer","HelpText")
+#define HELP_TEXT				THEME->GetString("ScreenEz2SelectPlayer","HelpText")
 #define TIMER_SECONDS			THEME->GetMetricI("ScreenEz2SelectPlayer","TimerSeconds")
 #define SILENT_WAIT				THEME->GetMetricB("ScreenEz2SelectPlayer","SilentWait")
 #define BOUNCE_JOIN_MESSAGE		THEME->GetMetricB("ScreenEz2SelectPlayer","BounceJoinMessage")
@@ -29,25 +27,14 @@
 const float TWEEN_TIME		= 0.35f;
 
 
-/************************************
-ScreenEz2SelectPlayer (Constructor)
-Desc: Sets up the screen display
-************************************/
-
 REGISTER_SCREEN_CLASS( ScreenEz2SelectPlayer );
-ScreenEz2SelectPlayer::ScreenEz2SelectPlayer( CString sName ) : ScreenWithMenuElements( sName )
-{
-	// Unjoin the players, then let them join back in on this screen
-//	GAMESTATE->m_bPlayersCanJoin = true;
-	FOREACH_PlayerNumber( p )
-		GAMESTATE->m_bSideIsJoined[p] = false;
-
-	LOG->Trace( "ScreenEz2SelectPlayer::ScreenEz2SelectPlayer()" );
-}
-
 
 void ScreenEz2SelectPlayer::Init()
 {
+	// Unjoin the players, then let them join back in on this screen
+	FOREACH_PlayerNumber( p )
+		GAMESTATE->m_bSideIsJoined[p] = false;
+
 	ScreenWithMenuElements::Init();
 
 	FOREACH_PlayerNumber( p )
@@ -82,10 +69,6 @@ void ScreenEz2SelectPlayer::Init()
 	}
 
 	SOUND->PlayOnceFromDir( ANNOUNCER->GetPathTo("select player intro") );
-
-	SOUND->PlayMusic( THEME->GetPathS("ScreenSelectPlayer","music") );
-
-	TweenOursOnScreen();
 }
 
 /************************************
@@ -130,17 +113,14 @@ void ScreenEz2SelectPlayer::HandleScreenMessage( const ScreenMessage SM )
 {
 	Screen::HandleScreenMessage( SM );
 
-	switch( SM )
+	if( SM == SM_MenuTimer )
 	{
-	case SM_MenuTimer:
 		if( GAMESTATE->GetNumSidesJoined() == 0 )
 		{
 			MenuStart(PLAYER_1);
 		}
 
-		TweenOursOffScreen();
-		StartTransitioning( SM_GoToNextScreen );
-		break;
+		StartTransitioningScreen( SM_GoToNextScreen );
 	}
 
 	ScreenWithMenuElements::HandleScreenMessage( SM );
@@ -201,8 +181,7 @@ void ScreenEz2SelectPlayer::MenuStart( PlayerNumber pn )
 
 	if( bBothSidesJoined )
 	{
-		TweenOursOffScreen();
-		StartTransitioning( SM_GoToNextScreen );
+		StartTransitioningScreen( SM_GoToNextScreen );
 	}
 	else
 	{
@@ -213,7 +192,7 @@ void ScreenEz2SelectPlayer::MenuStart( PlayerNumber pn )
 	}
 }
 
-void ScreenEz2SelectPlayer::TweenOursOnScreen()
+void ScreenEz2SelectPlayer::TweenOnScreen()
 {
 	FOREACH_PlayerNumber( p )
 	{
@@ -223,25 +202,29 @@ void ScreenEz2SelectPlayer::TweenOursOnScreen()
 		
 		fOriginalX = m_sprJoinMessage[p].GetX();
 		m_sprJoinMessage[p].SetX( m_sprJoinMessage[p].GetX()+fOffScreenOffset );
-		m_sprJoinMessage[p].BeginTweening( 0.5f, Actor::TWEEN_BOUNCE_END );
+		m_sprJoinMessage[p].BeginTweening( 0.5f, TWEEN_ACCELERATE );
 		m_sprJoinMessage[p].SetX( fOriginalX );
 
 		fOriginalX = m_sprJoinFrame[p].GetX();
 		m_sprJoinFrame[p].SetX( m_sprJoinMessage[p].GetX()+fOffScreenOffset );
-		m_sprJoinFrame[p].BeginTweening( 0.5f, Actor::TWEEN_BOUNCE_END );
+		m_sprJoinFrame[p].BeginTweening( 0.5f, TWEEN_ACCELERATE );
 		m_sprJoinFrame[p].SetX( fOriginalX );
 	}
+
+	ScreenWithMenuElements::TweenOnScreen();
 }
 
-void ScreenEz2SelectPlayer::TweenOursOffScreen()
+void ScreenEz2SelectPlayer::TweenOffScreen()
 {
+	ScreenWithMenuElements::TweenOffScreen();
+
 	FOREACH_PlayerNumber( p )
 	{
 		float fOffScreenOffset = float( (p==PLAYER_1) ? -SCREEN_WIDTH : +SCREEN_WIDTH );
 
-		m_sprJoinMessage[p].BeginTweening( 0.5f, Actor::TWEEN_DECELERATE );
+		m_sprJoinMessage[p].BeginTweening( 0.5f, TWEEN_DECELERATE );
 		m_sprJoinMessage[p].SetX( m_sprJoinMessage[p].GetX()+fOffScreenOffset );
-		m_sprJoinFrame[p].BeginTweening( 0.5f, Actor::TWEEN_DECELERATE );
+		m_sprJoinFrame[p].BeginTweening( 0.5f, TWEEN_DECELERATE );
 		m_sprJoinFrame[p].SetX( m_sprJoinMessage[p].GetX()+fOffScreenOffset );
 	}
 }

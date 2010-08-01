@@ -16,16 +16,16 @@
 
 BOOL CALLBACK DSound::EnumCallback( LPGUID lpGuid, LPCSTR lpcstrDescription, LPCSTR lpcstrModule, LPVOID lpContext )
 {
-	CString sLine = ssprintf( "DirectSound Driver: %s", lpcstrDescription );
+	RString sLine = ssprintf( "DirectSound Driver: %s", lpcstrDescription );
 	if( lpcstrModule[0] )
 	{
 		sLine += ssprintf( " %s", lpcstrModule );
 
 #ifndef _XBOX
-		CString sPath = FindSystemFile( lpcstrModule );
+		RString sPath = FindSystemFile( lpcstrModule );
 		if( sPath != "" )
 		{
-			CString sVersion;
+			RString sVersion;
 			if( GetFileVersion(sPath, sVersion) )
 				sLine += ssprintf( " %s", sVersion.c_str() );
 		}
@@ -49,7 +49,6 @@ void DSound::SetPrimaryBufferMode()
 
 	IDirectSoundBuffer *pBuffer;
 	HRESULT hr = this->GetDS()->CreateSoundBuffer( &format, &pBuffer, NULL );
-	/* hr */
 	if( FAILED(hr) )
 	{
 		LOG->Warn(hr_ssprintf(hr, "Couldn't create primary buffer"));
@@ -78,7 +77,8 @@ void DSound::SetPrimaryBufferMode()
 	else if( waveformat.nSamplesPerSec != 44100 )
 		LOG->Warn( "Primary buffer set to %i instead of 44100", waveformat.nSamplesPerSec );
 
-	/* MS docs:
+	/*
+	 * MS docs:
 	 *
 	 * When there are no sounds playing, DirectSound stops the mixer engine and halts DMA 
 	 * (direct memory access) activity. If your application has frequent short intervals of
@@ -103,9 +103,10 @@ DSound::DSound()
 	HRESULT hr;
 	if( FAILED( hr = CoInitialize(NULL) ) )
 		RageException::Throw( hr_ssprintf(hr, "CoInitialize") );
+	m_pDS = NULL;
 }
 
-CString DSound::Init()
+RString DSound::Init()
 {
 	HRESULT hr;
 	if( FAILED( hr = DirectSoundCreate(NULL, &m_pDS, NULL) ) )
@@ -138,12 +139,13 @@ CString DSound::Init()
 
 	SetPrimaryBufferMode();
 
-	return CString();
+	return RString();
 }
 
 DSound::~DSound()
 {
-	m_pDS->Release();
+	if( m_pDS != NULL )
+		m_pDS->Release();
 	CoUninitialize();
 }
 
@@ -174,7 +176,7 @@ DSoundBuf::DSoundBuf()
 	m_pTempBuffer = NULL;
 }
 
-CString DSoundBuf::Init( DSound &ds, DSoundBuf::hw hardware,
+RString DSoundBuf::Init( DSound &ds, DSoundBuf::hw hardware,
 					  int iChannels, int iSampleRate, int iSampleBits, int iWriteAhead )
 {
 	m_iChannels = iChannels;
@@ -199,11 +201,11 @@ CString DSoundBuf::Init( DSound &ds, DSoundBuf::hw hardware,
 	waveformat.cbSize = 0;
 	waveformat.wFormatTag = WAVE_FORMAT_PCM;
 
-	bool NeedCtrlFrequency = false;
+	bool bNeedCtrlFrequency = false;
 	if( m_iSampleRate == DYNAMIC_SAMPLERATE )
 	{
 		m_iSampleRate = 44100;
-		NeedCtrlFrequency = true;
+		bNeedCtrlFrequency = true;
 	}
 
 	int bytes = m_iSampleBits / 8;
@@ -232,7 +234,7 @@ CString DSoundBuf::Init( DSound &ds, DSoundBuf::hw hardware,
 		format.dwFlags |= DSBCAPS_LOCSOFTWARE;
 #endif
 
-	if( NeedCtrlFrequency )
+	if( bNeedCtrlFrequency )
 		format.dwFlags |= DSBCAPS_CTRLFREQUENCY;
 
 	format.dwBufferBytes = m_iBufferSize;
@@ -261,7 +263,7 @@ CString DSoundBuf::Init( DSound &ds, DSoundBuf::hw hardware,
 
 	HRESULT hr = ds.GetDS()->CreateSoundBuffer( &format, &m_pBuffer, NULL );
 	if( FAILED(hr) )
-		return hr_ssprintf( hr, "CreateSoundBuffer failed" );
+		return hr_ssprintf( hr, "CreateSoundBuffer failed (%i hz)", m_iSampleBits );
 
 #ifndef _XBOX
 	/* I'm not sure this should ever be needed, but ... */
@@ -292,7 +294,7 @@ CString DSoundBuf::Init( DSound &ds, DSoundBuf::hw hardware,
 	
 	m_pTempBuffer = new char[m_iBufferSize];
 
-	return CString();
+	return RString();
 }
 
 void DSoundBuf::SetSampleRate( int hz )
@@ -305,8 +307,7 @@ void DSoundBuf::SetSampleRate( int hz )
 
 void DSoundBuf::SetVolume( float fVolume )
 {
-	ASSERT( fVolume >= 0 );
-	ASSERT( fVolume <= 1 );
+	ASSERT_M( fVolume >= 0 && fVolume <= 1, ssprintf("%f",fVolume) );
 	
 	if( fVolume == 0 )
 		fVolume = 0.001f;		// fix log10f(0) == -INF
@@ -347,13 +348,6 @@ DSoundBuf::~DSoundBuf()
 	if( m_pBuffer != NULL )
 		m_pBuffer->Release();
 	delete [] m_pTempBuffer;
-}
-
-void round_up( int &i, int to )
-{
-	i += (to-1);
-	i /= to;
-	i *= to;
 }
 
 /* Check to make sure that, given the current writeahead and chunksize, we're
@@ -435,7 +429,7 @@ void DSoundBuf::CheckUnderrun( int iCursorStart, int iCursorEnd )
 	int iMissedBy = iCursorEnd - m_iWriteCursor;
 	wrap( iMissedBy, m_iBufferSize );
 
-	CString s = ssprintf( "underrun: %i..%i (%i) filled but cursor at %i..%i; missed it by %i",
+	RString s = ssprintf( "underrun: %i..%i (%i) filled but cursor at %i..%i; missed it by %i",
 		iFirstByteFilled, m_iWriteCursor, m_iBufferBytesFilled, iCursorStart, iCursorEnd, iMissedBy );
 
 	if( m_iExtraWriteahead )
@@ -528,7 +522,7 @@ bool DSoundBuf::get_output_buf( char **pBuffer, unsigned *pBufferSize, int iChun
 		if( m_iExtraWriteahead )
 		{
 			int used = min( m_iExtraWriteahead, bytes_played );
-			CString s = ssprintf("used %i of %i (%i..%i)", used, m_iExtraWriteahead, iCursorStart, iCursorEnd );
+			RString s = ssprintf("used %i of %i (%i..%i)", used, m_iExtraWriteahead, iCursorStart, iCursorEnd );
 			s += "; last: ";
 			for( int i = 0; i < 4; ++i )
 				s += ssprintf( "%i, %i; ", m_iLastCursors[i][0], m_iLastCursors[i][1] );
@@ -542,15 +536,15 @@ bool DSoundBuf::get_output_buf( char **pBuffer, unsigned *pBufferSize, int iChun
 	CheckUnderrun( iCursorStart, iCursorEnd );
 
 	/* If we already have enough bytes written ahead, stop. */
-	if( m_iBufferBytesFilled > m_iWriteAhead )
+	if( m_iBufferBytesFilled >= m_iWriteAhead )
+		return false;
+
+	/* If we don't have enough free space in the buffer to fill a whole chunk, stop. */
+	if( m_iBufferSize - m_iBufferBytesFilled < iChunksize )
 		return false;
 
 	int iNumBytesEmpty = m_iWriteAhead - m_iBufferBytesFilled;
-
-	/* num_bytes_empty is the amount of free buffer space.  If it's
-	 * too small, come back later. */
-	if( iNumBytesEmpty < iChunksize )
-		return false;
+	iNumBytesEmpty = QuantizeUp( iNumBytesEmpty, iChunksize );
 
 //	LOG->Trace("gave %i at %i (%i, %i) %i filled", iNumBytesEmpty, m_iWriteCursor, cursor, write, m_iBufferBytesFilled);
 

@@ -3,35 +3,66 @@
 #include "RageLog.h"
 #include "RageException.h"
 #include "archutils/Unix/X11Helper.h"
+#include "PrefsManager.h" // XXX
+#include "RageDisplay.h" // VideoModeParams
+#include "DisplayResolutions.h"
+#include "LocalizedString.h"
 
 #include <stack>
 #include <math.h>	// ceil()
 #define GLX_GLXEXT_PROTOTYPES
 #include <GL/glx.h>	// All sorts of stuff...
+#include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#include <X11/extensions/Xrandr.h>
 
-// XXX HACK: RageDisplay_OGL is expecting us to set this for it so it can do
-// GLX-specific queries and whatnot. It's one ugly hackish mess, but hey,
-// LLW_SDL is in on it, and I'm feeling lazy.
-extern Display *g_X11Display;
+#if defined(HAVE_LIBXTST)
+#include <X11/extensions/XTest.h>
+#endif
 
+static GLXContext g_pContext = NULL;
+static GLXContext g_pBackgroundContext = NULL;
+static Window g_AltWindow = 0;
+
+static LocalizedString FAILED_CONNECTION_XSERVER( "LowLevelWindow_X11", "Failed to establish a connection with the X server" );
 LowLevelWindow_X11::LowLevelWindow_X11()
 {
-	m_bWindowIsOpen = false;
-	g_X11Display = NULL;
 	if( !X11Helper::Go() )
-	{
-		RageException::Throw( "Failed to establish a connection with the X server." );
-	}
-	g_X11Display = X11Helper::Dpy;
+		RageException::Throw( FAILED_CONNECTION_XSERVER.GetValue() );
+
+	const int iScreen = DefaultScreen( X11Helper::Dpy );
+
+	LOG->Info( "Display: %s (screen %i)", DisplayString(X11Helper::Dpy), iScreen );
+	LOG->Info( "Direct rendering: %s", glXIsDirect( X11Helper::Dpy, glXGetCurrentContext() )? "yes":"no" );
+
+	int iXServerVersion = XVendorRelease( X11Helper::Dpy ); /* eg. 40201001 */
+	int iMajor = iXServerVersion / 10000000; iXServerVersion %= 10000000;
+	int iMinor = iXServerVersion / 100000;   iXServerVersion %= 100000;
+	int iRevision = iXServerVersion / 1000;  iXServerVersion %= 1000;
+	int iPatch = iXServerVersion;
+
+	LOG->Info( "X server vendor: %s [%i.%i.%i.%i]", XServerVendor( X11Helper::Dpy ), iMajor, iMinor, iRevision, iPatch );
+	LOG->Info( "Server GLX vendor: %s [%s]", glXQueryServerString( X11Helper::Dpy, iScreen, GLX_VENDOR ), glXQueryServerString( X11Helper::Dpy, iScreen, GLX_VERSION ) );
+	LOG->Info( "Client GLX vendor: %s [%s]", glXGetClientString( X11Helper::Dpy, GLX_VENDOR ), glXGetClientString( X11Helper::Dpy, GLX_VERSION ) );
+	
+	m_bWasWindowed = true;
 }
 
 LowLevelWindow_X11::~LowLevelWindow_X11()
 {
+	// Reset the display
+	if( !m_bWasWindowed )
+	{
+		XRRScreenConfiguration *pScreenConfig = XRRGetScreenInfo( X11Helper::Dpy, RootWindow( X11Helper::Dpy, DefaultScreen( X11Helper::Dpy ) ) );
+		XRRSetScreenConfig( X11Helper::Dpy, pScreenConfig, RootWindow( X11Helper::Dpy, DefaultScreen( X11Helper::Dpy ) ), 0, 1, CurrentTime );
+		XRRFreeScreenConfigInfo( pScreenConfig );
+		
+		XUngrabKeyboard( X11Helper::Dpy, CurrentTime );
+	}
 	X11Helper::Stop();	// Xlib cleans up the window for us
 }
 
-void *LowLevelWindow_X11::GetProcAddress( CString s )
+void *LowLevelWindow_X11::GetProcAddress( RString s )
 {
 	// XXX: We should check whether glXGetProcAddress or
 	// glXGetProcAddressARB is available, and go by that, instead of
@@ -39,14 +70,16 @@ void *LowLevelWindow_X11::GetProcAddress( CString s )
 	return (void*) glXGetProcAddressARB( (const GLubyte*) s.c_str() );
 }
 
-CString LowLevelWindow_X11::TryVideoMode( RageDisplay::VideoModeParams p, bool &bNewDeviceOut )
+RString LowLevelWindow_X11::TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut )
 {
 #if defined(LINUX)
-	/* nVidia cards:
+	/*
+	 * nVidia cards:
 	 *
 	 * This only works the first time we set up a window; after that, the
 	 * drivers appear to cache the value, so you have to actually restart
-	 * the program to change it again. */
+	 * the program to change it again.
+	 */
 	static char buf[128];
 	strcpy( buf, "__GL_SYNC_TO_VBLANK=" );
 	strcat( buf, p.vsync?"1":"0" );
@@ -57,12 +90,11 @@ CString LowLevelWindow_X11::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 	XEvent ev;
 	stack<XEvent> otherEvs;
 
-	// XXX: LLW_SDL allows the window to be resized. Do we really want to?
-	hints.flags = PMinSize | PMaxSize | PBaseSize;
-	hints.min_width = hints.max_width = hints.base_width = p.width;
-	hints.min_height = hints.max_height = hints.base_height = p.height;
+	hints.flags = PBaseSize;
+	hints.base_width = p.width;
+	hints.base_height = p.height;
 
-	if( !m_bWindowIsOpen || p.bpp != CurrentParams.bpp )
+	if( g_pContext == NULL || p.bpp != CurrentParams.bpp || m_bWasWindowed != p.windowed )
 	{
 		// Different depth, or we didn't make a window before. New context.
 		bNewDeviceOut = true;
@@ -92,26 +124,27 @@ CString LowLevelWindow_X11::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 		XVisualInfo *xvi = glXChooseVisual( X11Helper::Dpy, DefaultScreen(X11Helper::Dpy), visAttribs );
 
 		if( xvi == NULL )
-		{
 			return "No visual available for that depth.";
-		}
 
 		/* Enable StructureNotifyMask, so we receive a MapNotify for the following XMapWindow. */
 		X11Helper::OpenMask( StructureNotifyMask );
 
-		if( !X11Helper::MakeWindow(xvi->screen, xvi->depth, xvi->visual, p.width, p.height) )
-		{
+		// I get strange behavior if I add override redirect after creating the window.
+		// So, let's recreate the window when changing that state.
+		if( !X11Helper::MakeWindow(xvi->screen, xvi->depth, xvi->visual, p.width, p.height, !p.windowed) )
 			return "Failed to create the window.";
-		}
-		m_bWindowIsOpen = true;
+		
+		g_AltWindow = X11Helper::CreateWindow(xvi->screen, xvi->depth, xvi->visual, p.width, p.height, !p.windowed);
+		ASSERT( g_AltWindow );
 
 		char *szWindowTitle = const_cast<char *>( p.sWindowTitle.c_str() );
-		XChangeProperty( g_X11Display, X11Helper::Win, XA_WM_NAME, XA_STRING, 8, PropModeReplace,
+		XChangeProperty( X11Helper::Dpy, X11Helper::Win, XA_WM_NAME, XA_STRING, 8, PropModeReplace,
 				reinterpret_cast<unsigned char*>(szWindowTitle), strlen(szWindowTitle) );
 
-		GLXContext ctxt = glXCreateContext(X11Helper::Dpy, xvi, NULL, True);
+		g_pContext = glXCreateContext( X11Helper::Dpy, xvi, NULL, True );
+		g_pBackgroundContext = glXCreateContext( X11Helper::Dpy, xvi, g_pContext, True );
 
-		glXMakeCurrent( X11Helper::Dpy, X11Helper::Win, ctxt );
+		glXMakeCurrent( X11Helper::Dpy, X11Helper::Win, g_pContext );
 
 		XMapWindow( X11Helper::Dpy, X11Helper::Win );
 
@@ -120,13 +153,13 @@ CString LowLevelWindow_X11::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 		// events. Do this by grabbing all events, remembering
 		// uninteresting events, and putting them back on the queue
 		// after MapNotify arrives.
-		while(true)
+		while(1)
 		{
-			XNextEvent(X11Helper::Dpy, &ev);
+			XNextEvent( X11Helper::Dpy, &ev );
 			if( ev.type == MapNotify )
 				break;
 
-			otherEvs.push(ev);
+			otherEvs.push( ev );
 		}
 
 		while( !otherEvs.empty() )
@@ -143,8 +176,59 @@ CString LowLevelWindow_X11::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 		// We're remodeling the existing window, and not touching the
 		// context.
 		bNewDeviceOut = false;
-		
 	}
+	
+	XRRScreenConfiguration *pScreenConfig = XRRGetScreenInfo( X11Helper::Dpy, RootWindow( X11Helper::Dpy, DefaultScreen(X11Helper::Dpy) ) );
+	
+	if( !p.windowed )
+	{
+		// Find a matching mode.
+		int iSizesXct;
+		XRRScreenSize *pSizesX = XRRSizes( X11Helper::Dpy, DefaultScreen( X11Helper::Dpy ), &iSizesXct );
+		ASSERT_M( iSizesXct != 0, "Couldn't get resolution list from X server" );
+	
+		int iSizeMatch = -1;
+		
+		for( int i = 0; i < iSizesXct; ++i )
+		{
+			if( pSizesX[i].width == p.width && pSizesX[i].height == p.height )
+			{
+				iSizeMatch = i;
+				break;
+			}
+		}
+
+		// Set this mode.
+		// XXX: This doesn't handle if the config has changed since we queried it (see man Xrandr)
+		XRRSetScreenConfig( X11Helper::Dpy, pScreenConfig, RootWindow( X11Helper::Dpy, DefaultScreen(X11Helper::Dpy) ), iSizeMatch, 1, CurrentTime );
+		
+		// Move the window to the corner that the screen focuses in on.
+		XMoveWindow( X11Helper::Dpy, X11Helper::Win, 0, 0 );
+		
+		XRaiseWindow( X11Helper::Dpy, X11Helper::Win );
+		
+		if( m_bWasWindowed )
+		{
+			// We want to prevent the WM from catching anything that comes from the keyboard.
+			XGrabKeyboard( X11Helper::Dpy, X11Helper::Win, True,
+				GrabModeAsync, GrabModeAsync, CurrentTime );
+			m_bWasWindowed = false;
+		}
+	}
+	else
+	{
+		if( !m_bWasWindowed )
+		{
+			XRRSetScreenConfig( X11Helper::Dpy, pScreenConfig, RootWindow( X11Helper::Dpy, DefaultScreen( X11Helper::Dpy ) ), 0, 1, CurrentTime );
+			// In windowed mode, we actually want the WM to function normally.
+			// Release any previous grab.
+			XUngrabKeyboard( X11Helper::Dpy, CurrentTime );
+			m_bWasWindowed = true;
+		}
+	}
+	int rate = XRRConfigCurrentRate( pScreenConfig );
+
+	XRRFreeScreenConfigInfo( pScreenConfig );
 
 	// Do this before resizing the window so that pane-style WMs (Ion,
 	// ratpoison) don't resize us back inappropriately.
@@ -154,21 +238,105 @@ CString LowLevelWindow_X11::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 	// catching WM normal hints changes in mapped windows.
 	XResizeWindow( X11Helper::Dpy, X11Helper::Win, p.width, p.height );
 
-	// Center the window in the display.
-	int w = DisplayWidth( X11Helper::Dpy, DefaultScreen(X11Helper::Dpy) );
-	int h = DisplayHeight( X11Helper::Dpy, DefaultScreen(X11Helper::Dpy) );
-	int x = (w - p.width)/2;
-	int y = (h - p.height)/2;
-	XMoveWindow( X11Helper::Dpy, X11Helper::Win, x, y );
-
 	CurrentParams = p;
-
+	CurrentParams.rate = rate;
 	return ""; // Success
+}
+
+bool LowLevelWindow_X11::IsSoftwareRenderer( RString &sError )
+{
+	if( glXIsDirect( X11Helper::Dpy, glXGetCurrentContext() ) )
+		return false;
+
+	sError = "Direct rendering is not available.";
+	return true;
 }
 
 void LowLevelWindow_X11::SwapBuffers()
 {
 	glXSwapBuffers( X11Helper::Dpy, X11Helper::Win );
+
+	if( PREFSMAN->m_bDisableScreenSaver )
+	{
+		/* Disable the screensaver. */
+#if defined(HAVE_LIBXTST)
+		/* This causes flicker. */
+		// XForceScreenSaver( X11Helper::Dpy, ScreenSaverReset );
+		
+		/*
+		 * Instead, send a null relative mouse motion, to trick X into thinking there has been
+		 * user activity. 
+		 *
+		 * This also handles XScreenSaver; XForceScreenSaver only handles the internal X11
+		 * screen blanker.
+		 *
+		 * This will delay the X blanker, DPMS and XScreenSaver from activating, and will
+		 * disable the blanker and XScreenSaver if they're already active (unless XSS is
+		 * locked).  For some reason, it doesn't un-blank DPMS if it's already active.
+		 */
+
+		XLockDisplay( X11Helper::Dpy );
+
+		int event_base, error_base, major, minor;
+		if( XTestQueryExtension( X11Helper::Dpy, &event_base, &error_base, &major, &minor ) )
+		{
+			XTestFakeRelativeMotionEvent( X11Helper::Dpy, 0, 0, 0 );
+			XSync( X11Helper::Dpy, False );
+		}
+
+		XUnlockDisplay( X11Helper::Dpy );
+#endif
+	}
+}
+
+void LowLevelWindow_X11::GetDisplayResolutions( DisplayResolutions &out ) const
+{
+	int iSizesXct;
+	XRRScreenSize *pSizesX = XRRSizes( X11Helper::Dpy, DefaultScreen( X11Helper::Dpy ), &iSizesXct );
+	ASSERT_M( iSizesXct != 0, "Couldn't get resolution list from X server" );
+	
+	for( int i = 0; i < iSizesXct; ++i )
+	{
+		DisplayResolution res = { pSizesX[i].width, pSizesX[i].height, true };
+		out.insert( res );
+	}
+}
+
+float LowLevelWindow_X11::GetMonitorAspectRatio() const
+{
+	return 4.0f/3;
+}
+
+bool LowLevelWindow_X11::SupportsThreadedRendering()
+{
+	return g_pBackgroundContext != NULL;
+}
+
+void LowLevelWindow_X11::BeginConcurrentRenderingMainThread()
+{
+	/* Move the main thread, which is going to be loading textures, etc. but
+	 * not rendering, to an undisplayed window.  This results in smoother
+	 * rendering. */
+	bool b = glXMakeCurrent( X11Helper::Dpy, g_AltWindow, g_pContext );
+	ASSERT(b);
+}
+
+void LowLevelWindow_X11::EndConcurrentRenderingMainThread()
+{
+	bool b = glXMakeCurrent( X11Helper::Dpy, X11Helper::Win, g_pContext );
+	ASSERT(b);
+}
+
+void LowLevelWindow_X11::BeginConcurrentRendering()
+{
+	bool b = glXMakeCurrent( X11Helper::Dpy, X11Helper::Win, g_pBackgroundContext );
+	ASSERT(b);
+}
+
+void LowLevelWindow_X11::EndConcurrentRendering()
+{
+	bool b = glXMakeCurrent( X11Helper::Dpy, None, NULL );
+	ASSERT(b);
 }
 
 /*

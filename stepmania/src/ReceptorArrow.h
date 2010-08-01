@@ -14,7 +14,7 @@ class ReceptorArrow : public ActorFrame
 {
 public:
 	ReceptorArrow();
-	bool Load( const PlayerState* pPlayerState, int iColNo );
+	void Load( const PlayerState* pPlayerState, int iColNo );
 
 	virtual void DrawPrimitives();
 	virtual void Update( float fDeltaTime );
@@ -25,13 +25,11 @@ private:
 	const PlayerState* m_pPlayerState;
 	int m_iColNo;
 
-	AutoActor m_pReceptorWaiting;
-	AutoActor m_pReceptorGo;
-	apActorCommands m_sScoreCommand[NUM_TAP_NOTE_SCORES];
+	AutoActor m_pReceptor;
 	
-	AutoActor m_pPressBlock;
 	bool m_bIsPressed;
 	bool m_bWasPressed;	// set in Update
+	bool m_bWasReverse;
 };
 
 #endif 

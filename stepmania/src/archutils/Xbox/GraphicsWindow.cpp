@@ -1,24 +1,24 @@
 #include "global.h"
 #include "archutils/Xbox/GraphicsWindow.h"
-#include "StepMania.h"
 #include "ProductInfo.h"
 #include "RageLog.h"
 #include "RageUtil.h"
+#include "RageDisplay.h"
 
-static const CString g_sClassName = CString(PRODUCT_NAME) + " LowLevelWindow_Win32";
+static const RString g_sClassName = RString(PRODUCT_ID) + " LowLevelWindow_Win32";
 
-static RageDisplay::VideoModeParams g_CurrentParams;
+static VideoModeParams g_CurrentParams;
 static bool g_bResolutionChanged = false;
 static bool g_bHasFocus = true;
 static bool g_bLastHasFocus = true;
 static bool m_bWideWindowClass;
 
-void GraphicsWindow::SetVideoModeParams( const RageDisplay::VideoModeParams &p )
+void GraphicsWindow::SetVideoModeParams( const VideoModeParams &params )
 {
-	g_CurrentParams = p;
+	g_CurrentParams = params;
 }
 
-RageDisplay::VideoModeParams GraphicsWindow::GetParams()
+const VideoModeParams &GraphicsWindow::GetParams()
 {
 	return g_CurrentParams;
 }
@@ -33,13 +33,13 @@ void GraphicsWindow::Update()
 	}
 }
 
-void GraphicsWindow::Initialize() { }
+void GraphicsWindow::Initialize( bool bD3D ) { }
 void GraphicsWindow::Shutdown() { }
-CString GraphicsWindow::SetScreenMode( const RageDisplay::VideoModeParams &p ) { return ""; }
-void GraphicsWindow::CreateGraphicsWindow( const RageDisplay::VideoModeParams &p ) { }
-void GraphicsWindow::RecreateGraphicsWindow( const RageDisplay::VideoModeParams &p ) { }
+RString GraphicsWindow::SetScreenMode( const VideoModeParams &p ) { return ""; }
+void GraphicsWindow::CreateGraphicsWindow( const VideoModeParams &p ) { }
+void GraphicsWindow::RecreateGraphicsWindow( const VideoModeParams &p ) { }
 void GraphicsWindow::DestroyGraphicsWindow() { }
-void GraphicsWindow::ConfigureGraphicsWindow( const RageDisplay::VideoModeParams &p ) { }
+void GraphicsWindow::ConfigureGraphicsWindow( const VideoModeParams &p ) { }
 
 /*
  * (c) 2004 Glenn Maynard

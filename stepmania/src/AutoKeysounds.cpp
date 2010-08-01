@@ -42,13 +42,13 @@ void AutoKeysounds::FinishLoading()
 	//
 	// Load sounds.
 	//
-	CString sSongDir = pSong->GetSongDir();
+	RString sSongDir = pSong->GetSongDir();
 /*
 	m_vKeysounds.clear();
 	m_vKeysounds.resize( pSong->m_vsKeysoundFile.size() );
 	for( unsigned i=0; i<m_vKeysounds.size(); i++ )
 	{
-		 CString sKeysoundFilePath = sSongDir + pSong->m_vsKeysoundFile[i];
+		 RString sKeysoundFilePath = sSongDir + pSong->m_vsKeysoundFile[i];
 		 RageSound& sound = m_vKeysounds[i];
 		 sound.Load( sKeysoundFilePath );
 
@@ -70,6 +70,9 @@ void AutoKeysounds::FinishLoading()
 			int iNextRow = INT_MAX;
 			FOREACH_EnabledPlayer(pn)
 			{
+				// XXX Hack. Enabled players need not have their own note data.
+				if( t >= m_ndAutoKeysoundsOnly[pn].GetNumTracks() )
+					continue;
 				int iNextRowForPlayer = iRow;
 				if( m_ndAutoKeysoundsOnly[pn].GetNextTapNoteRowForTrack( t, iNextRowForPlayer ) )
 					iNextRow = min( iNextRow, iNextRowForPlayer );
@@ -106,7 +109,7 @@ void AutoKeysounds::FinishLoading()
 				ASSERT( tn[pn].type == TapNote::autoKeysound );
 				if( tn[pn].bKeysound )
 				{
-					CString sKeysoundFilePath = sSongDir + pSong->m_vsKeysoundFile[tn[pn].iKeysoundIndex];
+					RString sKeysoundFilePath = sSongDir + pSong->m_vsKeysoundFile[tn[pn].iKeysoundIndex];
 					float fSeconds = pSong->m_Timing.GetElapsedTimeFromBeat( NoteRowToBeat(iRow) );
 
 					float fPan = 0;

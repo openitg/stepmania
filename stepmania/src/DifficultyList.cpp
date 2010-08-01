@@ -13,8 +13,9 @@
 #include "CommonMetrics.h"
 #include "Command.h"
 #include "Foreach.h"
+#include "SongUtil.h"
 
-#define MAX_METERS NUM_DIFFICULTIES + MAX_EDITS_PER_SONG
+#define MAX_METERS NUM_Difficulty + MAX_EDITS_PER_SONG
 
 DifficultyList::DifficultyList()
 {
@@ -25,7 +26,7 @@ DifficultyList::~DifficultyList()
 {
 }
 
-void DifficultyList::SetName( const CString &sName )
+void DifficultyList::SetName( const RString &sName )
 {
 	ActorFrame::SetName( sName );
 
@@ -70,13 +71,15 @@ void DifficultyList::Load()
 
 int DifficultyList::GetCurrentRowIndex( PlayerNumber pn ) const
 {
+	Difficulty ClosestDifficulty = GAMESTATE->GetClosestShownDifficulty(pn);
+	
 	for( unsigned i=0; i<m_Rows.size(); i++ )
 	{
 		const Row &row = m_Rows[i];
 
 		if( GAMESTATE->m_pCurSteps[pn] == NULL )
 		{
-			if( row.m_dc == GAMESTATE->m_PreferredDifficulty[pn] )
+			if( row.m_dc == ClosestDifficulty )
 				return i;
 		}
 		else
@@ -258,7 +261,7 @@ void DifficultyList::SetFromGameState()
 			// it really should round to the nearest difficulty that's in 
 			// DIFFICULTIES_TO_SHOW.
 			unsigned i=0;
-			FOREACH_CONST( Difficulty, DIFFICULTIES_TO_SHOW.GetValue(), d )
+			FOREACH_CONST( Difficulty, CommonMetrics::DIFFICULTIES_TO_SHOW.GetValue(), d )
 			{
 				m_Rows.resize( m_Rows.size()+1 );
 
@@ -274,7 +277,7 @@ void DifficultyList::SetFromGameState()
 		else
 		{
 			vector<Steps*>	CurSteps;
-			pSong->GetSteps( CurSteps, GAMESTATE->GetCurrentStyle()->m_StepsType );
+			SongUtil::GetSteps( pSong, CurSteps, GAMESTATE->GetCurrentStyle()->m_StepsType );
 
 			/* Should match the sort in ScreenSelectMusic::AfterMusicChange. */
 			StepsUtil::RemoveLockedSteps( pSong, CurSteps );

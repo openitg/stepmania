@@ -29,7 +29,7 @@ enum InputEventType
 struct InputEvent : public DeviceInput
 {
 	InputEvent() { type=IET_FIRST_PRESS; };
-	InputEvent( InputDevice d, int b, InputEventType t ): DeviceInput(d, b) { type=t; };
+	InputEvent( InputDevice d, DeviceButton b, InputEventType t ): DeviceInput(d, b) { type=t; };
 	InputEvent( DeviceInput di, InputEventType t ): DeviceInput(di) { type=t; };
 
 	InputEventType type;
@@ -38,11 +38,12 @@ struct InputEvent : public DeviceInput
 typedef vector<InputEvent> InputEventArray;
 
 class RageMutex;
+struct ButtonState;
 class InputFilter
 {
 public:
-	void ButtonPressed( DeviceInput di, bool Down );
-	void SetButtonComment( DeviceInput di, const CString &sComment = "" );
+	void ButtonPressed( const DeviceInput &di, bool Down );
+	void SetButtonComment( const DeviceInput &di, const RString &sComment = "" );
 	void ResetDevice( InputDevice dev );
 
 	InputFilter();
@@ -50,26 +51,19 @@ public:
 	void Reset();
 	void Update(float fDeltaTime);
 
-	void SetRepeatRate( float fSlowDelay, float fSlowRate, float fFastDelay, float fFastRate );
+	void SetRepeatRate( float fSlowDelay, float fFastDelay, float fRepeatRate );
 	void ResetRepeatRate();
-	void ResetKeyRepeat( DeviceInput di );
+	void ResetKeyRepeat( const DeviceInput &di );
 
-	bool IsBeingPressed( DeviceInput di );
-	float GetSecsHeld( DeviceInput di );
-	CString GetButtonComment( DeviceInput di ) const;
+	bool IsBeingPressed( const DeviceInput &di );
+	float GetSecsHeld( const DeviceInput &di );
+	RString GetButtonComment( const DeviceInput &di ) const;
 	
 	void GetInputEvents( InputEventArray &array );
+	void GetPressedButtons( vector<DeviceInput> &array );
 
 private:
-	struct ButtonState
-	{
-		ButtonState() { m_BeingHeld = false; m_fSecsHeld = m_Level = m_LastLevel = 0; }
-		bool m_BeingHeld;
-		CString m_sComment;
-		float m_fSecsHeld;
-		float m_Level, m_LastLevel;
-	};
-	ButtonState m_ButtonState[NUM_INPUT_DEVICES][MAX_DEVICE_BUTTONS];
+	void CheckButtonChange( ButtonState &bs, DeviceInput di, const RageTimer &now );
 
 	InputEventArray queue;
 	RageMutex *queuemutex;

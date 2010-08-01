@@ -10,6 +10,8 @@
 #include "AutoActor.h"
 #include "GameConstantsAndTypes.h"
 #include "ThemeMetric.h"
+class XNode;
+#include "LocalizedString.h"
 
 enum PaneTypes
 {
@@ -51,8 +53,10 @@ public:
 	PaneDisplay();
 	virtual Actor *Copy() const;
 
-	void Load( const CString &sClass, PlayerNumber pn );
+	void Load( const RString &sMetricsGroup, PlayerNumber pn );
 	void SetFromGameState( SortOrder so );
+
+	void LoadFromNode( const RString &sDir, const XNode *pNode );
 
 	// Lua
 	void PushSelf( lua_State *L );
@@ -72,7 +76,8 @@ private:
 	PaneTypes		m_CurPane;
 	PlayerNumber	m_PlayerNumber;
 
-	ThemeMetric<CString> EMPTY_MACHINE_HIGH_SCORE_NAME;
+	LocalizedString EMPTY_MACHINE_HIGH_SCORE_NAME;
+	LocalizedString NOT_AVAILABLE;
 };
 
 #endif

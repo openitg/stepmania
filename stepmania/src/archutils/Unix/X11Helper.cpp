@@ -1,7 +1,7 @@
 #include "global.h"
 #include "X11Helper.h"
 
-#include <X11/Xlib.h>		// Display, Window
+#include <X11/Xlib.h>
 
 #include "RageLog.h"
 #include "RageDisplay.h"
@@ -71,7 +71,7 @@ bool X11Helper::CloseMask( long mask )
 
 static bool pApplyMasks()
 {
-	if( X11Helper::Dpy == NULL | !g_bHaveWin )
+	if( X11Helper::Dpy == NULL || !g_bHaveWin )
 		return true;
 
 	LOG->Trace("X11Helper: Reapplying event masks.");
@@ -86,10 +86,8 @@ static bool pApplyMasks()
 	return true;
 }
 
-bool X11Helper::MakeWindow( int screenNum, int depth, Visual *visual, int width, int height )
+bool X11Helper::MakeWindow( int screenNum, int depth, Visual *visual, int width, int height, bool overrideRedirect )
 {
-	vector<long>::iterator i;
-	
 	if( g_iRefCount == 0 )
 		return false;
 
@@ -101,6 +99,17 @@ bool X11Helper::MakeWindow( int screenNum, int depth, Visual *visual, int width,
 		// pHaveWin will stay false if an error occurs once I do error
 		// checking here...
 
+	Win = CreateWindow( screenNum, depth, visual, width, height, overrideRedirect );
+
+	g_bHaveWin = true;
+
+	return true;
+}
+
+Window X11Helper::CreateWindow( int screenNum, int depth, Visual *visual, int width, int height, bool overrideRedirect )
+{
+	vector<long>::iterator i;
+	
 	XSetWindowAttributes winAttribs;
 
 	winAttribs.border_pixel = 0;
@@ -116,11 +125,20 @@ bool X11Helper::MakeWindow( int screenNum, int depth, Visual *visual, int width,
 
 	winAttribs.colormap = XCreateColormap( Dpy, RootWindow(Dpy, screenNum), visual, AllocNone );
 
-	Win = XCreateWindow( Dpy, RootWindow(Dpy, screenNum), 0, 0, width,
-		height, 0, depth, InputOutput, visual,
-		CWBorderPixel | CWColormap | CWEventMask, &winAttribs );
-
-	g_bHaveWin = true;
+	Window Win;
+	if( overrideRedirect )
+	{
+		winAttribs.override_redirect = True;
+		Win = XCreateWindow( Dpy, RootWindow(Dpy, screenNum), 0, 0, width,
+			height, 0, depth, InputOutput, visual,
+			CWBorderPixel | CWColormap | CWEventMask | CWOverrideRedirect, &winAttribs );
+	}
+	else
+	{
+		Win = XCreateWindow( Dpy, RootWindow(Dpy, screenNum), 0, 0, width,
+			height, 0, depth, InputOutput, visual,
+			CWBorderPixel | CWColormap | CWEventMask, &winAttribs );
+	}
 
 	/* Hide the mouse cursor. */
 	{
@@ -135,7 +153,7 @@ bool X11Helper::MakeWindow( int screenNum, int depth, Visual *visual, int width,
 		XFreeCursor( Dpy, pBlankPointer );
 	}
 
-	return true;
+	return Win;
 }
 
 int protoErrorCallback( Display *d, XErrorEvent *err )

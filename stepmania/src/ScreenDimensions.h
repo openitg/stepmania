@@ -1,33 +1,30 @@
-/* ScoreKeeperMAX2 - MAX2-style scorekeeping. */
+/* ScreenDimensions - defines for screen resolutions. */
 
 #ifndef SCREEN_DIMENSIONS_H
 #define SCREEN_DIMENSIONS_H
 
-#include "ThemeManager.h"
-#include "ThemeMetric.h"
+namespace ScreenDimensions
+{
+	float GetThemeAspectRatio();
+	float GetScreenWidth();
+	float GetScreenHeight();
+	void ReloadScreenDimensions();
+};
 
-#define SCREEN_WIDTH ScreenWidth()
-#define SCREEN_HEIGHT ScreenHeight()
-float ScreenWidth();
-float ScreenHeight();
+#define SCREEN_WIDTH	ScreenDimensions::GetScreenWidth()
+#define SCREEN_HEIGHT	ScreenDimensions::GetScreenHeight()
 
-extern ThemeMetric<float> THEME_SCREEN_WIDTH;
-extern ThemeMetric<float> THEME_SCREEN_HEIGHT;
+#define	SCREEN_LEFT	(0)
+#define	SCREEN_RIGHT	(SCREEN_WIDTH)
+#define	SCREEN_TOP	(0)
+#define	SCREEN_BOTTOM	(SCREEN_HEIGHT)
 
-#define		SCREEN_LEFT		(0)
-#define		SCREEN_RIGHT	(SCREEN_WIDTH)
-#define		SCREEN_TOP		(0)
-#define		SCREEN_BOTTOM	(SCREEN_HEIGHT)
-
-#define		SCREEN_CENTER_X		(SCREEN_LEFT + (SCREEN_RIGHT - SCREEN_LEFT)/2.0f)
-#define		SCREEN_CENTER_Y		(SCREEN_TOP + (SCREEN_BOTTOM - SCREEN_TOP)/2.0f)
+#define	SCREEN_CENTER_X	(SCREEN_LEFT + (SCREEN_RIGHT - SCREEN_LEFT)/2.0f)
+#define	SCREEN_CENTER_Y	(SCREEN_TOP + (SCREEN_BOTTOM - SCREEN_TOP)/2.0f)
 
 #define FullScreenRectF RectF(SCREEN_LEFT,SCREEN_TOP,SCREEN_RIGHT,SCREEN_BOTTOM)
 
-#define	SCREEN_NEAR		(-1000)
-#define	SCREEN_FAR		(1000)
-
-#define	ARROW_SIZE		(64)
+#define	ARROW_SIZE	(64)
 
 #endif
 

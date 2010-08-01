@@ -3,8 +3,9 @@
 #ifndef SONG_OPTIONS_H
 #define SONG_OPTIONS_H
 
-struct SongOptions
+class SongOptions
 {
+public:
 	enum LifeType
 	{
 		LIFE_BAR=0,
@@ -39,8 +40,11 @@ struct SongOptions
 
 	SongOptions() { Init(); };
 	void Init();
-	CString GetString() const;
-	void FromString( CString sOptions );
+	void GetMods( vector<RString> &AddTo ) const;
+	void GetLocalizedMods( vector<RString> &AddTo ) const;
+	RString GetString() const;
+	RString GetLocalizedString() const;
+	void FromString( const RString &sOptions );
 
 	bool operator==( const SongOptions &other ) const;
 	bool operator!=( const SongOptions &other ) const { return !operator==(other); }

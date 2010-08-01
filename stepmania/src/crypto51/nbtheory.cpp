@@ -8,7 +8,7 @@
 #include <math.h>
 #include <vector>
 
-NAMESPACE_BEGIN(CryptoPP)
+namespace CryptoPP {
 
 const unsigned int maxPrimeTableSize = 3511;	// last prime 32719
 const word lastSmallPrime = 32719;
@@ -719,15 +719,15 @@ unsigned int FactoringWorkFactor(unsigned int n)
 	// extrapolated from the table in Odlyzko's "The Future of Integer Factorization"
 	// updated to reflect the factoring of RSA-130
 	if (n<5) return 0;
-	else return (unsigned int)(2.4 * pow((double)n, 1.0/3.0) * pow(log(double(n)), 2.0/3.0) - 5);
+	else return (unsigned int)(2.4 * pow((double)n, double(1.0)/3.0) * pow(log(double(n)), double(2.0)/3.0) - 5);
 }
 
 unsigned int DiscreteLogWorkFactor(unsigned int n)
 {
 	// assuming discrete log takes about the same time as factoring
 	if (n<5) return 0;
-	else return (unsigned int)(2.4 * pow((double)n, 1.0/3.0) * pow(log(double(n)), 2.0/3.0) - 5);
+	else return (unsigned int)(2.4 * pow((double)n, double(1.0)/3.0) * pow(log(double(n)), double(2.0)/3.0) - 5);
 }
 
 
-NAMESPACE_END
+}

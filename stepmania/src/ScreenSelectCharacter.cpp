@@ -34,7 +34,6 @@
 #define ATTACK_ICONS_OFF_COMMAND( p )		THEME->GetMetricA("ScreenSelectCharacter",ssprintf("AttackIconsP%dOffCommand",p+1))
 #define HELP_TEXT							THEME->GetMetric ("ScreenSelectCharacter","HelpText")
 #define TIMER_SECONDS						THEME->GetMetricI("ScreenSelectCharacter","TimerSeconds")
-#define SLEEP_AFTER_TWEEN_OFF_SECONDS		THEME->GetMetricF("ScreenSelectCharacter","SleepAfterTweenOffSeconds")
 #define ICON_WIDTH							THEME->GetMetricF("ScreenSelectCharacter","IconWidth")
 #define ICON_HEIGHT							THEME->GetMetricF("ScreenSelectCharacter","IconHeight")
 #define ICONS_ON_COMMAND( p )				THEME->GetMetricA("ScreenSelectCharacter",ssprintf("IconsP%dOnCommand",p+1))
@@ -48,10 +47,6 @@ const PlayerNumber	CPU_PLAYER[NUM_PLAYERS] = { PLAYER_2, PLAYER_1 };
 
 
 REGISTER_SCREEN_CLASS( ScreenSelectCharacter );
-ScreenSelectCharacter::ScreenSelectCharacter( CString sClassName ) : ScreenWithMenuElements( sClassName )
-{	
-	LOG->Trace( "ScreenSelectCharacter::ScreenSelectCharacter()" );	
-}
 
 
 void ScreenSelectCharacter::Init()
@@ -76,7 +71,7 @@ void ScreenSelectCharacter::Init()
 
 	default:
 		/* Non Rave/Battle mode, just skip this screen if disabled. */
-		if(	PREFSMAN->m_ShowDancingCharacters != PrefsManager::CO_SELECT )
+		if(	PREFSMAN->m_ShowDancingCharacters != PrefsManager::SDC_Select )
 		{
 			this->PostScreenMessage( SM_GoToNextScreen, 0 );
 			return;
@@ -142,8 +137,6 @@ void ScreenSelectCharacter::Init()
 
 	SOUND->PlayOnceFromDir( ANNOUNCER->GetPathTo("select group intro") );
 
-	SOUND->PlayMusic( THEME->GetPathS("ScreenSelectCharacter","music") );
-
 	FOREACH_PlayerNumber( p )
 	{
 		if( GAMESTATE->IsHumanPlayer(p) )
@@ -179,18 +172,20 @@ void ScreenSelectCharacter::Input( const InputEventPlus &input )
 
 void ScreenSelectCharacter::HandleScreenMessage( const ScreenMessage SM )
 {
-	switch( SM )
+	if( SM == SM_BeginFadingOut )
 	{
-	case SM_BeginFadingOut:
-		StartTransitioning( SM_GoToNextScreen );
-		return;
-	case SM_MenuTimer:
+		StartTransitioningScreen( SM_GoToNextScreen );
+	}
+	else if( SM == SM_MenuTimer )
+	{
 		MenuStart(PLAYER_1);
 		if( !AllAreFinishedChoosing() )
 			ResetTimer();
-		return;
 	}
-	Screen::HandleScreenMessage( SM );
+	else
+	{
+		Screen::HandleScreenMessage( SM );
+	}
 }
 
 PlayerNumber ScreenSelectCharacter::GetAffectedPlayerNumber( PlayerNumber pn )
@@ -357,8 +352,7 @@ void ScreenSelectCharacter::MenuStart( PlayerNumber pn )
 		}
 
 		StopTimer();
-		TweenOursOffScreen();
-		this->PostScreenMessage( SM_BeginFadingOut, SLEEP_AFTER_TWEEN_OFF_SECONDS );
+		this->PostScreenMessage( SM_BeginFadingOut, 0 );
 	}
 }
 
@@ -367,8 +361,10 @@ void ScreenSelectCharacter::MenuBack( PlayerNumber pn )
 	Cancel( SM_GoToPrevScreen );
 }
 
-void ScreenSelectCharacter::TweenOursOffScreen()
+void ScreenSelectCharacter::TweenOffScreen()
 {
+	ScreenWithMenuElements::TweenOffScreen();
+
 	FOREACH_PlayerNumber( p )
 	{
 		m_sprCard[p].RunCommands( CARD_OFF_COMMAND(p) );

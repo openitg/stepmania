@@ -2,12 +2,12 @@
 #define SCREENPLAYEROPTIONS_H
 
 #include "ScreenOptionsMaster.h"
+
 struct lua_State;
 
 class ScreenPlayerOptions : public ScreenOptionsMaster
 {
 public:
-	ScreenPlayerOptions( CString sName );
 	virtual void Init();
 	virtual void BeginScreen();
 
@@ -29,7 +29,8 @@ private:
 	bool        m_bAskOptionsMessage;
 	Sprite      m_sprOptionsMessage;
 
-	RageSound	m_CancelAll;
+	// show if the current selections will disqualify a high score
+	AutoActor		m_sprDisqualify[NUM_PLAYERS];
 };
 
 #endif

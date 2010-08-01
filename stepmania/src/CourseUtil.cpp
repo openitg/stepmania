@@ -10,6 +10,7 @@
 #include "Style.h"
 #include "Foreach.h"
 #include "GameState.h"
+#include "LocalizedString.h"
 
 
 //
@@ -17,8 +18,8 @@
 //
 static bool CompareCoursePointersByName( const Course* pCourse1, const Course* pCourse2 )
 {
-	CString sName1 = pCourse1->GetDisplayFullTitle();
-	CString sName2 = pCourse2->GetDisplayFullTitle();
+	RString sName1 = pCourse1->GetDisplayFullTitle();
+	RString sName2 = pCourse2->GetDisplayFullTitle();
 	return sName1.CompareNoCase( sName2 ) < 0;
 }
 
@@ -72,7 +73,7 @@ static bool MovePlayersBestToEnd( const Course* pCourse1, const Course* pCourse2
 
 static bool CompareRandom( const Course* pCourse1, const Course* pCourse2 )
 {
-	return ( pCourse1->IsFixed() && !pCourse2->IsFixed() );
+	return ( pCourse1->AllSongsAreFixed() && !pCourse2->AllSongsAreFixed() );
 }
 
 static bool CompareCoursePointersByRanking( const Course* pCourse1, const Course* pCourse2 )
@@ -119,7 +120,7 @@ void CourseUtil::MoveRandomToEnd( vector<Course*> &vpCoursesInOut )
 	stable_sort( vpCoursesInOut.begin(), vpCoursesInOut.end(), CompareRandom );
 }
 
-static map<const Course*, CString> course_sort_val;
+static map<const Course*, RString> course_sort_val;
 
 bool CompareCoursePointersBySortValueAscending( const Course *pSong1, const Course *pSong2 )
 {
@@ -181,7 +182,7 @@ void CourseUtil::SortByMostRecentlyPlayedForMachine( vector<Course*> &vpCoursesI
 	FOREACH_CONST( Course*, vpCoursesInOut, c )
 	{
 		int iNumTimesPlayed = pProfile->GetCourseNumTimesPlayed( *c );
-		CString val = iNumTimesPlayed ? pProfile->GetCourseLastPlayedDateTime(*c).GetString() : "9999999999999";
+		RString val = iNumTimesPlayed ? pProfile->GetCourseLastPlayedDateTime(*c).GetString() : "9999999999999";
 		course_sort_val[*c] = val;
 	}
 
@@ -192,7 +193,128 @@ void CourseUtil::SortByMostRecentlyPlayedForMachine( vector<Course*> &vpCoursesI
 void CourseUtil::MakeDefaultEditCourseEntry( CourseEntry& out )
 {
 	out.pSong = GAMESTATE->GetDefaultSong();
-	out.baseDifficulty = DIFFICULTY_MEDIUM;
+	out.stepsCriteria.m_difficulty = DIFFICULTY_MEDIUM;
+}
+
+//////////////////////////////////
+// Autogen
+//////////////////////////////////
+
+void CourseUtil::AutogenEndlessFromGroup( const RString &sGroupName, Difficulty diff, Course &out )
+{
+	out.m_bIsAutogen = true;
+	out.m_bRepeat = true;
+	out.m_bShuffle = true;
+	out.m_iLives = -1;
+	FOREACH_Difficulty(dc)
+		out.m_iCustomMeter[dc] = -1;
+
+	if( sGroupName == "" )
+	{
+		out.m_sMainTitle = "All Songs";
+		// m_sBannerPath = ""; // XXX
+	}
+	else
+	{
+		out.m_sMainTitle = SONGMAN->ShortenGroupName( sGroupName );
+		out.m_sBannerPath = SONGMAN->GetSongGroupBannerPath( sGroupName );
+	}
+
+	// We want multiple songs, so we can try to prevent repeats during
+	// gameplay. (We might still get a repeat at the repeat boundary,
+	// but that'd be rare.) -glenn
+	CourseEntry e;
+	e.songCriteria.m_sGroupName = sGroupName;
+	e.stepsCriteria.m_difficulty = diff;
+	e.bSecret = true;
+
+	vector<Song*> vSongs;
+	SONGMAN->GetSongs( vSongs, e.songCriteria.m_sGroupName );
+	for( unsigned i = 0; i < vSongs.size(); ++i)
+		out.m_vEntries.push_back( e );
+}
+
+void CourseUtil::AutogenNonstopFromGroup( const RString &sGroupName, Difficulty diff, Course &out )
+{
+	AutogenEndlessFromGroup( sGroupName, diff, out );
+
+	out.m_bRepeat = false;
+
+	out.m_sMainTitle += " Random";	
+
+	// resize to 4
+	while( out.m_vEntries.size() < 4 )
+		out.m_vEntries.push_back( out.m_vEntries[0] );
+	while( out.m_vEntries.size() > 4 )
+		out.m_vEntries.pop_back();
+}
+
+void CourseUtil::AutogenOniFromArtist( const RString &sArtistName, RString sArtistNameTranslit, vector<Song*> aSongs, Difficulty dc, Course &out )
+{
+	out.m_bIsAutogen = true;
+	out.m_bRepeat = false;
+	out.m_bShuffle = true;
+	out.m_bSortByMeter = true;
+
+	out.m_iLives = 4;
+	FOREACH_Difficulty(cd)
+		out.m_iCustomMeter[cd] = -1;
+
+	ASSERT( sArtistName != "" );
+	ASSERT( aSongs.size() > 0 );
+
+	/* "Artist Oni" is a little repetitive; "by Artist" stands out less, and lowercasing
+	 * "by" puts more emphasis on the artist's name.  It also sorts them together. */
+	out.m_sMainTitle = "by " + sArtistName;
+	if( sArtistNameTranslit != sArtistName )
+		out.m_sMainTitleTranslit = "by " + sArtistNameTranslit;
+
+
+	// m_sBannerPath = ""; // XXX
+
+	/* Shuffle the list to determine which songs we'll use.  Shuffle it deterministically,
+	 * so we always get the same set of songs unless the song set changes. */
+	{
+		RandomGen rng( GetHashForString( sArtistName ) + aSongs.size() );
+		random_shuffle( aSongs.begin(), aSongs.end(), rng );
+	}
+
+	/* Only use up to four songs. */
+	if( aSongs.size() > 4 )
+		aSongs.erase( aSongs.begin()+4, aSongs.end() );
+
+	CourseEntry e;
+	e.stepsCriteria.m_difficulty = dc;
+
+	for( unsigned i = 0; i < aSongs.size(); ++i )
+	{
+		e.pSong = aSongs[i];
+		out.m_vEntries.push_back( e );
+	}
+}
+
+static LocalizedString EDIT_NAME_CONFLICTS	( "ScreenOptionsManageCourses", "The name you chose conflicts with another edit. Please use a different name." );
+bool CourseUtil::ValidateEditCourseName( const RString &sAnswer, RString &sErrorOut )
+{
+	if( sAnswer.empty() )
+		return false;
+
+	// Course name must be unique
+	vector<Course*> v;
+	SONGMAN->GetAllCourses( v, false );
+	FOREACH_CONST( Course*, v, c )
+	{
+		if( GAMESTATE->m_pCurCourse.Get() == *c )
+			continue;	// don't compare name against ourself
+
+		if( (*c)->GetDisplayFullTitle() == sAnswer )
+		{
+			sErrorOut = EDIT_NAME_CONFLICTS;
+			return false;
+		}
+	}
+
+	return true;
 }
 
 
@@ -231,7 +353,7 @@ Course *CourseID::ToCourse() const
 {
 	// HACK for backwards compatibility:
 	// Re-add the leading "/".  2005/05/21 file layer changes added a leading slash.
-	CString sPath2 = sPath;
+	RString sPath2 = sPath;
 	if( sPath2.Left(1) != "/" )
 		sPath2 = "/" + sPath2;
 
@@ -272,13 +394,13 @@ void CourseID::LoadFromNode( const XNode* pNode )
 	pNode->GetAttrValue("FullTitle", sFullTitle);
 }
 
-CString CourseID::ToString() const
+RString CourseID::ToString() const
 {
 	if( !sPath.empty() )
 		return sPath;
 	if( !sFullTitle.empty() )
 		return sFullTitle;
-	return CString();
+	return RString();
 }
 
 bool CourseID::IsValid() const

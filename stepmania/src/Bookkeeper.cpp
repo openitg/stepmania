@@ -1,19 +1,19 @@
 #include "global.h"
 #include "Bookkeeper.h"
 #include "RageUtil.h"
-#include "PrefsManager.h"
 #include "RageLog.h"
 #include "IniFile.h"
 #include "GameConstantsAndTypes.h"
 #include "SongManager.h"
 #include "RageFile.h"
 #include "XmlFile.h"
+#include "XmlFileUtil.h"
 #include <ctime>
 
 
 Bookkeeper*	BOOKKEEPER = NULL;	// global and accessable from anywhere in our program
 
-static const CString COINS_DAT = "Data/Coins.xml";
+static const RString COINS_DAT = "Save/Coins.xml";
 
 Bookkeeper::Bookkeeper()
 {
@@ -122,7 +122,7 @@ void Bookkeeper::ReadFromDisk()
 		return;
 
 	XNode xml;
-	if( !xml.LoadFromFile(COINS_DAT) )
+	if( !XmlFileUtil::LoadFromFileShowErrors(xml, COINS_DAT) )
 		return;
 
 	LoadFromNode( &xml );
@@ -131,7 +131,7 @@ void Bookkeeper::ReadFromDisk()
 void Bookkeeper::WriteToDisk()
 {
 	// Write data.  Use SLOW_FLUSH, to help ensure that we don't lose coin data.
-    RageFile f;
+	RageFile f;
 	if( !f.Open(COINS_DAT, RageFile::WRITE|RageFile::SLOW_FLUSH) )
 	{
 		LOG->Warn( "Couldn't open file \"%s\" for writing: %s", COINS_DAT.c_str(), f.GetError().c_str() );
@@ -140,7 +140,7 @@ void Bookkeeper::WriteToDisk()
 
 	DISP_OPT opt;
 	XNode *xml = CreateNode();
-	xml->SaveToFile( f, &opt );
+	xml->SaveToFile( f, opt );
 	delete xml;
 }
 
@@ -181,7 +181,7 @@ int Bookkeeper::GetCoinsTotal() const
 void Bookkeeper::GetCoinsLastDays( int coins[NUM_LAST_DAYS] ) const
 {
 	time_t lOldTime = time(NULL);
-    tm time;
+	tm time;
 	localtime_r( &lOldTime, &time );
 
 	time.tm_hour = 0;
@@ -197,7 +197,7 @@ void Bookkeeper::GetCoinsLastDays( int coins[NUM_LAST_DAYS] ) const
 void Bookkeeper::GetCoinsLastWeeks( int coins[NUM_LAST_WEEKS] ) const
 {
 	time_t lOldTime = time(NULL);
-    tm time;
+	tm time;
 	localtime_r( &lOldTime, &time );
 
 	time = GetNextSunday( time );

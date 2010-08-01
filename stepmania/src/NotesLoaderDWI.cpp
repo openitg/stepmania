@@ -100,9 +100,9 @@ void DWILoader::DWIcharToNoteCol( char c, GameController i, int &col1Out, int &c
  * 1/192nds.  So, we have to do a check to figure out what it really
  * means.  If it contains 0s, it's most likely 192nds; otherwise,
  * it's most likely a jump.  Search for a 0 before the next >: */
-bool DWILoader::Is192( const CString &sStepData, int pos )
+bool DWILoader::Is192( const RString &sStepData, size_t pos )
 {
-	while( pos < (int) sStepData.size() )
+	while( pos < sStepData.size() )
 	{
 		if( sStepData[pos] == '>' )
 			return false;
@@ -115,11 +115,11 @@ bool DWILoader::Is192( const CString &sStepData, int pos )
 }
 
 bool DWILoader::LoadFromDWITokens( 
-	CString sMode, 
-	CString sDescription,
-	CString sNumFeet,
-	CString sStepData1, 
-	CString sStepData2,
+	RString sMode, 
+	RString sDescription,
+	RString sNumFeet,
+	RString sStepData1, 
+	RString sStepData2,
 	Steps &out)
 {
 	CHECKPOINT_M( "DWILoader::LoadFromDWITokens()" );
@@ -179,7 +179,7 @@ bool DWILoader::LoadFromDWITokens(
 
 	for( int pad=0; pad<2; pad++ )		// foreach pad
 	{
-		CString sStepData;
+		RString sStepData;
 		switch( pad )
 		{
 		case 0:
@@ -202,7 +202,7 @@ bool DWILoader::LoadFromDWITokens(
 		double fCurrentBeat = 0;
 		double fCurrentIncrementer = 1.0/8 * BEATS_PER_MEASURE;
 
-		for( int i=0; i<sStepData.GetLength(); )
+		for( size_t i=0; i<sStepData.size(); )
 		{
 			char c = sStepData[i++];
 			switch( c )
@@ -337,7 +337,7 @@ bool DWILoader::LoadFromDWITokens(
 
 /* This value can be in either "HH:MM:SS.sssss", "MM:SS.sssss", "SSS.sssss"
  * or milliseconds. */
-float DWILoader::ParseBrokenDWITimestamp(const CString &arg1, const CString &arg2, const CString &arg3)
+float DWILoader::ParseBrokenDWITimestamp(const RString &arg1, const RString &arg2, const RString &arg3)
 {
 	if(arg1.empty()) return 0;
 
@@ -346,9 +346,9 @@ float DWILoader::ParseBrokenDWITimestamp(const CString &arg1, const CString &arg
 	{
 		/* If the value contains a period, treat it as seconds; otherwise ms. */
 		if(arg1.find_first_of(".") != arg1.npos)
-			return strtof( arg1, NULL );
+			return StringToFloat( arg1 );
 		else
-			return strtof( arg1, NULL ) / 1000.f;
+			return StringToFloat( arg1 ) / 1000.f;
 	}
 
 	/* 2+ args */
@@ -359,7 +359,7 @@ float DWILoader::ParseBrokenDWITimestamp(const CString &arg1, const CString &arg
 	return HHMMSSToSeconds( arg1+":"+arg2+":"+arg3 );
 }
 
-bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
+bool DWILoader::LoadFromDWIFile( const RString &sPath, Song &out )
 {
 	LOG->Trace( "Song::LoadFromDWIFile(%s)", sPath.c_str() );
 	m_sLoadingFile = sPath;
@@ -372,7 +372,7 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 	{
 		int iNumParams = msd.GetNumParams(i);
 		const MsdFile::value_t &sParams = msd.GetValue(i);
-		CString sValueName = sParams[0];
+		RString sValueName = sParams[0];
 
 		if(iNumParams < 1)
 		{
@@ -404,7 +404,7 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 			out.m_sCDTitleFile = sParams[1];
 
 		else if( 0==stricmp(sValueName,"BPM") )
-			out.AddBPMSegment( BPMSegment(0, strtof(sParams[1], NULL)) );
+			out.AddBPMSegment( BPMSegment(0, StringToFloat(sParams[1])) );
 
 		else if( 0==stricmp(sValueName,"DISPLAYBPM") )
 		{
@@ -442,20 +442,20 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 
 		else if( 0==stricmp(sValueName,"FREEZE") )
 		{
-			CStringArray arrayFreezeExpressions;
+			vector<RString> arrayFreezeExpressions;
 			split( sParams[1], ",", arrayFreezeExpressions );
 
 			for( unsigned f=0; f<arrayFreezeExpressions.size(); f++ )
 			{
-				CStringArray arrayFreezeValues;
+				vector<RString> arrayFreezeValues;
 				split( arrayFreezeExpressions[f], "=", arrayFreezeValues );
 				if( arrayFreezeValues.size() != 2 )
 				{
 					LOG->Warn( "Invalid FREEZE in '%s': '%s'", m_sLoadingFile.c_str(), arrayFreezeExpressions[f].c_str() );
 					continue;
 				}
-				int iFreezeRow = BeatToNoteRow( strtof( arrayFreezeValues[0],NULL ) / 4.0f );
-				float fFreezeSeconds = strtof( arrayFreezeValues[1], NULL ) / 1000.0f;
+				int iFreezeRow = BeatToNoteRow( StringToFloat(arrayFreezeValues[0]) / 4.0f );
+				float fFreezeSeconds = StringToFloat( arrayFreezeValues[1] ) / 1000.0f;
 				
 				out.AddStopSegment( StopSegment(iFreezeRow, fFreezeSeconds) );
 //				LOG->Trace( "Adding a freeze segment: beat: %f, seconds = %f", fFreezeBeat, fFreezeSeconds );
@@ -464,12 +464,12 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 
 		else if( 0==stricmp(sValueName,"CHANGEBPM")  || 0==stricmp(sValueName,"BPMCHANGE") )
 		{
-			CStringArray arrayBPMChangeExpressions;
+			vector<RString> arrayBPMChangeExpressions;
 			split( sParams[1], ",", arrayBPMChangeExpressions );
 
 			for( unsigned b=0; b<arrayBPMChangeExpressions.size(); b++ )
 			{
-				CStringArray arrayBPMChangeValues;
+				vector<RString> arrayBPMChangeValues;
 				split( arrayBPMChangeExpressions[b], "=", arrayBPMChangeValues );
 				if( arrayBPMChangeValues.size() != 2 )
 				{
@@ -478,8 +478,8 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 				}
 				
 				BPMSegment bs;
-				bs.m_iStartIndex = BeatToNoteRow( strtof( arrayBPMChangeValues[0],NULL ) / 4.0f );
-				bs.SetBPM( strtof( arrayBPMChangeValues[1], NULL ) );
+				bs.m_iStartIndex = BeatToNoteRow( StringToFloat(arrayBPMChangeValues[0]) / 4.0f );
+				bs.SetBPM( StringToFloat( arrayBPMChangeValues[1] ) );
 				out.AddBPMSegment( bs );
 			}
 		}
@@ -495,7 +495,7 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 				sParams[1], 
 				sParams[2], 
 				sParams[3], 
-				(iNumParams==5) ? sParams[4] : CString(""),
+				(iNumParams==5) ? sParams[4] : RString(""),
 				*pNewNotes
 				);
 			if(pNewNotes->m_StepsType != STEPS_TYPE_INVALID)
@@ -508,24 +508,25 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 		{
 			/* We don't want to support these tags.  However, we don't want
 			 * to pick up images used here as song images (eg. banners). */
-			CString param = sParams[1];
+			RString param = sParams[1];
 			/* "{foo} ... {foo2}" */
 			size_t pos = 0;
-			while( pos < CString::npos )
+			while( pos < RString::npos )
 			{
 
 				size_t startpos = param.find('{', pos);
-				if( startpos == CString::npos )
+				if( startpos == RString::npos )
 					break;
 				size_t endpos = param.find('}', startpos);
-				if( endpos == CString::npos )
+				if( endpos == RString::npos )
 					break;
 
-				CString sub = param.substr( startpos+1, endpos-startpos-1 );
+				RString sub = param.substr( startpos+1, endpos-startpos-1 );
 
 				pos = endpos + 1;
 
-				BlacklistedImages.insert( sub.c_str() );
+				sub.MakeLower();
+				BlacklistedImages.insert( sub );
 			}
 		}
 		else
@@ -536,14 +537,14 @@ bool DWILoader::LoadFromDWIFile( CString sPath, Song &out )
 	return true;
 }
 
-void DWILoader::GetApplicableFiles( CString sPath, CStringArray &out )
+void DWILoader::GetApplicableFiles( const RString &sPath, vector<RString> &out )
 {
-	GetDirListing( sPath + CString("*.dwi"), out );
+	GetDirListing( sPath + RString("*.dwi"), out );
 }
 
-bool DWILoader::LoadFromDir( CString sPath, Song &out )
+bool DWILoader::LoadFromDir( const RString &sPath, Song &out )
 {
-	CStringArray aFileNames;
+	vector<RString> aFileNames;
 	GetApplicableFiles( sPath, aFileNames );
 
 	if( aFileNames.size() > 1 )

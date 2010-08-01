@@ -11,21 +11,27 @@ class InputHandler;
 class RageInput
 {
 public:
-	RageInput( CString sDriverList );
+	RageInput();
 	~RageInput();
 
-	void Update( float fDeltaTime );
-	void GetDevicesAndDescriptions( vector<InputDevice>& vDevicesOut, vector<CString>& vsDescriptionsOut );
+	void LoadDrivers();
+	void Update();
+	bool DevicesChanged();
+	void GetDevicesAndDescriptions( vector<InputDeviceInfo>& vOut ) const;
 	void WindowReset();
 	void AddHandler( InputHandler *pHandler );
-	CString GetDeviceSpecificInputString( const DeviceInput &di );
+	RString GetDeviceSpecificInputString( const DeviceInput &di );
+	RString GetLocalizedInputString( const DeviceInput &di );
+	wchar_t DeviceInputToChar( DeviceInput di, bool bUseCurrentKeyModifiers );
 	InputDeviceState GetInputDeviceState( InputDevice id );
+	RString GetDisplayDevicesString() const;
 
 	// Lua
 	void PushSelf( lua_State *L );
 
 private:
 	vector<InputHandler *> m_pDevices;
+	RString m_sDriverList;
 };
 
 extern RageInput*			INPUTMAN;	// global and accessable from anywhere in our program

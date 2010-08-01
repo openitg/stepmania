@@ -1,68 +1,99 @@
 #import <Cocoa/Cocoa.h>
 #import "ProductInfo.h"
+#import "archutils/Darwin/SMMainThread.h"
 
-static NSWindow *window;
-static NSTextView *text;
+static NSWindow *g_window = nil;
+static NSTextView *g_text = nil;
 
-void MakeNewCocoaWindow()
+void MakeNewCocoaWindow( const void *data, unsigned length )
 {
-	NSImage *image = [NSImage imageNamed:@"splash"];
-	NSImageView *iView;
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSImage *image = nil;
+	
+	if( length )
+	{
+		NSData *d = [NSData dataWithBytes:data length:length];
+		
+		image = [[[NSImage alloc] initWithData:d] autorelease];
+	}
+	if( !image )
+		return;
+	
 	NSView *view;
 	NSSize size = [image size];
-	NSRect textRect, viewRect, windowRect;
-	float height = size.height;
-	
-	textRect = NSMakeRect(0, 0, size.width, height);
-	text = [[[NSTextView alloc] initWithFrame:textRect] autorelease];
-	[text setEditable:NO];
-	[text setSelectable:NO];
-	[text setDrawsBackground:YES];
-	[text setBackgroundColor:[NSColor lightGrayColor]];
-	[text setAlignment:NSCenterTextAlignment];
+	NSRect viewRect, windowRect;
+	float height = 0.0f;
 
-	viewRect = NSMakeRect(0, height, size.width, height);
-	iView = [[[NSImageView alloc] initWithFrame:viewRect] autorelease];
+	NSFont *font = [NSFont systemFontOfSize:0.0f];
+	NSRect textRect;
+	// Just give it a size until it is created.
+	textRect = NSMakeRect( 0, 0, size.width, size.height );
+	g_text = [[[NSTextView alloc] initWithFrame:textRect] autorelease];
+	[g_text setFont:font];
+	height = [[g_text layoutManager] defaultLineHeightForFont:font]*3 + 4;
+	textRect = NSMakeRect( 0, 0, size.width, height );
+	
+	[g_text setFrame:textRect];
+	[g_text setEditable:NO];
+	[g_text setSelectable:NO];
+	[g_text setDrawsBackground:YES];
+	[g_text setBackgroundColor:[NSColor lightGrayColor]];
+	[g_text setAlignment:NSCenterTextAlignment];
+	[g_text setString:@"Initializing Hardware..."];
+
+	viewRect = NSMakeRect(0, height, size.width, size.height);
+	NSImageView *iView = [[[NSImageView alloc] initWithFrame:viewRect] autorelease];
 	[iView setImage:image];
 	[iView setImageFrameStyle:NSImageFrameNone];
 
-	windowRect = NSMakeRect(0, 0, size.width, height + height);
-	window = [[NSWindow alloc] initWithContentRect:windowRect
-										 styleMask:NSTitledWindowMask
-										   backing:NSBackingStoreBuffered
-											 defer:YES];
-	[window setOneShot:YES];
-	[window setReleasedWhenClosed:YES];
-	[window center];
-	[window useOptimizedDrawing:YES];
-	[window setViewsNeedDisplay:YES];
-	[window setTitle:[NSString stringWithUTF8String:PRODUCT_NAME_VER]];
-
-	view = [window contentView];
-	[view addSubview:text]; /* This retains text */
-	[view addSubview:iView]; /* This retains iView */
-	[text setFont:[NSFont systemFontOfSize:12]];
-	[text setString:@"Initializing Hardware..."];
-	[text display];
+	windowRect = NSMakeRect( 0, 0, size.width, size.height + height );
+	g_window = [[NSWindow alloc] initWithContentRect:windowRect
+					     styleMask:NSTitledWindowMask
+					       backing:NSBackingStoreBuffered
+						 defer:YES];
 	
-	[window makeKeyAndOrderFront:nil];
+	SMMainThread *mt = [[SMMainThread alloc] init];
+	view = [g_window contentView];
+
+	// Set some properties.
+	ADD_ACTIONb( mt, g_window, setOneShot:, YES );
+	ADD_ACTIONb( mt, g_window, setExcludedFromWindowsMenu:, YES );
+	ADD_ACTIONb( mt, g_window, useOptimizedDrawing:, YES );
+	ADD_ACTION1( mt, g_window, setTitle:, @PRODUCT_FAMILY );
+	ADD_ACTION0( mt, g_window, center );
+	// Set subviews.
+	ADD_ACTION1( mt, view, addSubview:, g_text );
+	ADD_ACTION1( mt, view, addSubview:, iView );
+	// Make key and order front.
+	ADD_ACTION1( mt, g_window, makeKeyAndOrderFront:, nil );
+	
+	// Perform all of the actions in order on the main thread.
+	[mt performOnMainThread];
+	[mt release];
+	
+	[pool release];
 }
 
 void DisposeOfCocoaWindow()
 {
-	[window close]; /* Released by setReleasedWhenClosed */
+	// Just in case performSelectorOnMainThread:withObject:waitUntilDone: needs an autorelease pool.
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	
+	 // Released when closed as controlled by setReleasedWhenClosed.
+	[g_window performSelectorOnMainThread:@selector(close) withObject:nil waitUntilDone:NO];
+	[pool release];
 }
 
 void SetCocoaWindowText(const char *s)
 {
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	NSString *str = [NSString stringWithUTF8String:s];
-	
-	[text setString:(str ? str : @"" )];
-	[text display];
+	[g_text performSelectorOnMainThread:@selector(setString:) withObject:(str ? str : @"") waitUntilDone:NO];
+	[pool release];
 }
 
 /*
- * (c) 2003-2005 Steve Checkoway
+ * (c) 2003-2006 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

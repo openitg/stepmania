@@ -13,6 +13,8 @@
 #include "ActorScroller.h"
 #include "ThemeMetric.h"
 #include "DifficultyMeter.h"
+#include "RageSound.h"
+#include "LocalizedString.h"
 
 
 class HighScoreWheelItem : public ActorFrame
@@ -41,7 +43,7 @@ public:
 class ScreenNameEntryTraditional : public ScreenWithMenuElements
 {
 public:
-	ScreenNameEntryTraditional( CString sName );
+	ScreenNameEntryTraditional();
 	virtual void Init();
 	virtual ~ScreenNameEntryTraditional();
 
@@ -49,10 +51,10 @@ public:
 	void HandleScreenMessage( const ScreenMessage SM );
 	void Input( const InputEventPlus &input );
 
-	void MenuStart( PlayerNumber pn, const InputEventType type );
-	void MenuSelect( PlayerNumber pn, const InputEventType type );
-	void MenuLeft( PlayerNumber pn, const InputEventType type );
-	void MenuRight( PlayerNumber pn, const InputEventType type );
+	void MenuStart( const InputEventPlus &input );
+	void MenuSelect( const InputEventPlus &input );
+	void MenuLeft( const InputEventPlus &input );
+	void MenuRight( const InputEventPlus &input );
 
 private:
 	bool AnyStillEntering() const;
@@ -61,22 +63,23 @@ private:
 	void Finish( PlayerNumber pn );
 	void UpdateSelectionText( int pn );
 	void ChangeDisplayedFeat();
-	void SelectChar( PlayerNumber pn, int c );
+	bool SelectChar( PlayerNumber pn, int c, bool bOptional );
 	void Backspace( PlayerNumber pn );
+	void HandleStart( PlayerNumber pn );
 
 	ThemeMetric<float> ALPHABET_GAP_X;
 	ThemeMetric<int> NUM_ALPHABET_DISPLAYED;
 	ThemeMetric<int> MAX_RANKING_NAME_LENGTH;
 	ThemeMetric<float> FEAT_INTERVAL;
-	ThemeMetric<CString> KEYBOARD_LETTERS;
+	LocalizedString KEYBOARD_LETTERS;
 
 	ActorFrame		m_Keyboard[NUM_PLAYERS];
 	Sprite			m_sprCursor[NUM_PLAYERS];
 	vector<BitmapText*>	m_textAlphabet[NUM_PLAYERS];
 	vector<int>		m_AlphabetLetter[NUM_PLAYERS];
-	int				m_SelectedChar[NUM_PLAYERS];
+	int			m_SelectedChar[NUM_PLAYERS];
 	AutoActor		m_sprOutOfRanking[NUM_PLAYERS];	// shown if didn't make any high scores
-	Sprite			m_sprNameFrame[NUM_PLAYERS];
+	AutoActor		m_sprNameFrame[NUM_PLAYERS];
 	BitmapText		m_textSelection[NUM_PLAYERS];
 
 	/* Feat display: */
@@ -86,10 +89,10 @@ private:
 		GradeDisplay		m_Grade;
 		DifficultyIcon		m_DifficultyIcon;
 		DifficultyMeter		m_DifficultyMeter;
-		BitmapText			m_textCategory;
+		BitmapText		m_textCategory;
 		PercentageDisplay	m_textScore;
-		Banner				m_sprBanner;
-		Sprite				m_sprBannerFrame;
+		Banner			m_sprBanner;
+		AutoActor		m_sprBannerFrame;
 	};
 
 	vector<FeatDisplay>		m_FeatDisplay[NUM_PLAYERS];

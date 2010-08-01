@@ -17,11 +17,13 @@
 
 #include "arch/arch.h"
 
+const RString DEFAULT_LIGHTS_DRIVER = "Null";
+static Preference<RString> g_sLightsDriver( "LightsDriver", "" ); // "" == DEFAULT_LIGHTS_DRIVER
 Preference<float>	g_fLightsFalloffSeconds( "LightsFalloffSeconds", 0.1f );
 Preference<float>	g_fLightsAheadSeconds( "LightsAheadSeconds", 0.05f );
+static Preference<bool>	g_bBlinkGameplayButtonLightsOnNote( "BlinkGameplayButtonLightsOnNote", false );
 
-
-static const CString CabinetLightNames[] = {
+static const char *CabinetLightNames[] = {
 	"MarqueeUpLeft",
 	"MarqueeUpRight",
 	"MarqueeLrLeft",
@@ -34,7 +36,7 @@ static const CString CabinetLightNames[] = {
 XToString( CabinetLight, NUM_CABINET_LIGHTS );
 StringToX( CabinetLight );
 
-static const CString LightsModeNames[] = {
+static const char *LightsModeNames[] = {
 	"Attract",
 	"Joining",
 	"Menu",
@@ -56,7 +58,7 @@ static void GetUsedGameInputs( vector<GameInput> &vGameInputsOut )
 	GAMEMAN->GetStylesForGame( GAMESTATE->m_pCurGame, vStyles );
 	FOREACH( const Style*, vStyles, style )
 	{
-		bool bFound = find( STEPS_TYPES_TO_SHOW.GetValue().begin(), STEPS_TYPES_TO_SHOW.GetValue().end(), (*style)->m_StepsType ) != STEPS_TYPES_TO_SHOW.GetValue().end();
+		bool bFound = find( CommonMetrics::STEPS_TYPES_TO_SHOW.GetValue().begin(), CommonMetrics::STEPS_TYPES_TO_SHOW.GetValue().end(), (*style)->m_StepsType ) != CommonMetrics::STEPS_TYPES_TO_SHOW.GetValue().end();
 		if( !bFound )
 			continue;
 		FOREACH_PlayerNumber( pn )
@@ -78,7 +80,7 @@ static void GetUsedGameInputs( vector<GameInput> &vGameInputsOut )
 
 LightsManager*	LIGHTSMAN = NULL;	// global and accessable from anywhere in our program
 
-LightsManager::LightsManager(CString sDriver)
+LightsManager::LightsManager()
 {
 	ZERO( m_fSecsLeftInCabinetLightBlink );
 	ZERO( m_fSecsLeftInGameButtonBlink );
@@ -86,6 +88,9 @@ LightsManager::LightsManager(CString sDriver)
 	ZERO( m_fSecsLeftInActorLightBlink );
 
 	m_LightsMode = LIGHTSMODE_JOINING;
+	RString sDriver = g_sLightsDriver.Get();
+	if( sDriver.empty() )
+		sDriver = DEFAULT_LIGHTS_DRIVER;
 	MakeLightsDrivers( sDriver, m_vpDrivers );
 	m_fTestAutoCycleCurrentIndex = 0;
 	m_clTestManualCycleCurrent = LIGHT_INVALID;
@@ -325,7 +330,7 @@ void LightsManager::Update( float fDeltaTime )
 	case LIGHTSMODE_MENU:
 	case LIGHTSMODE_GAMEPLAY:
 		{
-			if( m_LightsMode == LIGHTSMODE_GAMEPLAY  &&  PREFSMAN->m_bBlinkGameplayButtonLightsOnNote )
+			if( m_LightsMode == LIGHTSMODE_GAMEPLAY  &&  g_bBlinkGameplayButtonLightsOnNote )
 			{
 				//
 				// Blink on notes.

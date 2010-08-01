@@ -4,8 +4,6 @@
 #define GHOSTARROWROW_H
 
 #include "ActorFrame.h"
-#include "GhostArrow.h"
-#include "HoldGhostArrow.h"
 #include "GameConstantsAndTypes.h"
 
 class PlayerState;
@@ -14,26 +12,23 @@ class GhostArrowRow : public ActorFrame
 {
 public:
 	GhostArrowRow();
-	virtual ~GhostArrowRow() { Unload(); }
+	virtual ~GhostArrowRow();
 	virtual void Update( float fDeltaTime );
 	virtual void DrawPrimitives();
-	virtual void CopyTweening( const GhostArrowRow &from );
 
 	void Load( const PlayerState* pPlayerState, float fYReverseOffset );
-	void Unload();
 	
 	void DidTapNote( int iCol, TapNoteScore tns, bool bBright );
 	void DidHoldNote( int iCol, HoldNoteScore hns, bool bBright );
 	void SetHoldIsActive( int iCol );
 	
 protected:
-	int m_iNumCols;
 	float m_fYReverseOffsetPixels;
 	const PlayerState* m_pPlayerState;
 
-	vector<GhostArrow *> 	m_GhostDim;
-	vector<GhostArrow *>	m_GhostBright;
-	vector<HoldGhostArrow *> m_HoldGhost;
+	vector<Actor *> 	m_Ghost;
+	vector<bool> m_bHoldIsActive;
+	vector<bool> m_bHoldWasActive;
 };
 
 

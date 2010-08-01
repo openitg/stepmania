@@ -15,26 +15,26 @@
 #include "ThemeMetric.h"
 #include "HighScore.h"
 
-static CString GRADE_X_NAME( size_t p ) { return ssprintf("GradeP%dX",int(p+1)); }
-static CString GRADE_Y_NAME( size_t p ) { return ssprintf("GradeP%dY",int(p+1)); }
+static RString GRADE_X_NAME( size_t p ) { return ssprintf("GradeP%dX",int(p+1)); }
+static RString GRADE_Y_NAME( size_t p ) { return ssprintf("GradeP%dY",int(p+1)); }
 
-static ThemeMetric<float>				ICON_X				("MusicWheelItem","IconX");
-static ThemeMetric<float>				ICON_Y				("MusicWheelItem","IconY");
-static ThemeMetric<apActorCommands>		ICON_ON_COMMAND		("MusicWheelItem","IconOnCommand");
-static ThemeMetric<float>				SONG_NAME_X			("MusicWheelItem","SongNameX");
-static ThemeMetric<float>				SONG_NAME_Y			("MusicWheelItem","SongNameY");
-static ThemeMetric<apActorCommands>		SONG_NAME_ON_COMMAND("MusicWheelItem","SongNameOnCommand");
-static ThemeMetric<float>				SECTION_X			("MusicWheelItem","SectionX");
-static ThemeMetric<float>				SECTION_Y			("MusicWheelItem","SectionY");
-static ThemeMetric<apActorCommands>		SECTION_ON_COMMAND	("MusicWheelItem","SectionOnCommand");
-static ThemeMetric<float>				ROULETTE_X			("MusicWheelItem","RouletteX");
-static ThemeMetric<float>				ROULETTE_Y			("MusicWheelItem","RouletteY");
-static ThemeMetric<apActorCommands>		ROULETTE_ON_COMMAND	("MusicWheelItem","RouletteOnCommand");
-static ThemeMetric1D<float>				GRADE_X				("MusicWheelItem",GRADE_X_NAME,NUM_PLAYERS);
-static ThemeMetric1D<float>				GRADE_Y				("MusicWheelItem",GRADE_Y_NAME,NUM_PLAYERS);
+static ThemeMetric<float>		ICON_X			("MusicWheelItem","IconX");
+static ThemeMetric<float>		ICON_Y			("MusicWheelItem","IconY");
+static ThemeMetric<apActorCommands>	ICON_ON_COMMAND		("MusicWheelItem","IconOnCommand");
+static ThemeMetric<float>		SONG_NAME_X		("MusicWheelItem","SongNameX");
+static ThemeMetric<float>		SONG_NAME_Y		("MusicWheelItem","SongNameY");
+static ThemeMetric<apActorCommands>	SONG_NAME_ON_COMMAND	("MusicWheelItem","SongNameOnCommand");
+static ThemeMetric<float>		SECTION_X		("MusicWheelItem","SectionX");
+static ThemeMetric<float>		SECTION_Y		("MusicWheelItem","SectionY");
+static ThemeMetric<apActorCommands>	SECTION_ON_COMMAND	("MusicWheelItem","SectionOnCommand");
+static ThemeMetric<float>		ROULETTE_X		("MusicWheelItem","RouletteX");
+static ThemeMetric<float>		ROULETTE_Y		("MusicWheelItem","RouletteY");
+static ThemeMetric<apActorCommands>	ROULETTE_ON_COMMAND	("MusicWheelItem","RouletteOnCommand");
+static ThemeMetric1D<float>		GRADE_X			("MusicWheelItem",GRADE_X_NAME,NUM_PLAYERS);
+static ThemeMetric1D<float>		GRADE_Y			("MusicWheelItem",GRADE_Y_NAME,NUM_PLAYERS);
 
 
-WheelItemData::WheelItemData( WheelItemType wit, Song* pSong, CString sSectionName, Course* pCourse, RageColor color ):
+WheelItemData::WheelItemData( WheelItemType wit, Song* pSong, RString sSectionName, Course* pCourse, RageColor color ):
 	WheelItemBaseData(wit, sSectionName, color)
 {
 	m_pSong = pSong;
@@ -42,7 +42,7 @@ WheelItemData::WheelItemData( WheelItemType wit, Song* pSong, CString sSectionNa
 }
 
 
-MusicWheelItem::MusicWheelItem( CString sType ):
+MusicWheelItem::MusicWheelItem( RString sType ):
 	WheelItemBase( sType )
 {
 	data = NULL;
@@ -62,7 +62,6 @@ MusicWheelItem::MusicWheelItem( CString sType ):
 	m_sprSortBar.Load( THEME->GetPathG(sType,"sort") );
 	this->AddChild( &m_sprSortBar );
 
-	m_fPercentGray = 0;
 	m_WheelNotifyIcon.SetXY( ICON_X, ICON_Y );
 	m_WheelNotifyIcon.RunCommands( ICON_ON_COMMAND );
 	this->AddChild( &m_WheelNotifyIcon );
@@ -175,7 +174,7 @@ void MusicWheelItem::LoadFromWheelItemData( WheelItemData* pWID, bool bExpanded 
 	case TYPE_COURSE:
 	case TYPE_SORT:
 		{
-			CString sDisplayName, sTranslitName;
+			RString sDisplayName, sTranslitName;
 			BitmapText *bt = NULL;
 			switch( pWID->m_Type )
 			{
@@ -187,6 +186,8 @@ void MusicWheelItem::LoadFromWheelItemData( WheelItemData* pWID, bool bExpanded 
 				sDisplayName = data->m_pCourse->GetDisplayFullTitle();
 				sTranslitName = data->m_pCourse->GetTranslitFullTitle();
 				bt = &m_textCourse;
+				m_WheelNotifyIcon.SetFlags( data->m_Flags );
+				m_WheelNotifyIcon.SetHidden( false );
 				break;
 			case TYPE_SORT:
 				sDisplayName = data->m_sLabel;
@@ -214,17 +215,17 @@ void MusicWheelItem::LoadFromWheelItemData( WheelItemData* pWID, bool bExpanded 
 		}
 		break;
 	case TYPE_ROULETTE:
-		m_textRoulette.SetText( THEME->GetMetric("MusicWheel","Roulette") );
+		m_textRoulette.SetText( THEME->GetString("MusicWheel","Roulette") );
 		m_textRoulette.SetHidden( false );
 		break;
 
 	case TYPE_RANDOM:
-		m_textRoulette.SetText( THEME->GetMetric("MusicWheel","Random") );
+		m_textRoulette.SetText( THEME->GetString("MusicWheel","Random") );
 		m_textRoulette.SetHidden( false );
 		break;
 
 	case TYPE_PORTAL:
-		m_textRoulette.SetText( THEME->GetMetric("MusicWheel","Portal") );
+		m_textRoulette.SetText( THEME->GetString("MusicWheel","Portal") );
 		m_textRoulette.SetHidden( false );
 		break;
 
@@ -290,7 +291,7 @@ void MusicWheelItem::RefreshGrades()
 		if( PROFILEMAN->IsPersistentProfile(p) )
 			PROFILEMAN->GetHighScoreForDifficulty( data->m_pSong, GAMESTATE->GetCurrentStyle(), (ProfileSlot)p, dc, hs );
 		else
-			PROFILEMAN->GetHighScoreForDifficulty( data->m_pSong, GAMESTATE->GetCurrentStyle(), PROFILE_SLOT_MACHINE, dc, hs );
+			PROFILEMAN->GetHighScoreForDifficulty( data->m_pSong, GAMESTATE->GetCurrentStyle(), ProfileSlot_Machine, dc, hs );
 
 		m_pGradeDisplay[p]->SetGrade( p, hs.GetGrade() );
 	}

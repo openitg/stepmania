@@ -29,6 +29,7 @@ class PlayerState;
 struct lua_State;
 class LuaTable;
 class Profile;
+class PlayerOptions;
 
 class GameState
 {
@@ -37,7 +38,7 @@ public:
 	~GameState();
 	void Reset();
 	void ApplyCmdline(); // called by Reset
-	void ApplyGameCommand( const CString &sCommand, PlayerNumber pn=PLAYER_INVALID );
+	void ApplyGameCommand( const RString &sCommand, PlayerNumber pn=PLAYER_INVALID );
 	void BeginGame();	// called when first player joins
 	void JoinPlayer( PlayerNumber pn );
 	void PlayersFinalized();	// called after a style is chosen, which means the number of players is finalized
@@ -51,33 +52,33 @@ public:
 	//
 	// Main state info
 	//
-	const Game*		m_pCurGame;
+	void SetCurGame( const Game *pGame );	// Call this instead of m_pCurGame.Set to make sure PREFSMAN->m_sCurrentGame stays in sync
+	BroadcastOnChangePtr<const Game>	m_pCurGame;
 	BroadcastOnChangePtr<const Style>	m_pCurStyle;
-	bool								m_bSideIsJoined[NUM_PLAYERS];	// left side, right side
-	bool								m_bIsMultiPlayerJoined[NUM_MultiPlayer];
-	BroadcastOnChange<PlayMode>			m_PlayMode;			// many screens display different info depending on this value
-	int									m_iCoins;			// not "credits"
-	PlayerNumber						m_MasterPlayerNumber;	// used in Styles where one player controls both sides
-	bool								m_bMultiplayer;
-	BroadcastOnChange1D<CourseDifficulty,NUM_PLAYERS>	m_PreferredCourseDifficulty;// used in nonstop
+	bool					m_bSideIsJoined[NUM_PLAYERS];	// left side, right side
+	MultiPlayerStatus			m_MultiPlayerStatus[NUM_MultiPlayer];
+	BroadcastOnChange<PlayMode>		m_PlayMode;			// many screens display different info depending on this value
+	int					m_iCoins;			// not "credits"
+	PlayerNumber				m_MasterPlayerNumber;		// used in Styles where one player controls both sides
+	bool					m_bMultiplayer;
 	bool DifficultiesLocked();
 	bool ChangePreferredDifficulty( PlayerNumber pn, Difficulty dc );
 	bool ChangePreferredDifficulty( PlayerNumber pn, int dir );
 	bool ChangePreferredCourseDifficulty( PlayerNumber pn, CourseDifficulty cd );
 	bool ChangePreferredCourseDifficulty( PlayerNumber pn, int dir );
 	bool IsCourseDifficultyShown( CourseDifficulty cd );
+	Difficulty GetClosestShownDifficulty( PlayerNumber pn ) const;
 	Difficulty GetEasiestStepsDifficulty() const;
 	RageTimer			m_timeGameStarted;	// from the moment the first player pressed Start
-	map<CString,CString> m_mapEnv;
 	LuaTable			*m_Environment;
 
 	/* This is set to a random number per-game/round; it can be used for a random seed. */
 	int				m_iGameSeed, m_iStageSeed;
 
-	bool			PlayersCanJoin() const;	// true if it's not too late for a player to join
-	int 			GetCoinsNeededToJoin() const;
-	bool			EnoughCreditsToJoin() const { return GetCoinsNeededToJoin() <= 0; }
-	int				GetNumSidesJoined() const;
+	bool		PlayersCanJoin() const;	// true if it's not too late for a player to join
+	int 		GetCoinsNeededToJoin() const;
+	bool		EnoughCreditsToJoin() const { return GetCoinsNeededToJoin() <= 0; }
+	int		GetNumSidesJoined() const;
 
 	const Game*	GetCurrentGame();
 	const Style*	GetCurrentStyle() const;
@@ -100,36 +101,39 @@ public:
 	bool IsCourseMode() const;
 	bool IsBattleMode() const; /* not Rave */
 
-	bool ShowMarvelous() const;
+	bool ShowW1() const;
 
-	CString			m_sLoadingMessage;	// used in loading screen
-	BroadcastOnChange<CString>	m_sPreferredSongGroup;	// GROUP_ALL denotes no preferred group
-	BroadcastOnChange<CString>	m_sPreferredCourseGroup;	// GROUP_ALL denotes no preferred group
-	bool			m_bChangedFailTypeOnScreenSongOptions;	// true if FailType was changed in the song options screen
-	BroadcastOnChange1D<Difficulty,NUM_PLAYERS>	m_PreferredDifficulty;
-	BroadcastOnChange<SortOrder> m_SortOrder;			// set by MusicWheel
-	SortOrder		m_PreferredSortOrder;			// used by MusicWheel
-	EditMode		m_EditMode;
-	bool			IsEditing() const { return m_EditMode != EDIT_MODE_INVALID; }
-	bool			m_bDemonstrationOrJukebox;	// ScreenGameplay does special stuff when this is true
-	bool			m_bJukeboxUsesModifiers;
+	RString				m_sLoadingMessage;		// used in loading screen
+	BroadcastOnChange<RString>	m_sPreferredSongGroup;		// GROUP_ALL denotes no preferred group
+	BroadcastOnChange<RString>	m_sPreferredCourseGroup;	// GROUP_ALL denotes no preferred group
+	bool				m_bChangedFailTypeOnScreenSongOptions;	// true if FailType was changed in the song options screen
+	BroadcastOnChange1D<Difficulty,NUM_PLAYERS>		m_PreferredDifficulty;
+	BroadcastOnChange1D<CourseDifficulty,NUM_PLAYERS>	m_PreferredCourseDifficulty;// used in nonstop
+	BroadcastOnChange<SortOrder>	m_SortOrder;			// set by MusicWheel
+	SortOrder			m_PreferredSortOrder;		// used by MusicWheel
+	EditMode			m_EditMode;
+	bool				IsEditing() const { return m_EditMode != EditMode_INVALID; }
+	bool				m_bDemonstrationOrJukebox;	// ScreenGameplay does special stuff when this is true
+	bool				m_bJukeboxUsesModifiers;
 	int				m_iNumStagesOfThisSong;
 	int				m_iCurrentStageIndex;
 
 	int				GetStageIndex() const;
-	void			BeginStage();
-	void			CancelStage();
-	void			CommitStageStats();
-	void			FinishStage();
+	void				BeginStage();
+	void				CancelStage();
+	void				CommitStageStats();
+	void				FinishStage();
 	int				GetNumStagesLeft() const;
-	bool			IsFinalStage() const;
-	bool			IsExtraStage() const;
-	bool			IsExtraStage2() const;
-	Stage			GetCurrentStage() const;
-	bool			IsStagePossible( Stage s ) const;
+	bool				IsFinalStage() const;
+	bool				IsExtraStage() const;
+	bool				IsExtraStage2() const;
+	Stage				GetCurrentStage() const;
+	bool				IsStagePossible( Stage s ) const;
 	int				GetCourseSongIndex() const;
-	CString			GetPlayerDisplayName( PlayerNumber pn ) const;
+	RString				GetPlayerDisplayName( PlayerNumber pn ) const;
 
+	bool				m_bLoadingNextSong;
+	int				GetLoadingCourseSongIndex() const;
 
 	//
 	// State Info used during gameplay
@@ -156,16 +160,14 @@ public:
 	//
 	float		m_fMusicSeconds;	// time into the current song
 	float		m_fSongBeat;
+	float		m_fSongBeatNoOffset;
 	float		m_fCurBPS;
 	float		m_fLightSongBeat; // g_fLightsFalloffSeconds ahead
 	bool		m_bFreeze;	// in the middle of a freeze
 	RageTimer	m_LastBeatUpdate; // time of last m_fSongBeat, etc. update
-	bool		m_bPastHereWeGo;
+	BroadcastOnChange<bool> m_bGameplayLeadIn;
 
-	int			m_BeatToNoteSkinRev; /* hack: incremented whenever m_BeatToNoteSkin changes */
-	void ResetNoteSkins();
-	void ResetNoteSkinsForPlayer( PlayerState *ps );
-	void GetAllUsedNoteSkins( vector<CString> &out ) const;
+	void GetAllUsedNoteSkins( vector<RString> &out ) const;
 
 	static const float MUSIC_SECONDS_INVALID;
 
@@ -173,16 +175,12 @@ public:
 	void UpdateSongPosition( float fPositionSeconds, const TimingData &timing, const RageTimer &timestamp = RageZeroTimer );
 	float GetSongPercent( float beat ) const;
 
-	bool IsPlayerHot( const PlayerState *pPlayerState ) const;
 	bool IsPlayerInDanger( const PlayerState *pPlayerState ) const;
 	bool IsPlayerDead( const PlayerState *pPlayerState ) const;
 	bool AllAreInDangerOrWorse() const;
 	bool AllAreDead() const;
 	bool AllHumanHaveComboOf30OrMoreMisses() const;
 	bool OneIsHot() const;
-
-	// used in PLAY_MODE_BATTLE and PLAY_MODE_RAVE
-	void SetNoteSkinForBeatRange( PlayerState* pPlayerState, const CString& sNoteSkin, float StartBeat, float EndBeat );
 
 	// used in PLAY_MODE_BATTLE
 	float	m_fOpponentHealthPercent;
@@ -193,12 +191,7 @@ public:
 	// used in workout
 	bool	m_bGoalComplete[NUM_PLAYERS];
 	
-	void GetUndisplayedBeats( const PlayerState* pPlayerState, float TotalSeconds, float &StartBeat, float &EndBeat ) const; // only meaningful when a NoteField is in use
-	void LaunchAttack( MultiPlayer target, const Attack& a );
 	void RemoveAllActiveAttacks();	// called on end of song
-	void RemoveActiveAttacksForPlayer( PlayerNumber pn, AttackLevel al=NUM_ATTACK_LEVELS /*all*/ );
-	void EndActiveAttacksForPlayer( PlayerNumber pn );
-	void RemoveAllInventory();
 	PlayerNumber GetBestPlayer() const;
 	StageResult GetStageResult( PlayerNumber pn ) const;
 
@@ -215,13 +208,17 @@ public:
 	SongOptions		m_SongOptions;
 	SongOptions		m_StoredSongOptions;
 
-	void ApplyModifiers( PlayerNumber pn, CString sModifiers );
+	void GetDefaultPlayerOptions( PlayerOptions &po );
+	void GetDefaultSongOptions( SongOptions &so );
+	void ApplyModifiers( PlayerNumber pn, RString sModifiers );
 	void StoreSelectedOptions();
+	void StoreStageOptions();
 	void RestoreSelectedOptions();
+	void RestoreStageOptions();
 	void ResetCurrentOptions();
 
 	bool IsDisqualified( PlayerNumber pn );
-	bool PlayerIsUsingModifier( PlayerNumber pn, const CString &sModifier );
+	bool PlayerIsUsingModifier( PlayerNumber pn, const RString &sModifier );
 
 	SongOptions::FailType GetPlayerFailType( const PlayerState *pPlayerState ) const;
 
@@ -244,15 +241,15 @@ public:
 		Grade grade;
 		int iScore;
 		float fPercentDP;
-		CString Banner;
-		CString Feat;
-		CString *pStringToFill;
+		RString Banner;
+		RString Feat;
+		RString *pStringToFill;
 	};
 
 	void GetRankingFeats( PlayerNumber pn, vector<RankingFeat> &vFeatsOut ) const;
 	bool AnyPlayerHasRankingFeats() const;
-	void StoreRankingName( PlayerNumber pn, CString name );	// Called by name entry screens
-	vector<CString*> m_vpsNamesThatWereFilled;	// filled on StoreRankingName, 
+	void StoreRankingName( PlayerNumber pn, RString name );	// Called by name entry screens
+	vector<RString*> m_vpsNamesThatWereFilled;	// filled on StoreRankingName, 
 
 
 	//
@@ -268,7 +265,7 @@ public:
 	//
 	int m_iNumTimesThroughAttract;	// negative means play regardless of m_iAttractSoundFrequency setting
 	bool IsTimeToPlayAttractSounds() const;
-	void VisitAttractScreen( const CString sScreenName );
+	void VisitAttractScreen( const RString sScreenName );
 
 	//
 	// PlayerState
@@ -290,23 +287,16 @@ public:
 	// Edit stuff
 	//
 	BroadcastOnChange<StepsType> m_stEdit;
+	BroadcastOnChange<CourseDifficulty> m_cdEdit;
 	BroadcastOnChangePtr<Steps> m_pEditSourceSteps;
 	BroadcastOnChange<StepsType> m_stEditSource;
 	BroadcastOnChange<int> m_iEditCourseEntryIndex;
-	BroadcastOnChange<CString> m_sEditLocalProfileID;
+	BroadcastOnChange<RString> m_sEditLocalProfileID;
 	Profile* GetEditLocalProfile();
 
 	// Workout stuff
 	float GetGoalPercentComplete( PlayerNumber pn );
 	bool IsGoalComplete( PlayerNumber pn )	{ return GetGoalPercentComplete( pn ) >= 1; }
-
-	// Sync changes stuff
-	TimingData *m_pTimingDataOriginal;
-	float m_fGlobalOffsetSecondsOriginal;
-	void ResetOriginalSyncData();
-	bool IsSyncDataChanged();
-	void SaveSyncChanges();
-	void RevertSyncChanges();
 
 	// Lua
 	void PushSelf( lua_State *L );

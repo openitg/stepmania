@@ -13,10 +13,10 @@ class InputHandler_Xbox: public InputHandler
 	XINPUT_GAMEPAD lastState[NUM_JOYSTICKS];
 
 public:
-	void Update(float fDeltaTime);
+	void Update();
 	InputHandler_Xbox();
 	~InputHandler_Xbox();
-	void GetDevicesAndDescriptions(vector<InputDevice>& vDevicesOut, vector<CString>& vDescriptionsOut);
+	void GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut );
 
 private:
 	void getHandles();

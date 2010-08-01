@@ -2,9 +2,7 @@
 #include "CourseContentsList.h"
 #include "RageUtil.h"
 #include "GameConstantsAndTypes.h"
-#include "PrefsManager.h"
 #include "RageLog.h"
-#include "PrefsManager.h"
 #include "Course.h"
 #include "SongManager.h"
 #include "ThemeManager.h"
@@ -46,7 +44,7 @@ void CourseContentsList::Load()
 	}
 }
 
-void CourseContentsList::LoadFromNode( const CString& sDir, const XNode* pNode )
+void CourseContentsList::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	ActorScroller::LoadFromNode( sDir, pNode );
 
@@ -79,11 +77,12 @@ void CourseContentsList::SetFromGameState()
 
 	this->Load2( 
 		(float)MAX_VISIBLE_ITEMS,
-		m_vpDisplay[0]->GetUnzoomedWidth(),
-		m_vpDisplay[0]->GetUnzoomedHeight(),
-		bLoop,
-		0.7f,
-		0.7f );
+		bLoop );
+	this->SetTransformFromHeight( m_vpDisplay[0]->GetUnzoomedHeight() );
+	this->SetSecondsPerItem( 0.7f );
+	this->EnableMask( m_vpDisplay[0]->GetUnzoomedWidth(), m_vpDisplay[0]->GetUnzoomedHeight() );
+	this->SetSecondsPauseBetweenItems( 0.7f );
+	this->ScrollThroughAllItems();
 
 	this->SetCurrentAndDestinationItem( (MAX_VISIBLE_ITEMS-1)/2 );
 	if( bLoop )

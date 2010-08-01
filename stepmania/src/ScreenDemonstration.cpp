@@ -10,27 +10,28 @@
 #include "GameSoundManager.h"
 #include "GameManager.h"
 #include "Style.h"
-#include "PrefsManager.h"
 
 
 #define SECONDS_TO_SHOW			THEME->GetMetricF(m_sName,"SecondsToShow")
 #define ALLOW_STYLE_TYPES		THEME->GetMetric (m_sName,"AllowStyleTypes")
 
 REGISTER_SCREEN_CLASS( ScreenDemonstration );
-ScreenDemonstration::ScreenDemonstration( CString sName ) : ScreenJukebox( sName )
+ScreenDemonstration::ScreenDemonstration()
 {
-	LOG->Trace( "ScreenDemonstration::ScreenDemonstration()" );
 	m_bDemonstration = true;
+	SOUNDMAN->SetPlayOnlyCriticalSounds( !GAMESTATE->IsTimeToPlayAttractSounds() );  // mute attract sounds
 }
 
 void ScreenDemonstration::Init()
 {
+	GAMESTATE->Reset();
+
 	// Choose a Style
 	{
-		vector<CString> v;
+		vector<RString> v;
 		split( ALLOW_STYLE_TYPES, ",", v );
 		vector<StyleType> vStyleTypeAllow;
-		FOREACH_CONST( CString, v, s )
+		FOREACH_CONST( RString, v, s )
 		{
 			StyleType st = StringToStyleType( *s );
 			ASSERT( st != STYLE_TYPE_INVALID );
@@ -47,7 +48,7 @@ void ScreenDemonstration::Init()
 		}
 
 		ASSERT( vStylePossible.size() > 0 );
-		const Style* pStyle = vStylePossible[ rand() % vStylePossible.size() ];
+		const Style* pStyle = vStylePossible[ RandomInt(vStylePossible.size()) ];
 		GAMESTATE->m_pCurStyle.Set( pStyle );
 	}
 
@@ -66,7 +67,7 @@ void ScreenDemonstration::Init()
 
 	ClearMessageQueue();	// remove all of the messages set in ScreenGameplay that drive "ready", "go", etc.
 
-	GAMESTATE->m_bPastHereWeGo = true;
+	GAMESTATE->m_bGameplayLeadIn.Set( false );
 
 	m_DancingState = STATE_DANCING;
 	this->PostScreenMessage( SM_BeginFadingOut, SECONDS_TO_SHOW );	
@@ -86,13 +87,11 @@ void ScreenDemonstration::HandleScreenMessage( const ScreenMessage SM )
 	}
 	else if( SM == SM_LoseFocus )
 	{
-		SOUNDMAN->SetPrefs( PREFSMAN->GetSoundVolume() );	// turn volume back on
 	}
 	else if( SM == SM_GoToNextScreen )
 	{
 		if( m_pSoundMusic )
 			m_pSoundMusic->Stop();
-		SOUNDMAN->SetPrefs( PREFSMAN->GetSoundVolume() );	// turn volume back on
 	}
 
 	ScreenJukebox::HandleScreenMessage( SM );

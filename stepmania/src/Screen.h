@@ -12,12 +12,12 @@
 class InputEventPlus;
 struct MenuInput;
 class Screen;
-typedef Screen* (*CreateScreenFn)(const CString& sClassName);
-void RegisterScreenClass( const CString& sClassName, CreateScreenFn pfn );
+typedef Screen* (*CreateScreenFn)(const RString& sClassName);
+void RegisterScreenClass( const RString& sClassName, CreateScreenFn pfn );
 
 // Each Screen class should have a REGISTER_SCREEN_CLASS in its CPP file.
 #define REGISTER_SCREEN_CLASS( className ) \
-	static Screen* Create##className( const CString &sName ) { Screen *pRet = new className( sName ); pRet->Init(); return pRet; } \
+	static Screen* Create##className( const RString &sName ) { Screen *pRet = new className; pRet->SetName( sName ); Screen::InitScreen( pRet ); return pRet; } \
 	struct Register##className { \
 		Register##className() { RegisterScreenClass( #className,Create##className); } \
 	}; \
@@ -34,27 +34,32 @@ enum ScreenType
 class Screen : public ActorFrame
 {
 public:
-	Screen( CString sName );	// enforce that all screens have m_sName filled in
+	static void InitScreen( Screen *pScreen );
+
 	virtual ~Screen();
 
-	/* This is called immediately after construction, to allow initializing after all derived classes
-	 * exist. */
+	/* This is called immediately after construction, to allow initializing after all
+	 * derived classes exist.  (Don't call it directly; use InitScreen.) */
 	virtual void Init();
 
 	/* This is called immediately before the screen is used. */
 	virtual void BeginScreen();
 
+	/* This is called when the screen is popped. */
+	virtual void EndScreen() { }
+
 	virtual void Update( float fDeltaTime );
 	virtual bool OverlayInput( const InputEventPlus &input );
 	virtual void Input( const InputEventPlus &input );
 	virtual void HandleScreenMessage( const ScreenMessage SM );
+	void SetLockInputSecs( float f ) { m_fLockInputSecs = f; }
 
 	void PostScreenMessage( const ScreenMessage SM, float fDelay );
 	void ClearMessageQueue();
 	void ClearMessageQueue( const ScreenMessage SM );	// clear of a specific SM
 
-	virtual bool UsesBackground() const { return true; }	// override and set false if this screen shouldn't load a background
 	virtual ScreenType GetScreenType() const { return ALLOW_OPERATOR_MENU_BUTTON ? game_menu : system_menu; }
+	bool AllowOperatorMenuButton() const { return ALLOW_OPERATOR_MENU_BUTTON; }
 
 	static bool JoinInput( const MenuInput &MenuI );	// return true if a player joined
 
@@ -74,24 +79,25 @@ protected:
 
 	ThemeMetric<bool>	ALLOW_OPERATOR_MENU_BUTTON;
 
-	virtual CString GetNextScreen() const;
-	virtual CString GetPrevScreen() const;
-
-	// If these are left blank, the NextScreen and PrevScreen metrics will be used.
-	CString m_sNextScreen, m_sPrevScreen;
+	// If left blank, the NextScreen metric will be used.
+	RString m_sNextScreen;
 	ScreenMessage m_smSendOnPop;
 
+	float                           m_fLockInputSecs;
+
 public:
+	RString GetNextScreen() const;
+	RString GetPrevScreen() const;
 
 	// let subclass override if they want
-	virtual void MenuUp(	PlayerNumber pn, const InputEventType type )	{ if(type==IET_FIRST_PRESS) MenuUp(pn); }
-	virtual void MenuDown(	PlayerNumber pn, const InputEventType type )	{ if(type==IET_FIRST_PRESS) MenuDown(pn); }
-	virtual void MenuLeft(	PlayerNumber pn, const InputEventType type )	{ if(type==IET_FIRST_PRESS) MenuLeft(pn); }
-	virtual void MenuRight( PlayerNumber pn, const InputEventType type )	{ if(type==IET_FIRST_PRESS) MenuRight(pn); }
-	virtual void MenuStart( PlayerNumber pn, const InputEventType type )	{ if(type==IET_FIRST_PRESS) MenuStart(pn); }
-	virtual void MenuSelect( PlayerNumber pn, const InputEventType type )	{ if(type==IET_FIRST_PRESS) MenuSelect(pn); }
-	virtual void MenuBack(	PlayerNumber pn, const InputEventType type );
-	virtual void MenuCoin(	PlayerNumber pn, const InputEventType type )	{ if(type==IET_FIRST_PRESS) MenuCoin(pn); }
+	virtual void MenuUp(	const InputEventPlus &input );
+	virtual void MenuDown(	const InputEventPlus &input );
+	virtual void MenuLeft(	const InputEventPlus &input );
+	virtual void MenuRight( const InputEventPlus &input );
+	virtual void MenuStart( const InputEventPlus &input );
+	virtual void MenuSelect( const InputEventPlus &input );
+	virtual void MenuBack(	const InputEventPlus &input );
+	virtual void MenuCoin(	const InputEventPlus &input );
 
 	virtual void MenuUp(	PlayerNumber pn )	{}
 	virtual void MenuDown(	PlayerNumber pn )	{}

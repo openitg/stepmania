@@ -5,18 +5,21 @@
 #include "GameSoundManager.h"
 #include "RageSound.h"
 #include "RageLog.h"
-#include "StepMania.h"
+#include "arch/ArchHooks/ArchHooks.h"
 
 /* This screen used to wait for sounds to stop.  However, implementing GetPlayingSounds()
  * is annoying, because sounds might be deleted at any time; they aren't ours to have
  * references to.  Also, it's better to quit on command instead of waiting several seconds
  * for a sound to stop. */
 REGISTER_SCREEN_CLASS( ScreenExit );
-ScreenExit::ScreenExit( CString sName ): Screen( sName )
+
+void ScreenExit::Init()
 {
+	Screen::Init();
+
 	m_Exited = false;
 
-	ExitGame();
+	ArchHooks::SetUserQuit();
 
 	/* It'd be better for any previous screen playing music to fade it out as it fades
 	 * out the screen.  XXX: Check to see if it's fading out; if it'll stop playing in
@@ -39,7 +42,7 @@ void ScreenExit::Update( float fDelta )
 	if( !DoQuit && m_ShutdownTimer.PeekDeltaTime() > 3 )
 	{
 		DoQuit = true;
-		CString warn = ssprintf("ScreenExit: %i sound%s failed to finish playing quickly: ",
+		RString warn = ssprintf("ScreenExit: %i sound%s failed to finish playing quickly: ",
 			(int) PlayingSounds.size(), (PlayingSounds.size()==1?"":"s") );
 		for( set<RageSound *>::const_iterator i = PlayingSounds.begin();
 			i != PlayingSounds.end(); ++i )
@@ -54,7 +57,7 @@ void ScreenExit::Update( float fDelta )
 	{
 		m_Exited = true;
 		LOG->Trace("ScreenExit: shutting down");
-		ExitGame();
+		ArchHooks::SetUserQuit();
 	}
 #endif
 }

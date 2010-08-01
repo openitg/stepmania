@@ -1,21 +1,24 @@
 #include "global.h"
-#include "RageLog.h"
-#include "RageThreads.h"
 #include "ArchHooks_Unix.h"
-#include "StepMania.h"
+#include "RageLog.h"
+#include "RageUtil.h"
+#include "RageThreads.h"
+#include "LocalizedString.h"
 #include "archutils/Unix/SignalHandler.h"
 #include "archutils/Unix/GetSysInfo.h"
 #include "archutils/Unix/LinuxThreadHelpers.h"
 #include "archutils/Unix/EmergencyShutdown.h"
 #include "archutils/Unix/AssertionHandler.h"
 #include <unistd.h>
-#include "RageUtil.h"
 #include <sys/time.h>
 
 #if defined(CRASH_HANDLER)
 #include "archutils/Unix/CrashHandler.h"
 #endif
 
+#if defined(HAVE_FFMPEG)
+#include <ffmpeg/avcodec.h>
+#endif
 
 static bool IsFatalSignal( int signal )
 {
@@ -36,7 +39,7 @@ static void DoCleanShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 		return;
 
 	/* ^C. */
-	ExitGame();
+	ArchHooks::SetUserQuit();
 }
 
 #if defined(CRASH_HANDLER)
@@ -46,7 +49,7 @@ static void DoCrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *u
 	if( !IsFatalSignal(signal) )
 		return;
 
-	CrashSignalHandler( signal, si, uc );
+	CrashHandler::CrashSignalHandler( signal, si, uc );
 }
 #endif
 
@@ -78,10 +81,11 @@ static int TestTLSThread( void *p )
 
 static void TestTLS()
 {
+#if defined(LINUX)
 	/* TLS won't work on older threads libraries, and may crash. */
 	if( !UsingNPTL() )
 		return;
-
+#endif
 	/* TLS won't work on older Linux kernels.  Do a simple check. */
 	g_iTestTLS = 1;
 
@@ -95,21 +99,67 @@ static void TestTLS()
 }
 #endif
 
-static int64_t GetMicrosecondsSinceEpoch()
+#if 1
+/* If librt is available, use CLOCK_MONOTONIC to implement GetMicrosecondsSinceStart,
+ * if supported, so changes to the system clock don't cause problems. */
+namespace
 {
-	struct timeval tv;
-	gettimeofday( &tv, NULL );
+	clockid_t g_Clock = CLOCK_REALTIME;
+ 
+	void OpenGetTime()
+	{
+		static bool bInitialized = false;
+		if( bInitialized )
+			return;
+		bInitialized = true;
+ 
+		/* Check whether the clock is actually supported. */
+		timespec ts;
+		if( clock_getres(CLOCK_MONOTONIC, &ts) == -1 )
+			return;
 
-	return int64_t(tv.tv_sec) * 1000000 + int64_t(tv.tv_usec);
+		/* If the resolution is worse than a millisecond, fall back on CLOCK_REALTIME. */
+		if( ts.tv_sec > 0 || ts.tv_nsec > 1000000 )
+			return;
+		
+		g_Clock = CLOCK_MONOTONIC;
+	}
+};
+
+clockid_t ArchHooks_Unix::GetClock()
+{
+	OpenGetTime();
+	return g_Clock;
+}
+
+RString ArchHooks::GetPreferredLanguage()
+{
+	return "en";
 }
 
 int64_t ArchHooks::GetMicrosecondsSinceStart( bool bAccurate )
 {
-	int64_t ret = GetMicrosecondsSinceEpoch();
-	if( bAccurate )
-		ret = FixupTimeIfBackwards( ret );
-	return ret;
+	OpenGetTime();
+
+	timespec ts;
+	clock_gettime( g_Clock, &ts );
+
+	int64_t iRet = int64_t(ts.tv_sec) * 1000000 + int64_t(ts.tv_nsec)/1000;
+	if( g_Clock != CLOCK_MONOTONIC )
+		iRet = ArchHooks::FixupTimeIfBackwards( iRet );
+	return iRet;
 }
+#else
+int64_t ArchHooks::GetMicrosecondsSinceStart( bool bAccurate )
+{
+	struct timeval tv;
+	gettimeofday( &tv, NULL );
+
+	int64_t iRet = int64_t(tv.tv_sec) * 1000000 + int64_t(tv.tv_usec);
+	ret = FixupTimeIfBackwards( ret );
+	return iRet;
+}
+#endif
 
 ArchHooks_Unix::ArchHooks_Unix()
 {
@@ -117,8 +167,8 @@ ArchHooks_Unix::ArchHooks_Unix()
 	SignalHandler::OnClose( DoCleanShutdown );
 
 #if defined(CRASH_HANDLER)
-	CrashHandlerHandleArgs( g_argc, g_argv );
-	InitializeCrashHandler();
+	CrashHandler::CrashHandlerHandleArgs( g_argc, g_argv );
+	CrashHandler::InitializeCrashHandler();
 	SignalHandler::OnClose( DoCrashSignalHandler );
 #endif
 
@@ -128,7 +178,7 @@ ArchHooks_Unix::ArchHooks_Unix()
 
 	InstallExceptionHandler();
 	
-#if defined(HAVE_TLS)
+#if defined(HAVE_TLS) && !defined(BSD)
 	TestTLS();
 #endif
 }
@@ -137,7 +187,7 @@ ArchHooks_Unix::ArchHooks_Unix()
 #define _CS_GNU_LIBC_VERSION 2
 #endif
 
-static CString LibcVersion()
+static RString LibcVersion()
 {	
 	char buf[1024] = "(error)";
 	int ret = confstr( _CS_GNU_LIBC_VERSION, buf, sizeof(buf) );
@@ -149,7 +199,7 @@ static CString LibcVersion()
 
 void ArchHooks_Unix::DumpDebugInfo()
 {
-	CString sys;
+	RString sys;
 	int vers;
 	GetKernel( sys, vers );
 	LOG->Info( "OS: %s ver %06i", sys.c_str(), vers );
@@ -164,11 +214,14 @@ void ArchHooks_Unix::DumpDebugInfo()
 
 	LOG->Info( "Runtime library: %s", LibcVersion().c_str() );
 	LOG->Info( "Threads library: %s", ThreadsVersion().c_str() );
+#if defined(HAVE_FFMPEG)
+	LOG->Info( "libavcodec: %#x (%u)", avcodec_version(), avcodec_build() );
+#endif
 }
 
 void ArchHooks_Unix::SetTime( tm newtime )
 {
-	CString sCommand = ssprintf( "date %02d%02d%02d%02d%04d.%02d",
+	RString sCommand = ssprintf( "date %02d%02d%02d%02d%04d.%02d",
 		newtime.tm_mon+1,
 		newtime.tm_mday,
 		newtime.tm_hour,
@@ -180,6 +233,59 @@ void ArchHooks_Unix::SetTime( tm newtime )
 	system( sCommand );
 
 	system( "hwclock --systohc" );
+}
+
+#include "RageFileManager.h"
+#include <sys/stat.h>
+
+static LocalizedString COULDNT_FIND_SONGS( "ArchHooks_Unix", "Couldn't find 'Songs'" );
+void ArchHooks::MountInitialFilesystems( const RString &sDirOfExecutable )
+{
+#if defined(LINUX)
+	/* Mount the root filesystem, so we can read files in /proc, /etc, and so on.
+	 * This is /rootfs, not /root, to avoid confusion with root's home directory. */
+	FILEMAN->Mount( "dir", "/", "/rootfs" );
+
+	/* Mount /proc, so Alsa9Buf::GetSoundCardDebugInfo() and others can access it.
+	 * (Deprecated; use rootfs.) */
+	FILEMAN->Mount( "dir", "/proc", "/proc" );
+	
+	/* We can almost do this, to have machine profiles be system-global to eg. share
+	 * scores.  It would need to handle permissions properly. */
+/*	RageFileManager::Mount( "dir", "/var/lib/games/stepmania", "/Save/Profiles" ); */
+	
+	// RString Home = getenv( "HOME" ) + "/" + PRODUCT_ID;
+
+	/*
+	 * Next: path to write general mutable user data.  If the above path fails (eg.
+	 * wrong permissions, doesn't exist), machine memcard data will also go in here. 
+	 * XXX: It seems silly to have two ~ directories.  If we're going to create a
+	 * directory on our own, it seems like it should be a dot directory, but it
+	 * seems wrong to put lots of data (eg. music) in one.  Hmm. 
+	 */
+	/* XXX: create */
+/*	RageFileManager::Mount( "dir", Home + "." PRODUCT_ID, "/Data" ); */
+
+	/* Next, search ~/StepMania.  This is where users can put music, themes, etc. */
+	/* RageFileManager::Mount( "dir", Home + PRODUCT_ID, "/" ); */
+
+	/* Search for a directory with "Songs" in it.  Be careful: the CWD is likely to
+	 * be ~, and it's possible that some users will have a ~/Songs/ directory that
+	 * has nothing to do with us, so check the initial directory last. */
+	RString Root = "";
+	struct stat st;
+	if( Root == "" && !stat( sDirOfExecutable + "/Songs", &st ) && st.st_mode&S_IFDIR )
+		Root = sDirOfExecutable;
+	if( Root == "" && !stat( RageFileManagerUtil::sInitialWorkingDirectory + "/Songs", &st ) && st.st_mode&S_IFDIR )
+		Root = RageFileManagerUtil::sInitialWorkingDirectory;
+	if( Root == "" )
+		RageException::Throw( COULDNT_FIND_SONGS.GetValue() );
+			
+	FILEMAN->Mount( "dir", Root, "/" );
+#else
+	/* Paths relative to the CWD: */
+	FILEMAN->Mount( "dir", ".", "/" );
+#endif
 }
 
 /*

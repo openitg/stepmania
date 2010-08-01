@@ -4,24 +4,26 @@
 #define AutoActor_H
 
 class Actor;
-struct XNode;
+class XNode;
 
 // creates the appropriate Actor derivitive on load and
 // automatically deletes Actor on deconstruction.
 class AutoActor
 {
 public:
-	AutoActor()						{ m_pActor = NULL; }
-	~AutoActor()					{ Unload(); }
+	AutoActor()			{ m_pActor = NULL; }
+	~AutoActor()			{ Unload(); }
+	AutoActor( const AutoActor &cpy );
+	AutoActor &operator =( const AutoActor &cpy );
 	operator const Actor* () const	{ return m_pActor; }
-	operator Actor* ()				{ return m_pActor; }
+	operator Actor* ()		{ return m_pActor; }
 	const Actor *operator->() const { return m_pActor; }
-	Actor *operator->()				{ return m_pActor; }
+	Actor *operator->()		{ return m_pActor; }
 	void Unload();
-	bool IsLoaded() const			{ return m_pActor != NULL; }
-	void Load( const CString &sPath );
-	void LoadFromNode( const CString &sDir, const XNode* pNode );
-	void LoadAndSetName( const CString &sScreenName, const CString &sActorName );
+	bool IsLoaded() const		{ return m_pActor != NULL; }
+	void Load( const RString &sPath );
+	void LoadFromNode( const RString &sDir, const XNode* pNode );
+	void LoadAndSetName( const RString &sScreenName, const RString &sActorName );
 
 protected:
 	Actor* m_pActor;

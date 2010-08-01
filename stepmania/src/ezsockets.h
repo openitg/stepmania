@@ -18,7 +18,6 @@
 #include <vector>
 #include <fcntl.h>
 #include <ctype.h>
-#include "global.h" // StepMania only includes
 
 #if defined(_XBOX)
 // Summary : WinsockX is bad, XTL is good.
@@ -109,8 +108,10 @@ public:
 		skCONNECTED, 
 		skERROR 
 	};
+
     struct sockaddr_in fromAddr;
 	unsigned long fromAddr_len;
+	static unsigned long LongFromAddrIn( const sockaddr_in & s );
 
 	//The following possibly should be private.
 	string inBuffer;
@@ -126,7 +127,7 @@ public:
 
 	int lastCode;	//Used for debugging purposes
 
-	CString address;
+	RString address;
 
 private:
 

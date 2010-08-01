@@ -3,21 +3,21 @@
 #ifndef BGANIMATION_H
 #define BGANIMATION_H
 
-#include "ActorScroller.h"
+#include "ActorFrame.h"
 
-struct XNode;
+class XNode;
 
-class BGAnimation : public ActorScrollerAutoDeleteChildren
+class BGAnimation : public ActorFrameAutoDeleteChildren
 {
 public:
 	BGAnimation();
 	virtual ~BGAnimation();
 
-	void LoadFromAniDir( const CString &sAniDir );
-	void LoadFromNode( const CString& sDir, const XNode* pNode );
+	void LoadFromAniDir( const RString &sAniDir );
+	void LoadFromNode( const RString& sDir, const XNode* pNode );
 
 protected:
-	void AddLayersFromAniDir( const CString &_sAniDir, const XNode *pNode );
+	void AddLayersFromAniDir( const RString &_sAniDir, const XNode *pNode );
 };
 
 #endif

@@ -6,10 +6,8 @@
 #include "StatsManager.h"
 
 REGISTER_SCREEN_CLASS( ScreenGameplayLesson );
-ScreenGameplayLesson::ScreenGameplayLesson( CString sName ) : ScreenGameplayNormal( sName )
+ScreenGameplayLesson::ScreenGameplayLesson()
 {
-	LOG->Trace( "ScreenGameplayLesson::ScreenGameplayLesson()" );
-
 	m_iCurrentPageIndex = 0;
 	m_Try = Try_1;
 }
@@ -20,22 +18,22 @@ void ScreenGameplayLesson::Init()
 	ASSERT( GAMESTATE->m_pCurSong );
 
 	/* Now that we've set up, init the base class. */
-	ScreenGameplay::Init();
+	ScreenGameplayNormal::Init();
 
 	ClearMessageQueue();	// remove all of the messages set in ScreenGameplay that animate "ready", "here we go", etc.
 
-	GAMESTATE->m_bPastHereWeGo = true;
+	GAMESTATE->m_bGameplayLeadIn.Set( false );
 
 	m_DancingState = STATE_DANCING;
 
 
 	// Load pages
 	Song *pSong = GAMESTATE->m_pCurSong;
-	CString sDir = pSong->GetSongDir();
-	vector<CString> vs;
+	RString sDir = pSong->GetSongDir();
+	vector<RString> vs;
 	GetDirListing( sDir+"Page*", vs, true, true );
 	m_vPages.resize( vs.size() );
-	FOREACH( CString, vs, s )
+	FOREACH( RString, vs, s )
 	{
 		int i = s - vs.begin();
 		AutoActor &aa = m_vPages[i];

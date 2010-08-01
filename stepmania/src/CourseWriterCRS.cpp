@@ -8,7 +8,7 @@
 #include "RageFileDriverMemory.h"
 
 
-bool CourseWriterCRS::Write( const Course &course, const CString &sPath, bool bSavingCache )
+bool CourseWriterCRS::Write( const Course &course, const RString &sPath, bool bSavingCache )
 {
 	RageFile f;
 	if( !f.Open( sPath, RageFile::WRITE ) )
@@ -20,7 +20,7 @@ bool CourseWriterCRS::Write( const Course &course, const CString &sPath, bool bS
 	return CourseWriterCRS::Write( course, f, bSavingCache );
 }
 
-void CourseWriterCRS::GetEditFile( const Course *pCourse, CString &sOut )
+void CourseWriterCRS::GetEditFileContents( const Course *pCourse, RString &sOut )
 {
 	RageFileObjMem mem;
 	CourseWriterCRS::Write( *pCourse, mem, true );
@@ -58,11 +58,11 @@ bool CourseWriterCRS::Write( const Course &course, RageFileBasic &f, bool bSavin
 			StepsType st = entry.first;
 			CourseDifficulty cd = entry.second;
 
-			CStringArray asRadarValues;
+			vector<RString> asRadarValues;
 			const RadarValues &rv = it->second;
-			for( int r=0; r < NUM_RADAR_CATEGORIES; r++ )
+			for( int r=0; r < NUM_RadarCategory; r++ )
 				asRadarValues.push_back( ssprintf("%.3f", rv[r]) );
-			CString sLine = ssprintf( "#RADAR:%i:%i:", st, cd );
+			RString sLine = ssprintf( "#RADAR:%i:%i:", st, cd );
 			sLine += join( ",", asRadarValues ) + ";";
 			f.PutLine( sLine );
 		}
@@ -102,18 +102,16 @@ bool CourseWriterCRS::Write( const Course &course, RageFileBasic &f, bool bSavin
 		}
 		else if( entry.pSong )
 		{
-			// strip off everything but the group name and song dir
-			CStringArray as;
-			ASSERT( entry.pSong != NULL );
-			split( entry.pSong->GetSongDir(), "/", as );
-			ASSERT( as.size() >= 2 );
-			CString sGroup = as[ as.size()-2 ];
-			CString sSong = as[ as.size()-1 ];
-			f.Write( "#SONG:" + sGroup + '/' + sSong );
+			const RString &sSong = Basename( entry.pSong->GetSongDir() );
+			
+			f.Write( "#SONG:" );
+			if( !entry.songCriteria.m_sGroupName.empty() )
+				f.Write( entry.songCriteria.m_sGroupName + '/' );
+			f.Write( sSong );
 		}
-		else if( !entry.sSongGroup.empty() )
+		else if( !entry.songCriteria.m_sGroupName.empty() )
 		{
-			f.Write( ssprintf( "#SONG:%s/*", entry.sSongGroup.c_str() ) );
+			f.Write( ssprintf( "#SONG:%s/*", entry.songCriteria.m_sGroupName.c_str() ) );
 		}
 		else 
 		{
@@ -121,15 +119,15 @@ bool CourseWriterCRS::Write( const Course &course, RageFileBasic &f, bool bSavin
 		}
 
 		f.Write( ":" );
-		if( entry.baseDifficulty != DIFFICULTY_INVALID )
-			f.Write( DifficultyToString(entry.baseDifficulty) );
-		else if( entry.iLowMeter != -1  &&  entry.iHighMeter != -1 )
-			f.Write( ssprintf( "%d..%d", entry.iLowMeter, entry.iHighMeter ) );
+		if( entry.stepsCriteria.m_difficulty != DIFFICULTY_INVALID )
+			f.Write( DifficultyToString(entry.stepsCriteria.m_difficulty) );
+		else if( entry.stepsCriteria.m_iLowMeter != -1  &&  entry.stepsCriteria.m_iHighMeter != -1 )
+			f.Write( ssprintf( "%d..%d", entry.stepsCriteria.m_iLowMeter, entry.stepsCriteria.m_iHighMeter ) );
 		f.Write( ":" );
 
-		CString sModifiers = entry.sModifiers;
-		bool bDefaultSecret = entry.IsRandomSong();
-		if( bDefaultSecret != entry.bSecret )
+		RString sModifiers = entry.sModifiers;
+
+		if( entry.bSecret )
 		{
 			if( sModifiers != "" )
 				sModifiers += ",";

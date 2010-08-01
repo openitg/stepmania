@@ -8,6 +8,8 @@
 #include "NoteData.h"
 #include "RageUtil.h"
 #include "RageLog.h"
+#include "XmlFile.h"
+#include "Foreach.h"
 
 #include "RageUtil_AutoPtr.h"
 REGISTER_CLASS_TRAITS( NoteData, new NoteData(*pCopy) )
@@ -34,6 +36,16 @@ void NoteData::SetNumTracks( int iNewNumTracks )
 	m_TapNotes.resize( iNewNumTracks );
 }
 
+bool NoteData::IsComposite() const
+{
+	for( int track = 0; track < GetNumTracks(); ++track )
+	{
+		FOREACHM_CONST( int, TapNote, m_TapNotes[track], tn )
+			if( tn->second.pn != PLAYER_INVALID )
+				return true;
+	}
+	return false;
+}
 
 /* Clear [rowBegin,rowEnd). */
 void NoteData::ClearRangeForTrack( int rowBegin, int rowEnd, int iTrack )
@@ -104,15 +116,7 @@ void NoteData::ClearRangeForTrack( int rowBegin, int rowEnd, int iTrack )
 		GetTapNoteRangeInclusive( iTrack, rowBegin, rowEnd, begin, end );
 	}
 
-	while( begin != end )
-	{
-		iterator next = begin;
-		++next;
-
-		RemoveTapNote( iTrack, begin );
-
-		begin = next;
-	}
+	m_TapNotes[iTrack].erase( begin, end );
 }
 
 void NoteData::ClearRange( int rowBegin, int rowEnd )
@@ -303,7 +307,7 @@ int NoteData::GetFirstTrackWithTapOrHoldHead( int row ) const
 void NoteData::AddHoldNote( int iTrack, int iStartRow, int iEndRow, TapNote tn )
 {
 	ASSERT( iStartRow>=0 && iEndRow>=0 );
-	ASSERT( iEndRow >= iStartRow );
+	ASSERT_M( iEndRow >= iStartRow, ssprintf("%d %d",iEndRow,iStartRow) );
 	
 	/* Include adjacent (non-overlapping) hold notes, since we need to merge with them. */
 	iterator begin, end;
@@ -884,6 +888,34 @@ bool NoteData::GetPrevTapNoteRowForAllTracks( int &rowInOut ) const
 		return false;
 	}
 }
+
+XNode* NoteData::CreateNode() const
+{
+	XNode *p = new XNode;
+	p->m_sName = "NoteData";
+
+	FOREACH_NONEMPTY_ROW_ALL_TRACKS( *this, row )
+	{
+		set<int> s;
+		GetTapNonEmptyTracks( row, s );
+		FOREACHS_CONST( int, s, t )
+		{
+			TapNote tn = this->GetTapNote(*t, row);
+			XNode *p2 = tn.CreateNode();
+			p2->AppendAttr( "Track", *t );
+			p2->AppendAttr( "Row", row );
+			p->AppendChild( p2 );
+		}
+	}
+
+	return p;
+}
+
+void NoteData::LoadFromNode( const XNode* pNode )
+{
+	ASSERT(0);
+}
+
 
 /*
  * (c) 2001-2004 Chris Danford, Glenn Maynard

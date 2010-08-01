@@ -13,12 +13,19 @@
 PromptAnswer ScreenPrompt::s_LastAnswer = ANSWER_YES;
 bool ScreenPrompt::s_bCancelledLast = false;
 
-#define ANSWER_TEXT( elem )		THEME->GetMetric(m_sName,elem+"Text")
+#define ANSWER_TEXT( s )	THEME->GetString(m_sName,s)
+
+static const char *PromptAnswerNames[] = {
+	"Yes",
+	"No",
+	"Cancel",
+};
+XToString( PromptAnswer, NUM_PromptAnswer );
 
 /* Settings: */
 namespace
 {
-	CString g_sText;
+	RString g_sText;
 	PromptType g_PromptType;
 	PromptAnswer g_defaultAnswer;
 	void(*g_pOnYes)(void*);
@@ -26,7 +33,7 @@ namespace
 	void *g_pCallbackData;
 };
 
-void ScreenPrompt::Prompt( ScreenMessage smSendOnPop, const CString &sText, PromptType type, PromptAnswer defaultAnswer, void(*OnYes)(void*), void(*OnNo)(void*), void* pCallbackData )
+void ScreenPrompt::SetPromptSettings( const RString &sText, PromptType type, PromptAnswer defaultAnswer, void(*OnYes)(void*), void(*OnNo)(void*), void* pCallbackData )
 {
 	g_sText = sText;
 	g_PromptType = type;
@@ -34,16 +41,18 @@ void ScreenPrompt::Prompt( ScreenMessage smSendOnPop, const CString &sText, Prom
 	g_pOnYes = OnYes;
 	g_pOnNo = OnNo;
 	g_pCallbackData = pCallbackData;
+}
 
+void ScreenPrompt::Prompt( ScreenMessage smSendOnPop, const RString &sText, PromptType type, PromptAnswer defaultAnswer, void(*OnYes)(void*), void(*OnNo)(void*), void* pCallbackData )
+{
+	SetPromptSettings( sText, type, defaultAnswer, OnYes, OnNo, pCallbackData );
+	
 	SCREENMAN->AddNewScreenToTop( "ScreenPrompt", smSendOnPop );
 }
 
 
+
 REGISTER_SCREEN_CLASS( ScreenPrompt );
-ScreenPrompt::ScreenPrompt( const CString &sScreenName ):
-	ScreenWithMenuElements( sScreenName )
-{
-}
 
 void ScreenPrompt::Init()
 {
@@ -57,7 +66,7 @@ void ScreenPrompt::Init()
 	m_sprCursor->SetName( "Cursor" );
 	this->AddChild( m_sprCursor );
 
-	for( int i=0; i<NUM_PROMPT_ANSWERS; i++ )
+	for( int i=0; i<NUM_PromptAnswer; i++ )
 	{
 		m_textAnswer[i].LoadFromFont( THEME->GetPathF(m_sName,"answer") );
 		this->AddChild( &m_textAnswer[i] );
@@ -80,11 +89,19 @@ void ScreenPrompt::BeginScreen()
 
 	for( int i=0; i<=g_PromptType; i++ )
 	{
-		CString sElem = ssprintf("Answer%dOf%d", i+1, g_PromptType+1);
+		RString sElem = ssprintf("Answer%dOf%d", i+1, g_PromptType+1);
 		m_textAnswer[i].SetName( sElem );
-		m_textAnswer[i].SetText( ANSWER_TEXT(sElem) );
+		RString sAnswer = PromptAnswerToString( (PromptAnswer)i );
+		// FRAGILE
+		if( g_PromptType == PROMPT_OK )
+			sAnswer = "OK";
+		
+		m_textAnswer[i].SetText( ANSWER_TEXT(sAnswer) );
 		SET_XY_AND_ON_COMMAND( m_textAnswer[i] );
 	}
+
+	for( int i=g_PromptType+1; i<NUM_PromptAnswer; i++ )
+		m_textAnswer[i].SetText( "" );
 
 	PositionCursor();
 }
@@ -135,7 +152,7 @@ void ScreenPrompt::Change( int dir )
 {
 	m_textAnswer[m_Answer].StopEffect();
 	m_Answer = (PromptAnswer)(m_Answer+dir);
-	ASSERT( m_Answer >= 0  &&  m_Answer < NUM_PROMPT_ANSWERS );  
+	ASSERT( m_Answer >= 0  &&  m_Answer < NUM_PromptAnswer );  
 
 	PositionCursor();
 
@@ -193,18 +210,13 @@ void ScreenPrompt::End( bool bCancelled )
 
 	if( bCancelled )
 	{
-		m_Cancel.StartTransitioning( SM_GoToNextScreen );
+		Cancel( SM_GoToNextScreen );
 	}
 	else
 	{
 		SCREENMAN->PlayStartSound();
-		m_Out.StartTransitioning( SM_GoToNextScreen );
+		StartTransitioningScreen( SM_GoToNextScreen );
 	}
-
-	OFF_COMMAND( m_textQuestion );
-	OFF_COMMAND( m_sprCursor );
-	for( int i=0; i<=g_PromptType; i++ )
-		OFF_COMMAND( m_textAnswer[i] );
 
 	switch( m_Answer )
 	{
@@ -228,6 +240,15 @@ void ScreenPrompt::PositionCursor()
 	m_sprCursor->SetXY( bt.GetX(), bt.GetY() );
 }
 
+void ScreenPrompt::TweenOffScreen()
+{
+	OFF_COMMAND( m_textQuestion );
+	OFF_COMMAND( m_sprCursor );
+	for( int i=0; i<=g_PromptType; i++ )
+		OFF_COMMAND( m_textAnswer[i] );
+
+	ScreenWithMenuElements::TweenOffScreen();
+}
 
 /*
  * (c) 2001-2004 Chris Danford

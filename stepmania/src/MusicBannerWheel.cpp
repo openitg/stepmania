@@ -21,6 +21,7 @@ TODO:
 #include "song.h"
 #include "Steps.h"
 #include "ActorUtil.h"
+#include "SongUtil.h"
 
 #define BANNERSPACING THEME->GetMetricI("ScreenEz2SelectMusic","BannerSpacing")
 #define MAXSONGSINBUFFER 5
@@ -68,7 +69,7 @@ MusicBannerWheel::MusicBannerWheel()
 		for ( unsigned i = 0; i < arraySongs.size(); i++)
 		{
 			//ONLY get non-autogenned steps
-			Steps* pSteps = arraySongs[i]->GetStepsByDifficulty( GAMESTATE->GetCurrentStyle()->m_StepsType, DIFFICULTY_INVALID, false );
+			Steps* pSteps = SongUtil::GetStepsByDifficulty( arraySongs[i], GAMESTATE->GetCurrentStyle()->m_StepsType, DIFFICULTY_INVALID, false );
 			if ( pSteps != NULL )
 				pNotAutogen.push_back( arraySongs[i] );
 		}
@@ -126,7 +127,7 @@ works only if there are 5 banners in the scrolling list.
 void MusicBannerWheel::InsertNewBanner(int direction)
 {
 	Song* pSong = NULL;
-	CString sGraphicPath;
+	RString sGraphicPath;
 	int elementtoreplace=0;	
 
 	if(	direction == GOINGLEFT)
@@ -215,7 +216,7 @@ and once only.
 void MusicBannerWheel::LoadSongData()
 {
 	Song* pSong = NULL;
-	CStringArray asGraphicPaths;
+	vector<RString> asGraphicPaths;
 
 	if(MAXSONGSINBUFFER >= arraySongs.size() && SingleLoad != 1)  // less than the MAXSONGSINBUFFER means we can get away with loading the lot in one go
 	{
@@ -308,7 +309,7 @@ void MusicBannerWheel::ScanToNextGroup()
 	int startingPos = localPos;
 	Song* pSong;
 	pSong = arraySongs[currentPos];
-	CString currentGroupName = pSong->m_sGroupName;
+	RString currentGroupName = pSong->m_sGroupName;
 	localPos++;
 	while(localPos != startingPos)
 	{

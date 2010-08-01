@@ -7,18 +7,22 @@ class RageDisplay_D3D: public RageDisplay
 {
 public:
 	RageDisplay_D3D();
-	~RageDisplay_D3D();
-	CString Init( VideoModeParams p );
+	virtual ~RageDisplay_D3D();
+	virtual RString Init( const VideoModeParams &p, bool bAllowUnacceleratedRenderer );
 
+	virtual RString GetApiDescription() const { return "D3D"; }
+	virtual void GetDisplayResolutions( DisplayResolutions &out ) const;
+	virtual float GetMonitorAspectRatio() const;
 	void ResolutionChanged();
 	const PixelFormatDesc *GetPixelFormatDesc(PixelFormat pf) const;
 
 	bool BeginFrame();	
 	void EndFrame();
-	VideoModeParams GetVideoModeParams() const;
+	VideoModeParams GetActualVideoModeParams() const;
 	void SetBlendMode( BlendMode mode );
 	bool SupportsTextureFormat( PixelFormat pixfmt, bool realtime=false );
 	bool SupportsThreadedRendering();
+	bool SupportsPerVertexMatrixScale() { return false; }
 	unsigned CreateTexture( 
 		PixelFormat pixfmt, 
 		RageSurface* img, 
@@ -31,7 +35,7 @@ public:
 	void DeleteTexture( unsigned uTexHandle );
 	void ClearAllTextures();
 	int GetNumTextureUnits();
-	void SetTexture( int iTextureUnitIndex, RageTexture* pTexture );
+	void SetTexture( TextureUnit tu, RageTexture* pTexture );
 	void SetTextureModeModulate();
 	void SetTextureModeGlow();
 	void SetTextureModeAdd();
@@ -75,9 +79,8 @@ protected:
 	void DrawTrianglesInternal( const RageSpriteVertex v[], int iNumVerts );
 	void DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int iMeshIndex );
 
-	CString TryVideoMode( VideoModeParams params, bool &bNewDeviceOut );
+	RString TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut );
 	RageSurface* CreateScreenshot();
-	void SetViewport(int shift_left, int shift_down);
 	RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf ); 
 
 	void SendCurrentMatrices();

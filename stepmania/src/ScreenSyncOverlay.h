@@ -10,8 +10,6 @@
 class ScreenSyncOverlay : public Screen
 {
 public:
-	ScreenSyncOverlay( const CString &sName );
-	virtual ~ScreenSyncOverlay();
 	virtual void Init();
 	
 	bool OverlayInput( const InputEventPlus &input );
@@ -21,6 +19,7 @@ public:
 private:
 	void UpdateText();
 	void ShowHelp();
+	void HideHelp();
 
 	Quad		m_quad;
 	BitmapText	m_textHelp;

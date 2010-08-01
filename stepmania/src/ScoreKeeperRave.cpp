@@ -8,7 +8,7 @@
 #include "PrefsManager.h"
 #include "ThemeMetric.h"
 #include "PlayerState.h"
-
+#include "NoteTypes.h"
 
 ThemeMetric<float> ATTACK_DURATION_SECONDS	("ScoreKeeperRave","AttackDurationSeconds");
 
@@ -23,12 +23,13 @@ void ScoreKeeperRave::OnNextSong( int iSongInCourseIndex, const Steps* pSteps, c
 	
 }
 
-void ScoreKeeperRave::HandleTapScore( TapNoteScore score )
+void ScoreKeeperRave::HandleTapScore( const TapNote &tn )
 {
+	TapNoteScore score = tn.result.tns;
 	float fPercentToMove = 0;
 	switch( score )
 	{
-	case TNS_HIT_MINE:		fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangeHitMine;	break;
+	case TNS_HitMine:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_HitMine];	break;
 	}
 
 	AddSuperMeterDelta( fPercentToMove );
@@ -36,28 +37,35 @@ void ScoreKeeperRave::HandleTapScore( TapNoteScore score )
 
 #define CROSSED( val ) (fOld < val && fNew >= val)
 #define CROSSED_ATTACK_LEVEL( level ) CROSSED(1.f/NUM_ATTACK_LEVELS*(level+1))
-void ScoreKeeperRave::HandleTapRowScore( TapNoteScore scoreOfLastTap, int iNumTapsInRow )
+void ScoreKeeperRave::HandleTapRowScore( const NoteData &nd, int iRow )
 {
+	TapNoteScore scoreOfLastTap;
+	int iNumTapsInRow;
 	float fPercentToMove;
+	
+	GetScoreOfLastTapInRow( nd, iRow, scoreOfLastTap, iNumTapsInRow );
+	if( iNumTapsInRow <= 0 )
+		return;
 	switch( scoreOfLastTap )
 	{
-	case TNS_MARVELOUS:		fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangeMarvelous;	break;
-	case TNS_PERFECT:		fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangePerfect;	break;
-	case TNS_GREAT:			fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangeGreat;		break;
-	case TNS_GOOD:			fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangeGood;		break;
-	case TNS_BOO:			fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangeBoo;		break;
-	case TNS_MISS:			fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangeMiss;		break;
-	default:	ASSERT(0);	fPercentToMove = +0.00f;	break;
+	DEFAULT_FAIL( scoreOfLastTap );
+	case TNS_W1:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_W1];	break;
+	case TNS_W2:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_W2];	break;
+	case TNS_W3:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_W3];	break;
+	case TNS_W4:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_W4];	break;
+	case TNS_W5:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_W5];	break;
+	case TNS_Miss:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_Miss];	break;
 	}
 	AddSuperMeterDelta( fPercentToMove );
 }
 
-void ScoreKeeperRave::HandleHoldScore( HoldNoteScore holdScore, TapNoteScore tapScore )
+void ScoreKeeperRave::HandleHoldScore( const TapNote &tn )
 {
+	TapNoteScore tapScore = tn.result.tns;
 	float fPercentToMove = 0;
 	switch( tapScore )
 	{
-	case TNS_HIT_MINE:		fPercentToMove = PREFSMAN->m_fSuperMeterPercentChangeHitMine;	break;
+	case TNS_HitMine:	fPercentToMove = PREFSMAN->m_fSuperMeterPercentChange[SE_HitMine];	break;
 	}
 	AddSuperMeterDelta( fPercentToMove );
 }
@@ -118,7 +126,7 @@ void ScoreKeeperRave::AddSuperMeterDelta( float fUnscaledPercentChange )
 		default:	ASSERT(0);
 		}
 		if( !bWinning )
-			GAMESTATE->EndActiveAttacksForPlayer( m_pPlayerState->m_PlayerNumber );
+			m_pPlayerState->EndActiveAttacks();
 	}
 }
 
@@ -127,19 +135,20 @@ void ScoreKeeperRave::LaunchAttack( AttackLevel al )
 {
 	PlayerNumber pn = m_pPlayerState->m_PlayerNumber;
 
-	CString* asAttacks = GAMESTATE->m_pCurCharacters[pn]->m_sAttacks[al];	// [NUM_ATTACKS_PER_LEVEL]
-	CString sAttackToGive;
+	RString* asAttacks = GAMESTATE->m_pCurCharacters[pn]->m_sAttacks[al];	// [NUM_ATTACKS_PER_LEVEL]
+	RString sAttackToGive;
 
 	if (GAMESTATE->m_pCurCharacters[pn] != NULL)		
-		sAttackToGive = asAttacks[ rand()%NUM_ATTACKS_PER_LEVEL ];
+		sAttackToGive = asAttacks[ RandomInt(NUM_ATTACKS_PER_LEVEL) ];
 	else
 	{
 		/* If you add any note skins here, you need to make sure they're cached, too. */
-		CString DefaultAttacks[8] = { "1.5x", "2.0x", "0.5x", "reverse", "sudden", "boost", "brake", "wave" };
-		sAttackToGive = DefaultAttacks[ rand()%8 ];
+		RString DefaultAttacks[8] = { "1.5x", "2.0x", "0.5x", "reverse", "sudden", "boost", "brake", "wave" };
+		sAttackToGive = DefaultAttacks[ RandomInt(8) ];
 	}
 
   	PlayerNumber pnToAttack = OPPOSITE_PLAYER[pn];
+	PlayerState *pPlayerStateToAttack = GAMESTATE->m_pPlayerState[pnToAttack];
 
 	Attack a;
 	a.level = al;
@@ -147,10 +156,10 @@ void ScoreKeeperRave::LaunchAttack( AttackLevel al )
 	a.sModifiers = sAttackToGive;
 
 	// remove current attack (if any)
-	GAMESTATE->RemoveActiveAttacksForPlayer( pnToAttack );
+	pPlayerStateToAttack->RemoveActiveAttacks();
 
 	// apply new attack
-	GAMESTATE->LaunchAttack( (MultiPlayer)pnToAttack, a );
+	pPlayerStateToAttack->LaunchAttack( a );
 
 //	SCREENMAN->SystemMessage( ssprintf( "attacking %d with %s", pnToAttack, sAttackToGive.c_str() ) );
 }

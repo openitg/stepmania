@@ -21,113 +21,8 @@
 #include "InputEventPlus.h"
 
 
-CString GetStatsLineTitle( PlayerNumber pn, EndingStatsLine line )
-{
-	switch( line )
-	{
-	case CALORIES_TODAY:	return "Calories Today";
-	case CURRENT_COMBO:		return "Current Combo";
-	case PERCENT_COMPLETE:
-		{
-			StepsType st = GAMESTATE->GetCurrentStyle()->m_StepsType;
-			CString sStepsType = GAMEMAN->StepsTypeToThemedString(st);
-			CString sType = GAMESTATE->IsCourseMode() ? "Courses" : "Songs";
-			return ssprintf( "%s %s %%", sStepsType.c_str(), sType.c_str() );
-		}
-	case PERCENT_COMPLETE_EASY:
-	case PERCENT_COMPLETE_MEDIUM:
-	case PERCENT_COMPLETE_HARD:
-	case PERCENT_COMPLETE_CHALLENGE:
-		{
-			if( GAMESTATE->IsCourseMode() )
-			{
-				CourseDifficulty cd = (CourseDifficulty)(DIFFICULTY_EASY+line-PERCENT_COMPLETE_EASY);
-				ASSERT( cd >= 0 && cd < NUM_COURSE_DIFFICULTIES );
-				if( !GAMESTATE->IsCourseDifficultyShown(cd) )
-					return CString();
-				return CourseDifficultyToThemedString(cd);
-			}
-			else
-			{
-				Difficulty dc = (Difficulty)(DIFFICULTY_EASY+line-PERCENT_COMPLETE_EASY);
-				ASSERT( dc >= 0 && dc < NUM_DIFFICULTIES );
-				return DifficultyToThemedString(dc);
-			}
-		}
-	default:	ASSERT(0);	return CString();
-	}
-}
-
-CString GetStatsLineValue( PlayerNumber pn, EndingStatsLine line )
-{
-	CHECKPOINT_M( ssprintf("GetStatsLineValue(%d,%d)",pn,line) );
-
-	Profile* pProfile = PROFILEMAN->GetProfile( pn );
-	ASSERT( pProfile );
-
-	StepsType st = GAMESTATE->GetCurrentStyle()->m_StepsType;
-
-	switch( line )
-	{
-	case CALORIES_TODAY:		return pProfile->GetDisplayTotalCaloriesBurnedToday();
-	case CURRENT_COMBO:			return Commify( pProfile->m_iCurrentCombo );
-	case PERCENT_COMPLETE:
-		{
-			float fActual = 0;
-			float fPossible = 0;
-
-			if( GAMESTATE->IsCourseMode() )
-			{
-				FOREACH_CONST( CourseDifficulty, COURSE_DIFFICULTIES_TO_SHOW.GetValue(), iter )
-				{
-					fActual += pProfile->GetCoursesActual(st,*iter);
-					fPossible += pProfile->GetCoursesPossible(st,*iter);
-				}
-			}
-			else
-			{
-				FOREACH_CONST( Difficulty, DIFFICULTIES_TO_SHOW.GetValue(), iter )
-				{
-					fActual += pProfile->GetSongsActual(st,*iter);
-					fPossible += pProfile->GetSongsPossible(st,*iter);
-				}
-			}
-
-			return ssprintf( "%05.2f%%", fActual/fPossible*100 );
-		}
-	case PERCENT_COMPLETE_EASY:
-	case PERCENT_COMPLETE_MEDIUM:
-	case PERCENT_COMPLETE_HARD:
-	case PERCENT_COMPLETE_CHALLENGE:
-		// Ugly...
-		{
-			CString sStepsType = GAMEMAN->StepsTypeToThemedString(st);
-			float fPercent = 0;
-			if( GAMESTATE->IsCourseMode() )
-			{
-				CourseDifficulty cd = (CourseDifficulty)(DIFFICULTY_EASY+line-PERCENT_COMPLETE_EASY);
-				ASSERT( cd >= 0 && cd < NUM_COURSE_DIFFICULTIES );
-				if( !GAMESTATE->IsCourseDifficultyShown(cd) )
-					return CString();
-				CString sDifficulty = CourseDifficultyToThemedString(cd);
-				fPercent = pProfile->GetCoursesPercentComplete(st,cd);
-			}
-			else
-			{
-				Difficulty dc = (Difficulty)(DIFFICULTY_EASY+line-PERCENT_COMPLETE_EASY);
-				ASSERT( dc >= 0 && dc < NUM_DIFFICULTIES );
-				CString sDifficulty = DifficultyToThemedString(dc);
-				fPercent = pProfile->GetSongsPercentComplete(st,dc);
-			}
-			return ssprintf( "%05.2f%%", fPercent*100 );
-		}
-	default:	ASSERT(0);	return CString();
-	}
-}
-
-
 REGISTER_SCREEN_CLASS( ScreenEnding );
-ScreenEnding::ScreenEnding( CString sClassName ) : ScreenAttract( sClassName, false/*dont reset GAMESTATE*/ )
+ScreenEnding::ScreenEnding() : ScreenAttract( false/*dont reset GAMESTATE*/ )
 {
 	if( PREFSMAN->m_bScreenTestMode )
 	{
@@ -158,9 +53,9 @@ ScreenEnding::ScreenEnding( CString sClassName ) : ScreenAttract( sClassName, fa
 			STATSMAN->m_CurStageStats.m_player[PLAYER_2].SetLifeRecordAt( 1-fP1, f );
 		}
 	
-		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iActualDancePoints = rand()%3;
+		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iActualDancePoints = RandomInt( 3 );
 		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iPossibleDancePoints = 2;
-		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iActualDancePoints = rand()%2;
+		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iActualDancePoints = RandomInt( 2 );
 		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iPossibleDancePoints = 1;
 		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iCurCombo = 0;
 		STATSMAN->m_CurStageStats.m_player[PLAYER_1].UpdateComboList( 0, false );
@@ -171,12 +66,12 @@ ScreenEnding::ScreenEnding( CString sClassName ) : ScreenAttract( sClassName, fa
 		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iCurCombo = 250;
 		STATSMAN->m_CurStageStats.m_player[PLAYER_1].UpdateComboList( 100, false );
 
-		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iTapNoteScores[TNS_MARVELOUS] = rand()%2;
-		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iTapNoteScores[TNS_PERFECT] = rand()%2;
-		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iTapNoteScores[TNS_GREAT] = rand()%2;
-		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iTapNoteScores[TNS_MARVELOUS] = rand()%2;
-		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iTapNoteScores[TNS_PERFECT] = rand()%2;
-		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iTapNoteScores[TNS_GREAT] = rand()%2;
+		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iTapNoteScores[TNS_W1] = RandomInt( 2 );
+		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iTapNoteScores[TNS_W2] = RandomInt( 2 );
+		STATSMAN->m_CurStageStats.m_player[PLAYER_1].iTapNoteScores[TNS_W3] = RandomInt( 2 );
+		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iTapNoteScores[TNS_W1] = RandomInt( 2 );
+		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iTapNoteScores[TNS_W2] = RandomInt( 2 );
+		STATSMAN->m_CurStageStats.m_player[PLAYER_2].iTapNoteScores[TNS_W3] = RandomInt( 2 );
 
 		STATSMAN->m_vPlayedStageStats.clear();
 	}
@@ -196,31 +91,15 @@ void ScreenEnding::Init()
 
 	FOREACH_HumanPlayer( p )
 	{
-		// don't show stats if not using a persistent profile
 		if( !PROFILEMAN->IsPersistentProfile(p) )
 			continue;
 	
-		FOREACH_EndingStatsLine( i )
-		{
-			m_Lines[i][p].title.LoadFromFont( THEME->GetPathF("ScreenEnding","stats title") );
-			m_Lines[i][p].title.SetText( GetStatsLineTitle(p, i) );
-			m_Lines[i][p].title.SetName( ssprintf("StatsTitleP%dLine%d",p+1,i+1) );
-			SET_XY_AND_ON_COMMAND( m_Lines[i][p].title );
-			this->AddChild( &m_Lines[i][p].title );
-		
-			m_Lines[i][p].value.LoadFromFont( THEME->GetPathF("ScreenEnding","stats value") );
-			m_Lines[i][p].value.SetText( GetStatsLineValue(p, i) );
-			m_Lines[i][p].value.SetName( ssprintf("StatsValueP%dLine%d",p+1,i+1) );
-			SET_XY_AND_ON_COMMAND( m_Lines[i][p].value );
-			this->AddChild( &m_Lines[i][p].value );
-		}
-
 		m_sprRemoveMemoryCard[p].SetName( ssprintf("RemoveCardP%d",p+1) );
 		m_sprRemoveMemoryCard[p].Load( THEME->GetPathG("ScreenEnding",ssprintf("remove card P%d",p+1)) );
 		switch( MEMCARDMAN->GetCardState(p) )
 		{
-		case MEMORY_CARD_STATE_REMOVED:
-		case MEMORY_CARD_STATE_NO_CARD:
+		case MemoryCardState_Removed:
+		case MemoryCardState_NoCard:
 			m_sprRemoveMemoryCard[p].SetHidden( true );
 			break;
 		}
@@ -240,8 +119,7 @@ void ScreenEnding::Init()
 
 void ScreenEnding::Input( const InputEventPlus &input )
 {
-	bool bIsTransitioning = m_In.IsTransitioning() || m_Out.IsTransitioning();
-	if( input.MenuI.IsValid() && !bIsTransitioning )
+	if( input.MenuI.IsValid() && !IsTransitioning() )
 	{
 		switch( input.MenuI.button )
 		{

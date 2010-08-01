@@ -10,7 +10,7 @@
 #if defined(_MSC_VER)
         #pragma comment(lib, "zlib/zdll.lib")
 #endif
-#elif defined(__MACOSX__)
+#elif defined(MACOSX)
     /* Since crypto++ was added to the repository, <zlib.h> includes the zlib.h
      * in there rather than the correct system one. I don't know why it would do
      * this since crypto51 is not being listed as one of the include directories.
@@ -105,8 +105,6 @@ int RageFileObjInflate::ReadInternal( void *buf, size_t bytes )
 				SetError( m_pFile->GetError() );
 				return -1;
 			}
-			if( got == 0 )
-				break;
 
 			decomp_buf_avail = got;
 		}
@@ -125,6 +123,9 @@ int RageFileObjInflate::ReadInternal( void *buf, size_t bytes )
 			return -1;
 		case Z_MEM_ERROR:
 			SetError( "out of memory" );
+			return -1;
+		case Z_BUF_ERROR:
+			SetError( "file truncated" );
 			return -1;
 		case Z_STREAM_END:
 			done = true;
@@ -311,7 +312,7 @@ int RageFileObjDeflate::FlushInternal()
  * Parse a .gz file, check the header CRC16 if present, and return the data
  * CRC32 and a decompressor.
  */
-RageFileBasic *GunzipFile( RageFileBasic &file, CString &sError, uint32_t *iCRC32 )
+RageFileBasic *GunzipFile( RageFileBasic &file, RString &sError, uint32_t *iCRC32 )
 {
 	sError = "";
 
@@ -510,7 +511,7 @@ int RageFileObjGzip::Finish()
 
 #include "RageFileDriverMemory.h"
 
-void GzipString( const CString &sIn, CString &sOut )
+void GzipString( const RString &sIn, RString &sOut )
 {
 	/* Gzip it. */
 	RageFileObjMem mem;
@@ -522,12 +523,11 @@ void GzipString( const CString &sIn, CString &sOut )
 	sOut = mem.GetString();
 }
 
-bool GunzipString( const CString &sIn, CString &sOut )
+bool GunzipString( const RString &sIn, RString &sOut, RString &sError )
 {
 	RageFileObjMem mem;
 	mem.PutString( sIn );
 
-	CString sError;
 	uint32_t iCRC32;
 	RageFileBasic *pFile = GunzipFile( mem, sError, &iCRC32 );
 	if( pFile == NULL )
@@ -541,7 +541,10 @@ bool GunzipString( const CString &sIn, CString &sOut )
 	SAFE_DELETE( pFile );
 
 	if( iRet != iCRC32 )
+	{
+		sError = "CRC error";
 		return false;
+	}
 
 	return true;
 }

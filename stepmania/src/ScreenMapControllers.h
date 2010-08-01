@@ -6,43 +6,57 @@
 #include "ScreenWithMenuElements.h"
 #include "BitmapText.h"
 #include "InputMapper.h"
-
-enum { NUM_SHOWN_GAME_TO_DEVICE_SLOTS = 3 };
+#include "ActorScroller.h"
+#include "RageSound.h"
 
 class ScreenMapControllers : public ScreenWithMenuElements
 {
 public:
-	ScreenMapControllers( CString sName );
+	ScreenMapControllers();
 	virtual void Init();
-	virtual ~ScreenMapControllers();
+	virtual void BeginScreen();
 
 	virtual void Update( float fDeltaTime );
 	virtual void Input( const InputEventPlus &input );
 
+	virtual void TweenOffScreen();
+
 private:
-	void KeyLeft();
-	void KeyRight();
-	void KeyUp();
-	void KeyDown();
-	void KeyBack();
-	void KeyStart();
+	virtual void HandleMessage( const RString& sMessage );
 
+	Actor *GetActorWithFocus();
+	void BeforeChangeFocus();
+	void AfterChangeFocus();
+	virtual bool GenericTweenOn() const { return true; }
 	void Refresh();
-
 	
 	int m_iCurController;
 	int m_iCurButton;
 	int m_iCurSlot;
 
-	int m_iWaitingForPress;
+	RageTimer m_WaitingForPress;
 	DeviceInput m_DeviceIToMap;
 
-	BitmapText	m_textError;
-	BitmapText	m_textName[MAX_GAME_BUTTONS];
-	BitmapText	m_textName2[MAX_GAME_BUTTONS];
-	BitmapText	m_textMappedTo[MAX_GAME_CONTROLLERS][MAX_GAME_BUTTONS][NUM_SHOWN_GAME_TO_DEVICE_SLOTS];
+	struct KeyToMap
+	{
+		GameButton m_GameButton;
 
-	ActorFrame	m_Line[MAX_GAME_BUTTONS];
+		// owned by m_Line
+		BitmapText	*m_textMappedTo[MAX_GAME_CONTROLLERS][NUM_SHOWN_GAME_TO_DEVICE_SLOTS];
+	};
+	vector<KeyToMap> m_KeysToMap;
+
+	BitmapText m_textDevices;
+
+	BitmapText m_textLabel[MAX_GAME_CONTROLLERS];
+
+	AutoActor m_sprExit;
+
+	ActorFrame	m_Line[MAX_GAME_BUTTONS+2]; // label, normal lines, exit
+	ActorScroller m_LineScroller;
+
+	RageSound m_soundChange;
+	RageSound m_soundDelete;
 };
 
 #endif

@@ -33,7 +33,7 @@ XNode* RadarValues::CreateNode() const
 	// TRICKY: Don't print a remainder for the integer values.
 	FOREACH_RadarCategory( rc )
 	{
-		if( rc >= RADAR_NUM_TAPS_AND_HOLDS )
+		if( rc >= RadarCategory_TapsAndHolds )
 		{
 			if( WRITE_SIMPLE_VALUES )
 				pNode->AppendChild( RadarCategoryToString(rc),	(int)m_Values.f[rc] );
@@ -60,32 +60,32 @@ void RadarValues::LoadFromNode( const XNode* pNode )
 
 /* iMaxValues is only used for writing compatibility fields in non-cache
  * SM files; they're never actually read. */
-CString RadarValues::ToString( int iMaxValues ) const
+RString RadarValues::ToString( int iMaxValues ) const
 {
 	if( iMaxValues == -1 )
-		iMaxValues = NUM_RADAR_CATEGORIES;
-	iMaxValues = min( iMaxValues, (int)NUM_RADAR_CATEGORIES );
+		iMaxValues = NUM_RadarCategory;
+	iMaxValues = min( iMaxValues, (int)NUM_RadarCategory );
 
-	CStringArray asRadarValues;
+	vector<RString> asRadarValues;
 	for( int r=0; r < iMaxValues; r++ )
 		asRadarValues.push_back( ssprintf("%.3f", m_Values.f[r]) );
 
 	return join( ",",asRadarValues );
 }
 
-void RadarValues::FromString( CString sRadarValues )
+void RadarValues::FromString( RString sRadarValues )
 {
-	CStringArray saValues;
+	vector<RString> saValues;
 	split( sRadarValues, ",", saValues, true );
 
-	if( saValues.size() != NUM_RADAR_CATEGORIES )
+	if( saValues.size() != NUM_RadarCategory )
 	{
 		MakeUnknown();
 		return;
 	}
 
 	FOREACH_RadarCategory(rc)
-		m_Values.f[rc] = strtof( saValues[rc], NULL );
+		m_Values.f[rc] = StringToFloat( saValues[rc] );
     
 }
 

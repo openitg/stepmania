@@ -18,8 +18,8 @@ OptionsCursorPlus::OptionsCursorPlus()
 
 OptionsCursor::OptionsCursor( const OptionsCursor &cpy ):
 	ActorFrame( cpy ),
-	m_sprLeft( cpy.m_sprLeft ),
 	m_sprMiddle( cpy.m_sprMiddle ),
+	m_sprLeft( cpy.m_sprLeft ),
 	m_sprRight( cpy.m_sprRight )
 {
 	/* Re-add children, or m_SubActors will point to cpy's children and not our own. */
@@ -38,9 +38,9 @@ OptionsCursorPlus::OptionsCursorPlus( const OptionsCursorPlus &cpy ):
 	this->AddChild( m_sprCanGoRight );
 }
 
-void OptionsCursor::Load( const CString &sType, Element elem )
+void OptionsCursor::Load( const RString &sType, Element elem )
 {
-	CString sPath = THEME->GetPathG( sType, ssprintf("%s 3x2",elem==cursor?"cursor":"underline") );
+	RString sPath = THEME->GetPathG( sType, ssprintf("%s 3x2",elem==cursor?"cursor":"underline") );
 	
 	m_sprMiddle.Load( sPath );
 	m_sprLeft.Load( sPath );
@@ -51,7 +51,7 @@ void OptionsCursor::Load( const CString &sType, Element elem )
 	m_sprRight.StopAnimating();
 }
 
-void OptionsCursorPlus::Load( const CString &sType, Element elem )
+void OptionsCursorPlus::Load( const RString &sType, Element elem )
 {
 	OptionsCursor::Load( sType, elem );
 

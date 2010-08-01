@@ -11,24 +11,24 @@ REGISTER_ACTOR_CLASS( MemoryCardDisplay )
 MemoryCardDisplay::MemoryCardDisplay()
 {
 	m_PlayerNumber = PLAYER_INVALID;
-	m_LastSeenState = MEMORY_CARD_STATE_INVALID;
+	m_LastSeenState = MemoryCardState_INVALID;
 }
 
 void MemoryCardDisplay::Load( PlayerNumber pn )
 {
 	m_PlayerNumber = pn;
 
-	for( int i=0; i<NUM_MEMORY_CARD_STATES; i++ )
+	for( int i=0; i<NUM_MemoryCardState; i++ )
 	{
 		MemoryCardState mcs = (MemoryCardState)i;
-		CString sState = MemoryCardStateToString(mcs);
+		RString sState = MemoryCardStateToString(mcs);
 		m_spr[i].Load( THEME->GetPathG("MemoryCardDisplay",ssprintf("%s p%d",sState.c_str(),pn+1)) );
 		m_spr[i].SetHidden( true );
 		this->AddChild( &m_spr[i] );
 	}
 }
 
-void MemoryCardDisplay::LoadFromNode( const CString& sDir, const XNode* pNode )
+void MemoryCardDisplay::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	PlayerNumber pn;
 	pNode->GetAttrValue("PlayerNumber", (int&) pn );
@@ -43,7 +43,7 @@ void MemoryCardDisplay::Update( float fDelta )
 	MemoryCardState newMcs = MEMCARDMAN->GetCardState(m_PlayerNumber);
 	if( m_LastSeenState != newMcs )
 	{
-		if( m_LastSeenState != MEMORY_CARD_STATE_INVALID )
+		if( m_LastSeenState != MemoryCardState_INVALID )
 			m_spr[m_LastSeenState].SetHidden( true );
 		m_LastSeenState = newMcs;
 		m_spr[m_LastSeenState].SetHidden( false );

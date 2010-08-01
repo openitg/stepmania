@@ -8,9 +8,6 @@
 #include "InputEventPlus.h"
 
 REGISTER_SCREEN_CLASS( ScreenTestSound );
-ScreenTestSound::ScreenTestSound( CString sClassName ) : Screen( sClassName )
-{	
-}
 
 void ScreenTestSound::Init()
 {
@@ -77,11 +74,11 @@ ScreenTestSound::~ScreenTestSound()
 
 void ScreenTestSound::UpdateText(int n)
 {
-	CString fn = Basename( s[n].s.GetLoadedFilePath() );
+	RString fn = Basename( s[n].s.GetLoadedFilePath() );
 
 	vector<RageSound *> &snds = m_sSoundCopies[n];
 
-	CString pos;
+	RString pos;
 	for(unsigned p = 0; p < snds.size(); ++p)
 	{
 		if(p) pos += ", ";

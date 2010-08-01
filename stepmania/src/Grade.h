@@ -35,22 +35,21 @@ enum Grade
 
 /* This is in the header so the test sets don't require Grade.cpp (through PrefsManager),
  * since that pulls in ThemeManager. */
-static inline CString GradeToString( Grade g )
+static inline RString GradeToString( Grade g )
 {
 	ASSERT_M( (g >= 0 && g<NUM_Grade) || g == Grade_NoData, ssprintf("grade = %d",g) );
 
 	switch( g )
-    {
-    case Grade_NoData:	return "NoData";
-    case Grade_Failed:	return "Failed";
-    default:
-            return ssprintf("Tier%02d",g+1);
-    }
+	{
+	case Grade_NoData:	return "NoData";
+	case Grade_Failed:	return "Failed";
+	default:		return ssprintf("Tier%02d",g+1);
+	}
 }
 
-CString GradeToOldString( Grade g );	// "AAA", "B", etc for backward compatibility.  Used in announcer
-CString GradeToThemedString( Grade g );
-Grade StringToGrade( const CString &s );
+RString GradeToOldString( Grade g );	// "AAA", "B", etc for backward compatibility.  Used in announcer
+RString GradeToLocalizedString( Grade g );
+Grade StringToGrade( const RString &s );
 #define FOREACH_Grade( g ) FOREACH_ENUM( Grade, NUM_Grade, g )
 #define FOREACH_UsedGrade( g ) FOREACH_ENUM( Grade, THEME->GetMetricI("PlayerStageStats","NumGradeTiersUsed"), g )
 

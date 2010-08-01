@@ -54,7 +54,7 @@ InputHandler_Xbox::~InputHandler_Xbox()
 	}
 }
 
-void InputHandler_Xbox::Update(float fDeltaTime)
+void InputHandler_Xbox::Update()
 {
 	// check insertions and removals
 	DWORD dwInsert, dwRemove;
@@ -103,8 +103,8 @@ void InputHandler_Xbox::Update(float fDeltaTime)
 
 			if(nowPressed != wasPressed)
 			{
-				JoystickButton Button = JoystickButton(JOY_HAT_LEFT + j);
-				if(Button >= NUM_JOYSTICK_BUTTONS)
+				DeviceButton Button = DeviceButton(JOY_HAT_LEFT + j);
+				if(Button >= JOY_BUTTON_32)
 				{
 					LOG->Warn("Ignored joystick event (button too high)");
 					continue;
@@ -123,8 +123,8 @@ void InputHandler_Xbox::Update(float fDeltaTime)
 
 			if(nowPressed != wasPressed)
 			{
-				JoystickButton Button = JoystickButton(JOY_1 + j);
-				if(Button >= NUM_JOYSTICK_BUTTONS)
+				DeviceButton Button = DeviceButton(JOY_BUTTON_1 + j);
+				if(Button >= JOY_BUTTON_32)
 				{
 					LOG->Warn("Ignored joystick event (button too high)");
 					continue;
@@ -146,8 +146,8 @@ void InputHandler_Xbox::Update(float fDeltaTime)
 				if(j == 1 || j == 3)
 					axes[j] = -axes[j];
 
-				JoystickButton neg = (JoystickButton)(JOY_LEFT + (2 * j));
-				JoystickButton pos = (JoystickButton)(JOY_RIGHT + (2 * j));
+				DeviceButton neg = (DeviceButton)(JOY_LEFT + (2 * j));
+				DeviceButton pos = (DeviceButton)(JOY_RIGHT + (2 * j));
 				float l = SCALE( axes[j], 0.0f, 32768.0f, 0.0f, 1.0f );
 				ButtonPressed(DeviceInput(inputDevice, neg,max(-l,0),RageZeroTimer), axes[j] > -16000);
 				ButtonPressed(DeviceInput(inputDevice, pos,max(+l,0),RageZeroTimer), axes[j] < +16000);
@@ -161,14 +161,13 @@ void InputHandler_Xbox::Update(float fDeltaTime)
 	InputHandler::UpdateTimer();
 }
 
-void InputHandler_Xbox::GetDevicesAndDescriptions(vector<InputDevice>& vDevicesOut, vector<CString>& vDescriptionsOut)
+void InputHandler_Xbox::GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut )
 {
 	for( int i=0; i<NUM_JOYSTICKS; i++ )
 	{
 		if( joysticks[i] != 0 )
 		{
-			vDevicesOut.push_back( InputDevice(DEVICE_JOY1+i) );
-			vDescriptionsOut.push_back( "" );
+			vDevicesOut.push_back( InputDeviceInfo(InputDevice(DEVICE_JOY1+i),"XboxGameHardware") );
 		}
 	}
 }

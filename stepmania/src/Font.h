@@ -33,7 +33,7 @@ struct glyph
 
 struct FontPageSettings
 {
-	CString m_sTexturePath;
+	RString m_sTexturePath;
 
 	int m_iDrawExtraPixelsLeft,
 		m_iDrawExtraPixelsRight,
@@ -44,7 +44,7 @@ struct FontPageSettings
 		m_iDefaultWidth,
 		m_iAdvanceExtraPixels;
 	float m_fScaleAllWidthsBy;
-	CString m_sTextureHints;
+	RString m_sTextureHints;
 
 	map<longchar,int> CharToGlyphNo;
 	/* If a value is missing, the width of the texture frame is used. */
@@ -64,7 +64,7 @@ struct FontPageSettings
 
 	/* Map a range from a character map to glyphs.  If cnt is -1, map the
 	 * whole map. Returns "" or an error message. */
-	CString MapRange( CString sMapping, int iMapOffset, int iGlyphOffset, int iCount );
+	RString MapRange( RString sMapping, int iMapOffset, int iGlyphOffset, int iCount );
 };
 
 class FontPage
@@ -87,7 +87,7 @@ public:
 	RageTexture* m_pTexture;
 
 	// XXX remove?
-	CString m_sTexturePath;
+	RString m_sTexturePath;
 
 	/* All glyphs in this list will point to m_pTexture. */
 	vector<glyph> m_aGlyphs;
@@ -103,7 +103,7 @@ class Font
 {
 public:
 	int m_iRefCount;
-	CString path;
+	RString path;
 
 	Font();
 	~Font();
@@ -121,7 +121,7 @@ public:
 	/* Steal all of a font's pages. */
 	void MergeFont(Font &f);
 
-	void Load(const CString &sFontOrTextureFilePath, CString sChars);
+	void Load(const RString &sFontOrTextureFilePath, RString sChars);
 	void Unload();
 	void Reload();
 
@@ -134,7 +134,7 @@ public:
 
 	void SetDefaultGlyph( FontPage *pPage );
 
-	static const wchar_t DEFAULT_GLYPH;
+	bool IsRightToLeft() const { return m_bRightToLeft; };
 
 private:
 	/* List of pages and fonts that we use (and are responsible for freeing). */
@@ -148,13 +148,22 @@ private:
 	map<longchar,glyph*> m_iCharToGlyph;
 	glyph *m_iCharToGlyphCache[128];
 
-	/* We keep this around only for reloading. */
-	CString m_sChars;
+	// True for Hebrew, Arabic, Urdu fonts.
+	// This will also change the way glyphs from the default FontPage are rendered. 
+	// There may be a better way to handle this.
+	bool m_bRightToLeft;
 
-	void LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const CString &sTexturePath, const CString &PageName, CString sChars );
-	static void GetFontPaths( const CString &sFontOrTextureFilePath, CStringArray &sTexturePaths );
-	CString GetPageNameFromFileName( const CString &sFilename );
+	/* We keep this around only for reloading. */
+	RString m_sChars;
+
+	void LoadFontPageSettings( FontPageSettings &cfg, IniFile &ini, const RString &sTexturePath, const RString &PageName, RString sChars );
+	static void GetFontPaths( const RString &sFontOrTextureFilePath, vector<RString> &sTexturePaths );
+	RString GetPageNameFromFileName( const RString &sFilename );
 };
+
+/* Last private-use Unicode character: */
+/* This is in the header to reduce file dependencies. */
+const wchar_t FONT_DEFAULT_GLYPH = 0xF8FF;
 
 #endif
 

@@ -25,9 +25,9 @@ struct Item
 {
 	AttackLevel level;
 	int iCombo;
-	CString sModifier;
+	RString sModifier;
 };
-vector<Item>	g_Items;
+static vector<Item>	g_Items;
 
 void ReloadItems()
 {
@@ -185,14 +185,15 @@ void Inventory::UseItem( int iSlot )
 		return;
 
 	PlayerNumber pn = m_pPlayerState->m_PlayerNumber;
-    PlayerNumber pnToAttack = OPPOSITE_PLAYER[pn];
 	Attack a = pInventory[iSlot];
 
 	// remove the item
 	pInventory[iSlot].MakeBlank();
 	m_vpSoundUseItem[a.level]->Play();
 
-	GAMESTATE->LaunchAttack( (MultiPlayer)pnToAttack, a );
+	PlayerNumber pnToAttack = OPPOSITE_PLAYER[pn];
+	PlayerState *pPlayerStateToAttack = GAMESTATE->m_pPlayerState[pnToAttack];
+	pPlayerStateToAttack->LaunchAttack( a );
 
 	float fPercentHealthToDrain = (a.level+1) / 10.f;
 	ASSERT( fPercentHealthToDrain > 0 );

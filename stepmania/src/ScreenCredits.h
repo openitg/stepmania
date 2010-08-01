@@ -4,22 +4,12 @@
 #define SCREEN_CREDITS_H
 
 #include "ScreenAttract.h"
-#include "ActorScroller.h"
 
 
 class ScreenCredits : public ScreenAttract
 {
 public:
-	ScreenCredits( CString sName );
 	virtual void Init();
-	virtual ~ScreenCredits();
-
-	virtual void HandleScreenMessage( const ScreenMessage SM );
-
-private:
-	ActorScroller			m_ScrollerBackgrounds;
-	ActorScroller			m_ScrollerFrames;
-	ActorScroller			m_ScrollerTexts;
 };
 
 #endif

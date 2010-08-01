@@ -10,15 +10,16 @@ class Game;
 enum GameController
 {
 	GAME_CONTROLLER_1 = 0,	// left controller
-	GAME_CONTROLLER_2,		// right controller
+	GAME_CONTROLLER_2,	// right controller
 	MAX_GAME_CONTROLLERS,	// leave this at the end
 	GAME_CONTROLLER_INVALID,
 };
 #define FOREACH_GameController( gc ) FOREACH_ENUM( GameController, MAX_GAME_CONTROLLERS, gc )
 
 typedef int GameButton;
-CString GameButtonToString( GameButton i );
-GameButton StringToGameButton( const Game* pGame, const CString& s );
+RString GameButtonToString( const Game* pGame, GameButton i );
+RString GameButtonToLocalizedString( const Game* pGame, GameButton i );
+GameButton StringToGameButton( const Game* pGame, const RString& s );
 
 const GameButton MAX_GAME_BUTTONS = 20;
 const GameButton GAME_BUTTON_INVALID = MAX_GAME_BUTTONS+1;
@@ -125,29 +126,29 @@ enum // 3DDX Buttons
 	NUM_DS3DDX_BUTTONS, // leave this at the end.
 };
 
-enum // BM Buttons
+enum // BEAT Buttons
 {
-	BM_BUTTON_KEY1,
-	BM_BUTTON_KEY2,
-	BM_BUTTON_KEY3,
-	BM_BUTTON_KEY4,
-	BM_BUTTON_KEY5,
-	BM_BUTTON_KEY6,
-	BM_BUTTON_KEY7,
-	BM_BUTTON_SCRATCHUP,
-	/* XXX special case: this button is an alias of BM_BUTTON_SCRATCHUP for track
+	BEAT_BUTTON_KEY1,
+	BEAT_BUTTON_KEY2,
+	BEAT_BUTTON_KEY3,
+	BEAT_BUTTON_KEY4,
+	BEAT_BUTTON_KEY5,
+	BEAT_BUTTON_KEY6,
+	BEAT_BUTTON_KEY7,
+	BEAT_BUTTON_SCRATCHUP,
+	/* XXX special case: this button is an alias of BEAT_BUTTON_SCRATCHUP for track
 	 * matching. */
-	BM_BUTTON_SCRATCHDOWN,
-	BM_BUTTON_START,
-	BM_BUTTON_SELECT,
-	BM_BUTTON_BACK,
-	BM_BUTTON_MENULEFT,
-	BM_BUTTON_MENURIGHT,
-	BM_BUTTON_MENUUP,
-	BM_BUTTON_MENUDOWN,
-	BM_BUTTON_COIN,
-	BM_BUTTON_OPERATOR,
-	NUM_BM_BUTTONS, // leave this at the end.
+	BEAT_BUTTON_SCRATCHDOWN,
+	BEAT_BUTTON_START,
+	BEAT_BUTTON_SELECT,
+	BEAT_BUTTON_BACK,
+	BEAT_BUTTON_MENULEFT,
+	BEAT_BUTTON_MENURIGHT,
+	BEAT_BUTTON_MENUUP,
+	BEAT_BUTTON_MENUDOWN,
+	BEAT_BUTTON_COIN,
+	BEAT_BUTTON_OPERATOR,
+	NUM_BEAT_BUTTONS, // leave this at the end.
 };
 
 enum	// ManiaxButtons
@@ -193,25 +194,25 @@ enum	// TechnoButtons
 
 enum	// PnM Buttons
 {
-	PNM_BUTTON_LEFT_WHITE,
-	PNM_BUTTON_LEFT_YELLOW,
-	PNM_BUTTON_LEFT_GREEN,
-	PNM_BUTTON_LEFT_BLUE,
-	PNM_BUTTON_RED,
-	PNM_BUTTON_RIGHT_BLUE,
-	PNM_BUTTON_RIGHT_GREEN,
-	PNM_BUTTON_RIGHT_YELLOW,
-	PNM_BUTTON_RIGHT_WHITE,
-	PNM_BUTTON_START,
-	PNM_BUTTON_SELECT,
-	PNM_BUTTON_BACK,
-	PNM_BUTTON_MENULEFT,
-	PNM_BUTTON_MENURIGHT,
-	PNM_BUTTON_MENUUP,
-	PNM_BUTTON_MENUDOWN,
-	PNM_BUTTON_COIN,
-	PNM_BUTTON_OPERATOR,
-	NUM_PNM_BUTTONS,		// leave this at the end
+	POPN_BUTTON_LEFT_WHITE,
+	POPN_BUTTON_LEFT_YELLOW,
+	POPN_BUTTON_LEFT_GREEN,
+	POPN_BUTTON_LEFT_BLUE,
+	POPN_BUTTON_RED,
+	POPN_BUTTON_RIGHT_BLUE,
+	POPN_BUTTON_RIGHT_GREEN,
+	POPN_BUTTON_RIGHT_YELLOW,
+	POPN_BUTTON_RIGHT_WHITE,
+	POPN_BUTTON_START,
+	POPN_BUTTON_SELECT,
+	POPN_BUTTON_BACK,
+	POPN_BUTTON_MENULEFT,
+	POPN_BUTTON_MENURIGHT,
+	POPN_BUTTON_MENUUP,
+	POPN_BUTTON_MENUDOWN,
+	POPN_BUTTON_COIN,
+	POPN_BUTTON_OPERATOR,
+	NUM_POPN_BUTTONS,		// leave this at the end
 };
 
 enum	// LightsButtons
@@ -264,8 +265,8 @@ struct GameInput
 	inline bool IsValid() const { return controller != GAME_CONTROLLER_INVALID; };
 	inline void MakeInvalid() { controller = GAME_CONTROLLER_INVALID; button = GAME_BUTTON_INVALID; };
 
-	CString toString( const Game* pGame );
-	bool fromString( const Game* pGame, CString s );
+	RString toString( const Game* pGame );
+	bool fromString( const Game* pGame, RString s );
 };
 
 #endif

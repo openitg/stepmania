@@ -67,12 +67,12 @@
 				Name="VCPostBuildEventTool"
 				CommandLine="disasm\mapconv &quot;$(IntDir)\$(TargetName).map&quot; &quot;$(TargetDir)\StepMania.vdi&quot;"/>
 			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine="disasm\verinc
-cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
-"/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCPreLinkEventTool"/>
+				Name="VCPreLinkEventTool"
+				CommandLine="disasm\verinc
+cl                                                                                                                                                                                    /Zl                                                                                                                                                                                    /nologo                                                                                                                                                                                    /c                                                                                                                                                                                    verstub.cpp                                                                                                                                                                                    /Fo$(IntDir)\
+"/>
 			<Tool
 				Name="VCResourceCompilerTool"
 				PreprocessorDefinitions="_DEBUG"
@@ -133,10 +133,9 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				Name="VCPreBuildEventTool"/>
 			<Tool
 				Name="VCPreLinkEventTool"
-				CommandLine="disasm\verinc
-cl                                                                                                                                                                                    /Zl                                                                                                                                                                                    /nologo                                                                                                                                                                                    /c                                                                                                                                                                                    verstub.cpp                                                                                                                                                                                    /Fo$(IntDir)\
-"
-				ExcludedFromBuild="TRUE"/>
+				CommandLine="archutils\win32\verinc
+cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
+"/>
 			<Tool
 				Name="XboxDeploymentTool"
 				ExcludedFromBuild="FALSE"
@@ -282,16 +281,16 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			<Tool
 				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCPreBuildEventTool"
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"
 				CommandLine="archutils\win32\verinc
 cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 "/>
 			<Tool
-				Name="VCPreLinkEventTool"/>
-			<Tool
 				Name="XboxDeploymentTool"
-				ExcludedFromBuild="FALSE"
-				RemotePath="xe:\$(SolutionName)\default-rls.xbe"
+				ExcludedFromBuild="TRUE"
+				RemotePath="xe:\StepmaniaXbox\default-rls.xbe"
 				Progress="TRUE"
 				ForceCopy="FALSE"/>
 			<Tool
@@ -368,12 +367,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="ScreenEdit.h">
 			</File>
 			<File
-				RelativePath="ScreenEditCourseMods.cpp">
-			</File>
-			<File
-				RelativePath="ScreenEditCourseMods.h">
-			</File>
-			<File
 				RelativePath="ScreenEditMenu.cpp">
 			</File>
 			<File
@@ -390,12 +383,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath="ScreenEvaluation.h">
-			</File>
-			<File
-				RelativePath="ScreenEvaluationMultiplayer.cpp">
-			</File>
-			<File
-				RelativePath="ScreenEvaluationMultiplayer.h">
 			</File>
 			<File
 				RelativePath="ScreenExit.cpp">
@@ -428,12 +415,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="ScreenGameplayLesson.h">
 			</File>
 			<File
-				RelativePath="ScreenGameplayMultiplayer.cpp">
-			</File>
-			<File
-				RelativePath="ScreenGameplayMultiplayer.h">
-			</File>
-			<File
 				RelativePath="ScreenGameplayNormal.cpp">
 			</File>
 			<File
@@ -450,12 +431,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath="ScreenInstructions.h">
-			</File>
-			<File
-				RelativePath="ScreenJoinMultiplayer.cpp">
-			</File>
-			<File
-				RelativePath="ScreenJoinMultiplayer.h">
 			</File>
 			<File
 				RelativePath="ScreenJukebox.cpp">
@@ -560,6 +535,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="ScreenOptionsManageCourses.h">
 			</File>
 			<File
+				RelativePath=".\ScreenOptionsManageEditSteps.cpp">
+			</File>
+			<File
+				RelativePath=".\ScreenOptionsManageEditSteps.h">
+			</File>
+			<File
 				RelativePath="ScreenOptionsManageProfiles.cpp">
 			</File>
 			<File
@@ -578,6 +559,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="ScreenOptionsMasterPrefs.h">
 			</File>
 			<File
+				RelativePath=".\ScreenOptionsMemoryCard.cpp">
+			</File>
+			<File
+				RelativePath=".\ScreenOptionsMemoryCard.h">
+			</File>
+			<File
 				RelativePath="ScreenPackages.cpp">
 			</File>
 			<File
@@ -588,12 +575,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath="ScreenPlayerOptions.h">
-			</File>
-			<File
-				RelativePath="ScreenProfileOptions.cpp">
-			</File>
-			<File
-				RelativePath="ScreenProfileOptions.h">
 			</File>
 			<File
 				RelativePath="ScreenPrompt.cpp">
@@ -674,6 +655,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="ScreenSelectStyle.h">
 			</File>
 			<File
+				RelativePath=".\ScreenServiceAction.cpp">
+			</File>
+			<File
+				RelativePath=".\ScreenServiceAction.h">
+			</File>
+			<File
 				RelativePath="ScreenSetTime.cpp">
 			</File>
 			<File
@@ -704,6 +691,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="ScreenStage.h">
 			</File>
 			<File
+				RelativePath=".\ScreenStatsOverlay.cpp">
+			</File>
+			<File
+				RelativePath=".\ScreenStatsOverlay.h">
+			</File>
+			<File
 				RelativePath="ScreenSyncOverlay.cpp">
 			</File>
 			<File
@@ -714,12 +707,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath=".\ScreenSystemLayer.h">
-			</File>
-			<File
-				RelativePath="ScreenTest.cpp">
-			</File>
-			<File
-				RelativePath="ScreenTest.h">
 			</File>
 			<File
 				RelativePath="ScreenTestFonts.cpp">
@@ -756,12 +743,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath="ScreenTitleMenu.h">
-			</File>
-			<File
-				RelativePath="ScreenUnlock.cpp">
-			</File>
-			<File
-				RelativePath="ScreenUnlock.h">
 			</File>
 			<File
 				RelativePath="ScreenWithMenuElements.cpp">
@@ -939,6 +920,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="Inventory.h">
 			</File>
 			<File
+				RelativePath=".\LocalizedString.cpp">
+			</File>
+			<File
+				RelativePath=".\LocalizedString.h">
+			</File>
+			<File
 				RelativePath="LuaBinding.cpp">
 			</File>
 			<File
@@ -966,6 +953,9 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="LyricsLoader.h">
 			</File>
 			<File
+				RelativePath=".\MenuInput.cpp">
+			</File>
+			<File
 				RelativePath="MenuInput.h">
 			</File>
 			<File
@@ -985,12 +975,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath="NoteDataWithScoring.h">
-			</File>
-			<File
-				RelativePath="NoteFieldPositioning.cpp">
-			</File>
-			<File
-				RelativePath="NoteFieldPositioning.h">
 			</File>
 			<File
 				RelativePath="NotesLoader.cpp">
@@ -1065,12 +1049,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="PlayerOptions.h">
 			</File>
 			<File
-				RelativePath="PlayerScoreList.cpp">
-			</File>
-			<File
-				RelativePath="PlayerScoreList.h">
-			</File>
-			<File
 				RelativePath=".\PlayerStageStats.cpp">
 			</File>
 			<File
@@ -1110,10 +1088,10 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="ScoreKeeper.h">
 			</File>
 			<File
-				RelativePath="ScoreKeeperMAX2.cpp">
+				RelativePath=".\ScoreKeeperNormal.cpp">
 			</File>
 			<File
-				RelativePath="ScoreKeeperMAX2.h">
+				RelativePath=".\ScoreKeeperNormal.h">
 			</File>
 			<File
 				RelativePath="ScoreKeeperRave.cpp">
@@ -1208,6 +1186,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			<File
 				RelativePath="TrailUtil.h">
 			</File>
+			<File
+				RelativePath=".\Tween.cpp">
+			</File>
+			<File
+				RelativePath=".\Tween.h">
+			</File>
 		</Filter>
 		<Filter
 			Name="File Types"
@@ -1230,6 +1214,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			<File
 				RelativePath="XmlFile.h">
 			</File>
+			<File
+				RelativePath=".\XmlFileUtil.cpp">
+			</File>
+			<File
+				RelativePath=".\XmlFileUtil.h">
+			</File>
 		</Filter>
 		<Filter
 			Name="StepMania"
@@ -1242,6 +1232,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath="ProductInfo.h">
+			</File>
+			<File
+				RelativePath=".\SpecialFiles.cpp">
+			</File>
+			<File
+				RelativePath=".\SpecialFiles.h">
 			</File>
 			<File
 				RelativePath="StdString.h">
@@ -1338,6 +1334,9 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 					<File
 						RelativePath="arch\ArchHooks\ArchHooks_Xbox.h">
 					</File>
+					<File
+						RelativePath=".\arch\ArchHooks\ArchHooksUtil.cpp">
+					</File>
 				</Filter>
 				<Filter
 					Name="InputHandler"
@@ -1424,6 +1423,9 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 					<File
 						RelativePath="arch\Dialog\DialogDriver.h">
 					</File>
+					<File
+						RelativePath=".\arch\Dialog\Selector_Dialog.h">
+					</File>
 				</Filter>
 				<Filter
 					Name="Threads"
@@ -1443,13 +1445,10 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				Name="system"
 				Filter="">
 				<File
-					RelativePath="archutils\Win32\arch_setup.cpp">
+					RelativePath=".\archutils\Xbox\arch_setup.cpp">
 				</File>
 				<File
 					RelativePath=".\archutils\Xbox\arch_setup.h">
-				</File>
-				<File
-					RelativePath="archutils\Win32\arch_setup.h">
 				</File>
 				<File
 					RelativePath="archutils\Xbox\custom_launch_params.cpp">
@@ -1475,6 +1474,43 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				<File
 					RelativePath=".\archutils\Xbox\VirtualMemory.h">
 				</File>
+				<Filter
+					Name="Win32-Shared"
+					Filter="">
+					<File
+						RelativePath=".\archutils\Win32\arch_setup.cpp">
+						<FileConfiguration
+							Name="Debug|Win32">
+							<Tool
+								Name="VCCLCompilerTool"
+								ObjectFile="$(IntDir)/$(InputName)1.obj"/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug|Xbox">
+							<Tool
+								Name="VCCLCompilerTool"
+								ObjectFile="$(IntDir)/$(InputName)1.obj"/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32">
+							<Tool
+								Name="VCCLCompilerTool"
+								ObjectFile="$(IntDir)/$(InputName)1.obj"/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Xbox">
+							<Tool
+								Name="VCCLCompilerTool"
+								ObjectFile="$(IntDir)/$(InputName)1.obj"/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="archutils\Win32\arch_setup.h">
+					</File>
+					<File
+						RelativePath=".\archutils\Win32\arch_time.cpp">
+					</File>
+				</Filter>
 			</Filter>
 		</Filter>
 		<Filter
@@ -1810,22 +1846,10 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="Foreground.h">
 			</File>
 			<File
-				RelativePath=".\GhostArrow.cpp">
-			</File>
-			<File
-				RelativePath=".\GhostArrow.h">
-			</File>
-			<File
 				RelativePath="GhostArrowRow.cpp">
 			</File>
 			<File
 				RelativePath="GhostArrowRow.h">
-			</File>
-			<File
-				RelativePath=".\HoldGhostArrow.cpp">
-			</File>
-			<File
-				RelativePath=".\HoldGhostArrow.h">
 			</File>
 			<File
 				RelativePath="HoldJudgment.cpp">
@@ -1838,6 +1862,9 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath="Judgment.h">
+			</File>
+			<File
+				RelativePath=".\LifeMeter.cpp">
 			</File>
 			<File
 				RelativePath="LifeMeter.h">
@@ -2162,12 +2189,6 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 				RelativePath="RageSoundReader_WAV.h">
 			</File>
 			<File
-				RelativePath="RageSoundResampler.cpp">
-			</File>
-			<File
-				RelativePath="RageSoundResampler.h">
-			</File>
-			<File
 				RelativePath="RageSoundUtil.cpp">
 			</File>
 			<File
@@ -2409,6 +2430,12 @@ cl /Zl /nologo /c verstub.cpp /Fo$(IntDir)\
 			</File>
 			<File
 				RelativePath=".\BitmapText.h">
+			</File>
+			<File
+				RelativePath=".\DynamicActorScroller.cpp">
+			</File>
+			<File
+				RelativePath=".\DynamicActorScroller.h">
 			</File>
 			<File
 				RelativePath="Model.cpp">

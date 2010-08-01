@@ -4,10 +4,11 @@
 #include "LuaManager.h"
 #include "XmlFile.h"
 #include "RageSoundManager.h"
+#include "RageUtil.h"
 
 REGISTER_ACTOR_CLASS_WITH_NAME( ActorSound, Sound )
 
-void ActorSound::Load( const CString &sPath )
+void ActorSound::Load( const RString &sPath )
 {
 	m_Sound.Load( sPath, true );
 }
@@ -17,17 +18,17 @@ void ActorSound::Play()
 	SOUNDMAN->PlayCopyOfSound( m_Sound );
 }
 
-void ActorSound::LoadFromNode( const CString& sDir, const XNode* pNode )
+void ActorSound::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	Actor::LoadFromNode( sDir, pNode );
 
-	CString sFile;
-	if( pNode->GetAttrValue("Path", sFile) )
+	RString sFile;
+	if( pNode->GetAttrValue("File", sFile) || pNode->GetAttrValue("Path", sFile) ) /* Path deprecated */
 	{
 		LuaHelpers::RunAtExpressionS( sFile );
 		FixSlashesInPlace( sFile );
 
-		CString sNewPath = sFile.Left(1) == "/"? sFile : sDir+sFile;
+		RString sNewPath = sFile.Left(1) == "/"? sFile : sDir+sFile;
 		ActorUtil::ResolvePath( sNewPath, sDir );
 
 		Load( sNewPath );

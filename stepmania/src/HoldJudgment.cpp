@@ -4,49 +4,113 @@
 #include "GameConstantsAndTypes.h"
 #include "ThemeManager.h"
 #include "ThemeMetric.h"
+#include "ActorUtil.h"
+#include "StatsManager.h"
+#include "XmlFile.h"
 
-static ThemeMetric<apActorCommands>	OK_COMMAND	("HoldJudgment","OKCommand");
-static ThemeMetric<apActorCommands>	NG_COMMAND	("HoldJudgment","NGCommand");
+static ThemeMetric<apActorCommands>	HELD_COMMAND	("HoldJudgment","HeldCommand");
+static ThemeMetric<apActorCommands>	LET_GO_COMMAND	("HoldJudgment","LetGoCommand");
 
+REGISTER_ACTOR_CLASS( HoldJudgment )
 
 HoldJudgment::HoldJudgment()
 {
-	m_sprJudgment.Load( THEME->GetPathG("HoldJudgment","label 1x2") );
-	m_sprJudgment.StopAnimating();
-	Reset();
-	this->AddChild( &m_sprJudgment );
+	m_mpToTrack = MultiPlayer_INVALID;
 }
 
-void HoldJudgment::Reset()
+void HoldJudgment::Load( const RString &sPath )
 {
-	m_sprJudgment.SetDiffuse( RageColor(1,1,1,0) );
-	m_sprJudgment.SetXY( 0, 0 );
-	m_sprJudgment.StopTweening();
-	m_sprJudgment.StopEffect();
+	m_sprJudgment.Load( sPath );
+	m_sprJudgment->StopAnimating();
+	ResetAnimation();
+	this->AddChild( m_sprJudgment );
+}
+
+void HoldJudgment::LoadFromNode( const RString& sDir, const XNode* pNode )
+{
+	RString sFile;
+	if( !pNode->GetAttrValue("File", sFile) )
+		RageException::Throw( ssprintf("HoldJudgment node in '%s' is missing the attribute \"File\"", sDir.c_str()) );
+	LuaHelpers::RunAtExpressionS( sFile );
+
+	if( sFile.Left(1) != "/" )
+		sFile = sDir+sFile;
+
+	CollapsePath( sFile );
+
+	Load( sFile );
+
+	ActorFrame::LoadFromNode( sDir, pNode );
+}
+
+void HoldJudgment::ResetAnimation()
+{
+	ASSERT( m_sprJudgment.IsLoaded() );
+	m_sprJudgment->SetDiffuse( RageColor(1,1,1,0) );
+	m_sprJudgment->SetXY( 0, 0 );
+	m_sprJudgment->StopTweening();
+	m_sprJudgment->StopEffect();
 }
 
 void HoldJudgment::SetHoldJudgment( HoldNoteScore hns )
 {
 	//LOG->Trace( "Judgment::SetJudgment()" );
 
-	Reset();
+	ResetAnimation();
 
 	switch( hns )
 	{
-	case HNS_NONE:
+	case HNS_None:
 		ASSERT(0);
-	case HNS_OK:
-		m_sprJudgment.SetState( 0 );
-		m_sprJudgment.RunCommands( OK_COMMAND );
+	case HNS_Held:
+		m_sprJudgment->SetState( 0 );
+		m_sprJudgment->RunCommands( HELD_COMMAND );
 		break;
-	case HNS_NG:
-		m_sprJudgment.SetState( 1 );
-		m_sprJudgment.RunCommands( NG_COMMAND );
+	case HNS_LetGo:
+		m_sprJudgment->SetState( 1 );
+		m_sprJudgment->RunCommands( LET_GO_COMMAND );
 		break;
 	default:
 		ASSERT(0);
 	}
 }
+
+void HoldJudgment::LoadFromMultiPlayer( MultiPlayer mp )
+{
+	ASSERT( m_mpToTrack == MultiPlayer_INVALID );	// assert only load once
+	m_mpToTrack = mp;
+	this->SubscribeToMessage( enum_add2(Message_ShowHoldJudgmentMuliPlayerP1,m_mpToTrack) );
+}
+
+void HoldJudgment::HandleMessage( const RString &sMessage )
+{
+	ASSERT( m_mpToTrack != MultiPlayer_INVALID );
+	if( sMessage == MessageToString( enum_add2(Message_ShowHoldJudgmentMuliPlayerP1,m_mpToTrack) ) )
+		SetHoldJudgment( STATSMAN->m_CurStageStats.m_multiPlayer[m_mpToTrack].hnsLast );
+
+	ActorFrame::HandleMessage( sMessage );
+}
+
+// lua start
+#include "LuaBinding.h"
+
+class LunaHoldJudgment: public Luna<HoldJudgment>
+{
+public:
+	LunaHoldJudgment() { LUA->Register( Register ); }
+
+	static int LoadFromMultiPlayer( T* p, lua_State *L ) { p->LoadFromMultiPlayer( (MultiPlayer)IArg(1) ); return 0; }
+
+	static void Register(lua_State *L) 
+	{
+		ADD_METHOD( LoadFromMultiPlayer );
+
+		Luna<T>::Register( L );
+	}
+};
+
+LUA_REGISTER_DERIVED_CLASS( HoldJudgment, ActorFrame )
+// lua end
 
 /*
  * (c) 2001-2004 Chris Danford

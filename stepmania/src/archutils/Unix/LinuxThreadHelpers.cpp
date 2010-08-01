@@ -7,6 +7,7 @@
 #include "Backtrace.h"
 #include "archutils/Unix/RunningUnderValgrind.h"
 
+#if defined(LINUX)
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -36,7 +37,7 @@ static _syscall0(pid_t,gettid)
 #endif
 
 
-CString ThreadsVersion()
+RString ThreadsVersion()
 {
 	char buf[1024] = "(error)";
 	int ret = confstr( _CS_GNU_LIBPTHREAD_VERSION, buf, sizeof(buf) );
@@ -207,16 +208,14 @@ bool GetThreadBacktraceContext( uint64_t ThreadID, BacktraceContext *ctx )
 	 *
 	 * If it's in a debugger, we won't be able to ptrace(PTRACE_GETREGS). If
 	 * it's us that attached, we will. */
-	if( PtraceAttach( int(ThreadID) ) == -1 )
+	if( PtraceAttach( int(ThreadID) ) == -1 && errno != EPERM )
 	{
-		if( errno != EPERM )
-		{
-			CHECKPOINT_M( ssprintf( "%s (pid %i tid %i locking tid %i)",
-									strerror(errno), getpid(), (int)GetCurrentThreadId(), int(ThreadID) ) );
+		CHECKPOINT_M( ssprintf( "%s (pid %i tid %i locking tid %i)",
+					strerror(errno), getpid(), (int)GetCurrentThreadId(), int(ThreadID) ) );
 			return false;
-		}
 	}
 
+#if defined(CPU_X86_64) || defined(CPU_X86)
 	user_regs_struct regs;
 	if( ptrace( PTRACE_GETREGS, pid_t(ThreadID), NULL, &regs ) == -1 )
 		return false;
@@ -226,15 +225,49 @@ bool GetThreadBacktraceContext( uint64_t ThreadID, BacktraceContext *ctx )
 	ctx->ip = (void *) regs.rip;
 	ctx->bp = (void *) regs.rbp;
 	ctx->sp = (void *) regs.rsp;
-#elif defined(CPU_X86)
+#else
 	ctx->ip = (void *) regs.eip;
 	ctx->bp = (void *) regs.ebp;
 	ctx->sp = (void *) regs.esp;
+#endif
+#elif defined(CPU_PPC)
+	errno = 0;
+	ctx->FramePtr = (const Frame *)ptrace( PTRACE_PEEKUSER, pid_t(ThreadID), (void *)(PT_R1<<2), 0 );
+	if( errno )
+		return false;
+	ctx->PC = (void *)ptrace( PTRACE_PEEKUSER, pid_t(ThreadID), (void *)(PT_NIP<<2), 0 );
+	if( errno )
+		return false;
 #else
 #error GetThreadBacktraceContext: which arch?
 #endif
 
 	return true;
+}
+#endif
+
+#elif defined(BSD)
+#include <pthread.h>
+#include <signal.h>
+
+RString ThreadsVersion()
+{
+	return "(unknown)";
+}
+
+uint64_t GetCurrentThreadId()
+{
+	return uint64_t( pthread_self() );
+}
+
+int SuspendThread( uint64_t id )
+{
+	return pthread_kill( id, SIGSTOP );
+}
+
+int ResumeThread( uint64_t id )
+{
+	return pthread_kill( id, SIGCONT );
 }
 #endif
 

@@ -11,7 +11,7 @@
 #include "arch/ArchHooks/ArchHooks.h"
 #include "InputEventPlus.h"
 
-static const CString SetTimeSelectionNames[] = {
+static const char *SetTimeSelectionNames[] = {
 	"Year", 
 	"Month", 
 	"Day",
@@ -38,10 +38,6 @@ static float GetValueX( SetTimeSelection s ) { return g_X[s] + 80; }
 static float GetValueY( SetTimeSelection s ) { return g_Y[s]; }
 
 REGISTER_SCREEN_CLASS( ScreenSetTime );
-ScreenSetTime::ScreenSetTime( CString sClassName ) : ScreenWithMenuElements( sClassName )
-{
-	LOG->Trace( "ScreenSetTime::ScreenSetTime()" );
-}
 
 void ScreenSetTime::Init()
 {
@@ -81,8 +77,6 @@ void ScreenSetTime::Init()
 	m_Selection = (SetTimeSelection)0;
 	ChangeSelection( 0 );
 
-	SOUND->PlayMusic( THEME->GetPathS(m_sName,"music") );
-
 	this->SortByDrawOrder();
 }
 
@@ -99,14 +93,14 @@ void ScreenSetTime::Update( float fDelta )
 	int iPrettyHour = now.tm_hour%12;
 	if( iPrettyHour == 0 )
 		iPrettyHour = 12;
-	CString sPrettyHour = ssprintf( "%d %s", iPrettyHour, now.tm_hour>=12 ? "pm" : "am" );
+	RString sPrettyHour = ssprintf( "%d %s", iPrettyHour, now.tm_hour>=12 ? "pm" : "am" );
 
-	m_textValue[hour].SetText(	sPrettyHour );
-	m_textValue[minute].SetText( ssprintf("%02d",now.tm_min) );
-	m_textValue[second].SetText( ssprintf("%02d",now.tm_sec) );
-	m_textValue[year].SetText(	ssprintf("%02d",now.tm_year+1900) );
-	m_textValue[month].SetText(	MonthToString(now.tm_mon) );
-	m_textValue[day].SetText(	ssprintf("%02d",now.tm_mday) );
+	m_textValue[hour]	.SetText( sPrettyHour );
+	m_textValue[minute]	.SetText( ssprintf("%02d",now.tm_min) );
+	m_textValue[second]	.SetText( ssprintf("%02d",now.tm_sec) );
+	m_textValue[year]	.SetText( ssprintf("%02d",now.tm_year+1900) );
+	m_textValue[month]	.SetText( MonthToString((Month)now.tm_mon) );
+	m_textValue[day]	.SetText( ssprintf("%02d",now.tm_mday) );
 }
 
 void ScreenSetTime::Input( const InputEventPlus &input )
@@ -222,7 +216,7 @@ void ScreenSetTime::MenuStart( PlayerNumber pn )
 		}
 
 		SOUND->PlayOnce( THEME->GetPathS("Common","start") );
-		StartTransitioning( SM_GoToNextScreen );
+		StartTransitioningScreen( SM_GoToNextScreen );
 	}
 	else
 		ChangeSelection( +1 );
@@ -235,7 +229,7 @@ void ScreenSetTime::MenuSelect( PlayerNumber pn )
 
 void ScreenSetTime::MenuBack( PlayerNumber pn )
 {
-	StartTransitioning( SM_GoToPrevScreen );
+	StartTransitioningScreen( SM_GoToPrevScreen );
 }
 
 /*

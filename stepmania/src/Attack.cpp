@@ -5,32 +5,39 @@
 #include "song.h"
 #include "Foreach.h"
 #include "PlayerOptions.h"
+#include "PlayerState.h"
 
-void Attack::GetAttackBeats( const Song *song, const PlayerState* pPlayerState, float &fStartBeat, float &fEndBeat ) const
+void Attack::GetAttackBeats( const Song *pSong, float &fStartBeat, float &fEndBeat ) const
 {
-	ASSERT( song );
+	ASSERT( pSong );
+	ASSERT_M( fStartSecond >= 0, ssprintf("%f",fStartSecond) );
 
+	fStartBeat = pSong->GetBeatFromElapsedTime( fStartSecond );
+	fEndBeat = pSong->GetBeatFromElapsedTime( fStartSecond+fSecsRemaining );
+}
+
+/* Get the range for an attack that's being applied in realtime, eg. during battle
+ * mode.  We need a PlayerState for this, so we can push the region off-screen to
+ * prevent popping when the attack has note modifers. */
+void Attack::GetRealtimeAttackBeats( const Song *pSong, const PlayerState* pPlayerState, float &fStartBeat, float &fEndBeat ) const
+{
 	if( fStartSecond >= 0 )
 	{
-		CHECKPOINT;
-		fStartBeat = song->GetBeatFromElapsedTime( fStartSecond );
-		fEndBeat = song->GetBeatFromElapsedTime( fStartSecond+fSecsRemaining );
+		GetAttackBeats( pSong, fStartBeat, fEndBeat );
+		return;
 	}
-	else
-	{
-		CHECKPOINT;
-		/* If fStartSecond < 0, then the attack starts right off the screen; this requires
-		 * that a song actually be playing.  Pre-queued course attacks must always have 
-		 * fStartSecond >= 0. */
-		ASSERT( GAMESTATE->m_pCurSong );
-		
-		ASSERT( pPlayerState );
 
-		/* We're setting this effect on the fly.  If it's an arrow-changing effect
-		 * (transform or note skin), apply it in the future, after what's currently on
-		 * screen, so new arrows will scroll on screen with this effect. */
-		GAMESTATE->GetUndisplayedBeats( pPlayerState, fSecsRemaining, fStartBeat, fEndBeat );
-	}
+	ASSERT( pPlayerState );
+	ASSERT( pSong );
+
+	/* If reasonable, push the attack forward so notes on screen don't change suddenly. */
+	fStartBeat = min( GAMESTATE->m_fSongBeat+BEATS_PER_MEASURE*2, pPlayerState->m_fLastDrawnBeat );
+	fStartBeat = truncf(fStartBeat)+1;
+
+	const float fStartSecond = pSong->GetElapsedTimeFromBeat( fStartBeat );
+	const float fEndSecond = fStartSecond + fSecsRemaining;
+	fEndBeat = pSong->GetBeatFromElapsedTime( fEndSecond );
+	fEndBeat = truncf(fEndBeat)+1;
 
 	// loading the course should have caught this.
 	ASSERT_M( fEndBeat >= fStartBeat, ssprintf("%f >= %f", fEndBeat, fStartBeat) );
@@ -55,7 +62,7 @@ bool Attack::ContainsTransformOrTurn() const
 	return po.ContainsTransformOrTurn();
 }
 
-Attack Attack::FromGlobalCourseModifier( const CString &sModifiers )
+Attack Attack::FromGlobalCourseModifier( const RString &sModifiers )
 {
 	Attack a;
 	a.fStartSecond = 0;
@@ -66,9 +73,9 @@ Attack Attack::FromGlobalCourseModifier( const CString &sModifiers )
 	return a;
 }
 
-CString Attack::GetTextDescription() const
+RString Attack::GetTextDescription() const
 {
-	CString s = sModifiers + " " + ssprintf("(%.2f seconds)", fSecsRemaining);
+	RString s = sModifiers + " " + ssprintf("(%.2f seconds)", fSecsRemaining);
 	return s;
 }
 

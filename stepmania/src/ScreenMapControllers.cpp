@@ -3,6 +3,7 @@
 #include "GameConstantsAndTypes.h"
 #include "ScreenManager.h"
 #include "RageLog.h"
+#include "RageInput.h"
 #include "InputMapper.h"
 #include "GameManager.h"
 #include "GameState.h"
@@ -11,120 +12,184 @@
 #include "ScreenDimensions.h"
 #include "Command.h"
 #include "InputEventPlus.h"
-#if defined(XBOX)
-#include "HelpDisplay.h" //We still need this for Xbox controller mapping.
-#endif
+#include "LocalizedString.h"
 
-static const ThemeMetric<apActorCommands> EVEN_LINE_IN	("ScreenMapControllers","EvenLineIn");
-static const ThemeMetric<apActorCommands> EVEN_LINE_OUT	("ScreenMapControllers","EvenLineOut");
-static const ThemeMetric<apActorCommands> ODD_LINE_IN		("ScreenMapControllers","OddLineIn");
-static const ThemeMetric<apActorCommands> ODD_LINE_OUT	("ScreenMapControllers","OddLineOut");
+#define BUTTONS_TO_MAP			THEME->GetMetric ( m_sName, "ButtonsToMap" )
+static LocalizedString INVALID_BUTTON   ( "ScreenMapControllers", "InvalidButton" );
+#define MAPPED_TO_COMMAND(gc,slot)	THEME->GetMetricA( m_sName, ssprintf("MappedToP%iS%iCommand", gc+1, slot+1) )
 
-const int FramesToWaitForInput = 2;
+static const float g_fSecondsToWaitForInput = 0.05f;
 
 // reserve the 3rd slot for hard-coded keys
-const int NUM_CHANGABLE_SLOTS = NUM_SHOWN_GAME_TO_DEVICE_SLOTS-1;
-
-
-const float LINE_START_Y	=	64;
-const float LINE_GAP_Y		=	28;
-const float BUTTON_COLUMN_X[NUM_SHOWN_GAME_TO_DEVICE_SLOTS*MAX_GAME_CONTROLLERS] =
-{
-	50, 125, 200, 440, 515, 590 
-};
-
+static const int NUM_CHANGABLE_SLOTS = NUM_SHOWN_GAME_TO_DEVICE_SLOTS-1;
 
 REGISTER_SCREEN_CLASS( ScreenMapControllers );
-ScreenMapControllers::ScreenMapControllers( CString sClassName ) : ScreenWithMenuElements( sClassName )
+
+ScreenMapControllers::ScreenMapControllers()
 {
-	LOG->Trace( "ScreenMapControllers::ScreenMapControllers()" );
+	this->SubscribeToMessage( Message_AutoJoyMappingApplied );
 }
 
+static LocalizedString PLAYER_SLOTS( "ScreenMapControllers", "%s slots" );
 void ScreenMapControllers::Init()
 {
 	ScreenWithMenuElements::Init();
 
-#ifdef _XBOX
-	CStringArray strArray;
-	CString text("Use joypad to navigate, START to assign, A, B, X or Y to clear, BACK when done.");
-	strArray.push_back(text);
-	m_textHelp->SetTips(strArray);
-#endif
+	m_soundChange.Load( THEME->GetPathS(m_sName,"change"), true );
+	m_soundDelete.Load( THEME->GetPathS(m_sName,"delete"), true );
 
-	for( int b=0; b<GAMESTATE->GetCurrentGame()->m_iButtonsPerController; b++ )
+
+	m_textDevices.LoadFromFont( THEME->GetPathF("Common","normal") );
+	m_textDevices.SetName( "Devices" );
+	SET_XY_AND_ON_COMMAND( m_textDevices );
+	this->AddChild( &m_textDevices );
+
+
+	RString sButtons = BUTTONS_TO_MAP;
+	if( sButtons.empty() )
 	{
-		CString sName = GAMESTATE->GetCurrentGame()->m_szButtonNames[b];
-		CString sSecondary = GAMEMAN->GetMenuButtonSecondaryFunction( GAMESTATE->GetCurrentGame(), b );
+		/* Map all buttons for this game. */
+		for( int b=0; b<GAMESTATE->GetCurrentGame()->m_iButtonsPerController; b++ )
+		{
+			KeyToMap k;
+			k.m_GameButton = (GameButton) b;
+			m_KeysToMap.push_back( k );
+		}
+	}
+	else
+	{
+		/* Map the specified buttons. */
+		vector<RString> asBits;
+		split( sButtons, ",", asBits );
+		for( unsigned i=0; i<asBits.size(); ++i )
+		{
+			KeyToMap k;
+			k.m_GameButton = StringToGameButton( GAMESTATE->GetCurrentGame(), asBits[i] );
+			m_KeysToMap.push_back( k );
+		}
+	}
 
-		m_textName[b].LoadFromFont( THEME->GetPathF("Common","title") );
-		m_textName[b].SetXY( SCREEN_CENTER_X, -6 );
-		m_textName[b].SetText( sName );
-		m_textName[b].SetZoom( 0.7f );
-		m_textName[b].SetShadowLength( 2 );
-		m_Line[b].AddChild( &m_textName[b] );
+	int iRow = 0;
 
-		m_textName2[b].LoadFromFont( THEME->GetPathF("Common","title") );
-		m_textName2[b].SetXY( SCREEN_CENTER_X, +6 );
-		m_textName2[b].SetText( sSecondary );
-		m_textName2[b].SetZoom( 0.5f );
-		m_textName2[b].SetShadowLength( 2 );
-		m_Line[b].AddChild( &m_textName2[b] );
+	// header row
+	{
+		for( int c=0; c<MAX_GAME_CONTROLLERS; c++ ) 
+		{			
+			BitmapText &text = m_textLabel[c];
+			text.LoadFromFont( THEME->GetPathF("Common","title") );
+			PlayerNumber pn = (PlayerNumber)c;
+			text.SetName( "Label"+PlayerNumberToString(pn) );
+			RString sText = ssprintf(PLAYER_SLOTS.GetValue(), PlayerNumberToLocalizedString(pn).c_str());
+			text.SetText( sText );
+			ActorUtil::LoadAllCommands( text, m_sName );
+			m_Line[iRow].AddChild( &m_textLabel[c] );
+		}
+		m_LineScroller.AddChild( &m_Line[iRow] );
 
-		for( int p=0; p<MAX_GAME_CONTROLLERS; p++ ) 
+		iRow++;
+	}
+
+	// normal rows
+	for( unsigned b=0; b<m_KeysToMap.size(); b++ )
+	{
+		KeyToMap *pKey = &m_KeysToMap[b];
+
+		{
+			BitmapText *pName = new BitmapText;
+			pName->SetName( "Primary" );
+			pName->LoadFromFont( THEME->GetPathF("Common","title") );
+			RString sText = GameButtonToLocalizedString( GAMESTATE->GetCurrentGame(), pKey->m_GameButton );
+			pName->SetText( sText );
+			ActorUtil::LoadAllCommands( *pName, m_sName );
+			m_Line[iRow].AddChild( pName );
+		}
+		{
+			BitmapText *pSecondary = new BitmapText;
+			pSecondary->SetName( "Secondary" );
+			pSecondary->LoadFromFont( THEME->GetPathF("Common","title") );
+			MenuButton mb = GAMEMAN->GetMenuButtonSecondaryFunction( GAMESTATE->GetCurrentGame(), pKey->m_GameButton );
+			RString sText;
+			if( mb != MenuButton_INVALID )
+				sText = MenuButtonToLocalizedString( mb );
+			ActorUtil::LoadAllCommands( *pSecondary, m_sName );
+			pSecondary->SetText( sText );
+			m_Line[iRow].AddChild( pSecondary );
+		}
+
+		for( int c=0; c<MAX_GAME_CONTROLLERS; c++ ) 
 		{			
 			for( int s=0; s<NUM_SHOWN_GAME_TO_DEVICE_SLOTS; s++ ) 
 			{
-				m_textMappedTo[p][b][s].LoadFromFont( THEME->GetPathF("ScreenMapControllers","entry") );
-				m_textMappedTo[p][b][s].SetXY( BUTTON_COLUMN_X[p*NUM_SHOWN_GAME_TO_DEVICE_SLOTS+s], 0 );
-				m_textMappedTo[p][b][s].SetZoom( 0.5f );
-				m_textMappedTo[p][b][s].SetShadowLength( 0 );
-				m_Line[b].AddChild( &m_textMappedTo[p][b][s] );
+				pKey->m_textMappedTo[c][s] = new BitmapText;
+				pKey->m_textMappedTo[c][s]->SetName( "MappedTo" );
+				pKey->m_textMappedTo[c][s]->LoadFromFont( THEME->GetPathF(m_sName,"entry") );
+				pKey->m_textMappedTo[c][s]->RunCommands( MAPPED_TO_COMMAND(c,s) );
+				ActorUtil::LoadAllCommands( *pKey->m_textMappedTo[c][s], m_sName );
+				m_Line[iRow].AddChild( pKey->m_textMappedTo[c][s] );
 			}
 		}
-		m_Line[b].SetY( LINE_START_Y + b*LINE_GAP_Y );
-		this->AddChild( &m_Line[b] );
+		m_Line[iRow].DeleteChildrenWhenDone();
+		m_Line[iRow].SetName( "Line" );
+		ActorUtil::LoadAllCommands( m_Line[iRow], m_sName );
+		m_LineScroller.AddChild( &m_Line[iRow] );
 
-		m_Line[b].RunCommands( (b%2)? ODD_LINE_IN : EVEN_LINE_IN );
+		iRow++;
 	}	
 
-	m_textError.LoadFromFont( THEME->GetPathF("Common","normal") );
-	m_textError.SetText( "" );
-	m_textError.SetXY( SCREEN_CENTER_X, SCREEN_CENTER_Y );
-	m_textError.SetDiffuse( RageColor(0,1,0,0) );
-	m_textError.SetZoom( 0.8f );
-	this->AddChild( &m_textError );
+	// exit row
+	{
+		m_sprExit.Load( THEME->GetPathG(m_sName,"exit") );
+		m_sprExit->SetName( "Exit" );
+		ActorUtil::LoadAllCommands( *m_sprExit, m_sName );
 
+		m_Line[iRow].AddChild( m_sprExit );
+		m_LineScroller.AddChild( &m_Line[iRow] );
 
+		iRow++;
+	}
+
+	m_LineScroller.SetName( "LineScroller" );
+	ActorUtil::LoadAllCommands( m_LineScroller, m_sName );
+	m_LineScroller.Load2( (float) m_LineScroller.GetNumChildren()*2, false );
+	this->AddChild( &m_LineScroller );
+}
+
+void ScreenMapControllers::BeginScreen()
+{
 	m_iCurController = 0;
 	m_iCurButton = 0;
 	m_iCurSlot = 0;
 
-	m_iWaitingForPress = 0;
+	ScreenWithMenuElements::BeginScreen();
+
+	m_WaitingForPress.SetZero();
 
 	Refresh();
-}
-
-
-
-ScreenMapControllers::~ScreenMapControllers()
-{
-	LOG->Trace( "ScreenMapControllers::~ScreenMapControllers()" );
+	AfterChangeFocus();
 }
 
 
 void ScreenMapControllers::Update( float fDeltaTime )
 {
-	Screen::Update( fDeltaTime );
+	ScreenWithMenuElements::Update( fDeltaTime );
 
 	
-	if( m_iWaitingForPress  &&  m_DeviceIToMap.IsValid() )	// we're going to map an input
-	{	
-		--m_iWaitingForPress;
-		if( m_iWaitingForPress )
-			return; /* keep waiting */
+	//
+	// Update devices text
+	//
+	m_textDevices.SetText( INPUTMAN->GetDisplayDevicesString() );
 
-		GameInput curGameI( (GameController)m_iCurController,
-							(GameButton)m_iCurButton );
+
+	if( !m_WaitingForPress.IsZero() && m_DeviceIToMap.IsValid() ) // we're going to map an input
+	{	
+		if( m_WaitingForPress.PeekDeltaTime() < g_fSecondsToWaitForInput )
+			return; /* keep waiting */
+		m_WaitingForPress.SetZero();
+
+		ASSERT( m_iCurButton < (int) m_KeysToMap.size() );
+		const KeyToMap *pKey = &m_KeysToMap[m_iCurButton];
+		
+		GameInput curGameI( (GameController)m_iCurController, pKey->m_GameButton );
 
 		INPUTMAPPER->SetInputMap( m_DeviceIToMap, curGameI, m_iCurSlot );
 		INPUTMAPPER->AddDefaultMappingsForCurrentGameIfUnmapped();
@@ -133,6 +198,10 @@ void ScreenMapControllers::Update( float fDeltaTime )
 		INPUTMAPPER->SaveMappingsToDisk();
 
 		Refresh();
+
+		BitmapText *pText = pKey->m_textMappedTo[m_iCurController][m_iCurSlot];
+		pText->PlayCommand( "MappedInput" );
+		SCREENMAN->PlayStartSound();
 	}
 }
 
@@ -165,7 +234,9 @@ static bool IsAxis( const DeviceInput& DeviceI )
 
 void ScreenMapControllers::Input( const InputEventPlus &input )
 {
-	if( input.type != IET_FIRST_PRESS && input.type != IET_SLOW_REPEAT )
+	if( input.type != IET_FIRST_PRESS && input.type != IET_SLOW_REPEAT && input.type != IET_FAST_REPEAT )
+		return;	// ignore
+	if( IsTransitioning() )
 		return;	// ignore
 
 	LOG->Trace( "ScreenMapControllers::Input():  device: %d, button: %d", 
@@ -174,7 +245,7 @@ void ScreenMapControllers::Input( const InputEventPlus &input )
 	int button = input.DeviceI.button;
 
 #ifdef _XBOX
-	if( !m_iWaitingForPress && input.DeviceI.device == DEVICE_JOY1 )
+	if( m_WaitingForPress.IsZero() && input.DeviceI.device == DEVICE_JOY1 )
 	{
 		// map the xbox controller buttons to the keyboard equivalents
 		if( input.DeviceI.button == JOY_HAT_LEFT )
@@ -204,18 +275,16 @@ void ScreenMapControllers::Input( const InputEventPlus &input )
 	// that we get a chance to see all input events the user's press of a panel.
 	// Prefer non-axis events over axis events. 
 	//
-	if( m_iWaitingForPress )
+	if( !m_WaitingForPress.IsZero() )
 	{
+		if( input.type != IET_FIRST_PRESS )
+			return;
+
 		/* Don't allow function keys to be mapped. */
 		if( input.DeviceI.device == DEVICE_KEYBOARD && (input.DeviceI.button >= KEY_F1 && input.DeviceI.button <= KEY_F12) )
 		{
-			m_textError.SetText( "That key can not be mapped." );
+			SCREENMAN->SystemMessage( INVALID_BUTTON );
 			SCREENMAN->PlayInvalidSound();
-			m_textError.StopTweening();
-			m_textError.SetDiffuse( RageColor(0,1,0,1) );
-			m_textError.BeginTweening( 3 );
-			m_textError.BeginTweening( 1 );
-			m_textError.SetDiffuse( RageColor(0,1,0,0) );
 		}
 		else
 		{
@@ -252,123 +321,166 @@ void ScreenMapControllers::Input( const InputEventPlus &input )
 		case KEY_SPACE:
 		case KEY_BACK: /* Clear the selected input mapping. */
 #endif
+			if( m_iCurButton == (int) m_KeysToMap.size() )
+				break; // on exit
+
 			{
-				GameInput curGameI( (GameController)m_iCurController, (GameButton)m_iCurButton );
-				INPUTMAPPER->ClearFromInputMap( curGameI, m_iCurSlot );
+				const KeyToMap *pKey = &m_KeysToMap[m_iCurButton];
+				GameInput curGameI( (GameController)m_iCurController, pKey->m_GameButton );
+				if( !INPUTMAPPER->ClearFromInputMap(curGameI, m_iCurSlot) )
+					break;
+
 				INPUTMAPPER->AddDefaultMappingsForCurrentGameIfUnmapped();
-		
+
+				m_soundDelete.Play();
+
 				// commit to disk after each change
 				INPUTMAPPER->SaveMappingsToDisk();
 			}
 			break;
 		case KEY_LEFT: /* Move the selection left, wrapping up. */
+			if( m_iCurButton == (int) m_KeysToMap.size() )
+				break; // on exit
 			if( m_iCurSlot == 0 && m_iCurController == 0 )
 				break;	// can't go left any more
+			BeforeChangeFocus();
 			m_iCurSlot--;
 			if( m_iCurSlot < 0 )
 			{
 				m_iCurSlot = NUM_CHANGABLE_SLOTS-1;
 				m_iCurController--;
 			}
-
+			AfterChangeFocus();
+			m_soundChange.Play();
 			break;
 		case KEY_RIGHT:	/* Move the selection right, wrapping down. */
+			if( m_iCurButton == (int) m_KeysToMap.size() )
+				break; // on exit
 			if( m_iCurSlot == NUM_CHANGABLE_SLOTS-1 && m_iCurController == MAX_GAME_CONTROLLERS-1 )
 				break;	// can't go right any more
+			BeforeChangeFocus();
 			m_iCurSlot++;
 			if( m_iCurSlot > NUM_CHANGABLE_SLOTS-1 )
 			{
 				m_iCurSlot = 0;
 				m_iCurController++;
 			}
+			AfterChangeFocus();
+			m_soundChange.Play();
 			break;
 		case KEY_UP: /* Move the selection up. */
 			if( m_iCurButton == 0 )
 				break;	// can't go up any more
+			BeforeChangeFocus();
 			m_iCurButton--;
+			AfterChangeFocus();
+			m_soundChange.Play();
 			break;
 		case KEY_DOWN: /* Move the selection down. */
-			if( m_iCurButton == GAMESTATE->GetCurrentGame()->m_iButtonsPerController-1 )
+			if( m_iCurButton == (int) m_KeysToMap.size() )
 				break;	// can't go down any more
+			BeforeChangeFocus();
 			m_iCurButton++;
+			AfterChangeFocus();
+			m_soundChange.Play();
 			break;
 		case KEY_ESC: /* Quit the screen. */
-			if( !IsTransitioning() )
-			{
-				SCREENMAN->PlayStartSound();
-
-				INPUTMAPPER->SaveMappingsToDisk();	// save changes
-
-				StartTransitioning( SM_GoToNextScreen );		
-				for( int b=0; b<GAMESTATE->GetCurrentGame()->m_iButtonsPerController; b++ )
-					m_Line[b].RunCommands( (b%2)? ODD_LINE_OUT:EVEN_LINE_OUT );
-			}
+			SCREENMAN->PlayStartSound();
+			StartTransitioningScreen( SM_GoToNextScreen );		
 			break;
 		case KEY_ENTER: /* Change the selection. */
 		case KEY_KP_ENTER:
-			m_iWaitingForPress = FramesToWaitForInput;
+			if( m_iCurButton == (int) m_KeysToMap.size() )
+			{
+				SCREENMAN->PlayStartSound();
+				StartTransitioningScreen( SM_GoToNextScreen );		
+				break;
+			}
+
+			{
+				const KeyToMap *pKey = &m_KeysToMap[m_iCurButton];
+				BitmapText *pText = pKey->m_textMappedTo[m_iCurController][m_iCurSlot];
+				pText->PlayCommand( "Waiting" );
+			}
+			m_WaitingForPress.Touch();
 			m_DeviceIToMap.MakeInvalid();
+			SCREENMAN->PlayStartSound();
 			break;
 		}
 	}
 
-//	Screen::Input( input );	// default handler
+//	ScreenWithMenuElements::Input( input );	// default handler
 
 	LOG->Trace( "m_iCurSlot: %d m_iCurController: %d m_iCurButton: %d", m_iCurSlot, m_iCurController, m_iCurButton );
 
 	Refresh();
 }
 
+void ScreenMapControllers::TweenOffScreen()
+{
+	ScreenWithMenuElements::TweenOffScreen();
+
+	OFF_COMMAND( m_LineScroller );
+	OFF_COMMAND( m_textDevices );
+}
+
+Actor *ScreenMapControllers::GetActorWithFocus()
+{
+	if( m_iCurButton == (int) m_KeysToMap.size() )
+		return m_sprExit;
+
+	const KeyToMap *pKey = &m_KeysToMap[m_iCurButton];
+	return pKey->m_textMappedTo[m_iCurController][m_iCurSlot];
+}
+
+void ScreenMapControllers::BeforeChangeFocus()
+{
+	Actor *pActor = GetActorWithFocus();
+	pActor->PlayCommand( "LoseFocus" );
+}
+
+void ScreenMapControllers::AfterChangeFocus()
+{
+	Actor *pActor = GetActorWithFocus();
+	pActor->PlayCommand( "GainFocus" );
+}
+
 void ScreenMapControllers::Refresh()
 {
-	for( int p=0; p<MAX_GAME_CONTROLLERS; p++ ) 
+	FOREACH_GameController( p )
 	{			
-		for( int b=0; b<GAMESTATE->GetCurrentGame()->m_iButtonsPerController; b++ ) 
+		for( unsigned b=0; b<m_KeysToMap.size(); b++ )
 		{
+			const KeyToMap *pKey = &m_KeysToMap[b];
 			for( int s=0; s<NUM_SHOWN_GAME_TO_DEVICE_SLOTS; s++ ) 
 			{
-				bool bSelected = p == m_iCurController  &&  b == m_iCurButton  &&  s == m_iCurSlot; 
-
-				GameInput cur_gi( (GameController)p, (GameButton)b );
+				BitmapText *pText = pKey->m_textMappedTo[p][s];
+				GameInput cur_gi( p, pKey->m_GameButton );
 				DeviceInput di;
+				RString sText = "-----------";
 				if( INPUTMAPPER->GameToDevice( cur_gi, s, di ) )
-					m_textMappedTo[p][b][s].SetText( di.toString() );
-				else
-					m_textMappedTo[p][b][s].SetText( "-----------" );
-				
-				// highlight the currently selected pad button
-				RageColor color;
-				bool bPulse;
-				if( bSelected ) 
-				{
-					if( m_iWaitingForPress )
-					{
-						color = RageColor(1,0.5,0.5,1);	// red
-						bPulse = true;
-					}
-					else
-					{
-						color = RageColor(1,1,1,1);		// white
-						bPulse = false;
-					}
-				} 
-				else 
-				{
-					color = RageColor(0.5,0.5,0.5,1);	// gray
-					bPulse = false;
-				}
-				m_textMappedTo[p][b][s].SetDiffuse( color );
-				if( bPulse )
-					m_textMappedTo[p][b][s].SetEffectPulse( .5f, .5f, .6f );
-				else
-					m_textMappedTo[p][b][s].StopEffect();
+					sText = INPUTMAN->GetDeviceSpecificInputString( di );
+				pText->SetText( sText );
 			}
 		}
 	}
+
+	m_LineScroller.SetDestinationItem( (float) m_iCurButton );
 }
 
+void ScreenMapControllers::HandleMessage( const RString& sMessage )
+{
+	if( sMessage == MessageToString(Message_AutoJoyMappingApplied) )
+	{
+		Refresh();
+	}
+
+	ScreenWithMenuElements::HandleMessage( sMessage );
+}
+
+
 /*
- * (c) 2001-2004 Chris Danford
+ * (c) 2001-2005 Chris Danford, Glenn Maynard
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

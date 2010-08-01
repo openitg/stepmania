@@ -9,6 +9,7 @@
 #include "ThemeMetric.h"
 #include "CharacterManager.h"
 #include "ActorUtil.h"
+#include "UnlockManager.h"
 
 REGISTER_ACTOR_CLASS( Banner )
 
@@ -22,12 +23,12 @@ Banner::Banner()
 }
 
 /* Ugly: if sIsBanner is false, we're actually loading something other than a banner. */
-bool Banner::Load( RageTextureID ID, bool bIsBanner )
+void Banner::Load( RageTextureID ID, bool bIsBanner )
 {
 	if( ID.filename == "" )
 	{
 		LoadFallback();
-		return true;
+		return;
 	}
 
 	if( bIsBanner )
@@ -38,10 +39,8 @@ bool Banner::Load( RageTextureID ID, bool bIsBanner )
 
 	TEXTUREMAN->DisableOddDimensionWarning();
 	TEXTUREMAN->VolatileTexture( ID );
-	bool ret = Sprite::Load( ID );
+	Sprite::Load( ID );
 	TEXTUREMAN->EnableOddDimensionWarning();
-
-	return ret;
 };
 
 void Banner::Update( float fDeltaTime )
@@ -96,9 +95,9 @@ void Banner::LoadMode()
 	m_bScrolling = false;
 }
 
-void Banner::LoadFromSongGroup( CString sSongGroup )
+void Banner::LoadFromSongGroup( RString sSongGroup )
 {
-	CString sGroupBannerPath = SONGMAN->GetSongGroupBannerPath( sSongGroup );
+	RString sGroupBannerPath = SONGMAN->GetSongGroupBannerPath( sSongGroup );
 	if( sGroupBannerPath != "" )	Load( sGroupBannerPath );
 	else							LoadFallback();
 	m_bScrolling = false;
@@ -133,10 +132,35 @@ void Banner::LoadIconFromCharacter( Character* pCharacter )
 
 void Banner::LoadTABreakFromCharacter( Character* pCharacter )
 {
-	if( pCharacter == NULL )					Load( THEME->GetPathG("Common","fallback takingabreak") );
+	if( pCharacter == NULL )
+		Load( THEME->GetPathG("Common","fallback takingabreak") );
 	else 
 	{
 		Load( pCharacter->GetTakingABreakPath() );
+		m_bScrolling = false;
+	}
+}
+
+void Banner::LoadBannerFromUnlockEntry( const UnlockEntry* pUE )
+{
+	if( pUE == NULL )
+		LoadFallback();
+	else 
+	{
+		RString sFile = pUE->GetBannerFile();
+		Load( sFile );
+		m_bScrolling = false;
+	}
+}
+
+void Banner::LoadBackgroundFromUnlockEntry( const UnlockEntry* pUE )
+{
+	if( pUE == NULL )
+		LoadFallback();
+	else 
+	{
+		RString sFile = pUE->GetBackgroundFile();
+		Load( sFile );
 		m_bScrolling = false;
 	}
 }
@@ -206,6 +230,18 @@ public:
 		else { Character *pC = Luna<Character>::check(L,1); p->LoadIconFromCharacter( pC ); }
 		return 0;
 	}
+	static int LoadBannerFromUnlockEntry( T* p, lua_State *L )
+	{ 
+		if( lua_isnil(L,1) ) { p->LoadBannerFromUnlockEntry( NULL ); }
+		else { UnlockEntry *pUE = Luna<UnlockEntry>::check(L,1); p->LoadBannerFromUnlockEntry( pUE ); }
+		return 0;
+	}
+	static int LoadBackgroundFromUnlockEntry( T* p, lua_State *L )
+	{ 
+		if( lua_isnil(L,1) ) { p->LoadBackgroundFromUnlockEntry( NULL ); }
+		else { UnlockEntry *pUE = Luna<UnlockEntry>::check(L,1); p->LoadBackgroundFromUnlockEntry( pUE ); }
+		return 0;
+	}
 
 	static void Register(lua_State *L) 
 	{
@@ -215,6 +251,8 @@ public:
 		ADD_METHOD( LoadFromCourse );
 		ADD_METHOD( LoadIconFromCharacter );
 		ADD_METHOD( LoadCardFromCharacter );
+		ADD_METHOD( LoadBannerFromUnlockEntry );
+		ADD_METHOD( LoadBackgroundFromUnlockEntry );
 
 		Luna<T>::Register( L );
 	}

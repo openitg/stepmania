@@ -11,23 +11,24 @@
 #include "TitleSubstitution.h"
 #include "BannerCache.h"
 #include "RageFileManager.h"
-#include "Profile.h"
 #include "CourseWriterCRS.h"
+#include "RageUtil.h"
+#include <float.h>
 
 const int MAX_EDIT_COURSE_SIZE_BYTES	= 30*1024;	// 30KB
 
-bool CourseLoaderCRS::LoadFromBuffer( const CString &sPath, const CString &sBuffer, Course &out )
+bool CourseLoaderCRS::LoadFromBuffer( const RString &sPath, const RString &sBuffer, Course &out )
 {
 	MsdFile msd;
 	msd.ReadFromString( sBuffer );
 	return LoadFromMsd( sPath, msd, out, true );
 }
 
-bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Course &out, bool bFromCache )
+bool CourseLoaderCRS::LoadFromMsd( const RString &sPath, const MsdFile &msd, Course &out, bool bFromCache )
 {
-	const CString sFName = SetExtension( out.m_sPath, "" );
+	const RString sFName = SetExtension( out.m_sPath, "" );
 
-	CStringArray arrayPossibleBanners;
+	vector<RString> arrayPossibleBanners;
 	GetDirListing( sFName + "*.png", arrayPossibleBanners, false, true );
 	GetDirListing( sFName + "*.jpg", arrayPossibleBanners, false, true );
 	GetDirListing( sFName + "*.bmp", arrayPossibleBanners, false, true );
@@ -39,7 +40,7 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 	float fGainSeconds = 0;
 	for( unsigned i=0; i<msd.GetNumValues(); i++ )
 	{
-		CString sValueName = msd.GetParam(i, 0);
+		RString sValueName = msd.GetParam(i, 0);
 		const MsdFile::value_t &sParams = msd.GetValue(i);
 
 		// handle the data
@@ -49,23 +50,25 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 			out.m_sMainTitleTranslit = sParams[1];
 		else if( 0 == stricmp(sValueName, "REPEAT") )
 		{
-			CString str = sParams[1];
+			RString str = sParams[1];
 			str.MakeLower();
-			if( str.Find("yes") != -1 )
+			if( str.find("yes") != string::npos )
 				out.m_bRepeat = true;
 		}
 
 		else if( 0 == stricmp(sValueName, "LIVES") )
-			out.m_iLives = atoi( sParams[1] );
-
+		{
+			out.m_iLives = max( atoi(sParams[1]), 0 );
+		}
 		else if( 0 == stricmp(sValueName, "GAINSECONDS") )
-			fGainSeconds = strtof( sParams[1], NULL );
-
+		{
+			fGainSeconds = StringToFloat( sParams[1] );
+		}
 		else if( 0 == stricmp(sValueName, "METER") )
 		{
 			if( sParams.params.size() == 2 )
 			{
-				out.m_iCustomMeter[DIFFICULTY_MEDIUM] = atoi( sParams[1] ); /* compat */
+				out.m_iCustomMeter[DIFFICULTY_MEDIUM] = max( atoi(sParams[1]), 0 ); /* compat */
 			}
 			else if( sParams.params.size() == 3 )
 			{
@@ -73,10 +76,10 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 				if( cd == DIFFICULTY_INVALID )
 				{
 					LOG->Warn( "Course file '%s' contains an invalid #METER string: \"%s\"",
-								sPath.c_str(), sParams[1].c_str() );
+						   sPath.c_str(), sParams[1].c_str() );
 					continue;
 				}
-				out.m_iCustomMeter[cd] = atoi( sParams[2] );
+				out.m_iCustomMeter[cd] = max( atoi(sParams[2]), 0 );
 			}
 		}
 
@@ -86,7 +89,7 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 			float end = -9999;
 			for( unsigned j = 1; j < sParams.params.size(); ++j )
 			{
-				CStringArray sBits;
+				vector<RString> sBits;
 				split( sParams[j], "=", sBits, false );
 				if( sBits.size() < 2 )
 					continue;
@@ -94,19 +97,25 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 				TrimLeft( sBits[0] );
 				TrimRight( sBits[0] );
 				if( !sBits[0].CompareNoCase("TIME") )
-					attack.fStartSecond = strtof( sBits[1], NULL );
+					attack.fStartSecond = max( StringToFloat(sBits[1]), 0.0f );
 				else if( !sBits[0].CompareNoCase("LEN") )
-					attack.fSecsRemaining = strtof( sBits[1], NULL );
+					attack.fSecsRemaining = StringToFloat( sBits[1] );
 				else if( !sBits[0].CompareNoCase("END") )
-					end = strtof( sBits[1], NULL );
+					end = StringToFloat( sBits[1] );
 				else if( !sBits[0].CompareNoCase("MODS") )
 				{
 					attack.sModifiers = sBits[1];
+					
 					if( end != -9999 )
 					{
-						ASSERT_M( end >= attack.fStartSecond, ssprintf("Attack ends before it starts.  end %f, start %f", end, attack.fStartSecond) );
 						attack.fSecsRemaining = end - attack.fStartSecond;
 						end = -9999;
+					}
+
+					if( attack.fSecsRemaining <= 0.0f)
+					{
+						LOG->Warn( "Attack has nonpositive length: %s", sBits[1].c_str() );
+						attack.fSecsRemaining = 0.0f;
 					}
 					
 					// warn on invalid so we catch bogus mods on load
@@ -142,75 +151,88 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 			}
 			else if( sParams[1] == "*" )
 			{
-				new_entry.bSecret = true;
+				//new_entry.bSecret = true;
 			}
 			else if( sParams[1].Right(1) == "*" )
 			{
-				new_entry.bSecret = true;
-				CString sSong = sParams[1];
+				//new_entry.bSecret = true;
+				RString sSong = sParams[1];
 				sSong.Replace( "\\", "/" );
-				CStringArray bits;
+				vector<RString> bits;
 				split( sSong, "/", bits );
 				if( bits.size() == 2 )
 				{
-					new_entry.sSongGroup = bits[0];
+					new_entry.songCriteria.m_sGroupName = bits[0];
 				}
 				else
 				{
 					LOG->Warn( "Course file '%s' contains a random_within_group entry '%s' that is invalid. "
-								"Song should be in the format '<group>/*'.",
-								sPath.c_str(), sSong.c_str());
+						   "Song should be in the format '<group>/*'.",
+						    sPath.c_str(), sSong.c_str() );
 				}
 
-				if( !SONGMAN->DoesSongGroupExist(new_entry.sSongGroup) )
+				if( !SONGMAN->DoesSongGroupExist(new_entry.songCriteria.m_sGroupName) )
 				{
 					/* XXX: We need a place to put "user warnings".  This is too loud for info.txt--
-				     * it obscures important warnings--and regular users never look there, anyway. */
+					 * it obscures important warnings--and regular users never look there, anyway. */
 					LOG->Trace( "Course file '%s' random_within_group entry '%s' specifies a group that doesn't exist. "
-								"This entry will be ignored.",
-								sPath.c_str(), sSong.c_str());
-					continue;	// skip this #SONG
+						    "This entry will be ignored.",
+						    sPath.c_str(), sSong.c_str() );
+					continue; // skip this #SONG
 				}
 			}
 			else
 			{
-				CString sSong = sParams[1];
-				new_entry.pSong = SONGMAN->FindSong( sSong );
+				RString sSong = sParams[1];
+				sSong.Replace( "\\", "/" );
+				vector<RString> bits;
+				split( sSong, "/", bits );
+
+				if( bits.size() == 2 )
+				{
+					new_entry.songCriteria.m_sGroupName = bits[0];
+					new_entry.pSong = SONGMAN->FindSong( bits[0], bits[1] );
+				}
+				else if( bits.size() == 1 )
+				{
+					new_entry.pSong = SONGMAN->FindSong( "", sSong );
+				}
 
 				if( new_entry.pSong == NULL )
 				{
 					/* XXX: We need a place to put "user warnings".  This is too loud for info.txt--
-				     * it obscures important warnings--and regular users never look there, anyway. */
+					 * it obscures important warnings--and regular users never look there, anyway. */
 					LOG->Trace( "Course file '%s' contains a fixed song entry '%s' that does not exist. "
-								"This entry will be ignored.",
-								sPath.c_str(), sSong.c_str());
-					continue;	// skip this #SONG
+						    "This entry will be ignored.",
+						    sPath.c_str(), sSong.c_str());
+					continue; // skip this #SONG
 				}
 			}
 
-			new_entry.baseDifficulty = StringToDifficulty( sParams[2] );
-			if( new_entry.baseDifficulty == DIFFICULTY_INVALID )
+			new_entry.stepsCriteria.m_difficulty = StringToDifficulty( sParams[2] );
+			if( new_entry.stepsCriteria.m_difficulty == DIFFICULTY_INVALID )
 			{
-				int retval = sscanf( sParams[2], "%d..%d", &new_entry.iLowMeter, &new_entry.iHighMeter );
+				int retval = sscanf( sParams[2], "%d..%d", &new_entry.stepsCriteria.m_iLowMeter, &new_entry.stepsCriteria.m_iHighMeter );
 				if( retval == 1 )
-					new_entry.iHighMeter = new_entry.iLowMeter;
+					new_entry.stepsCriteria.m_iHighMeter = new_entry.stepsCriteria.m_iLowMeter;
 				else if( retval != 2 )
 				{
-					LOG->Warn("Course file '%s' contains an invalid difficulty setting: \"%s\", 3..6 used instead",
-						sPath.c_str(), sParams[2].c_str());
-					new_entry.iLowMeter = 3;
-					new_entry.iHighMeter = 6;
+					LOG->Warn( "Course file '%s' contains an invalid difficulty setting: \"%s\", 3..6 used instead",
+						   sPath.c_str(), sParams[2].c_str() );
+					new_entry.stepsCriteria.m_iLowMeter = 3;
+					new_entry.stepsCriteria.m_iHighMeter = 6;
 				}
+				new_entry.stepsCriteria.m_iLowMeter = max( new_entry.stepsCriteria.m_iLowMeter, 1 );
+				new_entry.stepsCriteria.m_iHighMeter = max( new_entry.stepsCriteria.m_iHighMeter, new_entry.stepsCriteria.m_iLowMeter );
 			}
 
 			{
-				/* If "showcourse" or "noshowcourse" is in the list, force new_entry.secret 
-				 * on or off. */
-				CStringArray mods;
+				/* If "showcourse" or "noshowcourse" is in the list, force new_entry.secret on or off. */
+				vector<RString> mods;
 				split( sParams[3], ",", mods, true );
 				for( int j = (int) mods.size()-1; j >= 0 ; --j )
 				{
-					CString &sMod = mods[j];
+					RString &sMod = mods[j];
 					TrimLeft( sMod );
 					TrimRight( sMod );
 					if( !sMod.CompareNoCase("showcourse") )
@@ -232,10 +254,16 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 			
 			out.m_vEntries.push_back( new_entry );
 		}
+		else if( !stricmp(sValueName, "DISPLAYCOURSE") || !stricmp(sValueName, "COMBO") ||
+			 !stricmp(sValueName, "COMBOMODE") )
+		{
+			// Ignore
+		}
+		
 		else if( bFromCache && !stricmp(sValueName, "RADAR") )
 		{
 			StepsType st = (StepsType) atoi(sParams[1]);
-			CourseDifficulty cd = (CourseDifficulty) atoi(sParams[2]);
+			CourseDifficulty cd = (CourseDifficulty) atoi( sParams[2] );
 
 			RadarValues rv;
 			rv.FromString( sParams[3] );
@@ -246,7 +274,7 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 			LOG->Warn( "Unexpected value named '%s'", sValueName.c_str() );
 		}
 	}
-	static TitleSubst tsub("courses");
+	static TitleSubst tsub("Courses");
 
 	TitleFields title;
 	title.Title = out.m_sMainTitle;
@@ -268,19 +296,19 @@ bool CourseLoaderCRS::LoadFromMsd( const CString &sPath, const MsdFile &msd, Cou
 	return true;
 }
 
-bool CourseLoaderCRS::LoadFromCRSFile( const CString &_sPath, Course &out )
+bool CourseLoaderCRS::LoadFromCRSFile( const RString &_sPath, Course &out )
 {
-	CString sPath = _sPath;
+	RString sPath = _sPath;
 
 	out.Init();
 
-	out.m_sPath = sPath;	// save path
+	out.m_sPath = sPath; // save path
 
 	// save group name
 	{
-		CStringArray parts;
+		vector<RString> parts;
 		split( sPath, "/", parts, false );
-		if( parts.size() >= 4 )		// e.g. "/Courses/blah/fun.cvs"
+		if( parts.size() >= 4 ) // e.g. "/Courses/blah/fun.crs"
 			out.m_sGroupName = parts[parts.size()-2];
 	}
 
@@ -301,7 +329,7 @@ bool CourseLoaderCRS::LoadFromCRSFile( const CString &_sPath, Course &out )
 
 	if( bUseCache )
 	{
-		CString sCacheFile = out.GetCacheFilePath();
+		RString sCacheFile = out.GetCacheFilePath();
 		LOG->Trace( "CourseLoaderCRS::LoadFromCRSFile(\"%s\") (\"%s\")", sPath.c_str(), sCacheFile.c_str() );
 		sPath = sCacheFile.c_str();
 	}
@@ -312,7 +340,11 @@ bool CourseLoaderCRS::LoadFromCRSFile( const CString &_sPath, Course &out )
 
 	MsdFile msd;
 	if( !msd.ReadFile(sPath) )
-		RageException::Throw( "Error opening CRS file '%s'.", sPath.c_str() );
+	{
+		
+		LOG->Trace( "Error opening CRS file '%s': %s.", sPath.c_str(), msd.GetError().c_str() );
+		return false;
+	}
 	
 	if( !LoadFromMsd(sPath, msd, out, bUseCache) )
 		return false;
@@ -322,7 +354,7 @@ bool CourseLoaderCRS::LoadFromCRSFile( const CString &_sPath, Course &out )
 		/* If we have any cache data, write the cache file. */
 		if( out.m_RadarCache.size() )
 		{
-			CString sCachePath = out.GetCacheFilePath();
+			RString sCachePath = out.GetCacheFilePath();
 			CourseWriterCRS::Write( out, sCachePath, true );
 
 			SONGINDEX->AddCacheIndex( out.m_sPath, GetHashForFile(out.m_sPath) );
@@ -332,7 +364,7 @@ bool CourseLoaderCRS::LoadFromCRSFile( const CString &_sPath, Course &out )
 	return true;
 }
 
-bool CourseLoaderCRS::LoadEdit( const CString &sEditFilePath, ProfileSlot slot )
+bool CourseLoaderCRS::LoadEditFromFile( const RString &sEditFilePath, ProfileSlot slot )
 {
 	LOG->Trace( "CourseLoaderCRS::LoadEdit(%s)", sEditFilePath.c_str() );
 
@@ -350,6 +382,8 @@ bool CourseLoaderCRS::LoadEdit( const CString &sEditFilePath, ProfileSlot slot )
 		return false;
 	}
 	Course *pCourse = new Course;
+	
+	pCourse->m_sPath = sEditFilePath;
 	LoadFromMsd( sEditFilePath, msd, *pCourse, true );
 
 	pCourse->m_LoadedFromProfile = slot;
@@ -358,7 +392,7 @@ bool CourseLoaderCRS::LoadEdit( const CString &sEditFilePath, ProfileSlot slot )
 	return true;
 }
 
-bool CourseLoaderCRS::LoadEditFromBuffer( const CString &sBuffer, const CString &sPath, ProfileSlot slot )
+bool CourseLoaderCRS::LoadEditFromBuffer( const RString &sBuffer, const RString &sPath, ProfileSlot slot )
 {
 	Course *pCourse = new Course;
 	if( !LoadFromBuffer(sPath, sBuffer, *pCourse) )

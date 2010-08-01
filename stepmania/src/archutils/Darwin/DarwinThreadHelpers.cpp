@@ -1,16 +1,19 @@
 #include <mach/mach_types.h>
 #include <mach/thread_act.h>
 #include <mach/mach_init.h>
+#include <mach/mach_error.h>
 #include "Backtrace.h"
+#include "RageLog.h"
+#include "RageUtil.h"
 
-bool SuspendThread(uint64_t threadHandle)
+bool SuspendThread( uint64_t threadHandle )
 {
-	return !thread_suspend(thread_act_t(threadHandle));
+	return !thread_suspend( thread_act_t(threadHandle) );
 }
 
-bool ResumeThread(uint64_t threadHandle)
+bool ResumeThread( uint64_t threadHandle )
 {
-	return !thread_resume(thread_act_t(threadHandle));
+	return !thread_resume( thread_act_t(threadHandle) );
 }
 
 uint64_t GetCurrentThreadId()
@@ -18,27 +21,54 @@ uint64_t GetCurrentThreadId()
 	return mach_thread_self();
 }
 
-bool GetThreadBacktraceContext(uint64_t iID, BacktraceContext *ctx)
+bool GetThreadBacktraceContext( uint64_t iID, BacktraceContext *ctx )
 {
 	/* Can't GetThreadBacktraceContext the current thread. */
-	ASSERT(iID != GetCurrentThreadId());
-
+	ASSERT( iID != GetCurrentThreadId() );
 	SuspendThread( iID );
+	
+	thread_act_t thread = thread_act_t( iID );	
 
-	thread_act_t thread = thread_act_t(iID);
+#if defined(__ppc__)
 	ppc_thread_state state;
 	mach_msg_type_number_t count = PPC_THREAD_STATE_COUNT;
 	
-	if (thread_get_state(thread, PPC_THREAD_STATE, thread_state_t(&state),
-						 &count))
+	if( thread_get_state(thread, PPC_THREAD_STATE, thread_state_t(&state), &count) )
 		return false;
-	ctx->FramePtr = (void *)state.r1;
+	ctx->FramePtr = (const Frame *)state.r1;
 	ctx->PC = (void *)state.srr0;
 	return true;
+#elif defined(__i386__)
+	i386_thread_state state;
+	mach_msg_type_number_t count = i386_THREAD_STATE_COUNT;
+	
+	if( thread_get_state(thread, i386_THREAD_STATE, thread_state_t(&state), &count) )
+		return false;
+	ctx->ip = (void *)state.eip;
+	ctx->bp = (void *)state.ebp;
+	ctx->sp = (void *)state.esp;
+	return true;
+#else
+	return false;
+#endif
+}
+
+void SetThreadPrecedence( float prec )
+{
+	// Real values are between 0 and 63.
+	if( CLAMP(prec, 0.0f, 1.0f) )
+		LOG->Warn( "Thread precedence clamped to %f.", prec );
+	thread_precedence_policy po = { integer_t( roundf(prec * 63) ) };
+	kern_return_t ret = thread_policy_set( mach_thread_self(), THREAD_PRECEDENCE_POLICY,
+					       (thread_policy_t)&po, THREAD_PRECEDENCE_POLICY_COUNT );
+	
+	if( ret != KERN_SUCCESS )
+		LOG->Warn( "Couldn't set the precedence for the input thread: %s",
+			   mach_error_string(ret) );
 }
 	
 /*
- * (c) 2004 Steve Checkoway
+ * (c) 2004-2006 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

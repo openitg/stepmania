@@ -4,12 +4,13 @@
 #define SCREENOPTIONS_H
 
 #include "ScreenWithMenuElements.h"
-#include "Sprite.h"
 #include "DualScrollBar.h"
 #include "ThemeMetric.h"
 #include "OptionRow.h"
 #include "OptionsCursor.h"
 #include "LuaExpressionTransform.h"
+#include "InputEventPlus.h"
+#include "RageSound.h"
 
 class OptionRowHandler;
 
@@ -18,8 +19,11 @@ AutoScreenMessage( SM_ExportOptions )
 enum InputMode 
 { 
 	INPUTMODE_INDIVIDUAL, 	// each player controls their own cursor
-	INPUTMODE_SHARE_CURSOR		// both players control the same cursor
+	INPUTMODE_SHARE_CURSOR,		// both players control the same cursor
+	NUM_InputMode,
+	InputMode_Invalid
 };
+InputMode StringToInputMode( const RString& str );
 
 #define FOREACH_OptionsPlayer( pn ) \
 	for( PlayerNumber pn=GetNextHumanPlayer((PlayerNumber)-1); pn!=PLAYER_INVALID && (m_InputMode==INPUTMODE_INDIVIDUAL || pn==0); pn=GetNextHumanPlayer(pn) )
@@ -27,105 +31,95 @@ enum InputMode
 class ScreenOptions : public ScreenWithMenuElements
 {
 public:
-	ScreenOptions( CString sClassName );
+	ScreenOptions();
 	virtual void Init();
 	virtual void BeginScreen();
-	void InitMenu( const vector<OptionRowDefinition> &vDefs, const vector<OptionRowHandler*> &vHands );
+	void InitMenu( const vector<OptionRowHandler*> &vHands );
 	virtual ~ScreenOptions();
 	virtual void Update( float fDeltaTime );
 	virtual void Input( const InputEventPlus &input );
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
-protected:
-	OptionRowType m_OptionRowType;
-
 	virtual void TweenOnScreen();
 	virtual void TweenOffScreen();
 
+	//
+	// Lua
+	//
+	virtual void PushSelf( lua_State *L );
+	friend class LunaScreenOptions;
+
+
+protected:
 	virtual void ImportOptions( int iRow, const vector<PlayerNumber> &vpns ) = 0;
 	virtual void ExportOptions( int iRow, const vector<PlayerNumber> &vpns ) = 0;
 
-	void InitOptionsText();
-	void GetWidthXY( PlayerNumber pn, int iRow, int iChoiceOnRow, int &iWidthOut, int &iXOut, int &iYOut );
-	CString GetExplanationText( int iRow ) const;
-	BitmapText &GetTextItemForRow( PlayerNumber pn, int iRow, int iChoiceOnRow );
-	void PositionUnderlines( int iRow, PlayerNumber pn );
-	void PositionAllUnderlines();
-	void PositionIcons();
-	virtual void RefreshIcons( int iRow, PlayerNumber pn );
-	void RefreshAllIcons();
-	void PositionCursors();
-	void PositionRows();
+	void RestartOptions();
+	void GetWidthXY( PlayerNumber pn, int iRow, int iChoiceOnRow, int &iWidthOut, int &iXOut, int &iYOut ) const;
+	RString GetExplanationText( int iRow ) const;
+	void RefreshIcons( int iRow, PlayerNumber pn );
+	void PositionCursor( PlayerNumber pn );
+	void PositionRows( bool bTween );
 	void TweenCursor( PlayerNumber pn );
-	void UpdateText( int iRow );
-	void UpdateEnabledDisabled();
-	void UpdateEnabledDisabled( int iRow );
+	void StoreFocus( PlayerNumber pn );
 
-	virtual void MenuBack( PlayerNumber pn );
-	virtual void MenuStart( PlayerNumber pn, const InputEventType type );
-	virtual void ProcessMenuStart( PlayerNumber pn, const InputEventType type );
-
-	virtual void BeginFadingOut() { this->PostScreenMessage( SM_BeginFadingOut, 0 ); }
+	void BeginFadingOut();
+	RString GetNextScreenForSelection( PlayerNumber pn ) const;
 
 	void ChangeValueInRowRelative( int iRow, PlayerNumber pn, int iDelta, bool bRepeat );
 	void ChangeValueInRowAbsolute( int iRow, PlayerNumber pn, int iChoiceIndex, bool bRepeat );
 	virtual void AfterChangeValueInRow( int iRow, PlayerNumber pn );	// override this to detect when the value in a row has changed
-	void MoveRowRelative( PlayerNumber pn, int iDir, bool bRepeat );
-	void MoveRowAbsolute( PlayerNumber pn, int iRow, bool bRepeat );
+	bool MoveRowRelative( PlayerNumber pn, int iDir, bool bRepeat );
+	bool MoveRowAbsolute( PlayerNumber pn, int iRow );
 	virtual void AfterChangeRow( PlayerNumber pn );	// override this to detect when the row has changed
 	virtual void AfterChangeValueOrRow( PlayerNumber pn );
 
-	virtual void MenuLeft( PlayerNumber pn, const InputEventType type )		{ ChangeValueInRowRelative(m_iCurrentRow[pn],pn,-1,type != IET_FIRST_PRESS); }
-	virtual void MenuRight( PlayerNumber pn, const InputEventType type )	{ ChangeValueInRowRelative(m_iCurrentRow[pn],pn,+1,type != IET_FIRST_PRESS); }
-	virtual void MenuUp( PlayerNumber pn, const InputEventType type );
-	virtual void MenuDown( PlayerNumber pn, const InputEventType type );
-	virtual void MenuSelect( PlayerNumber pn, const InputEventType type );
-	virtual void MenuUpDown( PlayerNumber pn, const InputEventType type, int iDir );	// iDir == -1 or iDir == +1
+	virtual void MenuBack( PlayerNumber pn );
+	virtual void MenuStart( const InputEventPlus &input );
+	virtual void ProcessMenuStart( const InputEventPlus &input );
+	virtual void MenuLeft( const InputEventPlus &input )		{ ChangeValueInRowRelative(m_iCurrentRow[input.MenuI.player],input.MenuI.player,-1, input.type != IET_FIRST_PRESS); }
+	virtual void MenuRight( const InputEventPlus &input )	{ ChangeValueInRowRelative(m_iCurrentRow[input.MenuI.player], input.MenuI.player,+1, input.type != IET_FIRST_PRESS); }
+	virtual void MenuUp( const InputEventPlus &input );
+	virtual void MenuDown( const InputEventPlus &input );
+	virtual void MenuSelect( const InputEventPlus &input );
+	virtual void MenuUpDown( const InputEventPlus &input, int iDir );	// iDir == -1 or iDir == +1
 
-	/* Returns -1 if on a row with no OptionRowDefinition (eg. EXIT). */
-	int GetCurrentRow(PlayerNumber pn = PLAYER_1) const;
-	bool IsOnLastRow( PlayerNumber pn ) const;
+	int GetCurrentRow( PlayerNumber pn = PLAYER_1 ) const { return m_iCurrentRow[pn]; }
 	bool AllAreOnLastRow() const;
 
 protected:	// derived classes need access to these
-	void SetOptionIcon( PlayerNumber pn, int iRow, CString sText, GameCommand &gc );
-
 	enum Navigation { NAV_THREE_KEY, NAV_THREE_KEY_MENU, NAV_FIVE_KEY, NAV_TOGGLE_THREE_KEY, NAV_TOGGLE_FIVE_KEY };
 	void SetNavigation( Navigation nav ) { m_OptionsNavigation = nav; }
 	void SetInputMode( InputMode im ) { m_InputMode = im; }
 
-protected:
 	/* Map menu lines to m_OptionRow entries. */
 	vector<OptionRow*>	m_pRows;
+	int			m_iCurrentRow[NUM_PLAYERS];
+
+	OptionRowType		m_OptionRowType;
 
 	Navigation		m_OptionsNavigation;
-
-	int				m_iCurrentRow[NUM_PLAYERS];
-	int				m_iFocusX[NUM_PLAYERS];
-	void StoreFocus( PlayerNumber pn );
-
 	InputMode		m_InputMode;
 
-	ActorFrame		m_framePage;
-	AutoActor		m_sprPage;
-
-	OptionsCursorPlus	m_Cursor[NUM_PLAYERS];
-	Sprite			m_sprLineHighlight[NUM_PLAYERS];
-
-	BitmapText		m_textPlayerName[NUM_PLAYERS];
-	BitmapText		m_textExplanation[NUM_PLAYERS];
-	DualScrollBar	m_ScrollBar;
-
-	AutoActor		m_sprMore;
-	bool			m_bMoreShown, m_bWasOnExit[NUM_PLAYERS];
-
-	// show if the current selections will disqualify a high score
-	AutoActor		m_sprDisqualify[NUM_PLAYERS];
+	int			m_iFocusX[NUM_PLAYERS];
+	bool			m_bWasOnExit[NUM_PLAYERS];
 
 	// TRICKY: People hold Start to get to PlayerOptions, then 
 	// the repeat events cause them to zip to the bottom.  So, ignore
 	// Start repeat events until we've seen one first pressed event.
 	bool			m_bGotAtLeastOneStartPressed[NUM_PLAYERS];
+
+	// actors
+	ActorFrame		m_framePage;
+	AutoActor		m_sprPage;
+
+	OptionsCursorPlus	m_Cursor[NUM_PLAYERS];
+	AutoActor		m_sprLineHighlight[NUM_PLAYERS];
+
+	BitmapText		m_textExplanation[NUM_PLAYERS];
+	BitmapText		m_textExplanationTogether;
+	DualScrollBar		m_ScrollBar;
+	AutoActor		m_sprMore;
 
 	RageSound		m_SoundChangeCol;
 	RageSound		m_SoundNextRow;
@@ -134,34 +128,22 @@ protected:
 	RageSound		m_SoundToggleOff;
 
 	// metrics
-	ThemeMetric<int>				NUM_ROWS_SHOWN;
+	ThemeMetric<int>		NUM_ROWS_SHOWN;
 	ThemeMetric<apActorCommands>	ROW_INIT_COMMAND;
 	ThemeMetric<apActorCommands>	ROW_ON_COMMAND;
 	ThemeMetric<apActorCommands>	ROW_OFF_COMMAND;
-	LuaExpressionTransform m_exprRowPositionTransformFunction;		// params: self,positionIndex,itemIndex,numItems
-	LuaExpressionTransform m_exprRowOffScreenTopTransformFunction;	// params: self,positionIndex,itemIndex,numItems
-	LuaExpressionTransform m_exprRowOffScreenCenterTransformFunction;	// params: self,positionIndex,itemIndex,numItems
-	LuaExpressionTransform m_exprRowOffScreenBottomTransformFunction;	// params: self,positionIndex,itemIndex,numItems
-	ThemeMetric1D<float>			EXPLANATION_X;
-	ThemeMetric1D<float>			EXPLANATION_Y;
-	ThemeMetric1D<apActorCommands>	EXPLANATION_ON_COMMAND;
-	ThemeMetric<float>				EXPLANATION_TOGETHER_X;
-	ThemeMetric<float>				EXPLANATION_TOGETHER_Y;
-	ThemeMetric<apActorCommands>	EXPLANATION_TOGETHER_ON_COMMAND;
-	ThemeMetric<bool>				SHOW_SCROLL_BAR;
-	ThemeMetric<float>				SCROLL_BAR_HEIGHT;
-	ThemeMetric<float>				SCROLL_BAR_TIME;
-	ThemeMetric<float>				LINE_HIGHLIGHT_X;
-	ThemeMetric<float>				EXPLANATION_ZOOM;
-	ThemeMetric<bool>				SHOW_EXIT_ROW;
-	ThemeMetric<bool>				SEPARATE_EXIT_ROW;
-	ThemeMetric<float>				SEPARATE_EXIT_ROW_Y;
-	ThemeMetric<bool>				SHOW_EXPLANATIONS;
-	ThemeMetric<bool>				ALLOW_REPEATING_CHANGE_VALUE_INPUT;
-	ThemeMetric<float>				CURSOR_TWEEN_SECONDS;
-	ThemeMetric<bool>				WRAP_VALUE_IN_ROW;
-
-	float m_fLockInputSecs;
+	LuaExpressionTransform		m_exprRowPositionTransformFunction;	// params: self,positionIndex,itemIndex,numItems
+	ThemeMetric<bool>		SHOW_SCROLL_BAR;
+	ThemeMetric<float>		SCROLL_BAR_HEIGHT;
+	ThemeMetric<float>		SCROLL_BAR_TIME;
+	ThemeMetric<float>		LINE_HIGHLIGHT_X;
+	ThemeMetric<bool>		SHOW_EXIT_ROW;
+	ThemeMetric<bool>		SEPARATE_EXIT_ROW;
+	ThemeMetric<float>		SEPARATE_EXIT_ROW_Y;
+	ThemeMetric<bool>		SHOW_EXPLANATIONS;
+	ThemeMetric<bool>		ALLOW_REPEATING_CHANGE_VALUE_INPUT;
+	ThemeMetric<float>		CURSOR_TWEEN_SECONDS;
+	ThemeMetric<bool>		WRAP_VALUE_IN_ROW;
 };
 
 #endif

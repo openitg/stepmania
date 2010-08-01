@@ -22,12 +22,12 @@ ScoreDisplayCalories::~ScoreDisplayCalories()
 		MESSAGEMAN->Unsubscribe( this, m_sMessageOnStep );
 }
 
-void ScoreDisplayCalories::LoadFromNode( const CString& sDir, const XNode* pNode )
+void ScoreDisplayCalories::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	RollingNumbers::LoadFromNode( sDir, pNode );
 
 	{
-		CString sPlayerNumber;
+		RString sPlayerNumber;
 		bool b = pNode->GetAttrValue( "PlayerNumber", sPlayerNumber );
 		ASSERT( b );
 		m_PlayerNumber = (PlayerNumber) LuaHelpers::RunExpressionI(sPlayerNumber);
@@ -40,7 +40,7 @@ void ScoreDisplayCalories::LoadFromNode( const CString& sDir, const XNode* pNode
 
 void ScoreDisplayCalories::Update( float fDelta )
 {
-	// We have to set the initial text after StatsManager::CalcAccumStageStats 
+	// We have to set the initial text after StatsManager::CalcAccumPlayedStageStats 
 	// is called.
 	if( IsFirstUpdate() )
 		UpdateNumber();
@@ -48,7 +48,7 @@ void ScoreDisplayCalories::Update( float fDelta )
 	RollingNumbers::Update( fDelta );
 }
 
-void ScoreDisplayCalories::PlayCommand( const CString &sCommandName, Actor* pParent )
+void ScoreDisplayCalories::PlayCommand( const RString &sCommandName, Actor* pParent )
 {
 	if( sCommandName == m_sMessageOnStep )
 	{
@@ -61,7 +61,7 @@ void ScoreDisplayCalories::PlayCommand( const CString &sCommandName, Actor* pPar
 void ScoreDisplayCalories::UpdateNumber()
 {
 	float fCals = 
-		STATSMAN->GetAccumStageStats().m_player[m_PlayerNumber].fCaloriesBurned + 
+		STATSMAN->GetAccumPlayedStageStats().m_player[m_PlayerNumber].fCaloriesBurned + 
 		STATSMAN->m_CurStageStats.m_player[m_PlayerNumber].fCaloriesBurned;
 	
 	SetTargetNumber( fCals );

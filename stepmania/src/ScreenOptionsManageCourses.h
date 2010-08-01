@@ -2,26 +2,28 @@
 #define ScreenOptionsManageCourses_H
 
 #include "ScreenOptions.h"
+#include "GameConstantsAndTypes.h"
+#include "RageSound.h"
 
 class Course;
 
 class ScreenOptionsEditCourseSubMenu : public ScreenOptions
 {
+	RageSound m_soundDifficultyChanged;
+	
 public:
-	ScreenOptionsEditCourseSubMenu( CString sName );
-
+	virtual void Init();
+	
 protected:
-	virtual void MenuSelect( PlayerNumber pn, const InputEventType type );
+	virtual void MenuSelect( const InputEventPlus &input );
+	void WriteCourse();
 };
 
 class ScreenOptionsManageCourses : public ScreenOptionsEditCourseSubMenu
 {
 public:
-	ScreenOptionsManageCourses( CString sName );
-
 	void Init();
 	virtual void BeginScreen();
-
 	virtual void HandleScreenMessage( const ScreenMessage SM );
 
 protected:
@@ -29,19 +31,20 @@ protected:
 	virtual void ExportOptions( int iRow, const vector<PlayerNumber> &vpns );
 	
 	virtual void AfterChangeRow( PlayerNumber pn );
-	virtual void ProcessMenuStart( PlayerNumber pn, const InputEventType type );
+	virtual void ProcessMenuStart( const InputEventPlus &input );
 
+private:
 	Course *GetCourseWithFocus() const;
 
 	vector<Course*> m_vpCourses;
-
 	ThemeMetricEnum<EditMode> EDIT_MODE;
+	ThemeMetric<RString> CREATE_NEW_SCREEN;
 };
 
 #endif
 
 /*
- * (c) 2003-2004 Chris Danford
+ * (c) 2003-2006 Chris Danford, Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

@@ -12,11 +12,12 @@
 #include "ModelManager.h"
 #include "Foreach.h"
 #include "LuaBinding.h"
+#include "PrefsManager.h"
 
 REGISTER_ACTOR_CLASS( Model )
 
-const float FRAMES_PER_SECOND = 30;
-const CString DEFAULT_ANIMATION_NAME = "default";
+static const float FRAMES_PER_SECOND = 30;
+static const RString DEFAULT_ANIMATION_NAME = "default";
 
 Model::Model()
 {
@@ -52,11 +53,11 @@ void Model::Clear()
 		DISPLAY->DeleteCompiledGeometry( m_pTempGeometry );
 }
 
-void Model::Load( CString sFile )
+void Model::Load( RString sFile )
 {
 	if( sFile == "" ) return;
 
-	CString sExt = GetExtension(sFile);
+	RString sExt = GetExtension(sFile);
 	sExt.MakeLower();
 	if( sExt=="txt" )
 		LoadMilkshapeAscii( sFile );
@@ -64,12 +65,12 @@ void Model::Load( CString sFile )
 
 #define THROW RageException::Throw( "Parse error in \"%s\" at line %d: '%s'", sPath.c_str(), iLineNum, sLine.c_str() )
 
-void Model::LoadMilkshapeAscii( CString sPath )
+void Model::LoadMilkshapeAscii( RString sPath )
 {
 	LoadPieces( sPath, sPath, sPath );
 }
 
-void Model::LoadPieces( CString sMeshesPath, CString sMaterialsPath, CString sBonesPath )
+void Model::LoadPieces( RString sMeshesPath, RString sMaterialsPath, RString sBonesPath )
 {
 	Clear();
 
@@ -87,7 +88,7 @@ void Model::LoadPieces( CString sMeshesPath, CString sMaterialsPath, CString sBo
 		
 		if( pMesh->nMaterialIndex >= (int) m_Materials.size() )
 			RageException::Throw( "Model \"%s\" mesh \"%s\" references material index %i, but there are only %i materials",
-				sMeshesPath.c_str(), pMesh->szName, pMesh->nMaterialIndex, m_Materials.size() );
+				sMeshesPath.c_str(), pMesh->sName.c_str(), pMesh->nMaterialIndex, m_Materials.size() );
 	}
 
 	if( LoadMilkshapeAsciiBones( DEFAULT_ANIMATION_NAME, sBonesPath ) )
@@ -95,7 +96,7 @@ void Model::LoadPieces( CString sMeshesPath, CString sMaterialsPath, CString sBo
 
 
 	//
-    // Setup temp vertices (if necessary)
+	// Setup temp vertices (if necessary)
 	//
 	if( m_pGeometry->HasAnyPerVertexBones() )
 	{
@@ -105,11 +106,11 @@ void Model::LoadPieces( CString sMeshesPath, CString sMaterialsPath, CString sBo
 	}
 }
 
-void Model::LoadFromNode( const CString& sDir, const XNode* pNode )
+void Model::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	Actor::LoadFromNode( sDir, pNode );
 
-	CString s1, s2, s3;
+	RString s1, s2, s3;
 	pNode->GetAttrValue( "Meshes", s1 );
 	pNode->GetAttrValue( "Materials", s2 );
 	pNode->GetAttrValue( "Bones", s3 );
@@ -133,157 +134,156 @@ void Model::LoadFromNode( const CString& sDir, const XNode* pNode )
 }
 
 
-void Model::LoadMaterialsFromMilkshapeAscii( CString sPath )
+void Model::LoadMaterialsFromMilkshapeAscii( RString sPath )
 {
 	FixSlashesInPlace(sPath);
-	const CString sDir = Dirname( sPath );
+	const RString sDir = Dirname( sPath );
 
 	RageFile f;
 	if( !f.Open( sPath ) )
 		RageException::Throw( "Model::LoadMilkshapeAscii Could not open \"%s\": %s", sPath.c_str(), f.GetError().c_str() );
 
-	CString sLine;
+	RString sLine;
 	int iLineNum = 0;
 
-    while( f.GetLine( sLine ) > 0 )
-    {
+	while( f.GetLine( sLine ) > 0 )
+	{
 		iLineNum++;
 
-        if( !strncmp (sLine, "//", 2) )
-            continue;
+		if( !strncmp (sLine, "//", 2) )
+			continue;
 
-        int nFrame;
-        if( sscanf(sLine, "Frames: %d", &nFrame) == 1 )
-        {
+		int nFrame;
+		if( sscanf(sLine, "Frames: %d", &nFrame) == 1 )
+		{
 			// ignore
 			// m_pModel->nTotalFrames = nFrame;
-        }
-        if( sscanf(sLine, "Frame: %d", &nFrame) == 1 )
-        {
+		}
+		if( sscanf(sLine, "Frame: %d", &nFrame) == 1 )
+		{
 			// ignore
 			// m_pModel->nFrame = nFrame;
-        }
+		}
 
 
-        //
-        // materials
-        //
-        int nNumMaterials = 0;
-        if( sscanf(sLine, "Materials: %d", &nNumMaterials) == 1 )
-        {
-            m_Materials.resize( nNumMaterials );
-      
-            char szName[256];
+		//
+		// materials
+		//
+		int nNumMaterials = 0;
+		if( sscanf(sLine, "Materials: %d", &nNumMaterials) == 1 )
+		{
+			m_Materials.resize( nNumMaterials );
 
-            for( int i = 0; i < nNumMaterials; i++ )
-            {
+			char szName[256];
+
+			for( int i = 0; i < nNumMaterials; i++ )
+			{
 				msMaterial& Material = m_Materials[i];
 
-                // name
-			    if( f.GetLine( sLine ) <= 0 )
+				// name
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                if( sscanf(sLine, "\"%[^\"]\"", szName) != 1 )
+				if( sscanf(sLine, "\"%[^\"]\"", szName) != 1 )
 					THROW;
-                Material.sName = szName;
+				Material.sName = szName;
 
-                // ambient
-			    if( f.GetLine( sLine ) <= 0 )
+				// ambient
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                RageVector4 Ambient;
-                if( sscanf(sLine, "%f %f %f %f", &Ambient[0], &Ambient[1], &Ambient[2], &Ambient[3]) != 4 )
+				RageVector4 Ambient;
+				if( sscanf(sLine, "%f %f %f %f", &Ambient[0], &Ambient[1], &Ambient[2], &Ambient[3]) != 4 )
 					THROW;
-                memcpy( &Material.Ambient, &Ambient, sizeof(Material.Ambient) );
+				memcpy( &Material.Ambient, &Ambient, sizeof(Material.Ambient) );
 
-                // diffuse
-			    if( f.GetLine( sLine ) <= 0 )
+				// diffuse
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                RageVector4 Diffuse;
-                if( sscanf(sLine, "%f %f %f %f", &Diffuse[0], &Diffuse[1], &Diffuse[2], &Diffuse[3]) != 4 )
+				RageVector4 Diffuse;
+				if( sscanf(sLine, "%f %f %f %f", &Diffuse[0], &Diffuse[1], &Diffuse[2], &Diffuse[3]) != 4 )
 					THROW;
-                memcpy( &Material.Diffuse, &Diffuse, sizeof(Material.Diffuse) );
+				memcpy( &Material.Diffuse, &Diffuse, sizeof(Material.Diffuse) );
 
-                // specular
-			    if( f.GetLine( sLine ) <= 0 )
+				// specular
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                RageVector4 Specular;
-                if( sscanf(sLine, "%f %f %f %f", &Specular[0], &Specular[1], &Specular[2], &Specular[3]) != 4 )
+				RageVector4 Specular;
+				if( sscanf(sLine, "%f %f %f %f", &Specular[0], &Specular[1], &Specular[2], &Specular[3]) != 4 )
 					THROW;
-                memcpy( &Material.Specular, &Specular, sizeof(Material.Specular) );
+				memcpy( &Material.Specular, &Specular, sizeof(Material.Specular) );
 
-                // emissive
-			    if( f.GetLine( sLine ) <= 0 )
+				// emissive
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                RageVector4 Emissive;
-                if( sscanf (sLine, "%f %f %f %f", &Emissive[0], &Emissive[1], &Emissive[2], &Emissive[3]) != 4 )
+				RageVector4 Emissive;
+				if( sscanf (sLine, "%f %f %f %f", &Emissive[0], &Emissive[1], &Emissive[2], &Emissive[3]) != 4 )
 					THROW;
-                memcpy( &Material.Emissive, &Emissive, sizeof(Material.Emissive) );
+				memcpy( &Material.Emissive, &Emissive, sizeof(Material.Emissive) );
 
-                // shininess
-			    if( f.GetLine( sLine ) <= 0 )
+				// shininess
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-				char *p;
-                float fShininess = strtof( sLine, &p );
-                if( p == sLine )
+				float fShininess;
+				if( !FromString(sLine, fShininess) )
 					THROW;
-                Material.fShininess = fShininess;
+				Material.fShininess = fShininess;
 
-                // transparency
-			    if( f.GetLine( sLine ) <= 0 )
+				// transparency
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                float fTransparency = strtof( sLine, &p );
-                if( p == sLine )
+				float fTransparency;
+				if( !FromString(sLine, fTransparency) )
 					THROW;
-                Material.fTransparency = fTransparency;
+				Material.fTransparency = fTransparency;
 
-                // diffuse texture
-			    if( f.GetLine( sLine ) <= 0 )
+				// diffuse texture
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                strcpy( szName, "" );
-                sscanf( sLine, "\"%[^\"]\"", szName );
-                CString sDiffuseTexture = szName;
+				strcpy( szName, "" );
+				sscanf( sLine, "\"%[^\"]\"", szName );
+				RString sDiffuseTexture = szName;
 
 				if( sDiffuseTexture != "" )
 				{
-					CString sTexturePath = sDir + sDiffuseTexture;
+					RString sTexturePath = sDir + sDiffuseTexture;
 					FixSlashesInPlace( sTexturePath );
 					CollapsePath( sTexturePath );
 					if( IsAFile(sTexturePath) )
 						Material.diffuse.Load( sTexturePath );
 					else
 					{
-						CString sError = ssprintf( "'%s' references a texture '%s' that does not exist", sPath.c_str(), sTexturePath.c_str() );
+						RString sError = ssprintf( "'%s' references a texture '%s' that does not exist", sPath.c_str(), sTexturePath.c_str() );
 						RageException::Throw( sError );
 					}
 				}
 
-                // alpha texture
-			    if( f.GetLine( sLine ) <= 0 )
+				// alpha texture
+				if( f.GetLine( sLine ) <= 0 )
 					THROW;
-                strcpy( szName, "" );
-                sscanf( sLine, "\"%[^\"]\"", szName );
-				CString sAlphaTexture = szName;
+				strcpy( szName, "" );
+				sscanf( sLine, "\"%[^\"]\"", szName );
+				RString sAlphaTexture = szName;
 
 				if( sAlphaTexture != "" )
 				{
-					CString sTexturePath = sDir + sAlphaTexture;
+					RString sTexturePath = sDir + sAlphaTexture;
 					FixSlashesInPlace( sTexturePath );
 					CollapsePath( sTexturePath );
 					if( IsAFile(sTexturePath) )
 						Material.alpha.Load( sTexturePath );
 					else
 					{
-						CString sError = ssprintf( "'%s' references a texture '%s' that does not exist", sPath.c_str(), sTexturePath.c_str() );
+						RString sError = ssprintf( "'%s' references a texture '%s' that does not exist", sPath.c_str(), sTexturePath.c_str() );
 						RageException::Throw( sError );
 					}
 				}
-            }
-        }
-    }
+			}
+		}
+	}
 
 	f.Close();
 }
 
-bool Model::LoadMilkshapeAsciiBones( CString sAniName, CString sPath )
+bool Model::LoadMilkshapeAsciiBones( RString sAniName, RString sPath )
 {
 	m_mapNameToAnimation[sAniName] = msAnimation();
 	msAnimation &Animation = m_mapNameToAnimation[sAniName];
@@ -358,15 +358,48 @@ void Model::DrawPrimitives()
 				if( vTexTranslate.x != 0  ||  vTexTranslate.y != 0 )
 				{
 					DISPLAY->TexturePushMatrix();
-					DISPLAY->TextureTranslate( vTexTranslate.x, vTexTranslate.y, 0 );
+					DISPLAY->TextureTranslate( vTexTranslate.x, vTexTranslate.y );
 				}
 
 				/* There's some common code that could be folded out here, but it seems
 				 * clearer to keep it separate. */
-				if( DISPLAY->GetNumTextureUnits() < 2 )
+				bool bUseMultitexture = PREFSMAN->m_bAllowMultitexture  &&  DISPLAY->GetNumTextureUnits() >= 2;
+				if( bUseMultitexture )
+				{
+					// render the diffuse texture with texture unit 1
+					DISPLAY->SetTexture( TextureUnit_1, mat.diffuse.GetCurrentTexture() );
+					Actor::SetTextureRenderStates();	// set Actor-specified render states
+					DISPLAY->SetSphereEnvironmentMapping( mat.diffuse.m_bSphereMapped );
+					
+					// render the additive texture with texture unit 2
+					if( mat.alpha.GetCurrentTexture() )
+					{
+						DISPLAY->SetTexture( TextureUnit_2, mat.alpha.GetCurrentTexture() );
+						Actor::SetTextureRenderStates();	// set Actor-specified render states
+						DISPLAY->SetSphereEnvironmentMapping( mat.alpha.m_bSphereMapped );
+						DISPLAY->SetTextureModeAdd();
+						DISPLAY->SetTextureFiltering( true );
+					}
+					else
+					{
+						DISPLAY->SetTexture( TextureUnit_2, NULL );
+
+						// set current texture back to 0 or else texture transform applied above 
+						// isn't used.  Why?!?
+						DISPLAY->SetTexture( TextureUnit_1, mat.diffuse.GetCurrentTexture() );
+					}
+
+					/* go */
+					DrawMesh( i );
+
+					// Turn off Environment mapping on tex unit 0.  Is there a better way to reset?
+					DISPLAY->SetTexture( TextureUnit_1, NULL );
+					DISPLAY->SetSphereEnvironmentMapping( 0 );
+				}
+				else
 				{
 					// render the diffuse texture
-					DISPLAY->SetTexture( 0, mat.diffuse.GetCurrentTexture() );
+					DISPLAY->SetTexture( TextureUnit_1, mat.diffuse.GetCurrentTexture() );
 					Actor::SetTextureRenderStates();	// set Actor-specified render states
 					DISPLAY->SetSphereEnvironmentMapping( mat.diffuse.m_bSphereMapped );
 					DrawMesh( i );
@@ -374,7 +407,7 @@ void Model::DrawPrimitives()
 					// render the additive texture
 					if( mat.alpha.GetCurrentTexture() )
 					{
-						DISPLAY->SetTexture( 0, mat.alpha.GetCurrentTexture() );
+						DISPLAY->SetTexture( TextureUnit_1, mat.alpha.GetCurrentTexture() );
 						Actor::SetTextureRenderStates();	// set Actor-specified render states
 
 						DISPLAY->SetSphereEnvironmentMapping( mat.alpha.m_bSphereMapped );
@@ -383,38 +416,6 @@ void Model::DrawPrimitives()
 						DISPLAY->SetTextureFiltering( true );
 						DrawMesh( i );
 					}
-				}
-				else
-				{
-					// render the diffuse texture with texture unit 1
-					DISPLAY->SetTexture( 0, mat.diffuse.GetCurrentTexture() );
-					Actor::SetTextureRenderStates();	// set Actor-specified render states
-					DISPLAY->SetSphereEnvironmentMapping( mat.diffuse.m_bSphereMapped );
-					
-					// render the additive texture with texture unit 2
-					if( mat.alpha.GetCurrentTexture() )
-					{
-						DISPLAY->SetTexture( 1, mat.alpha.GetCurrentTexture() );
-						Actor::SetTextureRenderStates();	// set Actor-specified render states
-						DISPLAY->SetSphereEnvironmentMapping( mat.alpha.m_bSphereMapped );
-						DISPLAY->SetTextureModeAdd();
-						DISPLAY->SetTextureFiltering( true );
-					}
-					else
-					{
-						DISPLAY->SetTexture( 1, NULL );
-
-						// set current texture back to 0 or else texture transform applied above 
-						// isn't used.  Why?!?
-						DISPLAY->SetTexture( 0, mat.diffuse.GetCurrentTexture() );
-					}
-
-					/* go */
-					DrawMesh( i );
-
-					// Turn off Environment mapping on tex unit 0.  Is there a better way to reset?
-					DISPLAY->SetTexture( 0, NULL );
-					DISPLAY->SetSphereEnvironmentMapping( 0 );
 				}
 
 				if( vTexTranslate.x != 0  ||  vTexTranslate.y != 0 )
@@ -451,8 +452,8 @@ void Model::DrawPrimitives()
 
 			// apply material
 			RageColor emissive = RageColor(0,0,0,0);
-			RageColor ambient = m_pTempState->glow;
-			RageColor diffuse = RageColor(0,0,0,0);
+			RageColor ambient = RageColor(0,0,0,0);
+			RageColor diffuse = m_pTempState->glow;
 			RageColor specular = RageColor(0,0,0,0);
 			float shininess = 1;
 
@@ -462,7 +463,7 @@ void Model::DrawPrimitives()
 			if( pMesh->nMaterialIndex != -1 )
 			{
 				msMaterial& mat = m_Materials[ pMesh->nMaterialIndex ];
-				DISPLAY->SetTexture( 0, mat.diffuse.GetCurrentTexture() );
+				DISPLAY->SetTexture( TextureUnit_1, mat.diffuse.GetCurrentTexture() );
 				Actor::SetTextureRenderStates();	// set Actor-specified render states
 			}
 			else
@@ -495,13 +496,13 @@ void Model::DrawMesh( int i ) const
 		DISPLAY->PopMatrix();
 }
 
-void Model::SetDefaultAnimation( CString sAnimation, float fPlayRate )
+void Model::SetDefaultAnimation( RString sAnimation, float fPlayRate )
 {
 	m_sDefaultAnimation = sAnimation;
 	m_fDefaultAnimationRate = fPlayRate;
 }
 
-void Model::PlayAnimation( CString sAniName, float fPlayRate )
+void Model::PlayAnimation( RString sAniName, float fPlayRate )
 {
 	if( m_mapNameToAnimation.find(sAniName) == m_mapNameToAnimation.end() )
 		return;
@@ -531,7 +532,7 @@ void Model::PlayAnimation( CString sAniName, float fPlayRate )
 		m_vpBones[i].mRelative.m[3][1] = pBone->Position[1];
 		m_vpBones[i].mRelative.m[3][2] = pBone->Position[2];
 		
-		int nParentBone = m_pCurAnimation->FindBoneByName( pBone->szParentName );
+		int nParentBone = m_pCurAnimation->FindBoneByName( pBone->sParentName );
 		if( nParentBone != -1 )
 		{
 			RageMatrixMultiply( &m_vpBones[i].mAbsolute, &m_vpBones[nParentBone].mAbsolute, &m_vpBones[i].mRelative );
@@ -690,7 +691,7 @@ void Model::SetBones( const msAnimation* pAnimation, float fFrame, vector<myBone
 
 			RageMatrixMultiply( &vpBones[i].mRelativeFinal, &vpBones[i].mRelative, &m );
 
-			int nParentBone = pAnimation->FindBoneByName( pBone->szParentName );
+			int nParentBone = pAnimation->FindBoneByName( pBone->sParentName );
 			if( nParentBone == -1 )
 				vpBones[i].mFinal = vpBones[i].mRelativeFinal;
 			else
@@ -786,7 +787,7 @@ void Model::HandleCommand( const Command &command )
 {
 	BeginHandleArgs;
 
-	const CString& sName = command.GetName();
+	const RString& sName = command.GetName();
 	if( sName=="play" )
 	{
 		PlayAnimation( sArg(1),fArg(2) );

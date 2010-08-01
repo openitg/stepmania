@@ -5,43 +5,54 @@
 
 #include "RageSoundReader.h"
 #include "RageSoundReader_Resample.h"
-#include "RageSoundResampler.h"
 
 /* This class changes the sampling rate of a sound. */
 class RageSoundReader_Resample_Fast: public RageSoundReader_Resample
 {
-	int samplerate;
-
-	bool FillBuf();
-
-	SoundReader *source;
-
-	mutable RageSoundResampler resamp;
-
 public:
-	/* We own source. */
-	void Open(SoundReader *source);
+	/* We own pSource. */
+	void Open( SoundReader *pSource );
 	int GetLength() const;
 	int GetLength_Fast() const;
-	int SetPosition_Accurate(int ms);
-	int SetPosition_Fast(int ms);
-	int Read(char *buf, unsigned len);
+	int SetPosition_Accurate( int ms );
+	int SetPosition_Fast( int ms );
+	int Read( char *pBuf, unsigned iSize );
 	RageSoundReader_Resample_Fast();
 	virtual ~RageSoundReader_Resample_Fast();
 	SoundReader *Copy() const;
 
 	/* Change the actual sample rate of a sound. */
-	void SetSampleRate(int hz);
+	void SetSampleRate( int hz );
 
-	int GetSampleRate() const { return samplerate; }
-	unsigned GetNumChannels() const { return source->GetNumChannels(); }
-	bool IsStreamingFromDisk() const { return source->IsStreamingFromDisk(); }
+	int GetSampleRate() const { return m_iOutputRate; }
+	unsigned GetNumChannels() const { return m_pSource->GetNumChannels(); }
+	bool IsStreamingFromDisk() const { return m_pSource->IsStreamingFromDisk(); }
+
+private:
+	void Reset();
+	bool FillBuf();
+
+	/* Write data to be converted. */
+	void WriteSamples( const void *data, int bytes );
+
+	SoundReader *m_pSource;
+
+	int m_iInputRate;
+	int m_iOutputRate;
+	int m_iChannels;
+
+	enum { MAX_CHANNELS = 15 };
+	int16_t m_iPrevSample[MAX_CHANNELS];
+
+	vector<int16_t> m_OutBuf;
+	bool m_bAtEof;
+	int m_iPos;
 };
 
 #endif
 
 /*
- * Copyright (c) 2003 Glenn Maynard
+ * Copyright (c) 2003-2005 Glenn Maynard
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

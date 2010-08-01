@@ -9,16 +9,16 @@ namespace Dialog
 	void Shutdown();
 
 	void SetWindowed( bool bWindowed );
-	bool IsShowingDialog();
 
-	enum Result { abort, retry, ignore };
-	void Error( CString sError, CString sID = "" );
-	void OK( CString sMessage, CString sID = "" );
-	Result AbortRetryIgnore( CString sMessage, CString sID = "" );
-	Result AbortRetry( CString sMessage, CString sID = "" );
+	enum Result { ok, cancel, abort, retry, ignore };
+	void Error( RString sError, RString sID = "" );
+	void OK( RString sMessage, RString sID = "" );
+	Result OKCancel( RString sMessage, RString sID = "" );
+	Result AbortRetryIgnore( RString sMessage, RString sID = "" );
+	Result AbortRetry( RString sMessage, RString sID = "" );
 
 	/* for DialogDrivers */
-	void IgnoreMessage( CString sID );
+	void IgnoreMessage( RString sID );
 };
 
 #endif

@@ -17,12 +17,14 @@
 #include "RageSurfaceUtils_Palettize.h"
 #include "RageSurfaceUtils_Dither.h"
 #include "RageSurfaceUtils_Zoom.h"
+#include "SpecialFiles.h"
 
 #include "Banner.h"
 
-#define CACHE_DIR "Cache/"
-#define BANNER_CACHE_INDEX CACHE_DIR "banners.cache"
-
+/* Neither a global or a file scope static can be used for this because
+ * the order of initialization of nonlocal objects is unspecified. */
+//const RString BANNER_CACHE_INDEX = SpecialFiles::CACHE_DIR + "banners.cache";
+#define BANNER_CACHE_INDEX (SpecialFiles::CACHE_DIR + "banners.cache")
 
 /* Call CacheBanner to cache a banner by path.  If the banner is already
  * cached, it'll be recreated.  This is efficient if the banner hasn't changed,
@@ -46,10 +48,10 @@
 BannerCache *BANNERCACHE;
 
 
-static map<CString,RageSurface *> g_BannerPathToImage;
+static map<RString,RageSurface *> g_BannerPathToImage;
 static int g_iDemandRefcount = 0;
 
-CString BannerCache::GetBannerCachePath( CString BannerPath )
+RString BannerCache::GetBannerCachePath( RString BannerPath )
 {
 	return SongCacheIndex::GetCacheFilePath( "Banners", BannerPath );
 }
@@ -68,12 +70,12 @@ void BannerCache::Demand()
 
 	FOREACH_Child( &BannerData, p )
 	{
-		CString sBannerPath = p->m_sName;
+		RString sBannerPath = p->m_sName;
 
 		if( g_BannerPathToImage.find(sBannerPath) != g_BannerPathToImage.end() )
 			continue; /* already loaded */
 
-		const CString CachePath = GetBannerCachePath(sBannerPath);
+		const RString CachePath = GetBannerCachePath(sBannerPath);
 		RageSurface *img = RageSurfaceUtils::LoadSurface( CachePath );
 		if( img == NULL )
 		{
@@ -101,7 +103,7 @@ void BannerCache::Undemand()
  * the cache file if necessary.  Unlike CacheBanner(), the original file will
  * not be examined unless the cached banner doesn't exist, so the banner will
  * not be updated if the original file changes, for efficiency. */
-void BannerCache::LoadBanner( CString BannerPath )
+void BannerCache::LoadBanner( RString BannerPath )
 {
 	if( BannerPath == "" )
 		return; // nothing to do
@@ -110,7 +112,7 @@ void BannerCache::LoadBanner( CString BannerPath )
 		return;
 
 	/* Load it. */
-	const CString CachePath = GetBannerCachePath(BannerPath);
+	const RString CachePath = GetBannerCachePath(BannerPath);
 
 	for( int tries = 0; tries < 2; ++tries )
 	{
@@ -144,7 +146,7 @@ void BannerCache::LoadBanner( CString BannerPath )
 
 void BannerCache::OutputStats() const
 {
-	map<CString,RageSurface *>::const_iterator ban;
+	map<RString,RageSurface *>::const_iterator ban;
 	int total_size = 0;
 	for( ban = g_BannerPathToImage.begin(); ban != g_BannerPathToImage.end(); ++ban )
 	{
@@ -157,7 +159,7 @@ void BannerCache::OutputStats() const
 
 void BannerCache::UnloadAllBanners()
 {
-	map<CString,RageSurface *>::iterator it;
+	map<RString,RageSurface *>::iterator it;
 	for( it = g_BannerPathToImage.begin(); it != g_BannerPathToImage.end(); ++it )
 		delete it->second;
 
@@ -166,12 +168,17 @@ void BannerCache::UnloadAllBanners()
 
 BannerCache::BannerCache()
 {
-	BannerData.ReadFile( BANNER_CACHE_INDEX );	// don't care if this fails
+	ReadFromDisk();
 }
 
 BannerCache::~BannerCache()
 {
 	UnloadAllBanners();
+}
+
+void BannerCache::ReadFromDisk()
+{
+	BannerData.ReadFile( BANNER_CACHE_INDEX );	// don't care if this fails
 }
 
 struct BannerTexture: public RageTexture
@@ -225,9 +232,9 @@ struct BannerTexture: public RageTexture
 		/* Find a supported texture format.  If it happens to match the stored
 		 * file, we won't have to do any conversion here, and that'll happen often
 		 * with paletted images. */
-		RageDisplay::PixelFormat pf = img->format->BitsPerPixel == 8? RageDisplay::FMT_PAL: RageDisplay::FMT_RGB5A1;
+		PixelFormat pf = img->format->BitsPerPixel == 8? PixelFormat_PAL: PixelFormat_RGB5A1;
 		if( !DISPLAY->SupportsTextureFormat(pf) )
-			pf = RageDisplay::FMT_RGBA4;
+			pf = PixelFormat_RGBA4;
 		ASSERT( DISPLAY->SupportsTextureFormat(pf) );
 
 		ASSERT(img);
@@ -256,7 +263,7 @@ struct BannerTexture: public RageTexture
 };
 
 /* If a banner is cached, get its ID for use. */
-RageTextureID BannerCache::LoadCachedBanner( CString BannerPath )
+RageTextureID BannerCache::LoadCachedBanner( RString BannerPath )
 {
 	RageTextureID ID( GetBannerCachePath(BannerPath) );
 
@@ -325,7 +332,7 @@ static inline int closest( int num, int n1, int n2 )
 
 /* Create or update the banner cache file as necessary.  If in preload mode,
  * load the cache file, too.  (This is done at startup.) */
-void BannerCache::CacheBanner( CString BannerPath )
+void BannerCache::CacheBanner( RString BannerPath )
 {
 	if( PREFSMAN->m_BannerCache != PrefsManager::BNCACHE_LOW_RES_PRELOAD &&
 	    PREFSMAN->m_BannerCache != PrefsManager::BNCACHE_LOW_RES_LOAD_ON_DEMAND )
@@ -335,7 +342,7 @@ void BannerCache::CacheBanner( CString BannerPath )
 	if( !DoesFileExist(BannerPath) )
 		return;
 
-	const CString CachePath = GetBannerCachePath(BannerPath);
+	const RString CachePath = GetBannerCachePath(BannerPath);
 
 	/* Check the full file hash.  If it's the loaded and identical, don't recache. */
 	if( DoesFileExist(CachePath) )
@@ -364,9 +371,9 @@ void BannerCache::CacheBanner( CString BannerPath )
 	CacheBannerInternal( BannerPath );
 }
 
-void BannerCache::CacheBannerInternal( CString BannerPath )
+void BannerCache::CacheBannerInternal( RString BannerPath )
 {
-	CString error;
+	RString error;
 	RageSurface *img = RageSurfaceUtils::LoadFile( BannerPath, error );
 	if( img == NULL )
 	{
@@ -394,7 +401,7 @@ void BannerCache::CacheBannerInternal( CString BannerPath )
 		RageSurfaceUtils::ConvertSurface(img, img->w, img->h, 32, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
 		
 		RageSurface *dst = CreateSurface(
-            256, 64, img->format->BitsPerPixel, 
+			256, 64, img->format->BitsPerPixel, 
 			img->format->Rmask, img->format->Gmask, img->format->Bmask, img->format->Amask );
 
 		if( img->format->BitsPerPixel == 8 ) 
@@ -458,7 +465,9 @@ void BannerCache::CacheBannerInternal( CString BannerPath )
 	{
 		if( img->fmt.BytesPerPixel != 1 )
 			RageSurfaceUtils::Palettize( img );
-	} else {
+	}
+	else
+	{
 		/* Dither to the final format.  We use A1RGB5, since that's usually supported
 		 * natively by both OpenGL and D3D. */
 		RageSurface *dst = CreateSurface( img->w, img->h, 16,
@@ -471,7 +480,7 @@ void BannerCache::CacheBannerInternal( CString BannerPath )
 		img = dst;
 	}
 
-	const CString CachePath = GetBannerCachePath(BannerPath);
+	const RString CachePath = GetBannerCachePath(BannerPath);
 	RageSurfaceUtils::SaveSurface( img, CachePath );
 
 	/* If an old image is loaded, free it. */

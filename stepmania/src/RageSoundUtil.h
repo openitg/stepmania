@@ -1,10 +1,11 @@
-/* RageSoundUtil - simple utilities that operate on sound buffers */
+/* RageSoundUtil - simple utilities that operate on sound buffers. */
 
 #ifndef RAGE_SOUND_UTIL_H
 #define RAGE_SOUND_UTIL_H
 
 namespace RageSoundUtil
 {
+	void Attenuate( int16_t *pBuf, int iSamples, float fVolume );
 	void Pan( int16_t *pBuffer, int iFrames, float fPos );
 	void Fade( int16_t *pBuffer, int iFrames, float fStartVolume, float fEndVolume  );
 	void ConvertMonoToStereoInPlace( int16_t *pBuffer, int iFrames );

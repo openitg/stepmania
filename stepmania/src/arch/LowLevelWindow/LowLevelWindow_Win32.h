@@ -8,12 +8,18 @@ class LowLevelWindow_Win32: public LowLevelWindow
 public:
 	LowLevelWindow_Win32();
 	~LowLevelWindow_Win32();
-	void *GetProcAddress( CString s );
-	CString TryVideoMode( RageDisplay::VideoModeParams p, bool &bNewDeviceOut );
+	void *GetProcAddress( RString s );
+	RString TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut );
+	void GetDisplayResolutions( DisplayResolutions &out ) const;
+	float GetMonitorAspectRatio() const;
+	bool IsSoftwareRenderer( RString &sError );
 	void SwapBuffers();
 	void Update();
+	bool SupportsThreadedRendering();
+	void BeginConcurrentRendering();
+	void EndConcurrentRendering();
 
-	RageDisplay::VideoModeParams GetVideoModeParams() const;
+	const VideoModeParams &GetActualVideoModeParams() const;
 };
 
 #ifdef ARCH_LOW_LEVEL_WINDOW

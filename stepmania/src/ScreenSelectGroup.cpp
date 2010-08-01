@@ -16,28 +16,20 @@
 #include "UnlockManager.h"
 #include "MenuTimer.h"
 #include "SongUtil.h"
+#include "LocalizedString.h"
 
 #define BANNER_WIDTH					THEME->GetMetricF("ScreenSelectGroup","BannerWidth")
 #define BANNER_HEIGHT					THEME->GetMetricF("ScreenSelectGroup","BannerHeight")
-#define SLEEP_AFTER_TWEEN_OFF_SECONDS	THEME->GetMetricF("ScreenSelectGroup","SleepAfterTweenOffSeconds")
 
 
 REGISTER_SCREEN_CLASS( ScreenSelectGroup );
-ScreenSelectGroup::ScreenSelectGroup( CString sClassName ) : ScreenWithMenuElements( sClassName )
-{	
-	LOG->Trace( "ScreenSelectGroup::ScreenSelectGroup()" );	
-}
 
+static LocalizedString ALL_MUSIC_STRING( "ScreenSelectGroup", "ALL MUSIC" );
 void ScreenSelectGroup::Init()
 {
 	ScreenWithMenuElements::Init();
 
-	if( !PREFSMAN->m_bShowSelectGroup )
-	{
-		GAMESTATE->m_sPreferredSongGroup.Set( GROUP_ALL );
-		PostScreenMessage( SM_GoToNextScreen, 0 );
-		return;
-	}
+	ASSERT( PREFSMAN->m_bShowSelectGroup );
 
 	vector<Song*> aAllSongs;
 	SONGMAN->GetSongs( aAllSongs );
@@ -58,17 +50,17 @@ void ScreenSelectGroup::Init()
 	}
 
 	// Add all group names to a map.
-	map<CString, CString> mapGroupNames;
+	map<RString, RString> mapGroupNames;
 	for( unsigned i=0; i<aAllSongs.size(); i++ )
 	{
-		const CString& sGroupName = aAllSongs[i]->m_sGroupName;
+		const RString& sGroupName = aAllSongs[i]->m_sGroupName;
 		mapGroupNames[ sGroupName ] = "";	// group name maps to nothing
 	}
 
 	// copy group names into a vector
-	vector<CString> asGroupNames;
-	asGroupNames.push_back( "ALL MUSIC" );	// special group
-	for( map<CString, CString>::const_iterator iter = mapGroupNames.begin(); iter != mapGroupNames.end(); ++iter )
+	vector<RString> asGroupNames;
+	asGroupNames.push_back( ALL_MUSIC_STRING );	// special group
+	for( map<RString, RString>::const_iterator iter = mapGroupNames.begin(); iter != mapGroupNames.end(); ++iter )
 		asGroupNames.push_back( iter->first );
 
 	// Add songs to the MusicList.
@@ -127,10 +119,7 @@ void ScreenSelectGroup::Init()
 
 	SOUND->PlayOnceFromAnnouncer( "select group intro" );
 
-	SOUND->PlayMusic( THEME->GetPathS("ScreenSelectGroup","music") );
-
 	AfterChange();
-	TweenOursOnScreen();
 	m_GroupList.SetSelection(0);
 
 	this->SortByDrawOrder();
@@ -149,10 +138,9 @@ void ScreenSelectGroup::Input( const InputEventPlus &input )
 
 void ScreenSelectGroup::HandleScreenMessage( const ScreenMessage SM )
 {
-	switch( SM )
+	if( SM == SM_BeginFadingOut )
 	{
-	case SM_BeginFadingOut:
-		StartTransitioning( SM_GoToNextScreen );
+		StartTransitioningScreen( SM_GoToNextScreen );
 		return;
 	}
 	Screen::HandleScreenMessage( SM );
@@ -163,8 +151,8 @@ void ScreenSelectGroup::AfterChange()
 	int sel = m_GroupList.GetSelection();
 	m_MusicList.SetGroupNo(sel);
 
-	CString sSelectedGroupName = m_GroupList.GetSelectionName();
-	if( sSelectedGroupName == "ALL MUSIC" )
+	RString sSelectedGroupName = m_GroupList.GetSelectionName();
+	if( sSelectedGroupName == ALL_MUSIC_STRING.GetValue() )
 		m_Banner.LoadAllMusic();
 	else 
 		m_Banner.LoadFromSongGroup( sSelectedGroupName );
@@ -219,16 +207,14 @@ void ScreenSelectGroup::MenuStart( PlayerNumber pn )
 	m_bChosen = true;
 
 	GAMESTATE->m_pCurSong.Set( NULL );
-	GAMESTATE->m_sPreferredSongGroup.Set( m_GroupList.GetSelectionName()=="ALL MUSIC" ? GROUP_ALL : m_GroupList.GetSelectionName() );
+	GAMESTATE->m_sPreferredSongGroup.Set( m_GroupList.GetSelectionName()==ALL_MUSIC_STRING.GetValue() ? GROUP_ALL : m_GroupList.GetSelectionName() );
 
 	if( GAMESTATE->m_sPreferredSongGroup == GROUP_ALL )
-       	SOUND->PlayOnceFromAnnouncer( "select group comment all music" );
+		SOUND->PlayOnceFromAnnouncer( "select group comment all music" );
 	else
-        SOUND->PlayOnceFromAnnouncer( "select group comment general" );
+		SOUND->PlayOnceFromAnnouncer( "select group comment general" );
 
-
-	TweenOursOffScreen();
-	this->PostScreenMessage( SM_BeginFadingOut, SLEEP_AFTER_TWEEN_OFF_SECONDS );
+	this->PostScreenMessage( SM_BeginFadingOut, 0 );
 }
 
 void ScreenSelectGroup::MenuBack( PlayerNumber pn )
@@ -236,8 +222,10 @@ void ScreenSelectGroup::MenuBack( PlayerNumber pn )
 	Cancel( SM_GoToPrevScreen );
 }
 
-void ScreenSelectGroup::TweenOursOffScreen()
+void ScreenSelectGroup::TweenOffScreen()
 {
+	ScreenWithMenuElements::TweenOffScreen();
+
 	OFF_COMMAND( m_sprExplanation );
 	OFF_COMMAND( m_sprFrame );
 	OFF_COMMAND( m_Banner );
@@ -249,7 +237,7 @@ void ScreenSelectGroup::TweenOursOffScreen()
 	m_GroupList.TweenOffScreen();
 }
 
-void ScreenSelectGroup::TweenOursOnScreen() 
+void ScreenSelectGroup::TweenOnScreen() 
 {
 	SET_XY_AND_ON_COMMAND( m_sprExplanation );
 	SET_XY_AND_ON_COMMAND( m_sprFrame );
@@ -260,6 +248,8 @@ void ScreenSelectGroup::TweenOursOnScreen()
 	SET_XY_AND_ON_COMMAND( m_GroupList );
 	m_MusicList.TweenOnScreen();
 	m_GroupList.TweenOnScreen();
+
+	ScreenWithMenuElements::TweenOnScreen();
 }
 
 /*

@@ -12,18 +12,20 @@
 #include "ScreenTextEntry.h"
 #include "ScreenManager.h"
 #include <cstdlib>
+#include "LocalizedString.h"
+#include "CommandLineActions.h"
+#include "SpecialFiles.h"
 
 #define EXISTINGBG_WIDTH			THEME->GetMetricF(m_sName,"PackagesBGWidth")
 #define WEBBG_WIDTH					THEME->GetMetricF(m_sName,"WebBGWidth")
 #define	NUM_PACKAGES_SHOW			THEME->GetMetricI(m_sName,"NumPackagesShow")
 #define NUM_LINKS_SHOW				THEME->GetMetricI(m_sName,"NumLinksShow")
 
+static const RString TEMP_MOUNT_POINT = "/@tempinstallpackage2/";
+
 AutoScreenMessage( SM_BackFromURL )
 
 REGISTER_SCREEN_CLASS( ScreenPackages );
-ScreenPackages::ScreenPackages( CString sClassName ) : ScreenWithMenuElements( sClassName )
-{
-}
 
 void ScreenPackages::Init()
 {
@@ -136,11 +138,6 @@ void ScreenPackages::HandleScreenMessage( const ScreenMessage SM )
 	ScreenWithMenuElements::HandleScreenMessage( SM );
 }
 
-void ScreenPackages::Input( const InputEventPlus &input )
-{
-	ScreenWithMenuElements::Input( input );
-}
-
 void ScreenPackages::Update( float fDeltaTime )
 {
 	HTTPUpdate();
@@ -159,19 +156,20 @@ void ScreenPackages::Update( float fDeltaTime )
 	ScreenWithMenuElements::Update(fDeltaTime);
 }
 
+static LocalizedString ENTER_URL ("ScreenPackages","Enter URL");
 void ScreenPackages::MenuStart( PlayerNumber pn )
 {
 	if ( m_iDLorLST == 1 )
 	{
 		if ( m_iLinksPos == 0 )
-			ScreenTextEntry::TextEntry( SM_BackFromURL, "Enter URL:", "http://", 255 );
+			ScreenTextEntry::TextEntry( SM_BackFromURL, ENTER_URL, "http://", 255 );
 		else
 			EnterURL( m_Links[m_iLinksPos] );
 	}
 	ScreenWithMenuElements::MenuStart( pn );
 }
 
-void ScreenPackages::MenuUp( PlayerNumber pn, const InputEventType type )
+void ScreenPackages::MenuUp( const InputEventPlus &input )
 {
 	if ( m_bIsDownloading )
 		return;
@@ -191,10 +189,10 @@ void ScreenPackages::MenuUp( PlayerNumber pn, const InputEventType type )
 			UpdateLinksList();
 		}
 	}
-	ScreenWithMenuElements::MenuUp( pn, type );
+	ScreenWithMenuElements::MenuUp( input );
 }
 
-void ScreenPackages::MenuDown( PlayerNumber pn, const InputEventType type )
+void ScreenPackages::MenuDown( const InputEventPlus &input )
 {
 	if ( m_bIsDownloading )
 		return;
@@ -215,10 +213,10 @@ void ScreenPackages::MenuDown( PlayerNumber pn, const InputEventType type )
 			UpdateLinksList();
 		}
 	}
-	ScreenWithMenuElements::MenuDown( pn, type );
+	ScreenWithMenuElements::MenuDown( input );
 }
 
-void ScreenPackages::MenuLeft( PlayerNumber pn, const InputEventType type )
+void ScreenPackages::MenuLeft( const InputEventPlus &input )
 {
 	if ( m_bIsDownloading )
 		return;
@@ -240,22 +238,25 @@ void ScreenPackages::MenuLeft( PlayerNumber pn, const InputEventType type )
 		COMMAND( m_sprExistingBG, "Back" );
 		COMMAND( m_sprWebBG, "Away" );
 	}
-	ScreenWithMenuElements::MenuLeft( pn, type );
+	ScreenWithMenuElements::MenuLeft( input );
 }
 
-void ScreenPackages::MenuRight( PlayerNumber pn, const InputEventType type )
+void ScreenPackages::MenuRight( const InputEventPlus &input )
 {
 	if ( m_bIsDownloading )
 		return;
-	MenuLeft( pn, type );
-	ScreenWithMenuElements::MenuRight( pn, type );
+
+	/* Huh? */
+	MenuLeft( input );
+	ScreenWithMenuElements::MenuRight( input );
 }
 
+static LocalizedString DOWNLOAD_CANCELLED( "ScreenPackages", "Download cancelled." );
 void ScreenPackages::MenuBack( PlayerNumber pn )
 {
 	if ( m_bIsDownloading )
 	{
-		SCREENMAN->SystemMessage( "Download Cancelled." );
+		SCREENMAN->SystemMessage( DOWNLOAD_CANCELLED );
 		CancelDownload( );
 		return;
 	}
@@ -295,7 +296,7 @@ void ScreenPackages::RefreshPackages()
 
 void ScreenPackages::UpdatePackagesList()
 {
-	CString TempText="";
+	RString TempText="";
 	int min = m_iPackagesPos-NUM_PACKAGES_SHOW;
 	int max = m_iPackagesPos+NUM_PACKAGES_SHOW;
 	for (int i=min; i<max; i++ )
@@ -310,7 +311,7 @@ void ScreenPackages::UpdatePackagesList()
 
 void ScreenPackages::UpdateLinksList()
 {
-	CString TempText="";
+	RString TempText="";
 	if( (unsigned) m_iLinksPos >= m_LinkTitles.size() )
 		m_iLinksPos = m_LinkTitles.size() - 1;
 	int min = m_iLinksPos-NUM_LINKS_SHOW;
@@ -338,78 +339,60 @@ void ScreenPackages::HTMLParse()
 
 	//XXX: VERY DIRTY HTML PARSER!
 	//Only designed to find links on websites.
-	int i = m_sBUFFER.Find( "<A " );
-	int j = 0;
-	int k = 0;
-	int l = 0;
-	int m = 0;
+	size_t i = m_sBUFFER.find( "<A " );
+	size_t j = 0;
+	size_t k = 0;
+	size_t l = 0;
+	size_t m = 0;
 
 	for ( int mode = 0; mode < 2; mode++ )
 	{
-		while ( i>=0 )
+		while ( i != string::npos )
 		{
-			k = m_sBUFFER.Find( ">", i+1 );
-			l = m_sBUFFER.Find( "HREF", i+1);
-			m = m_sBUFFER.Find( "=", l );
+			k = m_sBUFFER.find( ">", i+1 );
+			l = m_sBUFFER.find( "HREF", i+1);
+			m = m_sBUFFER.find( "=", l );
 
-			if ( ( l > k ) || ( m > k ) )	//no "href" in this tag.
+			if( k == string::npos || l == string::npos || m == string::npos || l > k || m > k )	//no "href" in this tag.
 			{
 				if ( mode == 0 )
-					i = m_sBUFFER.Find( "<A ", i+1 );
+					i = m_sBUFFER.find( "<A ", i+1 );
 				else
-					i = m_sBUFFER.Find( "<a ", i+1 );
+					i = m_sBUFFER.find( "<a ", i+1 );
 				continue;
 			}
 
-			l = m_sBUFFER.Find( "</", m+1 );
+			l = m_sBUFFER.find( "</", m+1 );
 
 			//Special case: There is exactly one extra tag in the link.
-			j = m_sBUFFER.Find( ">", k+1 );
+			j = m_sBUFFER.find( ">", k+1 );
 			if ( j < l )
 				k = j;
 
-			CString TempLink = StripOutContainers( m_sBUFFER.substr(m+1,k-m-1) );
+			RString TempLink = StripOutContainers( m_sBUFFER.substr(m+1,k-m-1) );
 			if ( TempLink.substr(0,7).compare("http://") != 0 )
 				TempLink = m_sBaseAddress + TempLink;
 
-			CString TempTitle = m_sBUFFER.substr( k+1, l-k-1 );
+			RString TempTitle = m_sBUFFER.substr( k+1, l-k-1 );
 
 			m_Links.push_back( TempLink );
 			m_LinkTitles.push_back( TempTitle );
 
 			if ( mode == 0 )
-				i = m_sBUFFER.Find( "<A ", i+1 );
+				i = m_sBUFFER.find( "<A ", i+1 );
 			else
-				i = m_sBUFFER.Find( "<a ", i+1 );
+				i = m_sBUFFER.find( "<a ", i+1 );
 		}
 		if ( mode == 0 )
-			i = m_sBUFFER.Find( "<a " );
+			i = m_sBUFFER.find( "<a " );
 	}
 	UpdateLinksList();
 }
 
-CString ScreenPackages::URLEncode( const CString &URL )
-{
-	CString Input = StripOutContainers( URL );
-	CString Output;
-
-	for( unsigned k = 0; k < Input.size(); k++ )
-	{
-		char t = Input.at( k );
-		if ( ( t >= '!' ) && ( t <= 'z' ) )
-		{
-			Output+=t;
-		}
-		else
-			Output += "%" + ssprintf( "%X", t );
-	}
-	return Output;
-}
-
-CString ScreenPackages::StripOutContainers( const CString & In )
+RString ScreenPackages::StripOutContainers( const RString & In )
 {
 	if( In.size() == 0 )
-		return CString();
+		return RString();
 
 	unsigned i = 0;
 	char t = In.at(i);
@@ -463,12 +446,12 @@ void ScreenPackages::CancelDownload( )
 	if( !FILEMAN->Remove( "Packages/" + m_sEndName ) )
 		SCREENMAN->SystemMessage( "Packages/" + m_sEndName );
 }
-void ScreenPackages::EnterURL( const CString & sURL )
+void ScreenPackages::EnterURL( const RString & sURL )
 {
-	CString Proto;
-	CString Server;
+	RString Proto;
+	RString Server;
 	int Port=80;
-	CString sAddress;
+	RString sAddress;
 
 	if( !ParseHTTPAddress( sURL, Proto, Server, Port, sAddress ) )
 	{
@@ -508,7 +491,7 @@ void ScreenPackages::EnterURL( const CString & sURL )
 	//if we are not talking about a file, let's not worry
 	if( m_sEndName != "" && m_bIsPackage )
 	{
-		CStringArray AddTo;
+		vector<RString> AddTo;
 		GetDirListing( "Packages/"+m_sEndName, AddTo, false, false );
 		if ( AddTo.size() > 0 )
 		{
@@ -517,7 +500,7 @@ void ScreenPackages::EnterURL( const CString & sURL )
 			return;
 		}
 
-		if( !m_fOutputFile.Open( "Packages/"+m_sEndName, RageFile::WRITE | RageFile::STREAMED ) )
+		if( !m_fOutputFile.Open( SpecialFiles::CACHE_DIR + "Download/" + m_sEndName, RageFile::WRITE | RageFile::STREAMED ) )
 		{
 			m_sStatus = m_fOutputFile.GetError();
 			UpdateProgress();
@@ -526,7 +509,7 @@ void ScreenPackages::EnterURL( const CString & sURL )
 	}
 	//Continue...
 
-	sAddress = URLEncode( sAddress );
+	sAddress = URLEncode( StripOutContainers(sAddress) );
 
 	if ( sAddress != "/" )
 		sAddress = "/" + sAddress;
@@ -545,7 +528,7 @@ void ScreenPackages::EnterURL( const CString & sURL )
 	
 	//Produce HTTP header
 
-	CString Header="";
+	RString Header="";
 
 	Header = "GET "+sAddress+" HTTP/1.0\r\n";
 	Header+= "Host: " + Server + "\r\n";
@@ -561,7 +544,7 @@ void ScreenPackages::EnterURL( const CString & sURL )
 	return;
 }
 
-static size_t FindEndOfHeaders( const CString &buf )
+static size_t FindEndOfHeaders( const RString &buf )
 {
 	size_t iPos1 = buf.find( "\n\n" );
 	size_t iPos2 = buf.find( "\r\n\r\n" );
@@ -659,10 +642,50 @@ void ScreenPackages::HTTPUpdate()
 		{
 			if( m_bIsPackage && m_iResponseCode < 300 )
 			{
+				RString sZipFile = m_fOutputFile.GetRealPath();
 				m_fOutputFile.Close();
 				FlushDirCache();
 				RefreshPackages();
 				m_iDownloaded = 0;
+
+				// extract
+				const RString TEMP_MOUNT_POINT = "/@temp-extract/";
+				FILEMAN->Mount( "zip", sZipFile, TEMP_MOUNT_POINT );
+				vector<RString> vsFiles;
+				GetDirListingRecursive( TEMP_MOUNT_POINT, "*", vsFiles);
+				RString sResult = "Success extracting";
+				FOREACH_CONST( RString, vsFiles, sSrcFile )
+				{
+					RString sDestFile = *sSrcFile;
+					sDestFile = sDestFile.Right( sDestFile.length() - TEMP_MOUNT_POINT.length() );
+
+					RString sDir, sFileName, sExt;
+					splitpath( sDestFile, sDir, sFileName, sExt );
+
+					if( sExt.EqualsNoCase(".ctl") )
+						continue;
+					/*
+					vector<RString> vsWhitelistExtractDirs;
+					vsWhitelistExtractDirs.push_back( "/Songs/" );
+					vsWhitelistExtractDirs.push_back( "/BGAnimations/" );
+					vsWhitelistExtractDirs.push_back( "/RandomMovies/" );
+					vsWhitelistExtractDirs.push_back( "/Themes/" );
+					FOREACH_CONST( RString, vsWhitelistExtractDirs, sWhitelistDir )
+					{
+					if( !BeginsWith(sDir,"/Songs/") || BeginsWith(sDir,"/BGAnimations/") || BeginsWith(sDir,"/Ran/" )
+						continue;
+					*/
+
+					FILEMAN->CreateDir( sDir );
+
+					if( !FileCopy( *sSrcFile, sDestFile ) )
+					{
+						sResult = "Error extracting " + sDestFile;
+						break;
+					}
+				}
+				FILEMAN->Unmount( "zip", m_fOutputFile.GetPath(), TEMP_MOUNT_POINT );
+				SCREENMAN->SystemMessage( sResult );
 			}
 			else
 				HTMLParse();
@@ -670,7 +693,7 @@ void ScreenPackages::HTTPUpdate()
 	}
 }
 
-bool ScreenPackages::ParseHTTPAddress( const CString &URL, CString &sProto, CString &sServer, int &iPort, CString &sAddress )
+bool ScreenPackages::ParseHTTPAddress( const RString &URL, RString &sProto, RString &sServer, int &iPort, RString &sAddress )
 {
 	// [PROTO://]SERVER[:PORT][/URL]
 
@@ -679,7 +702,7 @@ bool ScreenPackages::ParseHTTPAddress( const CString &URL, CString &sProto, CStr
 		"([^/:]+)"     // [1]: a.b.com
 		"(:([0-9]+))?" // [2], [3]: :1234 (optional, default 80)
 		"(/(.*))?$");    // [4], [5]: /foo.html (optional)
-	vector<CString> asMatches;
+	vector<RString> asMatches;
 	if( !re.Compare( URL, asMatches ) )
 		return false;
 	ASSERT( asMatches.size() == 6 );
@@ -702,7 +725,7 @@ bool ScreenPackages::ParseHTTPAddress( const CString &URL, CString &sProto, CStr
 
 #endif
 /*
- * (c) 2004 Charles Lohr
+ * (c) 2004 Charles Lohr, Chris Danford
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

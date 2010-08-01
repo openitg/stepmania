@@ -1,13 +1,5 @@
 #ifndef ARCH_HOOKS_DARWIN_H
 #define ARCH_HOOKS_DARWIN_H
-/*
- *  ArchHooks_darwin.h
- *  stepmania
- *
- *  Created by Steve Checkoway on Tue Jul 15 2003.
- *  Copyright (c) 2003 Steve Checkoway. All rights reserved.
- *
- */
 
 #include "ArchHooks.h"
 class RageMutex;
@@ -15,13 +7,16 @@ class RageMutex;
 class ArchHooks_darwin : public ArchHooks
 {
 public:
-    ArchHooks_darwin();
-    ~ArchHooks_darwin();
-    void DumpDebugInfo();
-
+	ArchHooks_darwin();
+	~ArchHooks_darwin();
+	RString GetArchName() { return "OS X"; }
+	RString GetMachineId();
+	void DumpDebugInfo();
+	RString GetPreferredLanguage();
 	void EnterTimeCriticalSection();
 	void ExitTimeCriticalSection();
-
+	bool GoToURL( RString sUrl );
+	
 protected:
 	RageMutex *TimeCritMutex;
 };
@@ -34,7 +29,7 @@ protected:
 #endif /* ARCH_HOOKS_DARWIN_H */
 
 /*
- * (c) 2003-2004 Steve Checkoway
+ * (c) 2003-2005 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

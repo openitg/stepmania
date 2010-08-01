@@ -1,6 +1,8 @@
 // SMPackageInstallDlg.cpp : implementation file
 //
 
+#define CO_EXIST_WITH_MFC
+#include "global.h"
 #include "stdafx.h"
 #include "smpackage.h"
 #include "SMPackageInstallDlg.h"
@@ -10,6 +12,14 @@
 #include "ShowComment.h"
 #include "IniFile.h"	
 #include "UninstallOld.h"	
+#include <algorithm>	
+#include "RageFileManager.h"	
+#include "RageFileDriverZip.h"	
+#include "archutils/Win32/DialogUtil.h"
+#include "LocalizedString.h"
+#include "RageLog.h"
+#include "arch/Dialog/Dialog.h"
+#include "RageFileDriverDirect.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -21,7 +31,7 @@ static char THIS_FILE[] = __FILE__;
 // CSMPackageInstallDlg dialog
 
 
-CSMPackageInstallDlg::CSMPackageInstallDlg(CString sPackagePath, CWnd* pParent /*=NULL*/)
+CSMPackageInstallDlg::CSMPackageInstallDlg(RString sPackagePath, CWnd* pParent /*=NULL*/)
 	: CDialog(CSMPackageInstallDlg::IDD, pParent)
 {
 	//{{AFX_DATA_INIT(CSMPackageInstallDlg)
@@ -49,12 +59,27 @@ BEGIN_MESSAGE_MAP(CSMPackageInstallDlg, CDialog)
 	ON_WM_PAINT()
 	ON_BN_CLICKED(IDC_BUTTON_EDIT, OnButtonEdit)
 	//}}AFX_MSG_MAP
+	ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 
 
 /////////////////////////////////////////////////////////////////////////////
 // CSMPackageInstallDlg message handlers
 
+static bool CompareStringNoCase( const RString &s1, const RString &s2 )
+{
+	return s1.CompareNoCase( s2 ) < 0;
+}
+
+void GetSmzipFilesToExtract( RageFileDriver &zip, vector<RString> &vsOut )
+{
+	GetDirListingRecursive( &zip, "/", "*", vsOut );
+	SMPackageUtil::StripIgnoredSmzipFiles( vsOut );	
+}
+
+
+static LocalizedString COULD_NOT_OPEN_FILE		( "CSMPackageInstallDlg", "Could not open file '%s'." );
+static LocalizedString IS_NOT_A_VALID_ZIP		( "CSMPackageInstallDlg", "'%s' is not a valid zip archive." );
 BOOL CSMPackageInstallDlg::OnInitDialog() 
 {
 	CDialog::OnInitDialog();
@@ -65,20 +90,28 @@ BOOL CSMPackageInstallDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	// TODO: Add extra initialization here
+	DialogUtil::LocalizeDialogAndContents( *this );
+	DialogUtil::SetHeaderFont( *this, IDC_STATIC_HEADER_TEXT );
 
-	int i;
+	// mount the zip
+	RageFileOsAbsolute file;
+	if( !file.Open(m_sPackagePath) )
+	{
+		Dialog::OK( ssprintf(COULD_NOT_OPEN_FILE.GetValue(),m_sPackagePath.c_str()) );
+		exit(1);	// better way to abort?
+	}
+
+	RageFileDriverZip zip;
+	if( !zip.Load(&file) )
+	{
+		Dialog::OK( ssprintf(IS_NOT_A_VALID_ZIP.GetValue(),m_sPackagePath.c_str()) );
+		exit(1);	// better way to abort?
+	}
 
 	//
 	// Set the text of the first Edit box
 	//
-	CString sMessage1 = ssprintf(
-		"You have chosen to install the Stepmania package:\r\n"
-		"\r\n"
-		"\t%s\r\n"
-		"\r\n"
-		"This package contains the following files:\r\n",
-		m_sPackagePath
-	);
+	RString sMessage1 = "\t" + m_sPackagePath;
 	CEdit* pEdit1 = (CEdit*)GetDlgItem(IDC_EDIT_MESSAGE1);
 	pEdit1->SetWindowText( sMessage1 );
 
@@ -86,42 +119,13 @@ BOOL CSMPackageInstallDlg::OnInitDialog()
 	//
 	// Set the text of the second Edit box
 	//
-	CString sMessage2;
-	try
-	{	
-		m_zip.Open( m_sPackagePath, CZipArchive::zipOpenReadOnly );
-	}
-	catch (CException* e)
 	{
-		AfxMessageBox( ssprintf("'%s' is not a valid zip archive.", m_sPackagePath), MB_ICONSTOP );
-		e->Delete();
-		exit( 1 );
+		vector<RString> vs;
+		GetSmzipFilesToExtract( zip, vs );
+		CEdit* pEdit2 = (CEdit*)GetDlgItem(IDC_EDIT_MESSAGE2);
+		RString sText = "\t" + join( "\r\n\t", vs );
+		pEdit2->SetWindowText( sText );
 	}
-
-	for( i=0; i<m_zip.GetCount(); i++ )
-	{
-		CZipFileHeader fh;
-		m_zip.GetFileInfo(fh, (WORD)i);
-
-		if( fh.IsDirectory() )
-			continue;
-		if( !fh.GetFileName().CompareNoCase( "smzip.ctl" ) )
-			continue;
-
-		sMessage2 += ssprintf( "\t%s\r\n", fh.GetFileName() );
-	}
-	CEdit* pEdit2 = (CEdit*)GetDlgItem(IDC_EDIT_MESSAGE2);
-	pEdit2->SetWindowText( sMessage2 );
-
-
-	//
-	// Set the text of the third Edit box
-	//
-	CString sMessage3 = "The package will be installed in the following Stepmania program folder:\r\n";
-
-	// Set the message
-	CEdit* pEdit3 = (CEdit*)GetDlgItem(IDC_EDIT_MESSAGE3);
-	pEdit3->SetWindowText( sMessage3 );
 
 
 	RefreshInstallationList();
@@ -160,56 +164,49 @@ void CSMPackageInstallDlg::OnPaint()
 	}
 }
 #include <direct.h>
+#include ".\smpackageinstalldlg.h"
 
-bool CSMPackageInstallDlg::CheckPackages()
+static bool CheckPackages( RageFileDriverZip &fileDriver )
 {
-	CZipWordArray ar;
-	m_zip.FindMatches("smzip.ctl", ar);
-	if( ar.GetSize() != 1 )
+	int iErr;
+	RageFileBasic *pFile = fileDriver.Open( "smzip.ctl", RageFile::READ, iErr );
+	if( pFile == NULL )
 		return true;
 
-	CZipMemFile control;
-	m_zip.ExtractFile( ar[0], control );
-
-	char *buf = new char[control.GetLength()];
-	control.Seek( 0, CZipAbstractFile::begin );
-	control.Read(buf, control.GetLength());
 	IniFile ini;
-	ini.ReadBuf( CString(buf, control.GetLength()) );
-	delete[] buf;
+	ini.ReadFile( *pFile );
 
 	int version = 0;
-	ini.GetValueI( "SMZIP", "Version", version );
+	ini.GetValue( "SMZIP", "Version", version );
 	if( version != 1 )
 		return true;
 
 	int cnt = 0;
-	ini.GetValueI( "Packages", "NumPackages", cnt );
+	ini.GetValue( "Packages", "NumPackages", cnt );
 
-	int i;
-	CStringArray Directories;
-	for( i = 0; i < cnt; ++i )
+	vector<RString> vsDirectories;
+	for( int i = 0; i < cnt; ++i )
 	{
-		CString path;
+		RString path;
 		if( !ini.GetValue( "Packages", ssprintf("%i", i), path) )
 			continue;
 
 		/* Does this directory exist? */
-		if( !IsADirectory(path) )
+		if( !FILEMAN->IsADirectory(path) )
 			continue;
 
-		if( !IsValidPackageDirectory(path) )
+		if( !SMPackageUtil::IsValidPackageDirectory(path) )
 			continue;
 		
-		Directories.push_back(path);
+		vsDirectories.push_back(path);
 	}
 
-	if( Directories.empty() )
+	if( vsDirectories.empty() )
 		return true;
 
 	{
 		UninstallOld UninstallOldDlg;
-		UninstallOldDlg.m_sPackages = join("\n", Directories);
+		UninstallOldDlg.m_sPackages = join("\r\n", vsDirectories);
 		int nResponse = UninstallOldDlg.DoModal();
 		if( nResponse == IDCANCEL )
 			return false;	// cancelled
@@ -219,34 +216,29 @@ bool CSMPackageInstallDlg::CheckPackages()
 
 	char cwd_[MAX_PATH];
 	_getcwd(cwd_, MAX_PATH);
-	CString cwd(cwd_);
-	if( cwd[cwd.GetLength()-1] != '\\' )
+	RString cwd(cwd_);
+	if( cwd[cwd.size()-1] != '\\' )
 		cwd += "\\";
 
-	for( i = 0; i < (int) Directories.size(); ++i )
+	for( i = 0; i < (int)vsDirectories.size(); ++i )
 	{
-		CString path = cwd+Directories[i];
-		char buf[1024];
-		memcpy(buf, path, path.GetLength()+1);
-		buf[path.GetLength()+1] = 0;
-
-		SHFILEOPSTRUCT op;
-		memset(&op, 0, sizeof(op));
-
-		op.wFunc = FO_DELETE;
-		op.pFrom = buf;
-		op.pTo = NULL;
-		op.fFlags = FOF_NOCONFIRMATION;
-		if( !SHFileOperation(&op) )
-			continue;
-
-		/* Something failed.  SHFileOperation displayed the error dialog, so just cancel. */
-		return false;
+		RString sDir = vsDirectories[i];
+		sDir += "/";
+		if( !DeleteRecursive(sDir) )	// error deleting
+		{
+			return false;
+		}
 	}
 
 	return true;
 }
 
+static LocalizedString NO_INSTALLATIONS			("CSMPackageInstallDlg", "No Installations found.  Exiting.");
+static LocalizedString INSTALLING_PLEASE_WAIT		("CSMPackageInstallDlg", "Installing.  Please wait...");
+static LocalizedString ERROR_OPENING_SOURCE_FILE	("CSMPackageInstallDlg", "Error opening source file '%s': %s");
+static LocalizedString ERROR_OPENING_DESTINATION_FILE	("CSMPackageInstallDlg", "Error opening destination file '%s': %s");
+static LocalizedString ERROR_COPYING_FILE		("CSMPackageInstallDlg", "Error copying file '%s': %s");
+static LocalizedString PACKAGE_INSTALLED_SUCCESSFULLY	("CSMPackageInstallDlg","Package installed successfully!");
 void CSMPackageInstallDlg::OnOK() 
 {
 	// TODO: Add extra validation here
@@ -256,96 +248,148 @@ void CSMPackageInstallDlg::OnOK()
 	m_comboDir.EnableWindow( FALSE );
 	m_buttonEdit.EnableWindow( FALSE );
 
-	CString sInstallDir;
-	m_comboDir.GetWindowText( sInstallDir );
-	
+	RString sInstallDir;
+	{
+		CString s;
+		m_comboDir.GetWindowText( s );
+		sInstallDir = s;
+	}
+
+	// selected install dir becomes the new default
+	int iSelectedInstallDirIndex = m_comboDir.GetCurSel();
+	if( iSelectedInstallDirIndex == -1 )
+	{
+		Dialog::OK( NO_INSTALLATIONS.GetValue() );
+		return;
+	}
+
+	SMPackageUtil::SetDefaultInstallDir( iSelectedInstallDirIndex );
+
+
+	// mount the zip
+	RageFileOsAbsolute file;
+	if( !file.Open(m_sPackagePath) )
+	{
+		Dialog::OK( ssprintf(COULD_NOT_OPEN_FILE.GetValue(),m_sPackagePath.c_str()) );
+		exit(1);	// better way to abort?
+	}
+
+	RageFileDriverZip zip;
+	if( !zip.Load(&file) )
+	{
+		Dialog::OK( ssprintf(IS_NOT_A_VALID_ZIP.GetValue(),m_sPackagePath.c_str()) );
+		exit(1);	// better way to abort?
+	}
+
+	RageFileDriverDirect dir( sInstallDir );
+	// handle error?
 
 	// Show comment (if any)
-	CString sComment = m_zip.GetGlobalComment();
-	bool DontShowComment;
-	if( sComment != "" && (!GetPref("DontShowComment", DontShowComment) || !DontShowComment) )
 	{
-		ShowComment commentDlg;
-		commentDlg.m_sComment = sComment;
-		int nResponse = commentDlg.DoModal();
-		if( nResponse != IDOK )
-			return;	// cancelled
-		if( commentDlg.m_bDontShow )
-			SetPref( "DontShowComment", true );
+		RString sComment = zip.GetGlobalComment();
+		bool DontShowComment;
+		if( sComment != "" && (!SMPackageUtil::GetPref("DontShowComment", DontShowComment) || !DontShowComment) )
+		{
+			ShowComment commentDlg;
+			commentDlg.m_sComment = sComment;
+			int nResponse = commentDlg.DoModal();
+			if( nResponse != IDOK )
+				return;	// cancelled
+			if( commentDlg.m_bDontShow )
+				SMPackageUtil::SetPref( "DontShowComment", true );
+		}
 	}
 
 	/* Check for installed packages that should be deleted before installing. */
-	if( !CheckPackages() )
+	if( !CheckPackages(zip) )
 		return;	// cancelled
 
 
-	// Unzip the SMzip package into the Stepmania installation folder
-	for( int i=0; i<m_zip.GetCount(); i++ )
+	// Unzip the SMzip package into the installation folder
+	vector<RString> vs;
+	GetSmzipFilesToExtract( zip, vs );
+	for( unsigned i=0; i<vs.size(); i++ )
 	{
 		// Throw some text up so the user has something to look at during the long pause.
-		CEdit* pEdit1 = (CEdit*)GetDlgItem(IDC_EDIT_MESSAGE1);
-		pEdit1->SetWindowText( ssprintf("Installing '%s'.  Please wait...", m_sPackagePath) );
+		CEdit* pEdit1 = (CEdit*)GetDlgItem(IDC_STATIC_MESSAGE1);
+		pEdit1->SetWindowText( ssprintf(INSTALLING_PLEASE_WAIT.GetValue(), m_sPackagePath.c_str()) );
 		CEdit* pEdit2 = (CEdit*)GetDlgItem(IDC_EDIT_MESSAGE2);
 		pEdit2->SetWindowText( "" );
-		CEdit* pEdit3 = (CEdit*)GetDlgItem(IDC_EDIT_MESSAGE3);
-		pEdit3->SetWindowText( "" );
+		GetDlgItem(IDC_STATIC_MESSAGE2)->ShowWindow( SW_HIDE );
 		CProgressCtrl* pProgress1 = (CProgressCtrl*)GetDlgItem(IDC_PROGRESS1);
 		//Show the hided progress bar
-	    if(!pProgress1->IsWindowVisible())
-        {
-          pProgress1->ShowWindow(SW_SHOWNORMAL);
-        }
-		//Initialize the progress bar and update the window 1 time (it's enough)
-        if(!ProgressInit)
+		if(!pProgress1->IsWindowVisible())
 		{
-			pProgress1->SetRange( 0, m_zip.GetCount());
-            pProgress1->SetStep(1);
+			pProgress1->ShowWindow(SW_SHOWNORMAL);
+		}
+		//Initialize the progress bar and update the window 1 time (it's enough)
+		if(!ProgressInit)
+		{
+			pProgress1->SetRange( 0, (short)vs.size() );
+			pProgress1->SetStep(1);
 			pProgress1->SetPos(0);
 			SendMessage( WM_PAINT );
-		    UpdateWindow();		// Force the silly thing to hadle WM_PAINT now!
+			UpdateWindow();		// Force the silly thing to hadle WM_PAINT now!
 			ProgressInit = 1;
 		}
 
 retry_unzip:
 
 		// Extract the files
-		try
-		{	
-			// skip extracting "thumbs.db" files
-			CZipFileHeader fhInfo;
-			if( m_zip.GetFileInfo(fhInfo, (WORD)i) )
-			{
-				CString sFileName = fhInfo.GetFileName();
-				sFileName.MakeLower();
-				if( sFileName.Find("thumbs.db") != -1 )
-					continue;	// skip to next file
-			}
+		const RString sFile = vs[i];
+		LOG->Trace( "Extracting: "+sFile );
 
-			m_zip.ExtractFile( (WORD)i, sInstallDir, true );	// extract file to current directory
-			pProgress1->StepIt(); //increase the progress bar of 1 step
-		}
-		catch (CException* e)
+		RString sError;
 		{
-			char szError[4096];
-			e->GetErrorMessage( szError, sizeof(szError) );
-			e->Delete();
-
-			switch( MessageBox( szError, "Error Extracting File", MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION ) )
+			int iErr;
+			RageFileBasic *pFileFrom = zip.Open( sFile, RageFile::READ, iErr );
+			if( pFileFrom == NULL )
 			{
-			case IDABORT:
-				exit(1);
-				break;
-			case IDRETRY:
-				goto retry_unzip;
-				break;
-			case IDIGNORE:
-				// do nothing
-				break;
+				sError = ssprintf( ERROR_OPENING_SOURCE_FILE.GetValue(), sFile.c_str(), ssprintf("%d",iErr).c_str() );
+				goto show_error;
 			}
+
+			int iError;
+			RageFileBasic *pFileTo = dir.Open( sFile, RageFile::WRITE, iError );
+			if( pFileTo == NULL )
+			{
+				sError = ssprintf( ERROR_OPENING_DESTINATION_FILE.GetValue(), sFile.c_str(), pFileTo->GetError().c_str() );
+				goto show_error;
+			}
+
+			RString sErr;
+			if( !FileCopy(*pFileFrom, *pFileTo, sErr) )
+			{
+				sError = ssprintf( ERROR_COPYING_FILE.GetValue(), sFile.c_str(), sErr.c_str() );
+				goto show_error;
+			}
+
+			SAFE_DELETE( pFileFrom );
+			SAFE_DELETE( pFileTo );
 		}
+
+		goto done_with_file;
+
+show_error:
+		switch( Dialog::AbortRetryIgnore(sError) )
+		{
+		case Dialog::abort:
+			exit(1);	// better way to exit?
+			break;
+		case Dialog::retry:
+			goto retry_unzip;
+			break;
+		case Dialog::ignore:
+			// do nothing
+			break;
+		}
+
+done_with_file:
+
+		pProgress1->StepIt(); //increase the progress bar of 1 step
 	}
 
-	AfxMessageBox( "Package installed successfully!" );
+	Dialog::OK( PACKAGE_INSTALLED_SUCCESSFULLY.GetValue() );
 
 	// close the dialog
 	CDialog::OnOK();
@@ -359,7 +403,6 @@ void CSMPackageInstallDlg::OnButtonEdit()
 	int nResponse = dlg.DoModal();
 	if( nResponse == IDOK )
 	{
-		WriteStepManiaInstallDirs( dlg.m_asReturnedInstallDirs );
 		RefreshInstallationList();
 	}
 }
@@ -369,10 +412,53 @@ void CSMPackageInstallDlg::RefreshInstallationList()
 {
 	m_comboDir.ResetContent();
 
-	CStringArray asInstallDirs;
-	GetStepManiaInstallDirs( asInstallDirs );
+	vector<RString> asInstallDirs;
+	SMPackageUtil::GetGameInstallDirs( asInstallDirs );
 	for( unsigned i=0; i<asInstallDirs.size(); i++ )
 		m_comboDir.AddString( asInstallDirs[i] );
 	m_comboDir.SetCurSel( 0 );	// guaranteed to be at least one item
 }
 
+HBRUSH CSMPackageInstallDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
+{
+	HBRUSH hbr = CDialog::OnCtlColor(pDC, pWnd, nCtlColor);
+
+	// TODO:  Change any attributes of the DC here
+	switch( pWnd->GetDlgCtrlID() )
+	{
+	case IDC_STATIC_HEADER_TEXT:
+	case IDC_STATIC_ICON:
+		hbr = (HBRUSH)::GetStockObject(WHITE_BRUSH); 
+		pDC->SetBkMode(OPAQUE);
+		pDC->SetBkColor( RGB(255,255,255) );
+		break;
+	}
+
+	// TODO:  Return a different brush if the default is not desired
+	return hbr;
+}
+
+/*
+ * (c) 2002-2005 Chris Danford
+ * All rights reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, and/or sell copies of the Software, and to permit persons to
+ * whom the Software is furnished to do so, provided that the above
+ * copyright notice(s) and this permission notice appear in all copies of
+ * the Software and that both the above copyright notice(s) and this
+ * permission notice appear in supporting documentation.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+ * THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+ * INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT
+ * OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */

@@ -13,6 +13,7 @@
 #include "RageUtil.h"
 #include "GameState.h"
 #include "InputEventPlus.h"
+#include "RageInput.h"
 
 #define CHATINPUT_WIDTH				THEME->GetMetricF(m_sName,"ChatInputBoxWidth")
 #define CHATINPUT_HEIGHT			THEME->GetMetricF(m_sName,"ChatInputBoxHeight")
@@ -33,9 +34,6 @@ AutoScreenMessage( SM_UsersUpdate )
 AutoScreenMessage( SM_SMOnlinePack )
 
 REGISTER_SCREEN_CLASS( ScreenNetSelectBase );
-ScreenNetSelectBase::ScreenNetSelectBase( const CString& sName ) : ScreenWithMenuElements( sName )
-{
-}
 
 void ScreenNetSelectBase::Init()
 {
@@ -97,10 +95,6 @@ void ScreenNetSelectBase::Input( const InputEventPlus &input )
 	if( (input.type != IET_FIRST_PRESS) && (input.type != IET_SLOW_REPEAT) && (input.type != IET_FAST_REPEAT ) )
 		return;
 
-	bool bHoldingShift = 
-		INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LSHIFT)) ||
-		INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RSHIFT));
-
 	bool bHoldingCtrl = 
 		INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_LCTRL)) ||
 		INPUTFILTER->IsBeingPressed(DeviceInput(DEVICE_KEYBOARD, KEY_RCTRL)) ||
@@ -125,41 +119,12 @@ void ScreenNetSelectBase::Input( const InputEventPlus &input )
 		UpdateTextInput();
 		break;
 	default:
-		char c;
-		c = input.DeviceI.ToChar();
+		wchar_t c;
+		c = INPUTMAN->DeviceInputToChar(input.DeviceI, true);
 
-		if( bHoldingShift && !bHoldingCtrl )
-		{
-			c = (char)toupper(c);
-
-			switch( c )
-			{
-			case '`':	c='~';	break;
-			case '1':	c='!';	break;
-			case '2':	c='@';	break;
-			case '3':	c='#';	break;
-			case '4':	c='$';	break;
-			case '5':	c='%';	break;
-			case '6':	c='^';	break;
-			case '7':	c='&';	break;
-			case '8':	c='*';	break;
-			case '9':	c='(';	break;
-			case '0':	c=')';	break;
-			case '-':	c='_';	break;
-			case '=':	c='+';	break;
-			case '[':	c='{';	break;
-			case ']':	c='}';	break;
-			case '\'':	c='"';	break;
-			case '\\':	c='|';	break;
-			case ';':	c=':';	break;
-			case ',':	c='<';	break;
-			case '.':	c='>';	break;
-			case '/':	c='?';	break;
-			}
-		}
 		if( (c >= ' ') && (!bHoldingCtrl) )
 		{
-			m_sTextInput += c;
+			m_sTextInput += WStringToRString(wstring()+c);
 			UpdateTextInput();
 		}
 
@@ -250,7 +215,7 @@ void ScreenNetSelectBase::UpdateUsers()
 	}
 }
 
-void UtilSetQuadInit( Actor& actor, const CString &sClassName )
+void UtilSetQuadInit( Actor& actor, const RString &sClassName )
 {
 	ActorUtil::SetXYAndOnCommand( actor, sClassName );
 	actor.RunCommands( THEME->GetMetricA( sClassName, actor.GetName() + "Command" ) );

@@ -5,10 +5,19 @@
 
 #include "RageTypes.h"
 #include "ModelTypes.h"
+#include <set>
+
+class DisplayResolution;
+typedef set<DisplayResolution> DisplayResolutions;
 
 const int REFRESH_DEFAULT = 0;
 struct RageSurface;
-const int MAX_TEXTURE_UNITS = 2;
+enum TextureUnit 
+{
+	TextureUnit_1,
+	TextureUnit_2,
+	NUM_TextureUnit
+};
 
 // RageCompiledGeometry holds vertex data in a format that is most efficient 
 // for the graphics API.
@@ -33,10 +42,84 @@ protected:
 		int iVertexCount;
 		int iTriangleStart;
 		int iTriangleCount;
+		bool m_bNeedsTextureMatrixScale;
 	};
 	vector<MeshInfo>	m_vMeshInfo;
 	bool m_bNeedsNormals;
-	bool m_bNeedsTextureMatrixScale;
+	bool m_bAnyNeedsTextureMatrixScale;
+};
+
+enum PixelFormat
+{
+	PixelFormat_RGBA8,
+	PixelFormat_RGBA4,
+	PixelFormat_RGB5A1,
+	PixelFormat_RGB5,
+	PixelFormat_RGB8,
+	PixelFormat_PAL,
+	/* The above formats differ between OpenGL and D3D. These are provided as
+	* alternatives for OpenGL that match some format in D3D.  Don't use them
+	* directly; they'll be matched automatically by FindPixelFormat. */
+	PixelFormat_BGR8,
+	PixelFormat_A1BGR5,
+	NUM_PixelFormat,
+	PixelFormat_INVALID
+};
+const RString& PixelFormatToString( PixelFormat i );
+
+class VideoModeParams
+{
+public:
+	// Initialize with a constructor so to guarantee all paramters
+	// are filled (in case new params are added).
+	VideoModeParams( 
+		bool windowed_,
+		int width_,
+		int height_,
+		int bpp_,
+		int rate_,
+		bool vsync_,
+		bool interlaced_,
+		bool bSmoothLines_,
+		bool bTrilinearFiltering_,
+		bool bAnisotropicFiltering_,
+		RString sWindowTitle_,
+		RString sIconFile_,
+		bool PAL_,
+		float fDisplayAspectRatio_
+	)
+	{
+		windowed = windowed_;
+		width = width_;
+		height = height_;
+		bpp = bpp_;
+		rate = rate_;
+		vsync = vsync_;
+		interlaced = interlaced_;
+		bSmoothLines = bSmoothLines_;
+		bTrilinearFiltering = bTrilinearFiltering_;
+		bAnisotropicFiltering = bAnisotropicFiltering_;
+		sWindowTitle = sWindowTitle_;
+		sIconFile = sIconFile_;
+		PAL = PAL_;
+		fDisplayAspectRatio = fDisplayAspectRatio_;
+	}
+	VideoModeParams() {}
+
+	bool windowed;
+	int width;
+	int height;
+	int bpp;
+	int rate;
+	bool vsync;
+	bool bSmoothLines;
+	bool bTrilinearFiltering;
+	bool bAnisotropicFiltering;
+	bool interlaced;
+	bool PAL;
+	float fDisplayAspectRatio;
+	RString sWindowTitle;
+	RString sIconFile;
 };
 
 class RageDisplay
@@ -50,98 +133,42 @@ public:
 		unsigned int masks[4];
 	};
 
-	enum PixelFormat {
-		FMT_RGBA8,
-		FMT_RGBA4,
-		FMT_RGB5A1,
-		FMT_RGB5,
-		FMT_RGB8,
-		FMT_PAL,
-		/* The above formats differ between OpenGL and D3D. These are provided as
-		* alternatives for OpenGL that match some format in D3D.  Don't use them
-		* directly; they'll be matched automatically by FindPixelFormat. */
-		FMT_BGR8,
-		FMT_A1BGR5,
-		NUM_PIX_FORMATS
-	};
-
-	static CString PixelFormatToString( PixelFormat pixfmt );
 	virtual const PixelFormatDesc *GetPixelFormatDesc( PixelFormat pf ) const = 0;
-
-	struct VideoModeParams
-	{
-		// Initialize with a constructor so to guarantee all paramters
-		// are filled (in case new params are added).
-		VideoModeParams( 
-			bool windowed_,
-			int width_,
-			int height_,
-			int bpp_,
-			int rate_,
-			bool vsync_,
-			bool interlaced_,
-			bool bSmoothLines_,
-			bool bTrilinearFiltering_,
-			bool bAnisotropicFiltering_,
-			CString sWindowTitle_,
-			CString sIconFile_,
-			bool PAL_,
-			float fDisplayAspectRatio_
-		)
-		{
-			windowed = windowed_;
-			width = width_;
-			height = height_;
-			bpp = bpp_;
-			rate = rate_;
-			vsync = vsync_;
-			interlaced = interlaced_;
-			bSmoothLines = bSmoothLines_;
-			bTrilinearFiltering = bTrilinearFiltering_;
-			bAnisotropicFiltering = bAnisotropicFiltering_;
-			sWindowTitle = sWindowTitle_;
-			sIconFile = sIconFile_;
-			PAL = PAL_;
-			fDisplayAspectRatio = fDisplayAspectRatio_;
-		}
-		VideoModeParams() {}
-
-		bool windowed;
-		int width;
-		int height;
-		int bpp;
-		int rate;
-		bool vsync;
-		bool bSmoothLines;
-		bool bTrilinearFiltering;
-		bool bAnisotropicFiltering;
-		bool interlaced;
-		bool PAL;
-		float fDisplayAspectRatio;
-		CString sWindowTitle;
-		CString sIconFile;
-	};
 
 	/* This is needed or the overridden classes' dtors will not be called. */
 	virtual ~RageDisplay() { }
 
+	virtual RString Init( const VideoModeParams &p, bool bAllowUnacceleratedRenderer ) = 0;
+
+	virtual RString GetApiDescription() const = 0;
+	virtual void GetDisplayResolutions( DisplayResolutions &out ) const = 0;
+	virtual float GetMonitorAspectRatio() const = 0;
+
 	// Don't override this.  Override TryVideoMode() instead.
 	// This will set the video mode to be as close as possible to params.
 	// Return true if device was re-created and we need to reload textures.
-	CString SetVideoMode( VideoModeParams p, bool &bNeedReloadTextures );
+	RString SetVideoMode( VideoModeParams p, bool &bNeedReloadTextures );
 
 	/* Call this when the resolution has been changed externally: */
-	virtual void ResolutionChanged() { }
+	virtual void ResolutionChanged();
 
 	virtual bool BeginFrame() = 0;	
 	virtual void EndFrame();
-	virtual VideoModeParams GetVideoModeParams() const = 0;
-	bool IsWindowed() const { return this->GetVideoModeParams().windowed; }
+	virtual VideoModeParams GetActualVideoModeParams() const = 0;
+	bool IsWindowed() const { return this->GetActualVideoModeParams().windowed; }
 	
 	virtual void SetBlendMode( BlendMode mode ) = 0;
 
 	virtual bool SupportsTextureFormat( PixelFormat pixfmt, bool realtime=false ) = 0;
 	virtual bool SupportsThreadedRendering() { return false; }
+	virtual bool SupportsPerVertexMatrixScale() = 0;
+
+	// If threaded rendering is supported, these will be called from the rendering
+	// thread before and after rendering.
+	virtual void BeginConcurrentRenderingMainThread() { }
+	virtual void EndConcurrentRenderingMainThread() { }
+	virtual void BeginConcurrentRendering() { }
+	virtual void EndConcurrentRendering() { }
 
 	/* return 0 if failed or internal texture resource handle 
 	 * (unsigned in OpenGL, texture pointer in D3D) */
@@ -158,7 +185,7 @@ public:
 	virtual void DeleteTexture( unsigned uTexHandle ) = 0;
 	virtual void ClearAllTextures() = 0;
 	virtual int GetNumTextureUnits() = 0;
-	virtual void SetTexture( int iTextureUnitIndex, RageTexture* pTexture ) = 0;
+	virtual void SetTexture( TextureUnit tu, RageTexture* pTexture ) = 0;
 	virtual void SetTextureModeModulate() = 0;
 	virtual void SetTextureModeGlow() = 0;
 	virtual void SetTextureModeAdd() = 0;
@@ -220,9 +247,9 @@ public:
 		SAVE_LOSSY_LOW_QUAL, // jpg
 		SAVE_LOSSY_HIGH_QUAL // jpg
 	};
-	bool SaveScreenshot( CString sPath, GraphicsFileFormat format );
+	bool SaveScreenshot( RString sPath, GraphicsFileFormat format );
 
-	virtual CString GetTextureDiagnostics( unsigned id ) const { return CString(); }
+	virtual RString GetTextureDiagnostics( unsigned id ) const { return RString(); }
 	virtual RageSurface* CreateScreenshot() = 0;	// allocates a surface.  Caller must delete it.
 
 protected:
@@ -235,10 +262,10 @@ protected:
 	virtual void DrawLineStripInternal( const RageSpriteVertex v[], int iNumVerts, float LineWidth );
 	virtual void DrawCircleInternal( const RageSpriteVertex &v, float radius );
 
-	// return CString() if mode change was successful, an error message otherwise.
+	// return RString() if mode change was successful, an error message otherwise.
 	// bNewDeviceOut is set true if a new device was created and textures
 	// need to be reloaded.
-	virtual CString TryVideoMode( VideoModeParams params, bool &bNewDeviceOut ) = 0;
+	virtual RString TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut ) = 0;
 
 	void DrawPolyLine( const RageSpriteVertex &p1, const RageSpriteVertex &p2, float LineWidth );
 
@@ -252,7 +279,7 @@ public:
 	int GetCumFPS() const; /* average FPS since last reset */
 	virtual void ResetStats();
 	virtual void ProcessStatsOnFlip();
-	virtual CString GetStats() const;
+	virtual RString GetStats() const;
 	void StatsAddVerts( int iNumVertsRendered );
 
 	/* World matrix stack functions. */
@@ -273,12 +300,13 @@ public:
 	/* Texture matrix functions */
 	void TexturePushMatrix();
 	void TexturePopMatrix();
-	void TextureTranslate( float x, float y, float z );
+	void TextureTranslate( float x, float y );
+	void TextureTranslate( const RageVector2 &v ) { this->TextureTranslate( v.x, v.y ); }	
 
 	/* Projection and View matrix stack functions. */
 	void CameraPushMatrix();
 	void CameraPopMatrix();
-	void LoadMenuPerspective( float fovDegrees, float fVanishPointX, float fVanishPointY );
+	void LoadMenuPerspective( float fFOVDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY );
 	void LoadLookAt( float fov, const RageVector3 &Eye, const RageVector3 &At, const RageVector3 &Up );
 
 	/* Centering matrix */
@@ -298,6 +326,8 @@ protected:
 	// Matrix that adjusts position and scale of image on the screen
 	//
 	RageMatrix m_Centering;
+	RageMatrix GetCenteringMatrix( float fTranslateX, float fTranslateY, float fAddWidth, float fAddHeight ) const;
+	void UpdateCentering();
 
 	// Called by the RageDisplay derivitives
 	const RageMatrix* GetCentering() { return &m_Centering; }

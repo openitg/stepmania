@@ -33,12 +33,18 @@ static uint64_t g_iStartTime = ArchHooks::GetMicrosecondsSinceStart( true );
 
 static uint64_t GetTime( bool bAccurate )
 {
+	return ArchHooks::GetMicrosecondsSinceStart( true );
+
+	/* This isn't threadsafe, and locking it would undo any benefit of not
+	 * calling GetMicrosecondsSinceStart. */
+#if 0
 	// if !bAccurate, then don't call ArchHooks to find the current time.  Just return the 
 	// last calculated time.  GetMicrosecondsSinceStart is slow on some archs.
 	static uint64_t usecs = 0;
 	if( bAccurate )
 		usecs = ArchHooks::GetMicrosecondsSinceStart( true );
 	return usecs;
+#endif
 }
 
 float RageTimer::GetTimeSinceStart( bool bAccurate )
@@ -73,20 +79,19 @@ float RageTimer::GetDeltaTime()
 	return diff;
 }
 
-/* Get a timer representing half of the time ago as this one.  This is
+/*
+ * Get a timer representing half of the time ago as this one.  This is
  * useful for averaging time.  For example,
  * 
  * RageTimer tm;
  * ... do stuff ...
  * RageTimer AverageTime = tm.Half();
- * printf("Something happened between now and tm; the average time is %f.\n", tm.Ago());
- * tm.Touch();
+ * printf( "Something happened approximately %f seconds ago.\n", tm.Ago() );
  */
 RageTimer RageTimer::Half() const
 {
-	const RageTimer now;
-	const float ProbableDelay = -(now - *this) / 2;
-	return *this + ProbableDelay;
+	const float fProbableDelay = Ago() / 2;
+	return *this + fProbableDelay;
 }
 
 

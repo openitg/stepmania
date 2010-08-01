@@ -1,28 +1,33 @@
-/* Win32 helper - set up a window for OpenGL/D3D */
+/* GraphicsWindow - Sets up a window for OpenGL/D3D. */
+
 #ifndef GRAPHICS_WINDOW_H
 #define GRAPHICS_WINDOW_H
 
 #include <windows.h>
-#include "RageDisplay.h" // for RageDisplay::VideoModeParams
+#include "DisplayResolutions.h"
+class VideoModeParams;
+class DisplayResolution;
 
 namespace GraphicsWindow
 {
 	/* Set up, and create a hidden window.  This only needs to be called once. */
-	void Initialize();
+	void Initialize( bool bD3D );
 
 	/* Shut down completely. */
 	void Shutdown();
 
-	void SetVideoModeParams( const RageDisplay::VideoModeParams &p );
-	CString SetScreenMode( const RageDisplay::VideoModeParams &p );
-	void CreateGraphicsWindow( const RageDisplay::VideoModeParams &p );
-	void RecreateGraphicsWindow( const RageDisplay::VideoModeParams &p );
+	/* Set the display mode.  p will not be second-guessed, except to try disabling
+	 * the refresh rate setting. */
+	RString SetScreenMode( const VideoModeParams &p );
+
+	/* Create the window.  This also updates VideoModeParams (returned by GetParams). */
+	void CreateGraphicsWindow( const VideoModeParams &p, bool bForceRecreateWindow = false );
 	void DestroyGraphicsWindow();
-	void ConfigureGraphicsWindow( const RageDisplay::VideoModeParams &p );
 
-	LRESULT CALLBACK GraphicsWindow_WndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
+	void GetDisplayResolutions( DisplayResolutions &out );
+	float GetMonitorAspectRatio();
 
-	RageDisplay::VideoModeParams GetParams();
+	const VideoModeParams &GetParams();
 	HDC GetHDC();
 	void Update();
 

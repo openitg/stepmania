@@ -1,7 +1,6 @@
 #include "global.h"
 #include "ScreenSelectDifficulty.h"
 #include "ScreenManager.h"
-#include "PrefsManager.h"
 #include "GameSoundManager.h"
 #include "GameManager.h"
 #include "ThemeManager.h"
@@ -12,30 +11,27 @@
 #include "ScreenDimensions.h"
 #include "Command.h"
 
-#define NUM_CHOICES_ON_PAGE_1				THEME->GetMetricI(m_sName,"NumChoicesOnPage1")
-#define LOCK_INPUT_SECONDS					THEME->GetMetricF(m_sName,"LockInputSeconds")
-#define SLEEP_AFTER_CHOICE_SECONDS			THEME->GetMetricF(m_sName,"SleepAfterChoiceSeconds")
-#define SLEEP_AFTER_TWEEN_OFF_SECONDS		THEME->GetMetricF(m_sName,"SleepAfterTweenOffSeconds")
-#define CURSOR_CHOOSE_COMMAND				THEME->GetMetricA(m_sName,"CursorChooseCommand")
+#define NUM_CHOICES_ON_PAGE_1			THEME->GetMetricI(m_sName,"NumChoicesOnPage1")
+#define LOCK_INPUT_SECONDS			THEME->GetMetricF(m_sName,"LockInputSeconds")
+#define SLEEP_AFTER_CHOICE_SECONDS		THEME->GetMetricF(m_sName,"SleepAfterChoiceSeconds")
+#define CURSOR_CHOOSE_COMMAND			THEME->GetMetricA(m_sName,"CursorChooseCommand")
 #define CURSOR_OFFSET_X_FROM_PICTURE( p )	THEME->GetMetricF(m_sName,ssprintf("CursorP%dOffsetXFromPicture",p+1))
 #define CURSOR_OFFSET_Y_FROM_PICTURE( p )	THEME->GetMetricF(m_sName,ssprintf("CursorP%dOffsetYFromPicture",p+1))
-#define SHADOW_CHOOSE_COMMAND				THEME->GetMetricA(m_sName,"ShadowChooseCommand")
-#define SHADOW_LENGTH_X						THEME->GetMetricF(m_sName,"ShadowLengthX")
-#define SHADOW_LENGTH_Y						THEME->GetMetricF(m_sName,"ShadowLengthY")
-#define OK_CHOOSE_COMMAND					THEME->GetMetricA(m_sName,"OKChooseCommand")
-#define ENABLED_COMMAND						THEME->GetMetricA(m_sName,"EnabledCommand")
-#define DISABLED_COMMAND					THEME->GetMetricA(m_sName,"DisabledCommand")
+#define SHADOW_CHOOSE_COMMAND			THEME->GetMetricA(m_sName,"ShadowChooseCommand")
+#define SHADOW_LENGTH_X				THEME->GetMetricF(m_sName,"ShadowLengthX")
+#define SHADOW_LENGTH_Y				THEME->GetMetricF(m_sName,"ShadowLengthY")
+#define OK_CHOOSE_COMMAND			THEME->GetMetricA(m_sName,"OKChooseCommand")
+#define ENABLED_COMMAND				THEME->GetMetricA(m_sName,"EnabledCommand")
+#define DISABLED_COMMAND			THEME->GetMetricA(m_sName,"DisabledCommand")
 
-#define IGNORED_ELEMENT_COMMAND				THEME->GetMetricA(m_sName,"IgnoredElementOnCommand")
+#define IGNORED_ELEMENT_COMMAND			THEME->GetMetricA(m_sName,"IgnoredElementOnCommand")
 
 REGISTER_SCREEN_CLASS( ScreenSelectDifficulty );
-ScreenSelectDifficulty::ScreenSelectDifficulty( CString sClassName ) : ScreenSelect( sClassName )
-{
-	m_CurrentPage = PAGE_1;
-}
 
 void ScreenSelectDifficulty::Init()
 {
+	m_CurrentPage = PAGE_1;
+
 	ScreenSelect::Init();
 
 	FOREACH_PlayerNumber( p )
@@ -158,20 +154,6 @@ void ScreenSelectDifficulty::Update( float fDelta )
 {
 	ScreenSelect::Update( fDelta );
 	m_fLockInputTime = max( 0, m_fLockInputTime-fDelta );
-}
-
-void ScreenSelectDifficulty::HandleScreenMessage( const ScreenMessage SM )
-{
-	ScreenSelect::HandleScreenMessage( SM );
-
-	switch( SM )
-	{
-	case SM_BeginFadingOut:
-		TweenOursOffScreen();
-		SCREENMAN->PostMessageToTopScreen( SM_AllDoneChoosing, SLEEP_AFTER_TWEEN_OFF_SECONDS );	// nofify parent that we're finished
-		StopTimer();
-		break;
-	}
 }
 
 int ScreenSelectDifficulty::GetSelectionIndex( PlayerNumber pn )
@@ -334,7 +316,9 @@ void ScreenSelectDifficulty::ChangePage( Page newPage )
 				break;
 			}
 		}
-	} else {
+	}
+	else
+	{
 		for( unsigned i=0; i<m_GameCommands[newPage].size(); i++ )
 		{
 			if( m_GameCommands[newPage][i].IsPlayable() )
@@ -523,8 +507,10 @@ void ScreenSelectDifficulty::MenuStart( PlayerNumber pn )
 	this->PostScreenMessage( SM_BeginFadingOut, SLEEP_AFTER_CHOICE_SECONDS );	// tell our owner it's time to move on
 }
 
-void ScreenSelectDifficulty::TweenOursOffScreen()
+void ScreenSelectDifficulty::TweenOffScreen()
 {	
+	ScreenSelect::TweenOffScreen();
+
 	const int page = m_CurrentPage;
 
 	OFF_COMMAND( m_sprExplanation[page] );

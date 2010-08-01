@@ -1,20 +1,20 @@
-/* GetVideoDriverInfo: Get information about Win32 video drivers. */
+/* GetVideoDriverInfo - Get information about Win32 video drivers. */
 
 #ifndef VIDEO_DRIVER_INFO_H
 #define VIDEO_DRIVER_INFO_H
 
 struct VideoDriverInfo
 {
-	CString sProvider;
-	CString sDescription;
-	CString sVersion;
-	CString sDate;
-	CString sDeviceID;
+	RString sProvider;
+	RString sDescription;
+	RString sVersion;
+	RString sDate;
+	RString sDeviceID;
 };
 
-CString GetPrimaryVideoName();
-bool GetVideoDriverInfo(int cardno, VideoDriverInfo &info);
-CString GetPrimaryVideoDriverName();
+RString GetPrimaryVideoName();
+bool GetVideoDriverInfo( int iCardno, VideoDriverInfo &info );
+RString GetPrimaryVideoDriverName();
 
 #endif
 

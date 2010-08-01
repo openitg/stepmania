@@ -3,13 +3,8 @@
 #include "SDL_utils.h"
 #include "RageLog.h"
 #include "RageDisplay.h" // for REFRESH_DEFAULT
-#include "StepMania.h"
-
-#if defined(UNIX)
-#include <X11/Xlib.h>
-
-extern Display *g_X11Display;
-#endif
+#include "arch/ArchHooks/ArchHooks.h"
+#include "DisplayResolutions.h"
 
 LowLevelWindow_SDL::LowLevelWindow_SDL()
 {
@@ -34,13 +29,15 @@ LowLevelWindow_SDL::~LowLevelWindow_SDL()
 	mySDL_EventState( SDL_QUIT, SDL_IGNORE );
 }
 
-void *LowLevelWindow_SDL::GetProcAddress(CString s)
+void *LowLevelWindow_SDL::GetProcAddress(RString s)
 {
 	return SDL_GL_GetProcAddress(s);
 }
 
-CString LowLevelWindow_SDL::TryVideoMode( RageDisplay::VideoModeParams p, bool &bNewDeviceOut )
+RString LowLevelWindow_SDL::TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut )
 {
+	bool wasWindowed = CurrentParams.windowed;
+	
 	CurrentParams = p;
 
 	/* We need to preserve the event mask and all events, since they're lost by
@@ -73,7 +70,7 @@ CString LowLevelWindow_SDL::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 
 	if( SDL_InitSubSystem(SDL_INIT_VIDEO) == -1 )
 	{
-		const CString err = mySDL_GetError();
+		const RString err = mySDL_GetError();
 
 		/* Check for a confusing SDL error message. */
 		if( !err.CompareNoCase( "X11 driver not configured with OpenGL" ) )
@@ -89,7 +86,8 @@ CString LowLevelWindow_SDL::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 	/* Set SDL window title, icon and cursor -before- creating the window */
 	SDL_WM_SetCaption( p.sWindowTitle, "");
 	mySDL_WM_SetIcon( p.sIconFile );
-
+	SDL_ShowCursor( p.windowed ? SDL_ENABLE : SDL_DISABLE );
+	
 	int flags = SDL_RESIZABLE | SDL_OPENGL;
 	if( !p.windowed )
 		flags |= SDL_FULLSCREEN;
@@ -123,15 +121,14 @@ CString LowLevelWindow_SDL::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 	putenv( buf );
 #endif
 
-	SDL_Surface *screen = SDL_SetVideoMode(p.width, p.height, p.bpp, flags);
-	if(!screen)
+	SDL_Surface *screen = SDL_SetVideoMode( p.width, p.height, p.bpp, flags );
+	if( !screen )
 	{
 		LOG->Trace( "SDL_SetVideoMode failed: %s", mySDL_GetError().c_str() );
+		SDL_ShowCursor( wasWindowed ? SDL_ENABLE : SDL_DISABLE );
 		return mySDL_GetError();	// failed to set mode
 	}
 	
-	SDL_ShowCursor( p.windowed );
-
 	bNewDeviceOut = true;	// always a new context because we're resetting SDL_Video
 
 	static bool bLogged = false;
@@ -141,19 +138,6 @@ CString LowLevelWindow_SDL::TryVideoMode( RageDisplay::VideoModeParams p, bool &
 		const SDL_version *ver = SDL_Linked_Version();
 		LOG->Info( "SDL version: %i.%i.%i", ver->major, ver->minor, ver->patch );
 	}
-
-#if defined(unix)
-	{
-		SDL_SysWMinfo info;
-		SDL_VERSION(&info.version);
-
-		g_X11Display = NULL;
-		if ( SDL_GetWMInfo(&info) < 0 )
-			LOG->Warn("SDL_GetWMInfo failed: %s", SDL_GetError());
-		else
-			g_X11Display = info.info.x11.display;
-	}
-#endif
 
 	{
 		/* Find out what we really got. */
@@ -201,7 +185,7 @@ void LowLevelWindow_SDL::Update()
 				break;
 
 			if( event.active.gain  &&		// app regaining focus
-				!DISPLAY->GetVideoModeParams().windowed )	// full screen
+				!DISPLAY->GetActualVideoModeParams().windowed )	// full screen
 			{
 				// need to reacquire an OGL context
 				/* This hasn't been done in a long time, since HandleSDLEvents was
@@ -209,20 +193,32 @@ void LowLevelWindow_SDL::Update()
 				 * it resulted in input not being regained and textures being erased,
 				 * so I left it disabled; but this might be needed on some cards (with
 				 * the above fixed) ... */
-				// DISPLAY->SetVideoMode( DISPLAY->GetVideoModeParams() );
+				// DISPLAY->SetVideoMode( DISPLAY->GetActualVideoModeParams() );
 			}
 
 			{
 				uint8_t i = SDL_GetAppState();
 				LOG->Trace( "SDL_GetAppState: %i", i );
-				FocusChanged( i&SDL_APPINPUTFOCUS && i&SDL_APPACTIVE );
+				HOOKS->SetHasFocus( i&SDL_APPINPUTFOCUS && i&SDL_APPACTIVE );
 			}
 			break;
 		case SDL_QUIT:
 			LOG->Trace("SDL_QUIT: shutting down");
-			ExitGame();
+			ArchHooks::SetUserQuit();
 			break;
 		}
+	}
+}
+
+void LowLevelWindow_SDL::GetDisplayResolutions( DisplayResolutions &out ) const
+{
+	SDL_Rect **modes = SDL_ListModes(NULL, SDL_RESIZABLE | SDL_OPENGL | SDL_FULLSCREEN );
+	ASSERT_M( modes, "No modes available" );
+	
+	for(int i=0; modes[i]; ++i )
+	{
+		DisplayResolution res = { modes[i]->w, modes[i]->h };
+		out.insert( res );
 	}
 }
 

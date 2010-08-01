@@ -12,31 +12,32 @@
 #include "Style.h"
 #include "CommonMetrics.h"
 #include "arch/Dialog/Dialog.h"
+#include <float.h>
 
 #define ONE( arr ) { for( unsigned Z = 0; Z < ARRAYSIZE(arr); ++Z ) arr[Z]=1.0f; }
 
 void PlayerOptions::Init()
 {
 	m_bSetScrollSpeed = false;
-	m_fTimeSpacing = 0;			m_SpeedfTimeSpacing = 1.0f;
+	m_fTimeSpacing = 0;		m_SpeedfTimeSpacing = 1.0f;
 	m_fScrollSpeed = 1.0f;		m_SpeedfScrollSpeed = 1.0f;
-	m_fScrollBPM = 200;			m_SpeedfScrollBPM = 1.0f;
-	ZERO( m_fAccels );			ONE( m_SpeedfAccels );
-	ZERO( m_fEffects );			ONE( m_SpeedfEffects );
+	m_fScrollBPM = 200;		m_SpeedfScrollBPM = 1.0f;
+	ZERO( m_fAccels );		ONE( m_SpeedfAccels );
+	ZERO( m_fEffects );		ONE( m_SpeedfEffects );
 	ZERO( m_fAppearances );		ONE( m_SpeedfAppearances );
-	ZERO( m_fScrolls );			ONE( m_SpeedfScrolls );
-	m_fDark = 0;				m_SpeedfDark = 1.0f;
-	m_fBlind = 0;				m_SpeedfBlind = 1.0f;
-	m_fCover = 0;				m_SpeedfCover = 1.0f;
+	ZERO( m_fScrolls );		ONE( m_SpeedfScrolls );
+	m_fDark = 0;			m_SpeedfDark = 1.0f;
+	m_fBlind = 0;			m_SpeedfBlind = 1.0f;
+	m_fCover = 0;			m_SpeedfCover = 1.0f;
 	m_bSetTiltOrSkew = false;
 	m_fPerspectiveTilt = 0;		m_SpeedfPerspectiveTilt = 1.0f;
-	m_fSkew = 0;				m_SpeedfSkew = 1.0f;
-	m_fPassmark = 0;			m_SpeedfPassmark = 1.0f;
-	m_fRandomSpeed = 0;			m_SpeedfRandomSpeed = 1.0f;
+	m_fSkew = 0;			m_SpeedfSkew = 1.0f;
+	m_fPassmark = 0;		m_SpeedfPassmark = 1.0f;
+	m_fRandomSpeed = 0;		m_SpeedfRandomSpeed = 1.0f;
 	ZERO( m_bTurns );
 	ZERO( m_bTransforms );
 	m_ScoreDisplay = SCORING_ADD;
-	m_sNoteSkin = "default";
+	m_sNoteSkin = "";
 }
 
 void PlayerOptions::Approach( const PlayerOptions& other, float fDeltaSeconds )
@@ -64,39 +65,41 @@ void PlayerOptions::Approach( const PlayerOptions& other, float fDeltaSeconds )
 	APP( fRandomSpeed );
 }
 
-static void AddPart( vector<CString> &AddTo, float level, CString name )
+static void AddPart( vector<RString> &AddTo, float level, RString name )
 {
 	if( level == 0 )
 		return;
 
-	const CString LevelStr = (level == 1)? CString(""): ssprintf( "%i%% ", (int) roundf(level*100) );
+	const RString LevelStr = (level == 1)? RString(""): ssprintf( "%i%% ", (int) roundf(level*100) );
 
 	AddTo.push_back( LevelStr + name );
 }
 
-CString PlayerOptions::GetString() const
+RString PlayerOptions::GetString() const
 {
-	vector<CString> v;
+	vector<RString> v;
 	GetMods( v );
 	return join( ", ", v );
 }
 
-void PlayerOptions::GetMods( vector<CString> &AddTo ) const
+void PlayerOptions::GetMods( vector<RString> &AddTo ) const
 {
-	CString sReturn;
+	RString sReturn;
 
 	if( !m_fTimeSpacing )
 	{
 		if( m_bSetScrollSpeed || m_fScrollSpeed != 1 )
 		{
 			/* -> 1.00 */
-			CString s = ssprintf( "%2.2f", m_fScrollSpeed );
-			if( s[s.GetLength()-1] == '0' ) {
+			RString s = ssprintf( "%2.2f", m_fScrollSpeed );
+			if( s[s.size()-1] == '0' )
+			{
 				/* -> 1.0 */
-				s.erase(s.GetLength()-1);	// delete last char
-				if( s[s.GetLength()-1] == '0' ) {
+				s.erase( s.size()-1 );	// delete last char
+				if( s[s.size()-1] == '0' )
+				{
 					/* -> 1 */
-					s.erase(s.GetLength()-2);	// delete last 2 chars
+					s.erase( s.size()-2 );	// delete last 2 chars
 				}
 			}
 			AddTo.push_back( s + "x" );
@@ -104,7 +107,7 @@ void PlayerOptions::GetMods( vector<CString> &AddTo ) const
 	}
 	else
 	{
-		CString s = ssprintf( "C%.0f", m_fScrollBPM );
+		RString s = ssprintf( "C%.0f", m_fScrollBPM );
 		AddTo.push_back( s );
 	}
 
@@ -117,6 +120,7 @@ void PlayerOptions::GetMods( vector<CString> &AddTo ) const
 	AddPart( AddTo, m_fEffects[EFFECT_DRUNK],	"Drunk" );
 	AddPart( AddTo, m_fEffects[EFFECT_DIZZY],	"Dizzy" );
 	AddPart( AddTo, m_fEffects[EFFECT_MINI],	"Mini" );
+	AddPart( AddTo, m_fEffects[EFFECT_TINY],	"Tiny" );
 	AddPart( AddTo, m_fEffects[EFFECT_FLIP],	"Flip" );
 	AddPart( AddTo, m_fEffects[EFFECT_INVERT],	"Invert" );
 	AddPart( AddTo, m_fEffects[EFFECT_TORNADO],	"Tornado" );
@@ -124,32 +128,32 @@ void PlayerOptions::GetMods( vector<CString> &AddTo ) const
 	AddPart( AddTo, m_fEffects[EFFECT_BUMPY],	"Bumpy" );
 	AddPart( AddTo, m_fEffects[EFFECT_BEAT],	"Beat" );
 
-	AddPart( AddTo, m_fAppearances[APPEARANCE_HIDDEN],			"Hidden" );
+	AddPart( AddTo, m_fAppearances[APPEARANCE_HIDDEN],		"Hidden" );
 	AddPart( AddTo, m_fAppearances[APPEARANCE_HIDDEN_OFFSET],	"HiddenOffset" );
-	AddPart( AddTo, m_fAppearances[APPEARANCE_SUDDEN],			"Sudden" );
+	AddPart( AddTo, m_fAppearances[APPEARANCE_SUDDEN],		"Sudden" );
 	AddPart( AddTo, m_fAppearances[APPEARANCE_SUDDEN_OFFSET],	"SuddenOffset" );
-	AddPart( AddTo, m_fAppearances[APPEARANCE_STEALTH],			"Stealth" );
-	AddPart( AddTo, m_fAppearances[APPEARANCE_BLINK],			"Blink" );
+	AddPart( AddTo, m_fAppearances[APPEARANCE_STEALTH],		"Stealth" );
+	AddPart( AddTo, m_fAppearances[APPEARANCE_BLINK],		"Blink" );
 	AddPart( AddTo, m_fAppearances[APPEARANCE_RANDOMVANISH],	"RandomVanish" );
 
-	AddPart( AddTo, m_fScrolls[SCROLL_REVERSE],		"Reverse" );
-	AddPart( AddTo, m_fScrolls[SCROLL_SPLIT],		"Split" );
+	AddPart( AddTo, m_fScrolls[SCROLL_REVERSE],	"Reverse" );
+	AddPart( AddTo, m_fScrolls[SCROLL_SPLIT],	"Split" );
 	AddPart( AddTo, m_fScrolls[SCROLL_ALTERNATE],	"Alternate" );
-	AddPart( AddTo, m_fScrolls[SCROLL_CROSS],		"Cross" );
+	AddPart( AddTo, m_fScrolls[SCROLL_CROSS],	"Cross" );
 	AddPart( AddTo, m_fScrolls[SCROLL_CENTERED],	"Centered" );
 
-	AddPart( AddTo, m_fDark, "Dark" );
+	AddPart( AddTo, m_fDark,	"Dark" );
 
 	AddPart( AddTo, m_fBlind,	"Blind" );
 	AddPart( AddTo, m_fCover,	"Cover" );
 
-	AddPart( AddTo, m_fPassmark, "Passmark" );
+	AddPart( AddTo, m_fPassmark,	"Passmark" );
 
-	AddPart( AddTo, m_fRandomSpeed, "RandomSpeed" );
+	AddPart( AddTo, m_fRandomSpeed,	"RandomSpeed" );
 
-	if( m_bTurns[TURN_MIRROR] )			AddTo.push_back( "Mirror" );
-	if( m_bTurns[TURN_LEFT] )			AddTo.push_back( "Left" );
-	if( m_bTurns[TURN_RIGHT] )			AddTo.push_back( "Right" );
+	if( m_bTurns[TURN_MIRROR] )		AddTo.push_back( "Mirror" );
+	if( m_bTurns[TURN_LEFT] )		AddTo.push_back( "Left" );
+	if( m_bTurns[TURN_RIGHT] )		AddTo.push_back( "Right" );
 	if( m_bTurns[TURN_SHUFFLE] )		AddTo.push_back( "Shuffle" );
 	if( m_bTurns[TURN_SUPER_SHUFFLE] )	AddTo.push_back( "SuperShuffle" );
 
@@ -157,13 +161,13 @@ void PlayerOptions::GetMods( vector<CString> &AddTo ) const
 	if( m_bTransforms[TRANSFORM_NOROLLS] )	AddTo.push_back( "NoRolls" );
 	if( m_bTransforms[TRANSFORM_NOMINES] )	AddTo.push_back( "NoMines" );
 	if( m_bTransforms[TRANSFORM_LITTLE] )	AddTo.push_back( "Little" );
-	if( m_bTransforms[TRANSFORM_WIDE] )		AddTo.push_back( "Wide" );
-	if( m_bTransforms[TRANSFORM_BIG] )		AddTo.push_back( "Big" );
+	if( m_bTransforms[TRANSFORM_WIDE] )	AddTo.push_back( "Wide" );
+	if( m_bTransforms[TRANSFORM_BIG] )	AddTo.push_back( "Big" );
 	if( m_bTransforms[TRANSFORM_QUICK] )	AddTo.push_back( "Quick" );
 	if( m_bTransforms[TRANSFORM_BMRIZE] )	AddTo.push_back( "BMRize" );
 	if( m_bTransforms[TRANSFORM_SKIPPY] )	AddTo.push_back( "Skippy" );
 	if( m_bTransforms[TRANSFORM_MINES] )	AddTo.push_back( "Mines" );
-	if( m_bTransforms[TRANSFORM_ECHO] )		AddTo.push_back( "Echo" );
+	if( m_bTransforms[TRANSFORM_ECHO] )	AddTo.push_back( "Echo" );
 	if( m_bTransforms[TRANSFORM_STOMP] )	AddTo.push_back( "Stomp" );
 	if( m_bTransforms[TRANSFORM_PLANTED] )	AddTo.push_back( "Planted" );
 	if( m_bTransforms[TRANSFORM_FLOORED] )	AddTo.push_back( "Floored" );
@@ -190,9 +194,10 @@ void PlayerOptions::GetMods( vector<CString> &AddTo ) const
 		AddPart( AddTo, m_fSkew, "Incoming" );
 	}
 
-	if( !m_sNoteSkin.empty()  &&  m_sNoteSkin.CompareNoCase("default")!=0 )
+	// Don't display a string if using the default NoteSkin.
+	if( !m_sNoteSkin.empty() && m_sNoteSkin != NOTESKIN->GAME_BASE_NOTESKIN_NAME.GetValue() )
 	{
-		CString s = m_sNoteSkin;
+		RString s = m_sNoteSkin;
 		Capitalize( s );
 		AddTo.push_back( s );
 	}
@@ -200,17 +205,18 @@ void PlayerOptions::GetMods( vector<CString> &AddTo ) const
 
 /* Options are added to the current settings; call Init() beforehand if
  * you don't want this. */
-void PlayerOptions::FromString( CString sOptions, bool bWarnOnInvalid )
+void PlayerOptions::FromString( const RString &sOptions, bool bWarnOnInvalid )
 {
 	ASSERT( NOTESKIN );
 //	Init();
-	sOptions.MakeLower();
-	CStringArray asBits;
-	split( sOptions, ",", asBits, true );
+	RString sTemp = sOptions;
+	sTemp.MakeLower();
+	vector<RString> asBits;
+	split( sTemp, ",", asBits, true );
 
-	FOREACH( CString, asBits, bit )
+	FOREACH( RString, asBits, bit )
 	{
-		CString& sBit = *bit;
+		RString& sBit = *bit;
 		TrimLeft(sBit);
 		TrimRight(sBit);
 
@@ -221,10 +227,10 @@ void PlayerOptions::FromString( CString sOptions, bool bWarnOnInvalid )
 
 		float level = 1;
 		float speed = 1;
-		CStringArray asParts;
+		vector<RString> asParts;
 		split( sBit, " ", asParts, true );
 
-		FOREACH_CONST( CString, asParts, s )
+		FOREACH_CONST( RString, asParts, s )
 		{
 			if( *s == "no" )
 			{
@@ -235,13 +241,25 @@ void PlayerOptions::FromString( CString sOptions, bool bWarnOnInvalid )
 				/* If the last character is a *, they probably said "123*" when
 				 * they meant "*123". */
 				if( s->Right(1) == "*" )
-					RageException::Throw("Invalid player options '%i*'; did you mean '*%i'?", 
-						atoi(*s), atoi(*s) );
-				level = strtof( *s, NULL ) / 100.0f;
+				{
+					if( bWarnOnInvalid )
+					{
+						LOG->Warn( "Invalid player options '%s'; did you mean '*%d'?",
+							   s->c_str(), atoi(*s) );
+					}
+					// XXX We know what they want, is there any reason not to handle it?
+					speed = StringToFloat( *s );
+				}
+				else
+				{
+					level = StringToFloat( *s ) / 100.0f;
+				}
 			}
 			else if( *s[0]=='*' )
 			{
 				sscanf( *s, "*%f", &speed );
+				if( !isfinite(speed) )
+					speed = 1.0f;
 			}
 		}
 
@@ -252,34 +270,35 @@ void PlayerOptions::FromString( CString sOptions, bool bWarnOnInvalid )
 		const bool on = (level > 0.5f);
 
 		static Regex mult("^([0-9]+(\\.[0-9]+)?)x$");
-		vector<CString> matches;
+		vector<RString> matches;
 		if( mult.Compare(sBit, matches) )
 		{
-			char *p = NULL;
-			level = strtof( matches[0], &p );
-			ASSERT( p != matches[0] );
+			::FromString( matches[0], level );
 			SET_FLOAT( fScrollSpeed )
 			SET_FLOAT( fTimeSpacing )
 			m_fTimeSpacing = 0;
 		}
 		else if( sscanf( sBit, "c%f", &level ) == 1 )
 		{
+			if( !isfinite(level) || level <= 0.0f )
+				level = 200.0f; // Just pick some value.
 			SET_FLOAT( fScrollBPM )
 			SET_FLOAT( fTimeSpacing )
 			m_fTimeSpacing = 1;
 		}
-		else if( sBit == "clearall" )	Init();
+		else if( sBit == "clearall" )		Init();
 		else if( sBit == "boost" )		SET_FLOAT( fAccels[ACCEL_BOOST] )
 		else if( sBit == "brake" || sBit == "land" ) SET_FLOAT( fAccels[ACCEL_BRAKE] )
 		else if( sBit == "wave" )		SET_FLOAT( fAccels[ACCEL_WAVE] )
 		else if( sBit == "expand" )		SET_FLOAT( fAccels[ACCEL_EXPAND] )
-		else if( sBit == "boomerang" )	SET_FLOAT( fAccels[ACCEL_BOOMERANG] )
+		else if( sBit == "boomerang" )		SET_FLOAT( fAccels[ACCEL_BOOMERANG] )
 		else if( sBit == "drunk" )		SET_FLOAT( fEffects[EFFECT_DRUNK] )
 		else if( sBit == "dizzy" )		SET_FLOAT( fEffects[EFFECT_DIZZY] )
 		else if( sBit == "mini" )		SET_FLOAT( fEffects[EFFECT_MINI] )
+		else if( sBit == "tiny" )		SET_FLOAT( fEffects[EFFECT_TINY] )
 		else if( sBit == "flip" )		SET_FLOAT( fEffects[EFFECT_FLIP] )
 		else if( sBit == "invert" )		SET_FLOAT( fEffects[EFFECT_INVERT] )
-		else if( sBit == "tornado" )	SET_FLOAT( fEffects[EFFECT_TORNADO] )
+		else if( sBit == "tornado" )		SET_FLOAT( fEffects[EFFECT_TORNADO] )
 		else if( sBit == "tipsy" )		SET_FLOAT( fEffects[EFFECT_TIPSY] )
 		else if( sBit == "bumpy" )		SET_FLOAT( fEffects[EFFECT_BUMPY] )
 		else if( sBit == "beat" )		SET_FLOAT( fEffects[EFFECT_BEAT] )
@@ -287,15 +306,15 @@ void PlayerOptions::FromString( CString sOptions, bool bWarnOnInvalid )
 		else if( sBit == "hiddenoffset" )	SET_FLOAT( fAppearances[APPEARANCE_HIDDEN_OFFSET] )
 		else if( sBit == "sudden" )		SET_FLOAT( fAppearances[APPEARANCE_SUDDEN] )
 		else if( sBit == "suddenoffset" )	SET_FLOAT( fAppearances[APPEARANCE_SUDDEN_OFFSET] )
-		else if( sBit == "stealth" )	SET_FLOAT( fAppearances[APPEARANCE_STEALTH] )
+		else if( sBit == "stealth" )		SET_FLOAT( fAppearances[APPEARANCE_STEALTH] )
 		else if( sBit == "blink" )		SET_FLOAT( fAppearances[APPEARANCE_BLINK] )
-		else if( sBit == "randomvanish" ) SET_FLOAT( fAppearances[APPEARANCE_RANDOMVANISH] )
-		else if( sBit == "turn" && !on ) ZERO( m_bTurns ); /* "no turn" */
+		else if( sBit == "randomvanish" )	SET_FLOAT( fAppearances[APPEARANCE_RANDOMVANISH] )
+		else if( sBit == "turn" && !on )	ZERO( m_bTurns ); /* "no turn" */
 		else if( sBit == "mirror" )		m_bTurns[TURN_MIRROR] = on;
 		else if( sBit == "left" )		m_bTurns[TURN_LEFT] = on;
 		else if( sBit == "right" )		m_bTurns[TURN_RIGHT] = on;
-		else if( sBit == "shuffle" )	m_bTurns[TURN_SHUFFLE] = on;
-		else if( sBit == "supershuffle" )m_bTurns[TURN_SUPER_SHUFFLE] = on;
+		else if( sBit == "shuffle" )		m_bTurns[TURN_SHUFFLE] = on;
+		else if( sBit == "supershuffle" )	m_bTurns[TURN_SUPER_SHUFFLE] = on;
 		else if( sBit == "little" )		m_bTransforms[TRANSFORM_LITTLE] = on;
 		else if( sBit == "wide" )		m_bTransforms[TRANSFORM_WIDE] = on;
 		else if( sBit == "big" )		m_bTransforms[TRANSFORM_BIG] = on;
@@ -305,44 +324,44 @@ void PlayerOptions::FromString( CString sOptions, bool bWarnOnInvalid )
 		else if( sBit == "mines" )		m_bTransforms[TRANSFORM_MINES] = on;
 		else if( sBit == "echo" )		m_bTransforms[TRANSFORM_ECHO] = on;
 		else if( sBit == "stomp" )		m_bTransforms[TRANSFORM_STOMP] = on;
-		else if( sBit == "planted" )	m_bTransforms[TRANSFORM_PLANTED] = on;
-		else if( sBit == "floored" )	m_bTransforms[TRANSFORM_FLOORED] = on;
-		else if( sBit == "twister" )	m_bTransforms[TRANSFORM_TWISTER] = on;
-		else if( sBit == "nojumps" )	m_bTransforms[TRANSFORM_NOJUMPS] = on;
-		else if( sBit == "nohands" )	m_bTransforms[TRANSFORM_NOHANDS] = on;
-		else if( sBit == "noquads" )	m_bTransforms[TRANSFORM_NOQUADS] = on;
-		else if( sBit == "reverse" )	SET_FLOAT( fScrolls[SCROLL_REVERSE] )
+		else if( sBit == "planted" )		m_bTransforms[TRANSFORM_PLANTED] = on;
+		else if( sBit == "floored" )		m_bTransforms[TRANSFORM_FLOORED] = on;
+		else if( sBit == "twister" )		m_bTransforms[TRANSFORM_TWISTER] = on;
+		else if( sBit == "nojumps" )		m_bTransforms[TRANSFORM_NOJUMPS] = on;
+		else if( sBit == "nohands" )		m_bTransforms[TRANSFORM_NOHANDS] = on;
+		else if( sBit == "noquads" )		m_bTransforms[TRANSFORM_NOQUADS] = on;
+		else if( sBit == "reverse" )		SET_FLOAT( fScrolls[SCROLL_REVERSE] )
 		else if( sBit == "split" )		SET_FLOAT( fScrolls[SCROLL_SPLIT] )
-		else if( sBit == "alternate" )	SET_FLOAT( fScrolls[SCROLL_ALTERNATE] )
+		else if( sBit == "alternate" )		SET_FLOAT( fScrolls[SCROLL_ALTERNATE] )
 		else if( sBit == "cross" )		SET_FLOAT( fScrolls[SCROLL_CROSS] )
 		else if( sBit == "centered" || sBit == "converge" )	SET_FLOAT( fScrolls[SCROLL_CENTERED] )
 		else if( sBit == "noholds" || sBit == "nofreeze" )	m_bTransforms[TRANSFORM_NOHOLDS] = on;
-		else if( sBit == "norolls" )	m_bTransforms[TRANSFORM_NOROLLS] = on;
-		else if( sBit == "nomines" )	m_bTransforms[TRANSFORM_NOMINES] = on;
-		else if( sBit == "nostretch" )	m_bTransforms[TRANSFORM_NOSTRETCH] = on;
+		else if( sBit == "norolls" )		m_bTransforms[TRANSFORM_NOROLLS] = on;
+		else if( sBit == "nomines" )		m_bTransforms[TRANSFORM_NOMINES] = on;
+		else if( sBit == "nostretch" )		m_bTransforms[TRANSFORM_NOSTRETCH] = on;
 		else if( sBit == "dark" )		SET_FLOAT( fDark )
 		else if( sBit == "blind" )		SET_FLOAT( fBlind )
 		else if( sBit == "cover" )		SET_FLOAT( fCover )
-		else if( sBit == "passmark" )	SET_FLOAT( fPassmark )
-		else if( sBit == "overhead" )	{ m_bSetTiltOrSkew = true; m_fSkew = 0;		m_fPerspectiveTilt = 0;			m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
-		else if( sBit == "incoming" )	{ m_bSetTiltOrSkew = true; m_fSkew = level; m_fPerspectiveTilt = -level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
-		else if( sBit == "space" )		{ m_bSetTiltOrSkew = true; m_fSkew = level; m_fPerspectiveTilt = +level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
-		else if( sBit == "hallway" )	{ m_bSetTiltOrSkew = true; m_fSkew = 0;		m_fPerspectiveTilt = -level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
-		else if( sBit == "distant" )	{ m_bSetTiltOrSkew = true; m_fSkew = 0;		m_fPerspectiveTilt = +level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
+		else if( sBit == "passmark" )		SET_FLOAT( fPassmark )
+		else if( sBit == "overhead" )		{ m_bSetTiltOrSkew = true; m_fSkew = 0;		m_fPerspectiveTilt = 0;		m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
+		else if( sBit == "incoming" )		{ m_bSetTiltOrSkew = true; m_fSkew = level;	m_fPerspectiveTilt = -level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
+		else if( sBit == "space" )		{ m_bSetTiltOrSkew = true; m_fSkew = level;	m_fPerspectiveTilt = +level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
+		else if( sBit == "hallway" )		{ m_bSetTiltOrSkew = true; m_fSkew = 0;		m_fPerspectiveTilt = -level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
+		else if( sBit == "distant" )		{ m_bSetTiltOrSkew = true; m_fSkew = 0;		m_fPerspectiveTilt = +level;	m_SpeedfSkew = m_SpeedfPerspectiveTilt = speed; }
 		else if( NOTESKIN && NOTESKIN->DoesNoteSkinExist(sBit) )	m_sNoteSkin = sBit;
-		else if( sBit == "noteskin" && !on ) /* "no noteskin" */	m_sNoteSkin = "default";
-		else if( sBit == "randomspeed" ) 		SET_FLOAT( fRandomSpeed )
-		else if( sBit == "addscore" )			m_ScoreDisplay = SCORING_ADD;
-		else if( sBit == "subtractscore" )		m_ScoreDisplay = SCORING_SUBTRACT;
-		else if( sBit == "averagescore" )		m_ScoreDisplay = SCORING_AVERAGE;
-		else if( sBit == "random" )				ChooseRandomModifiers();
+		else if( sBit == "noteskin" && !on ) /* "no noteskin" */	m_sNoteSkin = NOTESKIN->GAME_BASE_NOTESKIN_NAME;
+		else if( sBit == "randomspeed" ) 	SET_FLOAT( fRandomSpeed )
+		else if( sBit == "addscore" )		m_ScoreDisplay = SCORING_ADD;
+		else if( sBit == "subtractscore" )	m_ScoreDisplay = SCORING_SUBTRACT;
+		else if( sBit == "averagescore" )	m_ScoreDisplay = SCORING_AVERAGE;
+		else if( sBit == "random" )		ChooseRandomModifiers();
 		else
 		{
 			if( bWarnOnInvalid )
 			{
-				CString sWarning = ssprintf( "The options string '%s' contains an invalid mod name '%s'", sOptions.c_str(), sBit.c_str() );
+				RString sWarning = ssprintf( "The options string '%s' contains an invalid mod name '%s'", sOptions.c_str(), sBit.c_str() );
 				LOG->Warn( "%s", sWarning.c_str() );
-				Dialog::OK( sWarning, "INVALID_PLAYER_OPTION_WANRING" );
+				Dialog::OK( sWarning, "INVALID_PLAYER_OPTION_WARNING" );
 			}
 		}
 	}
@@ -424,8 +443,8 @@ void PlayerOptions::NextPerspective()
 {
 	switch( (int)m_fPerspectiveTilt )
 	{
-	case -1:			m_fPerspectiveTilt =  0;	break;
-	case  0:			m_fPerspectiveTilt = +1;	break;
+	case -1:		m_fPerspectiveTilt =  0;	break;
+	case  0:		m_fPerspectiveTilt = +1;	break;
 	case +1: default:	m_fPerspectiveTilt = -1;	break;
 	}
 }
@@ -441,9 +460,9 @@ void PlayerOptions::ChooseRandomModifiers()
 	float f;
 	f = RandomFloat(0,1);
 	if( f>0.66f )
-		m_fAccels[rand()%NUM_ACCELS] = 1;
+		m_fAccels[RandomInt(NUM_ACCELS)] = 1;
 	else if( f>0.33f )
-		m_fEffects[rand()%NUM_EFFECTS] = 1;
+		m_fEffects[RandomInt(NUM_EFFECTS)] = 1;
 	f = RandomFloat(0,1);
 	if( f>0.95f )
 		m_fAppearances[APPEARANCE_HIDDEN] = 1;
@@ -569,27 +588,28 @@ bool PlayerOptions::operator==( const PlayerOptions &other ) const
 	return true;
 }
 
-bool PlayerOptions::IsEasierForSongAndSteps( Song* pSong, Steps* pSteps )
+bool PlayerOptions::IsEasierForSongAndSteps( Song* pSong, Steps* pSteps ) const
 {
 	if( m_fTimeSpacing && pSong->HasSignificantBpmChangesOrStops() )
 		return true;
-	if( m_bTransforms[TRANSFORM_NOHOLDS] && pSteps->GetRadarValues()[RADAR_NUM_HOLDS]>0 )
+	if( m_bTransforms[TRANSFORM_NOHOLDS] && pSteps->GetRadarValues()[RadarCategory_Holds]>0 )
 		return true;
-	if( m_bTransforms[TRANSFORM_NOROLLS] && pSteps->GetRadarValues()[RADAR_NUM_ROLLS]>0 )
+	if( m_bTransforms[TRANSFORM_NOROLLS] && pSteps->GetRadarValues()[RadarCategory_Rolls]>0 )
 		return true;
-	if( m_bTransforms[TRANSFORM_NOMINES] && pSteps->GetRadarValues()[RADAR_NUM_MINES]>0 )
+	if( m_bTransforms[TRANSFORM_NOMINES] && pSteps->GetRadarValues()[RadarCategory_Mines]>0 )
 		return true;
-	if( m_bTransforms[TRANSFORM_NOHANDS] && pSteps->GetRadarValues()[RADAR_NUM_HANDS]>0 )
+	if( m_bTransforms[TRANSFORM_NOHANDS] && pSteps->GetRadarValues()[RadarCategory_Hands]>0 )
 		return true;
-	if( m_bTransforms[TRANSFORM_NOQUADS] && pSteps->GetRadarValues()[RADAR_NUM_HANDS]>0 )
+	if( m_bTransforms[TRANSFORM_NOQUADS] && pSteps->GetRadarValues()[RadarCategory_Hands]>0 )
 		return true;
-	if( m_bTransforms[TRANSFORM_NOJUMPS] && pSteps->GetRadarValues()[RADAR_NUM_JUMPS]>0 )
+	if( m_bTransforms[TRANSFORM_NOJUMPS] && pSteps->GetRadarValues()[RadarCategory_Jumps]>0 )
 		return true;
 	if( m_bTransforms[TRANSFORM_NOSTRETCH] )
 		return true;
 
 	// Inserted holds can be really easy on some songs, and scores will be 
 	// highly hold-weighted, and very little tap score weighted.
+	if( m_bTransforms[TRANSFORM_LITTLE] )	return true;
 	if( m_bTransforms[TRANSFORM_PLANTED] )	return true;
 	if( m_bTransforms[TRANSFORM_FLOORED] )	return true;
 	if( m_bTransforms[TRANSFORM_TWISTER] )	return true;
@@ -601,7 +621,7 @@ bool PlayerOptions::IsEasierForSongAndSteps( Song* pSong, Steps* pSteps )
 	return false;
 }
 
-bool PlayerOptions::IsEasierForCourseAndTrail( Course* pCourse, Trail* pTrail )
+bool PlayerOptions::IsEasierForCourseAndTrail( Course* pCourse, Trail* pTrail ) const
 {
 	ASSERT( pCourse );
 	ASSERT( pTrail );
@@ -614,17 +634,17 @@ bool PlayerOptions::IsEasierForCourseAndTrail( Course* pCourse, Trail* pTrail )
 	return false;
 }
 
-void PlayerOptions::GetThemedMods( vector<CString> &AddTo ) const
+void PlayerOptions::GetLocalizedMods( vector<RString> &AddTo ) const
 {
-	vector<CString> vMods;
+	vector<RString> vMods;
 	GetMods( vMods );
-	FOREACH_CONST( CString, vMods, s )
+	FOREACH_CONST( RString, vMods, s )
 	{
-		const CString& sOneMod = *s;
+		const RString& sOneMod = *s;
 
 		ASSERT( !sOneMod.empty() );
 
-		CStringArray asTokens;
+		vector<RString> asTokens;
 		split( sOneMod, " ", asTokens );
 
 		if( asTokens.empty() )
@@ -639,11 +659,10 @@ void PlayerOptions::GetThemedMods( vector<CString> &AddTo ) const
 
 		/* Theme the mod name (the last string).  Allow this to not exist, since
 		 * characters might use modifiers that don't exist in the theme. */
-		asTokens.back() = THEME_OPTION_ITEM( asTokens.back(), true );
+		asTokens.back() = CommonMetrics::LocalizeOptionItem( asTokens.back(), true );
 
-		CString sThemedMod = join( " ", asTokens );
-
-		AddTo.push_back( sThemedMod );
+		RString sLocalizedMod = join( " ", asTokens );
+		AddTo.push_back( sLocalizedMod );
 	}
 }
 
@@ -662,7 +681,7 @@ bool PlayerOptions::ContainsTransformOrTurn() const
 	return false;
 }
 
-CString PlayerOptions::GetSavedPrefsString() const
+RString PlayerOptions::GetSavedPrefsString() const
 {
 	PlayerOptions po_prefs;
 #define SAVE(x) po_prefs.x = this->x;
@@ -700,7 +719,8 @@ void PlayerOptions::ResetSavedPrefs()
 	CPY( m_bTransforms[TRANSFORM_NOHANDS] );
 	CPY( m_bTransforms[TRANSFORM_NOQUADS] );
 	CPY( m_bTransforms[TRANSFORM_NOSTRETCH] );
-	CPY( m_sNoteSkin );
+	// Don't clear this.
+	// CPY( m_sNoteSkin );
 #undef CPY
 }
 

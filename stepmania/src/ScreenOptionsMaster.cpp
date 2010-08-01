@@ -9,7 +9,6 @@
 #include "ScreenManager.h"
 #include "SongManager.h"
 #include "PrefsManager.h"
-#include "GameSoundManager.h"
 #include "StepMania.h"
 #include "RageSoundManager.h"
 #include "Foreach.h"
@@ -17,96 +16,58 @@
 #include "ScreenOptionsMasterPrefs.h"
 #include "CommonMetrics.h"
 
-#define LINE_NAMES					THEME->GetMetric (m_sName,"LineNames")
-#define OPTION_MENU_FLAGS			THEME->GetMetric (m_sName,"OptionMenuFlags")
+#define LINE_NAMES				THEME->GetMetric (m_sName,"LineNames")
 #define LINE(sLineName)				THEME->GetMetric (m_sName,ssprintf("Line%s",sLineName.c_str()))
-
-#define NEXT_SCREEN					THEME->GetMetric (m_sName,"NextScreen")
+#define FORCE_ALL_PLAYERS			THEME->GetMetricB(m_sName,"ForceAllPlayers")
+#define INPUT_MODE				THEME->GetMetric (m_sName,"InputMode")
+#define NAVIGATION_MODE				THEME->GetMetric (m_sName,"NavigationMode")
 
 
 REGISTER_SCREEN_CLASS( ScreenOptionsMaster );
-ScreenOptionsMaster::ScreenOptionsMaster( CString sClassName ):
-	ScreenOptions( sClassName )
-{
-	LOG->Trace("ScreenOptionsMaster::ScreenOptionsMaster(%s)", m_sName.c_str() );
-}
 
 void ScreenOptionsMaster::Init()
 {
-	CStringArray asLineNames;
+	vector<RString> asLineNames;
 	split( LINE_NAMES, ",", asLineNames );
 	if( asLineNames.empty() )
 		RageException::Throw( "%s::LineNames is empty.", m_sName.c_str() );
 
-
-	CStringArray Flags;
-	split( OPTION_MENU_FLAGS, ";", Flags, true );
-	InputMode im = INPUTMODE_INDIVIDUAL;
-	bool Explanations = false;
-	
-	for( unsigned i = 0; i < Flags.size(); ++i )
+	if( FORCE_ALL_PLAYERS )
 	{
-		CString sFlag = Flags[i];
-		sFlag.MakeLower();
-
-		if( sFlag == "together" )
-			im = INPUTMODE_SHARE_CURSOR;
-		else if( sFlag == "explanations" )
-			Explanations = true;
-		else if( sFlag == "forceallplayers" )
-		{
-			FOREACH_PlayerNumber( pn )
-				GAMESTATE->m_bSideIsJoined[pn] = true;
-			GAMESTATE->m_MasterPlayerNumber = PlayerNumber(0);
-		}
-		else if( sFlag == "smnavigation" )
-			SetNavigation( NAV_THREE_KEY_MENU );
-		else if( sFlag == "toggle" || sFlag == "firstchoicegoesdown" )
-			SetNavigation( PREFSMAN->m_bArcadeOptionsNavigation? NAV_TOGGLE_THREE_KEY:NAV_TOGGLE_FIVE_KEY );
-		else
-			RageException::Throw( "Unknown flag \"%s\"", sFlag.c_str() );
+		FOREACH_PlayerNumber( pn )
+			GAMESTATE->m_bSideIsJoined[pn] = true;
+		GAMESTATE->m_MasterPlayerNumber = PLAYER_1;
 	}
 
-	SetInputMode( im );
+	if( NAVIGATION_MODE == "toggle" )
+		SetNavigation( PREFSMAN->m_bArcadeOptionsNavigation? NAV_TOGGLE_THREE_KEY:NAV_TOGGLE_FIVE_KEY );
+	else if( NAVIGATION_MODE == "menu" )
+		SetNavigation( NAV_THREE_KEY_MENU );
+
+	SetInputMode( StringToInputMode(INPUT_MODE) );
 
 	// Call this after enabling players, if any.
 	ScreenOptions::Init();
 
-	vector<OptionRowDefinition> OptionRowDefs;
-	OptionRowDefs.resize( asLineNames.size() );
-	m_OptionRowHandlers.resize( asLineNames.size() );
+	vector<OptionRowHandler*> OptionRowHandlers;
 	for( unsigned i = 0; i < asLineNames.size(); ++i )
 	{
-		CString sLineName = asLineNames[i];
-		OptionRowDefinition &def = OptionRowDefs[i];
-		CString sRowCommands = LINE(sLineName);
-		OptionRowHandler* &pHand = m_OptionRowHandlers[i];
-		pHand = NULL;
+		RString sLineName = asLineNames[i];
+		RString sRowCommands = LINE(sLineName);
 		
-		Commands vCommands;
-		ParseCommands( sRowCommands, vCommands );
-		if( vCommands.v.size() != 1 )
-			RageException::Throw( "Parse error in %s::Line%i", m_sName.c_str(), i+1 );
+		Commands cmds;
+		ParseCommands( sRowCommands, cmds );
 
-		Command& command = vCommands.v[0];
-		pHand = OptionRowHandlerUtil::Make( command, def );
+		OptionRowHandler *pHand = OptionRowHandlerUtil::Make( cmds );
 		if( pHand == NULL )
-            RageException::Throw( "Invalid OptionRowHandler '%s' in %s::Line%i", command.GetOriginalCommandString().c_str(), m_sName.c_str(), i );
+			RageException::Throw( "Invalid OptionRowHandler '%s' in %s::Line%i", cmds.GetOriginalCommandString().c_str(), m_sName.c_str(), i );
+		OptionRowHandlers.push_back( pHand );
 	}
 
-	ASSERT( m_OptionRowHandlers.size() == asLineNames.size() );
+	ASSERT( OptionRowHandlers.size() == asLineNames.size() );
 
 
-	InitMenu( OptionRowDefs, m_OptionRowHandlers );
-}
-
-ScreenOptionsMaster::~ScreenOptionsMaster()
-{
-	FOREACH( OptionRow*, m_pRows, r )
-		(*r)->DetachHandler();
-	FOREACH( OptionRowHandler*, m_OptionRowHandlers, h )
-		SAFE_DELETE( *h );
-	m_OptionRowHandlers.clear();
+	InitMenu( OptionRowHandlers );
 }
 
 void ScreenOptionsMaster::ImportOptions( int r, const vector<PlayerNumber> &vpns )
@@ -119,6 +80,8 @@ void ScreenOptionsMaster::ImportOptions( int r, const vector<PlayerNumber> &vpns
 
 void ScreenOptionsMaster::ExportOptions( int r, const vector<PlayerNumber> &vpns )
 {
+	CHECKPOINT_M( ssprintf("%i/%i", r, int(m_pRows.size())) );
+
 	OptionRow &row = *m_pRows[r];
 	bool bRowHasFocus[NUM_PLAYERS];
 	ZERO( bRowHasFocus );
@@ -128,38 +91,6 @@ void ScreenOptionsMaster::ExportOptions( int r, const vector<PlayerNumber> &vpns
 		bRowHasFocus[*p] = iCurRow == r;
 	}
 	m_iChangeMask |= row.ExportOptions( vpns, bRowHasFocus );
-}
-
-void ScreenOptionsMaster::BeginFadingOut()
-{
-	/* If the selection is on a LIST, and the selected LIST option sets the screen,
-	* honor it. */
-	m_bExportWillSetANewScreen = false;
-
-	int iCurRow = this->GetCurrentRow();
-	ASSERT( iCurRow >= 0 && iCurRow < (int)m_pRows.size() );
-	OptionRow &row = *m_pRows[iCurRow];
-
-	if( row.GetRowType() != OptionRow::ROW_EXIT )
-	{
-		int iChoice = row.GetChoiceInRowWithFocus( GAMESTATE->m_MasterPlayerNumber );
-		if( row.GetFirstItemGoesDown() )
-			iChoice--;
-		if( iChoice != -1 )	// not the "goes down" item
-		{
-			OptionRowHandler *pHand = m_OptionRowHandlers[iCurRow];
-			m_bExportWillSetANewScreen = pHand->HasScreen( iChoice );
-		}
-	}
-
-	// If options set a NextScreen or one is specified in metrics, then fade out
-	if( m_bExportWillSetANewScreen || NEXT_SCREEN != "" )
-		ScreenOptions::BeginFadingOut();
-}
-
-void ScreenOptionsMaster::RefreshIcons( int r, PlayerNumber pn )
-{
-	ScreenOptions::RefreshIcons( r, pn );
 }
 
 void ScreenOptionsMaster::HandleScreenMessage( const ScreenMessage SM )
@@ -173,67 +104,52 @@ void ScreenOptionsMaster::HandleScreenMessage( const ScreenMessage SM )
 	
 		CHECKPOINT;
 
-		for( unsigned r = 0; r < m_OptionRowHandlers.size(); ++r )
-		{
-			CHECKPOINT_M( ssprintf("%i/%i", r, int(m_OptionRowHandlers.size())) );
-
-			vector<PlayerNumber> vpns;
-			FOREACH_OptionsPlayer( p )
-				vpns.push_back( p );
+		vector<PlayerNumber> vpns;
+		FOREACH_OptionsPlayer( p )
+			vpns.push_back( p );
+		for( unsigned r=0; r<m_pRows.size(); r++ )		// foreach row
 			ExportOptions( r, vpns );
-		}
 
 		if( m_iChangeMask & OPT_APPLY_ASPECT_RATIO )
 		{
 			THEME->UpdateLuaGlobals();	// This needs to be done before resetting the projection matrix below
+			THEME->ReloadSubscribers();	// SCREEN_* has changed, so re-read all subscribing ThemeMetrics
 			SCREENMAN->ThemeChanged();	// recreate ScreenSystemLayer and SharedBGA
 		}
 
-		/* If the theme changes, we need to reset RageDisplay to apply new theme 
-		 * window title and icon. */
-		/* If the aspect ratio changes, we need to reset RageDisplay so that the 
-		 * projection matrix is re-created using the new screen dimensions. */
+		/* If the theme changes, we need to reset RageDisplay to apply the new window
+		 * title and icon.  If the aspect ratio changes, we need to reset RageDisplay
+		 * so that the projection matrix is re-created using the new screen dimensions. */
 		if( (m_iChangeMask & OPT_APPLY_THEME) || 
 			(m_iChangeMask & OPT_APPLY_GRAPHICS) ||
 			(m_iChangeMask & OPT_APPLY_ASPECT_RATIO) )
-			ApplyGraphicOptions();
+		{
+			StepMania::ApplyGraphicOptions();
+		}
 
 		if( m_iChangeMask & OPT_SAVE_PREFERENCES )
 		{
 			/* Save preferences. */
 			LOG->Trace("ROW_CONFIG used; saving ...");
-			PREFSMAN->SaveGlobalPrefsToDisk();
-			SaveGamePrefsToDisk();
+			PREFSMAN->SavePrefsToDisk();
 		}
 
 		if( m_iChangeMask & OPT_RESET_GAME )
 		{
-			ResetGame();
-			SCREENMAN->SetNewScreen( INITIAL_SCREEN );
-			m_bExportWillSetANewScreen = false;
+			StepMania::ResetGame();
+			m_sNextScreen = CommonMetrics::INITIAL_SCREEN;
 		}
 
 		if( m_iChangeMask & OPT_APPLY_SOUND )
 		{
-			SOUNDMAN->SetPrefs( PREFSMAN->GetSoundVolume() );
+			SOUNDMAN->SetMixVolume( PREFSMAN->GetSoundVolume() );
 		}
 		
 		if( m_iChangeMask & OPT_APPLY_SONG )
 			SONGMAN->SetPreferences();
 
 		CHECKPOINT;
-		if( !(m_iChangeMask & OPT_RESET_GAME) )
-			this->HandleScreenMessage( SM_GoToNextScreen );
-		return;
-	}
-	else if( SM == SM_GoToNextScreen )
-	{
-		if( SCREENMAN->IsStackedScreen(this) )
-			SCREENMAN->PopTopScreen( SM_None );
-		else if( m_bExportWillSetANewScreen )
-			;	// Do nothing.  Let Export set the screen.
-		else if( NEXT_SCREEN != "" )
-			SCREENMAN->SetNewScreen( NEXT_SCREEN );
+		this->HandleScreenMessage( SM_GoToNextScreen );
 		return;
 	}
 	else

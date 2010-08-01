@@ -17,7 +17,7 @@ public:
 	bool Initialize( int iDancePadType );
 	bool IsInitialized() { return m_bInitialized; }
 	static bool CanUse();
-	void AddPlayer( PlayerNumber pn, NoteData *pSteps );
+	void AddPlayer( PlayerNumber pn, const NoteData &nd );
 	void ShowStepCircle( PlayerNumber pn, int CSTEP );
 	bool	m_bShowBackground;
 
@@ -42,7 +42,7 @@ protected:
 #endif
 
 /*
- * (c) 2003 Kevin Slaughter
+ * (c) 2003 Kevin Slaughter, Thad Ward
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

@@ -2,9 +2,7 @@
 #include "CourseEntryDisplay.h"
 #include "RageUtil.h"
 #include "GameConstantsAndTypes.h"
-#include "PrefsManager.h"
 #include "RageLog.h"
-#include "PrefsManager.h"
 #include "Course.h"
 #include "SongManager.h"
 #include "ThemeManager.h"
@@ -51,12 +49,12 @@ void CourseEntryDisplay::Load()
 		if( !SEPARATE_COURSE_METERS && pn != GAMESTATE->m_MasterPlayerNumber )
 			continue;	// skip
 
-		m_textFoot[pn].SetName( SEPARATE_COURSE_METERS? ssprintf("FootP%i", pn+1):CString("Foot") );
+		m_textFoot[pn].SetName( SEPARATE_COURSE_METERS? ssprintf("FootP%i", pn+1):RString("Foot") );
 		m_textFoot[pn].LoadFromTextureAndChars( THEME->GetPathF("CourseEntryDisplay","difficulty"),"10" );
 		SET_XY_AND_ON_COMMAND( &m_textFoot[pn] );
 		this->AddChild( &m_textFoot[pn] );
 
-		m_textDifficultyNumber[pn].SetName( SEPARATE_COURSE_METERS? ssprintf("DifficultyP%i", pn+1):CString("Difficulty") );
+		m_textDifficultyNumber[pn].SetName( SEPARATE_COURSE_METERS? ssprintf("DifficultyP%i", pn+1):RString("Difficulty") );
 		m_textDifficultyNumber[pn].LoadFromFont( THEME->GetPathF("Common","normal") );
 		SET_XY_AND_ON_COMMAND( &m_textDifficultyNumber[pn] );
 		this->AddChild( &m_textDifficultyNumber[pn] );
@@ -68,14 +66,14 @@ void CourseEntryDisplay::Load()
 	this->AddChild( &m_textModifiers );
 }
 
-void CourseEntryDisplay::LoadFromNode( const CString& sDir, const XNode* pNode )
+void CourseEntryDisplay::LoadFromNode( const RString& sDir, const XNode* pNode )
 {
 	ActorFrame::LoadFromNode( sDir, pNode );
 
 	Load();
 }
 
-void CourseEntryDisplay::SetDifficulty( PlayerNumber pn, const CString &text, Difficulty dc )
+void CourseEntryDisplay::SetDifficulty( PlayerNumber pn, const RString &text, Difficulty dc )
 {
 	if( !GAMESTATE->IsHumanPlayer(pn) )
 		return;	// skip
@@ -131,18 +129,32 @@ void CourseEntryDisplay::SetFromGameState( int iCourseEntryIndex )
 			if( te == NULL || ce == NULL )
 				continue;
 
-			int iLow = ce->iLowMeter;
-			int iHigh = ce->iHighMeter;
+			int iLow = ce->stepsCriteria.m_iLowMeter;
+			int iHigh = ce->stepsCriteria.m_iHighMeter;
 
-			CString s;
-			if( iLow == -1  &&  iHigh != -1 )
-				s = ssprintf( "%d+", iHigh );
-			else if( iLow != -1  &&  iHigh == -1 )
-				s = ssprintf( "%d-", iLow );
-			else if( iLow != -1  &&  iHigh != -1 )
-				s = ssprintf( "%d-%d", iLow, iHigh );
-			else
+			bool bLowIsSet = iLow != -1;
+			bool bHighIsSet = iHigh != -1;
+
+			RString s;
+			if( !bLowIsSet  &&  !bHighIsSet )
+			{
 				s = "?";
+			}
+			if( !bLowIsSet  &&  bHighIsSet )
+			{
+				s = ssprintf( ">=%d", iHigh );
+			}
+			else if( bLowIsSet  &&  !bHighIsSet )
+			{
+				s = ssprintf( "<=%d", iLow );
+			}
+			else if( bLowIsSet  &&  bHighIsSet )
+			{
+				if( iLow == iHigh )
+					s = ssprintf( "%d", iLow );
+				else
+					s = ssprintf( "%d-%d", iLow, iHigh );
+			}
 
 			Difficulty dc = te->dc;
 			if( dc == DIFFICULTY_INVALID )

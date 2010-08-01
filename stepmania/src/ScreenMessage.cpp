@@ -1,51 +1,42 @@
 #include "global.h"
 #include "ScreenMessage.h"
 #include "RageLog.h"
+#include "Foreach.h"
+#include <map>
 
-ASMHClass AutoScreenMessageHandler;
+const ScreenMessage SM_Invalid = 999999;
+AutoScreenMessage(SM_None);
+AutoScreenMessage(SM_MenuTimer);
+AutoScreenMessage(SM_DoneFadingIn);
+AutoScreenMessage(SM_BeginFadingOut);
+AutoScreenMessage(SM_GoToNextScreen);
+AutoScreenMessage(SM_GoToPrevScreen);
+AutoScreenMessage(SM_GainFocus);
+AutoScreenMessage(SM_LoseFocus);
+AutoScreenMessage(SM_Pause);
+AutoScreenMessage(SM_Success);
+AutoScreenMessage(SM_Failure);
 
-ScreenMessage ASMHClass::ToMessageNumber( const CString &Name )
+static map<RString, ScreenMessage> *m_pScreenMessages;
+
+ScreenMessage ScreenMessageHelpers::ToMessageNumber( const RString &sName )
 {
-	//If uninitilized, initilize the map.  We KNOW it will be NULL
-	if ( m_pScreenMessages == NULL )
-	{
-		m_pScreenMessages = new map < CString, ScreenMessage >;
-		m_iCurScreenMessage = SM_User;
-	}
+	if( m_pScreenMessages == NULL )
+		m_pScreenMessages = new map<RString, ScreenMessage>;
 
-	//If the ScreenMessage doesn't exist yet, create it
-	if ( m_pScreenMessages->find( Name ) == m_pScreenMessages->end() )
-	{
-		m_iCurScreenMessage = ScreenMessage((int)m_iCurScreenMessage + 1);
-		(*m_pScreenMessages)[ Name ] = m_iCurScreenMessage;
-	}
+	if( m_pScreenMessages->find( sName ) == m_pScreenMessages->end() )
+		(*m_pScreenMessages)[sName] = (ScreenMessage) m_pScreenMessages->size();
 
-	return (*m_pScreenMessages)[Name];
+	return (*m_pScreenMessages)[sName];
 }
 
-void ASMHClass::LogMessageNumbers( )
+RString	ScreenMessageHelpers::NumberToString( ScreenMessage SM )
 {
-	map < CString, ScreenMessage >::iterator iter;
+	FOREACHM( RString, ScreenMessage, *m_pScreenMessages, it )
+		if( SM == it->second )
+			return (*it).first;
 
-	//Log all ScreenMessages currently in the map
-
-	LOG->Trace( "Current ScreenMessage: %d  -- SM_User: %d", m_iCurScreenMessage, SM_User );
-    for ( iter = m_pScreenMessages->begin(); iter != m_pScreenMessages->end(); iter++ )
-		LOG->Trace( "ScreenMessage: %3d: %s", iter->second, (*iter).first.c_str() );
-}
-
-CString	ASMHClass::NumberToString( ScreenMessage SM )
-{
-	map < CString, ScreenMessage >::iterator iter;
-
-	//Log all ScreenMessages currently in the map
-
-	LOG->Trace( "Current ScreenMessage: %d  -- SM_User: %d", m_iCurScreenMessage, SM_User );
-    for ( iter = m_pScreenMessages->begin(); iter != m_pScreenMessages->end(); iter++ )
-		if ( SM == iter->second )
-			return (*iter).first;
-
-	return CString();
+	return RString();
 }
 
 /*

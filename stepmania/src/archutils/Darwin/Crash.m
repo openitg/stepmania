@@ -1,24 +1,29 @@
-#import <Cocoa/Cocoa.h>
+#include "ProductInfo.h"
 
 void InformUserOfCrash( const char *sPath )
 {
-	int ret = NSRunAlertPanel(@"StepMania has crashed",
-							  @"StepMania has crashed. Debugging information "
-							  @"has been output to\n\n%s\n\nPlease file a bug "
-							  @"report at\n\nhttp://sf.net/tracker/?func=add&"
-							  @"group_id=37892&atid=421366",
-							  @"Open crashinfo.txt", @"Quit", nil, sPath);
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	NSString *sQuit = NSLocalizedString( @"Quit " PRODUCT_FAMILY, @"Button name" );
+	NSString *s = @PRODUCT_FAMILY " has crashed. Debugging information has been output to\n\n%s\n\n"
+	@"Please file a bug report at\n\n" REPORT_BUG_URL;
 	
-	if( ret == NSAlertDefaultReturn )
+	int ret = NSRunCriticalAlertPanel( @PRODUCT_FAMILY " has crashed", s, @"File Bug Report",
+					   sQuit, @"Open crashinfo.txt", sPath );
+	
+	NSWorkspace *ws = [NSWorkspace sharedWorkspace];
+	
+	switch( ret )
 	{
-		NSWorkspace *ws = [NSWorkspace sharedWorkspace];
-		
+	case NSAlertDefaultReturn:
+		[ws openURL:[NSURL URLWithString:@REPORT_BUG_URL]]; // fall through
+	case NSAlertOtherReturn:
 		[ws openFile:[NSString stringWithUTF8String:sPath]];
 	}
+	[pool release];
 }
 
 /*
- * (c) 2003-2005 Steve Checkoway
+ * (c) 2003-2006 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

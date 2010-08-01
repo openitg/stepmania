@@ -28,7 +28,7 @@
 class ScreenSelectMusic : public ScreenWithMenuElements
 {
 public:
-	ScreenSelectMusic( CString sName );
+	ScreenSelectMusic();
 	virtual ~ScreenSelectMusic();
 	virtual void Init();
 	virtual void BeginScreen();
@@ -61,7 +61,7 @@ protected:
 	void TweenCoursePartsOffScreen( bool Final );
 	void SkipSongPartTweens();
 	void SkipCoursePartTweens();
-	virtual void LoadHelpText();
+	void UpdateSelectButton();
 
 	void ChangeDifficulty( PlayerNumber pn, int dir );
 
@@ -71,11 +71,11 @@ protected:
 	void AfterMusicChange();
 	void SortOrderChanged();
 
-	void CheckBackgroundRequests();
+	void CheckBackgroundRequests( bool bForce );
 
-	vector<Steps*>		m_vpSteps;
-	vector<Trail*>		m_vpTrails;
-	int					m_iSelection[NUM_PLAYERS];
+	vector<Steps*>			m_vpSteps;
+	vector<Trail*>			m_vpTrails;
+	int				m_iSelection[NUM_PLAYERS];
 
 	ThemeMetric<float> BANNER_WIDTH;
 	ThemeMetric<float> BANNER_HEIGHT;
@@ -86,28 +86,28 @@ protected:
 	ThemeMetric<bool> SHOW_COURSE_CONTENTS;
 	ThemeMetric<bool> DO_ROULETTE_ON_MENU_TIMER;
 	ThemeMetric<bool> ALIGN_MUSIC_BEATS;
-	ThemeMetric<CString> CODES;
-	ThemeMetric<CString> MUSIC_WHEEL_TYPE;
+	ThemeMetric<RString> CODES;
+	ThemeMetric<RString> MUSIC_WHEEL_TYPE;
 	ThemeMetric<bool> OPTIONS_MENU_AVAILABLE;
 	DynamicThemeMetric<bool> SELECT_MENU_AVAILABLE;
 	DynamicThemeMetric<bool> MODE_MENU_AVAILABLE;
 
-	CString m_sSectionMusicPath;
-	CString m_sSortMusicPath;
-	CString m_sRouletteMusicPath;
-	CString m_sRandomMusicPath;
-	CString m_sCourseMusicPath;
-	CString m_sFallbackCDTitlePath;
+	RString m_sSectionMusicPath;
+	RString m_sSortMusicPath;
+	RString m_sRouletteMusicPath;
+	RString m_sRandomMusicPath;
+	RString m_sCourseMusicPath;
+	RString m_sFallbackCDTitlePath;
 
 	Sprite				m_sprBannerMask;
-	FadingBanner		m_Banner;
+	FadingBanner			m_Banner;
 	AutoActor			m_sprBannerFrame;
 	BPMDisplay			m_BPMDisplay;
 	Sprite				m_sprCDTitleFront, m_sprCDTitleBack;
 	Sprite				m_sprDifficultyFrame[NUM_PLAYERS];
-	DifficultyIcon		m_DifficultyIcon[NUM_PLAYERS];
+	DifficultyIcon			m_DifficultyIcon[NUM_PLAYERS];
 	Sprite				m_AutoGenIcon[NUM_PLAYERS];
-    GrooveRadar			m_GrooveRadar;
+	GrooveRadar			m_GrooveRadar;
 	BitmapText			m_textSongOptions;
 	BitmapText			m_textNumSongs;
 	BitmapText			m_textTotalTime;
@@ -120,24 +120,20 @@ protected:
 	AutoActor			m_sprLongBalloon;
 	AutoActor			m_sprMarathonBalloon;
 	AutoActor			m_sprCourseHasMods;
-	DifficultyDisplay   m_DifficultyDisplay;
-	DifficultyList		m_DifficultyList;
-	CourseContentsList	m_CourseContents;
+	DifficultyDisplay		m_DifficultyDisplay;
+	DifficultyList			m_DifficultyList;
+	CourseContentsList		m_CourseContents;
 	HelpDisplay			m_Artist;
 	BitmapText			m_MachineRank;
 	PaneDisplay			m_PaneDisplay[NUM_PLAYERS];
 
 	bool				m_bMadeChoice;
 	bool				m_bGoToOptions;
-	Sprite				m_sprOptionsMessage;
-	CString				m_sSampleMusicToPlay;
+	RString				m_sSampleMusicToPlay;
 	TimingData			*m_pSampleMusicTimingData;
 	float				m_fSampleStartSeconds, m_fSampleLengthSeconds;
 	bool				m_bAllowOptionsMenu, m_bAllowOptionsMenuRepeat;
 	bool				m_bSelectIsDown;
-
-	Transition			m_bgOptionsOut;
-	Transition			m_bgNoOptionsOut;
 
 	RageSound			m_soundDifficultyEasier;
 	RageSound			m_soundDifficultyHarder;
@@ -145,8 +141,8 @@ protected:
 	RageSound			m_soundLocked;
 	RageSound			m_soundSelectPressed;
 
-	BackgroundLoader	m_BackgroundLoader;
-	RageTexturePreloader m_TexturePreload;
+	BackgroundLoader		m_BackgroundLoader;
+	RageTexturePreloader		m_TexturePreload;
 };
 
 #endif

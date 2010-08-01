@@ -14,9 +14,6 @@
 
 
 REGISTER_SCREEN_CLASS( ScreenSandbox );
-ScreenSandbox::ScreenSandbox( CString sClassName ) : Screen( sClassName )
-{
-}
 
 void ScreenSandbox::HandleScreenMessage( const ScreenMessage SM )
 {

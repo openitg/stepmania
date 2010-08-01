@@ -15,24 +15,35 @@
 #include "MemoryCardManager.h"
 #include "ScreenManager.h"
 #include "InputFilter.h"
+#include "InputMapper.h"
 #include "RageFileManager.h"
 #include "LightsManager.h"
 #include "NetworkSyncManager.h"
 #include "RageTimer.h"
-
-#include "StepMania.h"
+#include "RageInput.h"
 
 static bool g_bQuitting = false;
 static RageTimer g_GameplayTimer;
 
-void ExitGame()
+enum BoostAppPriority { BOOST_NO, BOOST_YES, BOOST_AUTO };	/* auto = do whatever is appropriate for the arch. */
+static Preference<BoostAppPriority,int> g_BoostAppPriority( "BoostAppPriority", BOOST_AUTO );
+
+/* experimental: force a specific update rate.  This prevents big 
+ * animation jumps on frame skips.  0 to disable. */
+static Preference<float> g_fConstantUpdateDeltaSeconds( "ConstantUpdateDeltaSeconds", 0 );
+
+static bool UserQuit()
 {
-	g_bQuitting = true;
+	return g_bQuitting || ArchHooks::UserQuit();
 }
 
 void HandleInputEvents( float fDeltaTime );
 
-
+static float g_fUpdateRate = 1;
+void GameLoop::SetUpdateRate( float fUpdateRate )
+{
+	g_fUpdateRate = fUpdateRate;
+}
 
 static void CheckGameLoopTimerSkips( float fDeltaTime )
 {
@@ -44,7 +55,7 @@ static void CheckGameLoopTimerSkips( float fDeltaTime )
 
 	/* If vsync is on, and we have a solid framerate (vsync == refresh and we've sustained this
 	 * for at least one second), we expect the amount of time for the last frame to be 1/FPS. */
-	if( iThisFPS != DISPLAY->GetVideoModeParams().rate || iThisFPS != iLastFPS )
+	if( iThisFPS != DISPLAY->GetActualVideoModeParams().rate || iThisFPS != iLastFPS )
 	{
 		iLastFPS = iThisFPS;
 		return;
@@ -57,30 +68,85 @@ static void CheckGameLoopTimerSkips( float fDeltaTime )
 			iThisFPS, fExpectedTime, fDeltaTime, fDifference );
 }
 
-void GameLoop()
+static bool ChangeAppPri()
 {
-	while( !g_bQuitting )
+	if( g_BoostAppPriority.Get() == BOOST_NO )
+		return false;
+
+	// if using NTPAD don't boost or else input is laggy
+#if defined(_WINDOWS)
+	if( g_BoostAppPriority == BOOST_AUTO )
+	{
+		vector<InputDeviceInfo> vDevices;
+
+		// This can get called before INPUTMAN is constructed.
+		if( INPUTMAN )
+		{
+			INPUTMAN->GetDevicesAndDescriptions(vDevices);
+			FOREACH_CONST( InputDeviceInfo, vDevices, d )
+			{
+				if( d->sDesc.find("NTPAD") != string::npos )
+				{
+					LOG->Trace( "Using NTPAD.  Don't boost priority." );
+					return false;
+				}
+			}
+		}
+	}
+#endif
+
+	/* If -1 and this is a debug build, don't.  It makes the debugger sluggish. */
+#ifdef DEBUG
+	if( g_BoostAppPriority == BOOST_AUTO )
+		return false;
+#endif
+
+	return true;
+}
+
+static void CheckFocus()
+{
+	static bool bHasFocus = true;
+	
+	bool bHasFocusNow = HOOKS->AppHasFocus();
+	if( bHasFocus == bHasFocusNow )
+		return;
+	bHasFocus = bHasFocusNow;
+
+	/* If we lose focus, we may lose input events, especially key releases. */
+	INPUTFILTER->Reset();
+
+	if( ChangeAppPri() )
+	{
+		if( bHasFocus )
+			HOOKS->BoostPriority();
+		else
+			HOOKS->UnBoostPriority();
+	}
+}
+
+void GameLoop::RunGameLoop()
+{
+	/* People may want to do something else while songs are loading, so do
+	 * this after loading songs. */
+	if( ChangeAppPri() )
+		HOOKS->BoostPriority();
+
+	while( !UserQuit() )
 	{
 		/*
 		 * Update
 		 */
 		float fDeltaTime = g_GameplayTimer.GetDeltaTime();
 
-		if( PREFSMAN->m_fConstantUpdateDeltaSeconds > 0 )
-			fDeltaTime = PREFSMAN->m_fConstantUpdateDeltaSeconds;
+		if( g_fConstantUpdateDeltaSeconds > 0 )
+			fDeltaTime = g_fConstantUpdateDeltaSeconds;
 		
 		CheckGameLoopTimerSkips( fDeltaTime );
 
-		if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_TAB) ) ) {
-			if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_ACCENT) ) )
-				fDeltaTime = 0; /* both; stop time */
-			else
-				fDeltaTime *= 4;
-		}
-		else if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_ACCENT) ) )
-		{
-			fDeltaTime /= 4;
-		}
+		fDeltaTime *= g_fUpdateRate;
+
+		CheckFocus();
 
 		/* Update SOUNDMAN early (before any RageSound::GetPosition calls), to flush position data. */
 		SOUNDMAN->Update( fDeltaTime );
@@ -98,26 +164,25 @@ void GameLoop()
 		/* Important:  Process input AFTER updating game logic, or input will be acting on song beat from last frame */
 		HandleInputEvents( fDeltaTime );
 
-		LIGHTSMAN->Update( fDeltaTime );
+		if( INPUTMAN->DevicesChanged() )
+		{
+			INPUTFILTER->Reset();	// fix "buttons stuck" if button held while unplugged
+			INPUTMAN->LoadDrivers();
+			RString sMessage;
+			if( INPUTMAPPER->CheckForChangedInputDevicesAndRemap(sMessage) )
+				SCREENMAN->SystemMessage( sMessage );
+		}
 
-		HOOKS->Update( fDeltaTime );
+		LIGHTSMAN->Update( fDeltaTime );
 
 		/*
 		 * Render
 		 */
 		SCREENMAN->Draw();
-
-		/* If we don't have focus, give up lots of CPU. */
-		// XXX: do this in DISPLAY EndFrame?
-		if( !AppHasFocus() )
-			usleep( 10000 );// give some time to other processes and threads
-#if defined(_WINDOWS)
-		/* In Windows, we want to give up some CPU for other threads.  Most OS's do
-		 * this more intelligently. */
-		else
-			usleep( 1000 );	// give some time to other processes and threads
-#endif
 	}
+
+	if( ChangeAppPri() )
+		HOOKS->UnBoostPriority();
 }
 
 class ConcurrentRenderer
@@ -126,17 +191,26 @@ public:
 	ConcurrentRenderer();
 	~ConcurrentRenderer();
 
+	void Start();
+	void Stop();
+
 private:
 	RageThread m_Thread;
+	RageEvent m_Event;
 	bool m_bShutdown;
 	void RenderThread();
 	static int StartRenderThread( void *p );
+
+	enum State { RENDERING_IDLE, RENDERING_START, RENDERING_ACTIVE, RENDERING_END };
+	State m_State;
 };
 static ConcurrentRenderer *g_pConcurrentRenderer = NULL;
 
-ConcurrentRenderer::ConcurrentRenderer()
+ConcurrentRenderer::ConcurrentRenderer():
+	m_Event("ConcurrentRenderer")
 {
 	m_bShutdown = false;
+	m_State = RENDERING_IDLE;
 
 	m_Thread.SetName( "ConcurrentRenderer" );
 	m_Thread.Create( StartRenderThread, this );
@@ -144,30 +218,86 @@ ConcurrentRenderer::ConcurrentRenderer()
 
 ConcurrentRenderer::~ConcurrentRenderer()
 {
+	ASSERT( m_State == RENDERING_IDLE );
 	m_bShutdown = true;
 	m_Thread.Wait();
+}
+
+void ConcurrentRenderer::Start()
+{
+	DISPLAY->BeginConcurrentRenderingMainThread();
+
+	m_Event.Lock();
+	ASSERT( m_State == RENDERING_IDLE );
+	m_State = RENDERING_START;
+	m_Event.Signal();
+	while( m_State != RENDERING_ACTIVE )
+		m_Event.Wait();
+	m_Event.Unlock();
+}
+
+void ConcurrentRenderer::Stop()
+{
+	m_Event.Lock();
+	ASSERT( m_State == RENDERING_ACTIVE );
+	m_State = RENDERING_END;
+	m_Event.Signal();
+	while( m_State != RENDERING_IDLE )
+		m_Event.Wait();
+	m_Event.Unlock();
+
+	DISPLAY->EndConcurrentRenderingMainThread();
 }
 
 void ConcurrentRenderer::RenderThread()
 {
 	ASSERT( SCREENMAN != NULL );
 
-	HOOKS->SetupConcurrentRenderingThread();
-
-	LOG->Trace( "ConcurrentRenderer::RenderThread start" );
-
-	/* This is called during Update().  The next thing the game loop
-	 * will do is Draw, so shift operations around to put Draw at the
-	 * top.  This makes sure updates are seamless. */
 	while( !m_bShutdown )
 	{
-		SCREENMAN->Draw();
+		m_Event.Lock();
+		while( m_State == RENDERING_IDLE && !m_bShutdown )
+			m_Event.Wait();
+		m_Event.Unlock();
 
-		float fDeltaTime = g_GameplayTimer.GetDeltaTime();
-		SCREENMAN->Update( fDeltaTime );
+		if( m_State == RENDERING_START )
+		{
+			/* We're starting to render.  Set up, and then kick the event to wake
+			 * up the calling thread. */
+			DISPLAY->BeginConcurrentRendering();
+			HOOKS->SetupConcurrentRenderingThread();
+
+			LOG->Trace( "ConcurrentRenderer::RenderThread start" );
+
+			m_Event.Lock();
+			m_State = RENDERING_ACTIVE;
+			m_Event.Signal();
+			m_Event.Unlock();
+		}
+
+		/* This is started during Update().  The next thing the game loop
+		 * will do is Draw, so shift operations around to put Draw at the
+		 * top.  This makes sure updates are seamless. */
+		if( m_State == RENDERING_ACTIVE )
+		{
+			SCREENMAN->Draw();
+
+			float fDeltaTime = g_GameplayTimer.GetDeltaTime();
+			SCREENMAN->Update( fDeltaTime );
+		}
+
+		if( m_State == RENDERING_END )
+		{
+			LOG->Trace( "ConcurrentRenderer::RenderThread done" );
+
+			DISPLAY->EndConcurrentRendering();
+
+			m_Event.Lock();
+			m_State = RENDERING_IDLE;
+			m_Event.Signal();
+			m_Event.Unlock();
+		}
 	}
-
-	LOG->Trace( "ConcurrentRenderer::RenderThread done" );
 }
 
 int ConcurrentRenderer::StartRenderThread( void *p )
@@ -176,15 +306,16 @@ int ConcurrentRenderer::StartRenderThread( void *p )
 	return 0;
 }
 
-void StartConcurrentRendering()
+void GameLoop::StartConcurrentRendering()
 {
-	ASSERT( g_pConcurrentRenderer == NULL );
-	g_pConcurrentRenderer = new ConcurrentRenderer;
+	if( g_pConcurrentRenderer == NULL )
+		g_pConcurrentRenderer = new ConcurrentRenderer;
+	g_pConcurrentRenderer->Start();
 }
 
-void FinishConcurrentRendering()
+void GameLoop::FinishConcurrentRendering()
 {
-	SAFE_DELETE( g_pConcurrentRenderer );
+	g_pConcurrentRenderer->Stop();
 }
 
 /*

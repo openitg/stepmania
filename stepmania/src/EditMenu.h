@@ -23,23 +23,23 @@ enum EditMenuRow
 	ROW_SOURCE_STEPS_TYPE, 
 	ROW_SOURCE_STEPS, 
 	ROW_ACTION, 
-	NUM_EDIT_MENU_ROWS 
+	NUM_EditMenuRow 
 };
-#define FOREACH_EditMenuRow( r ) FOREACH_ENUM( EditMenuRow, NUM_EDIT_MENU_ROWS, r )
-const CString& EditMenuRowToString( EditMenuRow r );
-const CString& EditMenuRowToThemedString( EditMenuRow r );
+#define FOREACH_EditMenuRow( r ) FOREACH_ENUM( EditMenuRow, NUM_EditMenuRow, r )
+const RString& EditMenuRowToString( EditMenuRow r );
+const RString& EditMenuRowToLocalizedString( EditMenuRow r );
 
 enum EditMenuAction
 {
-	EDIT_MENU_ACTION_EDIT,
-	EDIT_MENU_ACTION_DELETE,
-	EDIT_MENU_ACTION_CREATE,
-	EDIT_MENU_ACTION_PRACTICE,
-	NUM_EDIT_MENU_ACTIONS
+	EditMenuAction_Edit,
+	EditMenuAction_Delete,
+	EditMenuAction_Create,
+	EditMenuAction_Practice,
+	NUM_EditMenuAction
 };
-#define FOREACH_EditMenuAction( ema ) FOREACH_ENUM( EditMenuAction, NUM_EDIT_MENU_ACTIONS, ema )
-const CString& EditMenuActionToString( EditMenuAction ema );
-const CString& EditMenuActionToThemedString( EditMenuAction ema );
+#define FOREACH_EditMenuAction( ema ) FOREACH_ENUM( EditMenuAction, NUM_EditMenuAction, ema )
+const RString& EditMenuActionToString( EditMenuAction ema );
+const RString& EditMenuActionToLocalizedString( EditMenuAction ema );
 
 const int NUM_ARROWS = 2;
 
@@ -48,12 +48,13 @@ class EditMenu: public ActorFrame
 public:
 	EditMenu();
 	~EditMenu();
-	void Load( const CString &sType );
+	void Load( const RString &sType );
 
 	bool CanGoUp();
 	bool CanGoDown();
 	bool CanGoLeft();
 	bool CanGoRight();
+	bool RowIsSelectable( EditMenuRow row );
 
 	void Up();
 	void Down();
@@ -62,35 +63,38 @@ public:
 
 	void RefreshAll();
 
-	CString			GetSelectedGroup() const			{ if( !SHOW_GROUPS.GetValue() ) return GROUP_ALL; ASSERT(m_iSelection[ROW_GROUP]			< (int)m_sGroups.size());		return m_sGroups[m_iSelection[ROW_GROUP]]; }
-	Song*			GetSelectedSong() const				{ ASSERT(m_iSelection[ROW_SONG]				< (int)m_pSongs.size());		return m_pSongs[m_iSelection[ROW_SONG]]; }
-	StepsType		GetSelectedStepsType() const		{ ASSERT(m_iSelection[ROW_STEPS_TYPE]		< (int)m_StepsTypes.size());	return m_StepsTypes[m_iSelection[ROW_STEPS_TYPE]]; }
-	Steps*			GetSelectedSteps() const			{ ASSERT(m_iSelection[ROW_STEPS]			< (int)m_vpSteps.size());		return m_vpSteps[m_iSelection[ROW_STEPS]].pSteps; }
-	Difficulty		GetSelectedDifficulty() const		{ ASSERT(m_iSelection[ROW_STEPS]			< (int)m_vpSteps.size());		return m_vpSteps[m_iSelection[ROW_STEPS]].dc; }
-	StepsType		GetSelectedSourceStepsType() const	{ ASSERT(m_iSelection[ROW_SOURCE_STEPS_TYPE]< (int)m_StepsTypes.size());	return m_StepsTypes[m_iSelection[ROW_SOURCE_STEPS_TYPE]]; }
-	Steps*			GetSelectedSourceSteps() const		{ ASSERT(m_iSelection[ROW_SOURCE_STEPS]		< (int)m_vpSourceSteps.size());	return m_vpSourceSteps[m_iSelection[ROW_SOURCE_STEPS]].pSteps; }
-	Difficulty		GetSelectedSourceDifficulty() const	{ ASSERT(m_iSelection[ROW_SOURCE_STEPS]		< (int)m_vpSourceSteps.size());	return m_vpSourceSteps[m_iSelection[ROW_SOURCE_STEPS]].dc; }
-	EditMenuAction	GetSelectedAction() const			{ ASSERT(m_iSelection[ROW_ACTION]			< (int)m_Actions.size());		return m_Actions[m_iSelection[ROW_ACTION]]; }
+	RString		GetSelectedGroup() const		{ if( !SHOW_GROUPS.GetValue() ) return GROUP_ALL; ASSERT(m_iSelection[ROW_GROUP]	< (int)m_sGroups.size()); return m_sGroups[m_iSelection[ROW_GROUP]]; }
+	Song*		GetSelectedSong() const			{ ASSERT(m_iSelection[ROW_SONG]			< (int)m_pSongs.size());	return m_pSongs[m_iSelection[ROW_SONG]]; }
+	StepsType	GetSelectedStepsType() const		{ ASSERT(m_iSelection[ROW_STEPS_TYPE]		< (int)m_StepsTypes.size());	return m_StepsTypes[m_iSelection[ROW_STEPS_TYPE]]; }
+	Steps*		GetSelectedSteps() const		{ ASSERT(m_iSelection[ROW_STEPS]		< (int)m_vpSteps.size());	return m_vpSteps[m_iSelection[ROW_STEPS]].pSteps; }
+	Difficulty	GetSelectedDifficulty() const		{ ASSERT(m_iSelection[ROW_STEPS]		< (int)m_vpSteps.size());	return m_vpSteps[m_iSelection[ROW_STEPS]].dc; }
+	StepsType	GetSelectedSourceStepsType() const	{ ASSERT(m_iSelection[ROW_SOURCE_STEPS_TYPE]	< (int)m_StepsTypes.size());	return m_StepsTypes[m_iSelection[ROW_SOURCE_STEPS_TYPE]]; }
+	Steps*		GetSelectedSourceSteps() const		{ ASSERT(m_iSelection[ROW_SOURCE_STEPS]		< (int)m_vpSourceSteps.size());	return m_vpSourceSteps[m_iSelection[ROW_SOURCE_STEPS]].pSteps; }
+	Difficulty	GetSelectedSourceDifficulty() const	{ ASSERT(m_iSelection[ROW_SOURCE_STEPS]		< (int)m_vpSourceSteps.size());	return m_vpSourceSteps[m_iSelection[ROW_SOURCE_STEPS]].dc; }
+	EditMenuAction	GetSelectedAction() const		{ ASSERT(m_iSelection[ROW_ACTION]		< (int)m_Actions.size());	return m_Actions[m_iSelection[ROW_ACTION]]; }
 
 	EditMenuRow GetSelectedRow() const { return m_SelectedRow; }
 
 private:
-	void GetSongsToShowForGroup( const CString &sGroup, vector<Song*> &vpSongsOut );
-	void GetGroupsToShow( vector<CString> &vsGroupsOut );
+	struct StepsAndDifficulty;
+
+	void StripLockedStepsAndDifficulty( vector<StepsAndDifficulty> &v );
+	void GetSongsToShowForGroup( const RString &sGroup, vector<Song*> &vpSongsOut );
+	void GetGroupsToShow( vector<RString> &vsGroupsOut );
 
 	void UpdateArrows();
-	Sprite	m_sprArrows[NUM_ARROWS];
+	AutoActor	m_sprArrows[NUM_ARROWS];
 
 	EditMenuRow m_SelectedRow;
 	EditMenuRow GetFirstRow() const { return SHOW_GROUPS.GetValue()? ROW_GROUP:ROW_SONG; }
 	int GetRowSize( EditMenuRow er ) const;
-	int			m_iSelection[NUM_EDIT_MENU_ROWS];
-	BitmapText	m_textLabel[NUM_EDIT_MENU_ROWS];
-	BitmapText	m_textValue[NUM_EDIT_MENU_ROWS];
+	int		m_iSelection[NUM_EditMenuRow];
+	BitmapText	m_textLabel[NUM_EditMenuRow];
+	BitmapText	m_textValue[NUM_EditMenuRow];
 
 	FadingBanner	m_GroupBanner;
 	FadingBanner	m_SongBanner;
-	TextBanner		m_SongTextBanner;
+	TextBanner	m_SongTextBanner;
 	DifficultyMeter	m_Meter;
 	DifficultyMeter	m_SourceMeter;
 
@@ -102,9 +106,9 @@ private:
 		Difficulty dc;
 	};
 
-	CStringArray				m_sGroups;
-	vector<Song*>				m_pSongs;
-	vector<StepsType>			m_StepsTypes;
+	vector<RString>			m_sGroups;
+	vector<Song*>			m_pSongs;
+	vector<StepsType>		m_StepsTypes;
 	vector<StepsAndDifficulty>	m_vpSteps;
 	vector<StepsAndDifficulty>	m_vpSourceSteps;
 	vector<EditMenuAction>		m_Actions;
@@ -117,8 +121,8 @@ private:
 
 	ThemeMetric<bool> SHOW_GROUPS;
 	ThemeMetric1D<float> ARROWS_X;
-	ThemeMetric<RageColor> ARROWS_ENABLED_COLOR;
-	ThemeMetric<RageColor> ARROWS_DISABLED_COLOR;
+	ThemeMetric<apActorCommands> ARROWS_ENABLED_COMMAND;
+	ThemeMetric<apActorCommands> ARROWS_DISABLED_COMMAND;
 	ThemeMetric<float> SONG_BANNER_WIDTH;
 	ThemeMetric<float> SONG_BANNER_HEIGHT;
 	ThemeMetric<float> GROUP_BANNER_WIDTH;
@@ -128,6 +132,7 @@ private:
 	ThemeMetric1D<float> ROW_VALUE_X;
 	ThemeMetric<apActorCommands> ROW_VALUE_ON_COMMAND;
 	ThemeMetric1D<float> ROW_Y;
+public:
 	ThemeMetricEnum<EditMode> EDIT_MODE;
 };
 

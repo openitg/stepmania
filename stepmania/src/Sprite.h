@@ -15,7 +15,7 @@ public:
 	Sprite( const Sprite &cpy );
 	virtual ~Sprite();
 
-	void LoadFromNode( const CString& sDir, const XNode* pNode );
+	void LoadFromNode( const RString& sDir, const XNode* pNode );
 	virtual Actor *Copy() const;
 
 	virtual bool EarlyAbortDraw() const;
@@ -32,8 +32,8 @@ public:
 
 	/* Just a convenience function; load an image that'll be used in the
 	 * background. */
-	virtual bool LoadBG( RageTextureID ID );
-	virtual bool Load( RageTextureID ID );
+	virtual void LoadBG( RageTextureID ID );
+	virtual void Load( RageTextureID ID );
 
 	void UnloadTexture();
 	RageTexture* GetTexture() { return m_pTexture; };
@@ -45,7 +45,7 @@ public:
 	virtual float GetAnimationLengthSeconds() const;
 	virtual void SetSecondsIntoAnimation( float fSeconds );
 	
-	CString	GetTexturePath() const;
+	RString	GetTexturePath() const;
 
 	void SetCustomTextureRect( const RectF &new_texcoord_frect );
 	void SetCustomTextureCoords( float fTexCoords[8] );
@@ -61,7 +61,7 @@ public:
 	void SetPlaybackRate( float f );
 
 
-	void SetTexCoordVelocity(float fVelX, float fVelY) { m_fTexCoordVelocityX = fVelX; m_fTexCoordVelocityY = fVelY; }	
+	void SetTexCoordVelocity(float fVelX, float fVelY);
 	// Scale the Sprite maintaining the aspect ratio so that it fits 
 	// within (fWidth,fHeight) and is clipped to (fWidth,fHeight).
 	void ScaleToClipped( float fWidth, float fHeight );
@@ -73,11 +73,11 @@ public:
 	virtual void PushSelf( lua_State *L );
 
 protected:
-	virtual bool LoadFromTexture( RageTextureID ID );
+	void LoadFromTexture( RageTextureID ID );
 
 	void DrawTexture( const TweenState *state );
 
-	CString	m_sSpritePath;
+	RString	m_sSpritePath;
 	RageTexture* m_pTexture;
 	bool	m_bDrawIfTextureNull;
 
@@ -92,7 +92,7 @@ protected:
 
 	bool m_bUsingCustomTexCoords;
 	bool m_bSkipNextUpdate;
-	float m_CustomTexCoords[8];     // (x,y) * 4: top left, bottom left, bottom right, top right
+	float m_CustomTexCoords[8];	// (x,y) * 4: top left, bottom left, bottom right, top right
 
 	// Remembered clipped dimensions are applied on Load().
 	// -1 means no remembered dimensions;

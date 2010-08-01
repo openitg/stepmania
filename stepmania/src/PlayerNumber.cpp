@@ -1,18 +1,28 @@
 #include "global.h"
 #include "PlayerNumber.h"
-#include "ThemeManager.h"
 #include "GameState.h"
-#include "CommonMetrics.h"
 #include "LuaManager.h"
+#include "LocalizedString.h"
+#include "LuaFunctions.h"
 
-static const CString PlayerNumberNames[] = {
+static const char *PlayerNumberNames[] = {
 	"P1",
 	"P2",
 };
-XToString( PlayerNumber, NUM_PLAYERS );
+XToString( PlayerNumber, NUM_PlayerNumber );
+XToLocalizedString( PlayerNumber );
+LuaFunction( PlayerNumberToString, PlayerNumberToString((PlayerNumber) IArg(1)) );
+
+void LuaPlayerNumber(lua_State* L)
+{
+	FOREACH_PlayerNumber( pn )
+		LUA->SetGlobal( ssprintf("PLAYER_%d",pn+1), pn );
+	LUA->SetGlobal( "NUM_PLAYERS", NUM_PLAYERS );
+}
+REGISTER_WITH_LUA_FUNCTION( LuaPlayerNumber );
 
 
-static const CString MultiPlayerNames[] = {
+static const char *MultiPlayerNames[] = {
 	"P1",
 	"P2",
 	"P3",
@@ -21,8 +31,35 @@ static const CString MultiPlayerNames[] = {
 	"P6",
 	"P7",
 	"P8",
+	"P9",
+	"P10",
+	"P11",
+	"P12",
+	"P13",
+	"P14",
+	"P15",
+	"P16",
+	"P17",
+	"P18",
+	"P19",
+	"P20",
+	"P21",
+	"P22",
+	"P23",
+	"P24",
+	"P25",
+	"P26",
+	"P27",
+	"P28",
+	"P29",
+	"P30",
+	"P31",
+	"P32",
 };
 XToString( MultiPlayer, NUM_MultiPlayer );
+XToLocalizedString( MultiPlayer );
+LuaFunction( MultiPlayerToString, MultiPlayerToString((MultiPlayer) IArg(1)) );
+LuaFunction( MultiPlayerToLocalizedString, MultiPlayerToLocalizedString((MultiPlayer) IArg(1)) );
 
 
 PlayerNumber GetNextHumanPlayer( PlayerNumber pn )
@@ -74,16 +111,6 @@ MultiPlayer GetNextEnabledMultiPlayer( MultiPlayer mp )
 	}
 	return MultiPlayer_INVALID;
 }
-
-
-void LuaPlayerNumber(lua_State* L)
-{
-	FOREACH_PlayerNumber( pn )
-		LUA->SetGlobal( ssprintf("PLAYER_%d",pn+1), pn );
-	LUA->SetGlobal( "NUM_PLAYERS", NUM_PLAYERS );
-}
-REGISTER_WITH_LUA_FUNCTION( LuaPlayerNumber );
-
 
 /*
  * (c) 2001-2004 Chris Danford, Chris Gomez

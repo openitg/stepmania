@@ -7,38 +7,67 @@
 #include "GameCommand.h"
 #include "LuaReference.h"
 #include "RageUtil.h"
+struct MenuRowDef;
 
 struct ConfOption;
 
 class OptionRowHandler
 {
 public:
-	CString m_sName;
-	vector<CString> m_vsReloadRowMessages;	// refresh this row on on these messages
+	Commands m_cmds;
+	OptionRowDefinition m_Def;
+	vector<RString> m_vsReloadRowMessages;	// refresh this row on on these messages
 	
-	OptionRowHandler::OptionRowHandler() { Init(); }
+	OptionRowHandler() { Init(); }
 	virtual ~OptionRowHandler() { }
 	virtual void Init()
 	{
-		m_sName = "";
+		m_cmds.v.clear();
+		m_Def.Init();
 		m_vsReloadRowMessages.clear();
 	}
-	virtual void Load( OptionRowDefinition &defOut, CString sParam ) = 0;
-	virtual void Reload( OptionRowDefinition &defOut ) { this->Load(defOut,m_sName); }
-	virtual void ImportOption( const OptionRowDefinition &row, const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const = 0;
+	void Load( const Commands &cmds )
+	{
+		Init();
+		m_cmds = cmds;
+		this->LoadInternal( cmds );
+	}
+	virtual void LoadInternal( const Commands &cmds ) = 0;
+
+	/*
+	 * We may re-use OptionRowHandlers.  This is called before each
+	 * use.  If the contents of the row are dependent on external
+	 * state (for example, the current song), clear the row contents
+	 * and reinitialize them.  As an optimization, rows which do not
+	 * change can be initialized just once and left alone.
+	 *
+	 * If the row has been reinitialized, return RELOAD_CHANGED_ALL, and the
+	 * graphic elements will also be reinitialized.  If only m_vEnabledForPlayers
+	 * has been changed, return RELOAD_CHANGED_ENABLED.  If the row is static, and
+	 * nothing has changed, return RELOAD_CHANGED_NONE.
+	 */
+	enum ReloadChanged { RELOAD_CHANGED_NONE, RELOAD_CHANGED_ENABLED, RELOAD_CHANGED_ALL };
+	virtual ReloadChanged Reload() { return RELOAD_CHANGED_NONE; }
+
+	virtual void ImportOption( const vector<PlayerNumber> &vpns, vector<bool> vbSelectedOut[NUM_PLAYERS] ) const = 0;
 	/* Returns an OPT mask. */
-	virtual int ExportOption( const OptionRowDefinition &def, const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const = 0;
-	virtual void GetIconTextAndGameCommand( const OptionRowDefinition &def, int iFirstSelection, CString &sIconTextOut, GameCommand &gcOut ) const;
-	virtual bool HasScreen( int iChoice ) const { return false; }
+	virtual int ExportOption( const vector<PlayerNumber> &vpns, const vector<bool> vbSelected[NUM_PLAYERS] ) const = 0;
+	virtual void GetIconTextAndGameCommand( int iFirstSelection, RString &sIconTextOut, GameCommand &gcOut ) const;
+	virtual RString GetScreen( int iChoice ) const { return RString(); }
 };
 
 
 namespace OptionRowHandlerUtil
 {
-	OptionRowHandler* Make( const Command &cmd, OptionRowDefinition &defOut );
+	OptionRowHandler* Make( const Commands &cmds );
+	OptionRowHandler* MakeNull();
+	OptionRowHandler* MakeSimple( const MenuRowDef &mrd );
+
+	void SelectExactlyOne( int iSelection, vector<bool> &vbSelectedOut );
+	int GetOneSelection( const vector<bool> &vbSelected );
 }
 
-inline void VerifySelected( SelectType st, const vector<bool> &vbSelected, const CString &sName )
+inline void VerifySelected( SelectType st, const vector<bool> &vbSelected, const RString &sName )
 {
 	int iNumSelected = 0;
 	if( st == SELECT_ONE )

@@ -404,18 +404,34 @@ void GetBacktrace( const void **buf, size_t size, const BacktraceContext *ctx )
 
 	do_backtrace( buf, size, ctx );
 }
+#elif defined(BACKTRACE_METHOD_X86_DARWIN)
+void InitializeBacktrace() { }
+
+void GetSignalBacktraceContext( BacktraceContext *ctx, const ucontext_t *uc )
+{
+	ctx->ip = (void *) uc->uc_mcontext->ss.eip;
+	ctx->bp = (void *) uc->uc_mcontext->ss.ebp;
+	ctx->sp = (void *) uc->uc_mcontext->ss.esp;
+}
+
+void GetBacktrace( const void **buf, size_t size, const BacktraceContext *ctx )
+{
+	buf[0] = BACKTRACE_METHOD_NOT_AVAILABLE;
+	buf[1] = NULL;
+}
+
 #elif defined(BACKTRACE_METHOD_POWERPC_DARWIN)
-typedef struct Frame
+struct Frame
 {
     Frame *stackPointer;
     long conditionReg;
     void *linkReg;
-} *FramePtr;
+};
 
 void GetSignalBacktraceContext( BacktraceContext *ctx, const ucontext_t *uc )
 {
-	ctx->PC = (void *) uc->uc_mcontext->ss.srr0;
-	ctx->FramePtr = (void *) uc->uc_mcontext->ss.r1;
+	ctx->PC = (const void *) uc->uc_mcontext->ss.srr0;
+	ctx->FramePtr = (const Frame *) uc->uc_mcontext->ss.r1;
 }
 
 void InitializeBacktrace() { }
@@ -429,11 +445,11 @@ void GetBacktrace( const void **buf, size_t size, const BacktraceContext *ctx )
 
 		/* __builtin_frame_address is broken on OS X; it sometimes returns bogus results. */
 		register void *r1 __asm__ ("r1");
-		CurrentCtx.FramePtr = (void *) r1;
+		CurrentCtx.FramePtr = (const Frame *) r1;
 		CurrentCtx.PC = NULL;
 	}
 	
-	const Frame *frame = (Frame *) ctx->FramePtr;
+	const Frame *frame = ctx->FramePtr;
 
 	unsigned i = 0;
 	if( ctx->PC && i < size-1 )
@@ -447,6 +463,51 @@ void GetBacktrace( const void **buf, size_t size, const BacktraceContext *ctx )
 		frame = frame->stackPointer;
 	}
 
+	buf[i] = NULL;
+}
+
+#elif defined(BACKTRACE_METHOD_PPC_LINUX)
+#include <asm/ptrace.h>
+
+struct Frame
+{
+	Frame *stackPointer;
+	void *linkReg;
+};
+
+void GetSignalBacktraceContext( BacktraceContext *ctx, const ucontext_t *uc )
+{
+	// Wow, this is an ugly structure...
+	ctx->PC = (void *)uc->uc_mcontext.uc_regs->gregs[PT_NIP];
+	ctx->FramePtr = (const Frame *)uc->uc_mcontext.uc_regs->gregs[PT_R1];
+}
+
+void InitializeBacktrace() { }
+
+void GetBacktrace( const void **buf, size_t size, const BacktraceContext *ctx )
+{
+	BacktraceContext CurrentCtx;
+
+	if( ctx == NULL )
+	{
+		ctx = &CurrentCtx;
+
+		register void *r1 __asm__("1");
+		CurrentCtx.FramePtr = (const Frame *)r1;
+		CurrentCtx.PC = NULL;
+	}
+
+	const Frame *frame = (const Frame *)ctx->FramePtr;
+	unsigned i = 0;
+
+	if( ctx->PC && i < size-1 )
+		buf[i++] = ctx->PC;
+
+	while( frame && i < size-1 )
+	{
+		if( frame->linkReg )
+			buf[i++] = frame->linkReg;
+	}
 	buf[i] = NULL;
 }
 

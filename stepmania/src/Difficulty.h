@@ -8,29 +8,29 @@
 //
 enum Difficulty 
 {
-	DIFFICULTY_BEGINNER,	// corresponds to DDREX Beginner
-	DIFFICULTY_EASY,		// corresponds to Basic, Easy
-	DIFFICULTY_MEDIUM,		// corresponds to Trick, Another, Standard, Normal
-	DIFFICULTY_HARD,		// corresponds to Maniac, SSR, Heavy, Crazy
-	DIFFICULTY_CHALLENGE,	// corresponds to 5th SMANIAC, MAX2 Challenge, EX Challenge
+	DIFFICULTY_BEGINNER,
+	DIFFICULTY_EASY,
+	DIFFICULTY_MEDIUM,
+	DIFFICULTY_HARD,
+	DIFFICULTY_CHALLENGE,
 	DIFFICULTY_EDIT,
-	NUM_DIFFICULTIES,
+	NUM_Difficulty,
 	DIFFICULTY_INVALID
 };
-#define FOREACH_Difficulty( dc ) FOREACH_ENUM( Difficulty, NUM_DIFFICULTIES, dc )
-const CString& DifficultyToString( Difficulty dc );
-const CString& DifficultyToThemedString( Difficulty dc );
-Difficulty StringToDifficulty( const CString& sDC );
+#define FOREACH_Difficulty( dc ) FOREACH_ENUM( Difficulty, NUM_Difficulty, dc )
+const RString& DifficultyToString( Difficulty dc );
+const RString& DifficultyToLocalizedString( Difficulty dc );
+Difficulty StringToDifficulty( const RString& sDC );
 
 
 typedef Difficulty CourseDifficulty;
-#define NUM_COURSE_DIFFICULTIES NUM_DIFFICULTIES
+#define NUM_CourseDifficulty NUM_Difficulty
 #define FOREACH_CourseDifficulty FOREACH_Difficulty
 #define FOREACH_ShownCourseDifficulty( cd ) for( Difficulty cd=GetNextShownCourseDifficulty((CourseDifficulty)-1); cd!=DIFFICULTY_INVALID; cd=GetNextShownCourseDifficulty(cd) )
 
-const CString& CourseDifficultyToString( Difficulty dc );
-const CString& CourseDifficultyToThemedString( Difficulty dc );
-Difficulty StringToCourseDifficulty( const CString& sDC );
+const RString& CourseDifficultyToString( Difficulty dc );
+const RString& CourseDifficultyToLocalizedString( Difficulty dc );
+Difficulty StringToCourseDifficulty( const RString& sDC );
 
 Difficulty GetNextShownCourseDifficulty( Difficulty pn );
 

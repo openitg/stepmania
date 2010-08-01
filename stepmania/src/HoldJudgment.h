@@ -1,21 +1,32 @@
 #ifndef HOLD_JUDGMENT_H
 #define HOLD_JUDGMENT_H
 
-#include "Sprite.h"
 #include "ActorFrame.h"
 #include "GameConstantsAndTypes.h"
+#include "AutoActor.h"
 
 
 class HoldJudgment : public ActorFrame
 {
 public:
 	HoldJudgment();
+	virtual Actor *Copy() const;
+	void Load( const RString &sPath );
+	void LoadFromNode( const RString& sDir, const XNode* pNode );
 
-	void Reset();
 	void SetHoldJudgment( HoldNoteScore hns );
+	void LoadFromMultiPlayer( MultiPlayer mp );
+	void HandleMessage( const RString &sMessage );
+
+	//
+	// Lua
+	//
+	virtual void PushSelf( lua_State *L );
 
 protected:
-	Sprite		m_sprJudgment;
+	void ResetAnimation();
+	AutoActor		m_sprJudgment;
+	MultiPlayer		m_mpToTrack;
 };
 
 #endif

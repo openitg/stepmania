@@ -16,10 +16,7 @@ AM_CXXFLAGS += -finline-limit=300
 AM_CXXFLAGS += $(XCFLAGS)
 
 LIBS += $(LUA_LIBS)
-LIBS += -lpthread
-
-$(srcdir)/libresample/libresample.a:
-	cd $(srcdir)/libresample && autoconf && sh ./configure && make
+LIBS += -lpthread -lrt
 
 Screens = \
 Screen.cpp Screen.h ScreenAttract.cpp ScreenAttract.h \
@@ -28,20 +25,17 @@ ScreenCenterImage.cpp ScreenCenterImage.h ScreenCredits.cpp ScreenCredits.h \
 ScreenDebugOverlay.cpp ScreenDebugOverlay.h \
 ScreenDemonstration.cpp ScreenDemonstration.h ScreenDimensions.h \
 ScreenEdit.cpp ScreenEdit.h \
-ScreenEditCourseMods.cpp ScreenEditCourseMods.h \
 ScreenEditMenu.cpp ScreenEditMenu.h ScreenEnding.cpp ScreenEnding.h \
 ScreenEvaluation.cpp ScreenEvaluation.h \
-ScreenEvaluationMultiplayer.cpp ScreenEvaluationMultiplayer.h \
 ScreenExit.cpp ScreenExit.h ScreenNetEvaluation.cpp ScreenNetEvaluation.h \
 ScreenNetSelectMusic.cpp ScreenNetSelectMusic.h ScreenNetSelectBase.cpp ScreenNetSelectBase.h ScreenNetRoom.cpp ScreenNetRoom.h \
 ScreenEz2SelectMusic.cpp ScreenEz2SelectMusic.h ScreenEz2SelectPlayer.cpp ScreenEz2SelectPlayer.h \
 ScreenGameplay.cpp ScreenGameplay.h \
 ScreenGameplayLesson.cpp ScreenGameplayLesson.h \
-ScreenGameplayMultiplayer.cpp ScreenGameplayMultiplayer.h \
 ScreenGameplayNormal.cpp ScreenGameplayNormal.h \
+ScreenGameplaySyncMachine.cpp ScreenGameplaySyncMachine.h \
 ScreenHowToPlay.cpp ScreenHowToPlay.h \
 ScreenInstructions.cpp ScreenInstructions.h \
-ScreenJoinMultiplayer.cpp ScreenJoinMultiplayer.h \
 ScreenJukebox.cpp ScreenJukebox.h \
 ScreenMapControllers.cpp ScreenMapControllers.h \
 ScreenMessage.cpp ScreenMessage.h ScreenMiniMenu.cpp ScreenMiniMenu.h ScreenMusicScroll.cpp ScreenMusicScroll.h \
@@ -51,6 +45,7 @@ ScreenOptionsEditCourse.cpp ScreenOptionsEditCourse.h \
 ScreenOptionsEditCourseEntry.cpp ScreenOptionsEditCourseEntry.h \
 ScreenOptionsEditProfile.cpp ScreenOptionsEditProfile.h \
 ScreenOptionsManageCourses.cpp ScreenOptionsManageCourses.h \
+ScreenOptionsManageEditSteps.cpp ScreenOptionsManageEditSteps.h \
 ScreenOptionsManageProfiles.cpp ScreenOptionsManageProfiles.h \
 ScreenOptionsMaster.cpp ScreenOptionsMaster.h \
 ScreenOptionsMasterPrefs.cpp ScreenOptionsMasterPrefs.h ScreenPackages.cpp ScreenPackages.h \
@@ -60,8 +55,11 @@ ScreenPrompt.cpp ScreenPrompt.h ScreenRanking.cpp ScreenRanking.h \
 ScreenReloadSongs.cpp ScreenReloadSongs.h \
 ScreenSandbox.cpp ScreenSandbox.h \
 ScreenSaveSync.cpp ScreenSaveSync.h \
+ScreenServiceAction.cpp ScreenServiceAction.h \
+ScreenStatsOverlay.cpp ScreenStatsOverlay.h \
 ScreenSelect.cpp ScreenSelect.h ScreenSelectCharacter.cpp ScreenSelectCharacter.h \
 ScreenSelectDifficulty.cpp ScreenSelectDifficulty.h ScreenSelectGroup.cpp ScreenSelectGroup.h \
+ScreenSelectLanguage.cpp  ScreenSelectLanguage.h \
 ScreenSelectMaster.cpp ScreenSelectMaster.h ScreenSelectMode.cpp ScreenSelectMode.h \
 ScreenSelectMusic.cpp ScreenSelectMusic.h \
 ScreenSelectStyle.cpp ScreenSelectStyle.h \
@@ -70,9 +68,13 @@ ScreenSystemLayer.cpp ScreenSystemLayer.h ScreenSetTime.cpp ScreenSetTime.h \
 ScreenSongOptions.cpp ScreenSongOptions.h \
 ScreenSplash.cpp ScreenSplash.h \
 ScreenStage.cpp ScreenStage.h \
-ScreenTest.cpp ScreenTest.h ScreenTestFonts.cpp ScreenTestFonts.h ScreenTestInput.cpp ScreenTestInput.h \
+ScreenTestFonts.cpp ScreenTestFonts.h ScreenTestInput.cpp ScreenTestInput.h \
 ScreenTestLights.cpp ScreenTestLights.h ScreenTestSound.cpp ScreenTestSound.h ScreenTextEntry.cpp ScreenTextEntry.h \
-ScreenTitleMenu.cpp ScreenTitleMenu.h ScreenUnlock.cpp ScreenUnlock.h ScreenWithMenuElements.cpp ScreenWithMenuElements.h
+ScreenTitleMenu.cpp ScreenTitleMenu.h \
+ScreenUnlockBrowse.cpp ScreenUnlockBrowse.h \
+ScreenUnlockCelebrate.cpp ScreenUnlockCelebrate.h \
+ScreenUnlockStatus.cpp ScreenUnlockStatus.h \
+ScreenWithMenuElements.cpp ScreenWithMenuElements.h
 
 if !WITHOUT_NETWORKING
 Screens += ScreenSMOnlineLogin.cpp ScreenSMOnlineLogin.h
@@ -80,6 +82,7 @@ endif
 
 DataStructures = \
 ActorCommands.cpp ActorCommands.h Attack.cpp Attack.h AutoKeysounds.cpp AutoKeysounds.h \
+AdjustSync.cpp AdjustSync.h \
 BackgroundUtil.cpp BackgroundUtil.h \
 BannerCache.cpp BannerCache.h CatalogXml.cpp CatalogXml.h \
 Character.cpp Character.h \
@@ -100,12 +103,15 @@ GameConstantsAndTypes.cpp GameConstantsAndTypes.h \
 GameInput.cpp GameInput.h Grade.cpp Grade.h \
 HighScore.cpp HighScore.h \
 InputEventPlus.h \
-Inventory.cpp Inventory.h LuaFunctions.h \
+Inventory.cpp Inventory.h \
+LocalizedString.cpp LocalizedString.h \
+LuaFunctions.h \
 LuaReference.cpp LuaReference.h \
 LuaExpressionTransform.cpp LuaExpressionTransform.h \
-LyricsLoader.cpp LyricsLoader.h MenuInput.h \
+LyricsLoader.cpp LyricsLoader.h \
+MenuInput.cpp MenuInput.h \
 NoteData.cpp NoteData.h NoteDataUtil.cpp NoteDataUtil.h NoteDataWithScoring.cpp NoteDataWithScoring.h \
-NoteFieldPositioning.cpp NoteFieldPositioning.h NoteTypes.cpp NoteTypes.h NotesLoader.cpp NotesLoader.h \
+NoteTypes.cpp NoteTypes.h NotesLoader.cpp NotesLoader.h \
 NotesLoaderBMS.cpp NotesLoaderBMS.h NotesLoaderDWI.cpp NotesLoaderDWI.h NotesLoaderKSF.cpp NotesLoaderKSF.h \
 NotesLoaderSM.cpp NotesLoaderSM.h NotesWriterDWI.cpp NotesWriterDWI.h NotesWriterSM.cpp NotesWriterSM.h \
 OptionRowHandler.cpp OptionRowHandler.h \
@@ -113,24 +119,32 @@ PlayerAI.cpp PlayerAI.h PlayerNumber.cpp PlayerNumber.h PlayerOptions.cpp Player
 PlayerStageStats.cpp PlayerStageStats.h \
 PlayerState.cpp PlayerState.h Preference.cpp Preference.h Profile.cpp Profile.h \
 RandomSample.cpp RandomSample.h RadarValues.cpp RadarValues.h \
-RoomWheel.cpp RoomWheel.h ScreenDimensions.h ScreenDimensions.cpp \
-ScoreKeeper.h ScoreKeeperMAX2.cpp ScoreKeeperMAX2.h \
+ScreenDimensions.h ScreenDimensions.cpp \
+ScoreKeeper.h ScoreKeeper.cpp ScoreKeeperNormal.cpp ScoreKeeperNormal.h \
 ScoreKeeperRave.cpp ScoreKeeperRave.h Song.cpp song.h SongCacheIndex.cpp SongCacheIndex.h \
 SongOptions.cpp SongOptions.h SongUtil.cpp SongUtil.h StageStats.cpp StageStats.h Steps.cpp Steps.h \
 StepsUtil.cpp StepsUtil.h Style.cpp Style.h StyleUtil.cpp StyleUtil.h \
 SubscriptionManager.h \
 StyleInput.h TimingData.cpp TimingData.h \
 ThemeMetric.h \
-Trail.cpp Trail.h TrailUtil.cpp TrailUtil.h TitleSubstitution.cpp TitleSubstitution.h
+Trail.cpp Trail.h TrailUtil.cpp TrailUtil.h TitleSubstitution.cpp TitleSubstitution.h \
+Tween.cpp Tween.h
+
+if !WITHOUT_NETWORKING
+DataStructures += RoomWheel.cpp RoomWheel.h
+endif
 
 FileTypes = IniFile.cpp IniFile.h \
-		MsdFile.cpp MsdFile.h \
-		XmlFile.cpp XmlFile.h
+MsdFile.cpp MsdFile.h \
+XmlFile.cpp XmlFile.h \
+XmlFileUtil.cpp XmlFileUtil.h
 
-StepMania = StdString.h \
-		StepMania.cpp StepMania.h \
-		GameLoop.cpp GameLoop.h \
-		global.cpp global.h
+StepMania = ExportNsisStrings.cpp ExportNsisStrings.h \
+StdString.h \
+StepMania.cpp StepMania.h \
+GameLoop.cpp GameLoop.h \
+global.cpp global.h \
+SpecialFiles.cpp SpecialFiles.h
 
 LoadingWindow = arch/LoadingWindow/LoadingWindow.h \
 		arch/LoadingWindow/LoadingWindow_Null.h
@@ -159,13 +173,19 @@ Sound += arch/Sound/ALSA9Dynamic.cpp arch/Sound/ALSA9Dynamic.h arch/Sound/ALSA9F
 AM_CXXFLAGS += $(ALSA_CFLAGS)
 endif
 
-ArchHooks = arch/ArchHooks/ArchHooks.cpp arch/ArchHooks/ArchHooks.h
+ArchHooks = arch/ArchHooks/ArchHooks.cpp arch/ArchHooks/ArchHooks.h \
+	arch/ArchHooks/ArchHooksUtil.cpp
 
 InputHandler = arch/InputHandler/InputHandler.cpp arch/InputHandler/InputHandler.h \
 		arch/InputHandler/InputHandler_MonkeyKeyboard.cpp arch/InputHandler/InputHandler_MonkeyKeyboard.h
 
 MovieTexture = arch/MovieTexture/MovieTexture.cpp arch/MovieTexture/MovieTexture.h \
+		arch/MovieTexture/MovieTexture_Generic.cpp arch/MovieTexture/MovieTexture_Generic.h \
 		arch/MovieTexture/MovieTexture_Null.cpp arch/MovieTexture/MovieTexture_Null.h
+
+if HAVE_THEORA
+MovieTexture += arch/MovieTexture/MovieTexture_Theora.cpp arch/MovieTexture/MovieTexture_Theora.h
+endif
 
 if HAVE_FFMPEG
 MovieTexture += arch/MovieTexture/MovieTexture_FFMpeg.cpp arch/MovieTexture/MovieTexture_FFMpeg.h
@@ -183,16 +203,6 @@ Dialog = arch/Dialog/Dialog.cpp arch/Dialog/Dialog.h arch/Dialog/DialogDriver.h
 
 Threads = arch/Threads/Threads.h
 
-if HAVE_SDL
-LoadingWindow += arch/LoadingWindow/LoadingWindow_SDL.cpp arch/LoadingWindow/LoadingWindow_SDL.h
-StepMania += SDL_utils.cpp SDL_utils.h
-if !HAVE_X11
-#InputHandler_SDL depends on LowLevelWindow_SDL
-InputHandler += arch/InputHandler/InputHandler_SDL.cpp arch/InputHandler/InputHandler_SDL.h
-LowLevelWindow += arch/LowLevelWindow/LowLevelWindow_SDL.cpp arch/LowLevelWindow/LowLevelWindow_SDL.h
-endif
-endif
-
 if HAVE_X11
 # InputHandler_X11 depends on LowLevelWindow_X11
 InputHandler += arch/InputHandler/InputHandler_X11.cpp arch/InputHandler/InputHandler_X11.h
@@ -205,8 +215,12 @@ endif
 if UNIX
 ArchHooks += arch/ArchHooks/ArchHooks_Unix.cpp arch/ArchHooks/ArchHooks_Unix.h
 Threads += arch/Threads/Threads_Pthreads.cpp arch/Threads/Threads_Pthreads.h
+if LINUX
 Lights += arch/Lights/LightsDriver_LinuxWeedTech.cpp arch/Lights/LightsDriver_LinuxWeedTech.h
+if HAVE_PARALLEL_PORT
 Lights += arch/Lights/LightsDriver_LinuxParallel.cpp arch/Lights/LightsDriver_LinuxParallel.h
+endif
+endif
 
 ArchUtils +=    archutils/Unix/AssertionHandler.cpp \
 		archutils/Unix/GetSysInfo.cpp archutils/Unix/GetSysInfo.h \
@@ -219,7 +233,8 @@ if USE_CRASH_HANDLER
 ArchUtils +=    archutils/Unix/Backtrace.cpp archutils/Unix/Backtrace.h \
 		archutils/Unix/BacktraceNames.cpp archutils/Unix/BacktraceNames.h \
 		archutils/Unix/CrashHandler.cpp archutils/Unix/CrashHandler.h \
-		archutils/Unix/CrashHandlerChild.cpp archutils/Unix/CrashHandlerInternal.h
+		archutils/Unix/CrashHandlerChild.cpp archutils/Unix/CrashHandlerInternal.h \
+		archutils/Unix/CrashHandlerInternal.cpp
 endif
 
 endif
@@ -251,7 +266,8 @@ Transition.cpp Transition.h
 
 ActorsInMenus = \
 ActiveAttackList.cpp ActiveAttackList.h BPMDisplay.cpp BPMDisplay.h ComboGraph.cpp ComboGraph.h \
-CourseContentsList.cpp CourseContentsList.h CourseEntryDisplay.cpp CourseEntryDisplay.h \
+CourseContentsList.cpp CourseContentsList.h \
+CourseEntryDisplay.cpp CourseEntryDisplay.h \
 DifficultyDisplay.cpp DifficultyDisplay.h DifficultyList.cpp DifficultyList.h \
 DifficultyMeter.cpp DifficultyMeter.h DifficultyRating.cpp DifficultyRating.h \
 DualScrollBar.cpp DualScrollBar.h \
@@ -271,13 +287,14 @@ WheelNotifyIcon.cpp WheelNotifyIcon.h
 ActorsInGameplay = \
 ArrowEffects.cpp ArrowEffects.h AttackDisplay.cpp AttackDisplay.h \
 Background.cpp Background.h BeginnerHelper.cpp BeginnerHelper.h CombinedLifeMeterTug.cpp CombinedLifeMeterTug.h \
-Combo.cpp Combo.h DancingCharacters.cpp DancingCharacters.h Foreground.cpp Foreground.h GhostArrow.cpp GhostArrow.h \
-GhostArrowRow.cpp GhostArrowRow.h HoldGhostArrow.cpp HoldGhostArrow.h HoldJudgment.cpp HoldJudgment.h \
-Judgment.cpp Judgment.h LifeMeter.h LifeMeterBar.cpp LifeMeterBar.h \
+Combo.cpp Combo.h DancingCharacters.cpp DancingCharacters.h Foreground.cpp Foreground.h \
+GhostArrowRow.cpp GhostArrowRow.h HoldJudgment.cpp HoldJudgment.h \
+Judgment.cpp Judgment.h \
+LifeMeter.cpp LifeMeter.h \
+LifeMeterBar.cpp LifeMeterBar.h \
 LifeMeterBattery.cpp LifeMeterBattery.h LifeMeterTime.cpp LifeMeterTime.h \
 LyricDisplay.cpp LyricDisplay.h NoteDisplay.cpp NoteDisplay.h NoteField.cpp NoteField.h \
 PercentageDisplay.cpp PercentageDisplay.h Player.cpp Player.h \
-PlayerScoreList.cpp PlayerScoreList.h \
 ReceptorArrow.cpp ReceptorArrow.h ReceptorArrowRow.cpp ReceptorArrowRow.h \
 ScoreDisplay.cpp ScoreDisplay.h \
 ScoreDisplayBattle.cpp ScoreDisplayBattle.h \
@@ -309,7 +326,6 @@ RageSoundReader_Preload.cpp RageSoundReader_Preload.h RageSoundReader_Resample.c
 RageSoundReader_Resample_Fast.cpp RageSoundReader_Resample_Fast.h \
 RageSoundReader_Resample_Good.cpp RageSoundReader_Resample_Good.h \
 RageSoundReader_Chain.cpp RageSoundReader_Chain.h \
-RageSoundResampler.cpp RageSoundResampler.h \
 RageSurface.cpp RageSurface.h RageSurfaceUtils.cpp RageSurfaceUtils.h \
 RageSurfaceUtils_Dither.cpp RageSurfaceUtils_Dither.h \
 RageSurface_Save_JPEG.cpp RageSurface_Save_JPEG.h \
@@ -333,6 +349,7 @@ ActorScroller.cpp ActorScroller.h ActorUtil.cpp ActorUtil.h \
 ActorSound.cpp ActorSound.h \
 AutoActor.cpp AutoActor.h \
 BitmapText.cpp BitmapText.h Model.cpp Model.h \
+DynamicActorScroller.cpp DynamicActorScroller.h \
 ModelManager.cpp ModelManager.h ModelTypes.cpp ModelTypes.h \
 Quad.cpp Quad.h \
 RollingNumbers.cpp RollingNumbers.h Sprite.cpp Sprite.h
@@ -397,9 +414,7 @@ main_SOURCES = $(Screens) \
 
 main_LDADD = \
 		  $(AUDIO_LIBS) \
-		  $(SDL_LIBS) \
-		  $(XLIBS) \
-		  $(srcdir)/libresample/libresample.a
+		  $(XLIBS)
 
 stepmania_SOURCES = $(main_SOURCES)
 stepmania_LDADD = $(main_LDADD)
@@ -425,16 +440,21 @@ all_test_SOURCES = \
 		DateTime.cpp DateTime.h \
 		PrefsManager.cpp PrefsManager.h \
 		Preference.cpp Preference.h \
+		LocalizedString.cpp LocalizedString.h \
 		LuaBinding.cpp LuaBinding.h \
-		LuaFunctions.h LuaHelpers.cpp LuaHelpers.h \
+		LuaFunctions.h \
+		LuaManager.cpp LuaManager.h \
 		LuaReference.cpp LuaReference.h \
+		SpecialFiles.cpp SpecialFiles.h \
 		RageException.cpp \
 		RageLog.cpp \
 		RageThreads.cpp \
 		RageTimer.cpp RageTimer.h \
 		RageUtil.cpp \
 		RageUtil_FileDB.cpp RageUtil_FileDB.h \
-		global.cpp global.h
+		global.cpp global.h \
+		RageUtil_WorkerThread.cpp RageUtil_WorkerThread.h \
+		MessageManager.cpp MessageManager.h
 
 TESTS += test_audio_readers
 test_audio_readers_SOURCES = \
@@ -447,12 +467,9 @@ test_audio_readers_SOURCES = \
 		RageSoundReader_Resample.cpp  RageSoundReader_Resample.h \
 		RageSoundReader_Resample_Fast.cpp RageSoundReader_Resample_Fast.h \
 		RageSoundReader_Resample_Good.cpp RageSoundReader_Resample_Good.h \
-		RageSoundReader_Chain.cpp RageSoundReader_Chain.h \
-		RageSoundResampler.cpp RageSoundResampler.h
+		RageSoundReader_Chain.cpp RageSoundReader_Chain.h
 
-test_audio_readers_LDADD = \
-		$(AUDIO_LIBS) \
-		$(srcdir)/libresample/libresample.a
+test_audio_readers_LDADD = $(AUDIO_LIBS)
 
 TESTS += test_file_readers
 test_file_readers_SOURCES = \
@@ -488,4 +505,4 @@ test_threads_SOURCES = \
 		$(all_test_SOURCES) \
 		tests/test_threads.cpp
 
-INCLUDES = $(LUA_CFLAGS) $(SDL_CFLAGS)
+INCLUDES = $(LUA_CFLAGS)

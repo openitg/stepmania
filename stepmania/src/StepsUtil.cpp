@@ -8,18 +8,65 @@
 #include "GameManager.h"
 #include "XmlFile.h"
 #include "UnlockManager.h"
+#include "SongUtil.h"
+
+
+bool StepsCriteria::Matches( const Song *pSong, const Steps *pSteps ) const
+{
+	if( m_difficulty != DIFFICULTY_INVALID  &&  pSteps->GetDifficulty() != m_difficulty )
+		return false;
+	if( m_iLowMeter != -1  &&  pSteps->GetMeter() < m_iLowMeter )
+		return false;
+	if( m_iHighMeter != -1  &&  pSteps->GetMeter() > m_iHighMeter )
+		return false;
+	if( m_st != STEPS_TYPE_INVALID  &&  pSteps->m_StepsType != m_st )
+		return false;
+	switch( m_Locked )
+	{
+	DEFAULT_FAIL(m_Locked);
+	case Locked_Locked:
+		if( UNLOCKMAN  &&  !UNLOCKMAN->StepsIsLocked(pSong,pSteps) )
+			return false;
+		break;
+	case Locked_Unlocked:
+		if( UNLOCKMAN  &&  UNLOCKMAN->StepsIsLocked(pSong,pSteps) )
+			return false;
+		break;
+	case Locked_DontCare:
+		break;
+	}
+
+	return true;
+}
+
+void StepsUtil::GetAllMatching( const SongCriteria &soc, const StepsCriteria &stc, vector<SongAndSteps> &out )
+{
+	FOREACH_CONST( Song*, SONGMAN->GetAllSongs(), so )
+	{
+		if( !soc.Matches(*so) )
+			continue;
+		FOREACH_CONST( Steps*, (*so)->GetAllSteps(), st )
+		{
+			if( !stc.Matches(*so,*st) )
+				continue;
+			SongAndSteps sas = { *so, *st };
+			out.push_back( sas );
+		}
+	}
+}
+
 
 //
 // Sorting stuff
 //
-map<const Steps*, CString> steps_sort_val;
+map<const Steps*, RString> steps_sort_val;
 
-bool CompareStepsPointersBySortValueAscending(const Steps *pSteps1, const Steps *pSteps2)
+static bool CompareStepsPointersBySortValueAscending(const Steps *pSteps1, const Steps *pSteps2)
 {
 	return steps_sort_val[pSteps1] < steps_sort_val[pSteps2];
 }
 
-bool CompareStepsPointersBySortValueDescending(const Steps *pSteps1, const Steps *pSteps2)
+static bool CompareStepsPointersBySortValueDescending(const Steps *pSteps1, const Steps *pSteps2)
 {
 	return steps_sort_val[pSteps1] > steps_sort_val[pSteps2];
 }
@@ -71,8 +118,8 @@ bool StepsUtil::CompareNotesPointersByRadarValues(const Steps* pSteps1, const St
 	float fScore1 = 0;
 	float fScore2 = 0;
 	
-	fScore1 += pSteps1->GetRadarValues()[RADAR_NUM_TAPS_AND_HOLDS];
-	fScore2 += pSteps2->GetRadarValues()[RADAR_NUM_TAPS_AND_HOLDS];
+	fScore1 += pSteps1->GetRadarValues()[RadarCategory_TapsAndHolds];
+	fScore2 += pSteps2->GetRadarValues()[RadarCategory_TapsAndHolds];
 
 	return fScore1 < fScore2;
 }
@@ -191,11 +238,11 @@ Steps *StepsID::ToSteps( const Song *p, bool bAllowNull, bool bUseCache ) const
 	Steps *ret = NULL;
 	if( dc == DIFFICULTY_EDIT )
 	{
-		ret = p->GetOneSteps( st, dc, -1, -1, sDescription, uHash, true );
+		ret = SongUtil::GetOneSteps( p, st, dc, -1, -1, sDescription, uHash, true );
 	}
 	else
 	{
-		ret = p->GetOneSteps( st, dc, -1, -1, "", 0, true );
+		ret = SongUtil::GetOneSteps( p, st, dc, -1, -1, "", 0, true );
 	}
 	
 	if( !bAllowNull && ret == NULL )
@@ -233,7 +280,7 @@ void StepsID::LoadFromNode( const XNode* pNode )
 {
 	ASSERT( pNode->m_sName == "Steps" );
 
-	CString sTemp;
+	RString sTemp;
 
 	pNode->GetAttrValue("StepsType", sTemp);
 	st = GameManager::StringToStepsType( sTemp );
@@ -253,9 +300,9 @@ void StepsID::LoadFromNode( const XNode* pNode )
 	}
 }
 
-CString StepsID::ToString() const
+RString StepsID::ToString() const
 {
-	CString s = GameManager::StepsTypeToString(st);
+	RString s = GameManager::StepsTypeToString(st);
 	s += " " + DifficultyToString(dc);
 	if( dc == DIFFICULTY_EDIT )
 	{

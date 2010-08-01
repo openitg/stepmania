@@ -10,19 +10,25 @@ class InputHandler_DInput: public InputHandler
 public:
 	InputHandler_DInput();
 	~InputHandler_DInput();
-	void GetDevicesAndDescriptions( vector<InputDevice>& vDevicesOut, vector<CString>& vDescriptionsOut );
-	void Update( float fDeltaTime );
+	void GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut );
+	wchar_t DeviceButtonToChar( DeviceButton button, bool bUseCurrentKeyModifiers );
+	void Update();
+	bool DevicesChanged();
 	void WindowReset();
 
 private:
-	RageThread InputThread;
-	bool shutdown;
+	RageThread m_InputThread;
+	bool m_bShutdown;
+
+	int m_iLastSeenNumHidDevices;	// This changes first on plug/unplug
+	int m_iNumTimesLeftToPollForJoysticksChanged;
+	int m_iLastSeenNumJoysticks;	// This changes sometime after m_iLastSeenNumHidDevices
 
 	void UpdatePolled( DIDevice &device, const RageTimer &tm );
 	void UpdateBuffered( DIDevice &device, const RageTimer &tm );
-	void PollAndAcquireDevices();
+	void PollAndAcquireDevices( bool bBuffered );
 
-	static int InputThread_Start( void *p ) { ((InputHandler_DInput *) p)->InputThreadMain();  return 0; }
+	static int InputThread_Start( void *p )		 { ((InputHandler_DInput *) p)->InputThreadMain();  return 0; }
 	void InputThreadMain();
 
 	void StartThread();

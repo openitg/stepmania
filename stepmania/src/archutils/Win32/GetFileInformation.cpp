@@ -10,16 +10,18 @@
 #pragma comment(lib, "version.lib")
 #endif
 
-bool GetFileVersion( CString fn, CString &out )
+bool GetFileVersion( RString sFile, RString &sOut )
 {
 	do {
+		/* Cast away const to work around header bug in VC6. */
 		DWORD ignore;
-		DWORD iSize = GetFileVersionInfoSize( (char *) fn.c_str(), &ignore );
+		DWORD iSize = GetFileVersionInfoSize( const_cast<char *>(sFile.c_str()), &ignore );
 		if( !iSize )
 			break;
 
-		CString VersionBuffer( iSize, ' ' );
-		if( !GetFileVersionInfo( (char *) fn.c_str(), NULL, iSize, (char *) VersionBuffer.c_str() ) )
+		RString VersionBuffer( iSize, ' ' );
+		/* Also VC6: */
+		if( !GetFileVersionInfo( const_cast<char *>(sFile.c_str()), NULL, iSize, VersionBuffer.GetBuf() ) )
 			break;
 
 		WORD *iTrans;
@@ -35,55 +37,58 @@ bool GetFileVersion( CString fn, CString &out )
 		char *str;
 		UINT len;
 
-		CString sRes = ssprintf( "\\StringFileInfo\\%04x%04x\\FileVersion",
+		RString sRes = ssprintf( "\\StringFileInfo\\%04x%04x\\FileVersion",
 			iTrans[0], iTrans[1] );
 		if( !VerQueryValue( (void *) VersionBuffer.c_str(), (char *) sRes.c_str(),
 				(void **) &str,  &len ) || len < 1)
 			break;
 
-		out = CString( str, len-1 );
+		sOut = RString( str, len-1 );
 	} while(0);
 
 	/* Get the size and date. */
 	struct stat st;
-	if( stat( fn, &st ) != -1 )
+	if( stat( sFile, &st ) != -1 )
 	{
 		struct tm t;
 		gmtime_r( &st.st_mtime, &t );
-		if( !out.empty() )
-			out += " ";
-		out += ssprintf( "[%ib, %02i-%02i-%04i]", st.st_size, t.tm_mon+1, t.tm_mday, t.tm_year+1900 );
+		if( !sOut.empty() )
+			sOut += " ";
+		sOut += ssprintf( "[%ib, %02i-%02i-%04i]", st.st_size, t.tm_mon+1, t.tm_mday, t.tm_year+1900 );
 	}
 
 	return true;
 }
 
-CString FindSystemFile( CString fn )
+RString FindSystemFile( RString sFile )
 {
-	char path[MAX_PATH];
-	GetSystemDirectory( path, MAX_PATH );
+	char szWindowsPath[MAX_PATH];
+	GetWindowsDirectory( szWindowsPath, MAX_PATH );
 
-	CString sPath = ssprintf( "%s\\%s", path, fn.c_str() );
-	struct stat buf;
-	if( !stat( sPath, &buf ) )
-		return sPath;
+	const char *szPaths[] =
+	{
+		"/system32/",
+		"/system32/drivers/",
+		"/system/",
+		"/system/drivers/",
+		"/",
+		NULL
+	};
 
-	sPath = ssprintf( "%s\\drivers\\%s", path, fn.c_str() );
-	if( !stat( sPath, &buf ) )
-		return sPath;
+	for( int i = 0; szPaths[i]; ++i )
+	{
+		RString sPath = ssprintf( "%s%s%s", szWindowsPath, szPaths[i], sFile.c_str() );
+		struct stat buf;
+		if( !stat(sPath, &buf) )
+			return sPath;
+	}
 
-	GetWindowsDirectory( path, MAX_PATH );
-
-	sPath = ssprintf( "%s\\%s", path, fn.c_str() );
-	if( !stat( sPath, &buf ) )
-		return sPath;
-
-	return CString();
+	return RString();
 }
 
 /* Get the full path of the process running in iProcessID.  On error, false is
  * returned and an error message is placed in sName. */
-bool GetProcessFileName( uint32_t iProcessID, CString &sName )
+bool GetProcessFileName( uint32_t iProcessID, RString &sName )
 {
 	/* This method works in everything except for NT4, and only uses kernel32.lib functions. */
 	do {

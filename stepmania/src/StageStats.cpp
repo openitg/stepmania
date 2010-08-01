@@ -23,6 +23,8 @@ StageStats::StageStats()
 	vpPlayedSongs.clear();
 	vpPossibleSongs.clear();
 	StageType = STAGE_INVALID;
+	bGaveUp = false;
+	bUsedAutoplay = false;
 	fGameplaySeconds = 0;
 	fStepsSeconds = 0;
 }
@@ -40,9 +42,9 @@ void StageStats::AssertValid( PlayerNumber pn ) const
 		CHECKPOINT_M( vpPlayedSongs[0]->GetTranslitFullTitle() );
 	ASSERT( m_player[pn].vpPlayedSteps.size() != 0 );
 	ASSERT( m_player[pn].vpPlayedSteps[0] );
-	ASSERT_M( playMode < NUM_PLAY_MODES, ssprintf("playmode %i", playMode) );
+	ASSERT_M( playMode < NUM_PlayMode, ssprintf("playmode %i", playMode) );
 	ASSERT( pStyle != NULL );
-	ASSERT_M( m_player[pn].vpPlayedSteps[0]->GetDifficulty() < NUM_DIFFICULTIES, ssprintf("difficulty %i", m_player[pn].vpPlayedSteps[0]->GetDifficulty()) );
+	ASSERT_M( m_player[pn].vpPlayedSteps[0]->GetDifficulty() < NUM_Difficulty, ssprintf("difficulty %i", m_player[pn].vpPlayedSteps[0]->GetDifficulty()) );
 	ASSERT( vpPlayedSongs.size() == m_player[pn].vpPlayedSteps.size() );
 	ASSERT( vpPossibleSongs.size() == m_player[pn].vpPossibleSteps.size() );
 }
@@ -55,9 +57,9 @@ void StageStats::AssertValid( MultiPlayer pn ) const
 		CHECKPOINT_M( vpPlayedSongs[0]->GetTranslitFullTitle() );
 	ASSERT( m_multiPlayer[pn].vpPlayedSteps.size() != 0 );
 	ASSERT( m_multiPlayer[pn].vpPlayedSteps[0] );
-	ASSERT_M( playMode < NUM_PLAY_MODES, ssprintf("playmode %i", playMode) );
+	ASSERT_M( playMode < NUM_PlayMode, ssprintf("playmode %i", playMode) );
 	ASSERT( pStyle != NULL );
-	ASSERT_M( m_player[pn].vpPlayedSteps[0]->GetDifficulty() < NUM_DIFFICULTIES, ssprintf("difficulty %i", m_player[pn].vpPlayedSteps[0]->GetDifficulty()) );
+	ASSERT_M( m_player[pn].vpPlayedSteps[0]->GetDifficulty() < NUM_Difficulty, ssprintf("difficulty %i", m_player[pn].vpPlayedSteps[0]->GetDifficulty()) );
 	ASSERT( vpPlayedSongs.size() == m_player[pn].vpPlayedSteps.size() );
 	ASSERT( vpPossibleSongs.size() == m_player[pn].vpPossibleSteps.size() );
 }
@@ -87,6 +89,9 @@ void StageStats::AddStats( const StageStats& other )
 	FOREACH_CONST( Song*, other.vpPossibleSongs, s )
 		vpPossibleSongs.push_back( *s );
 	StageType = STAGE_INVALID; // meaningless
+
+	bGaveUp |= other.bGaveUp;
+	bUsedAutoplay |= other.bUsedAutoplay;
 	
 	fGameplaySeconds += other.fGameplaySeconds;
 	fStepsSeconds += other.fStepsSeconds;
@@ -105,8 +110,8 @@ bool StageStats::OnePassed() const
 
 bool StageStats::AllFailed() const
 {
-	FOREACH_EnabledPlayer( pn )
-		if( !m_player[pn].bFailed )
+	FOREACH_EnabledPlayer( p )
+		if( !m_player[p].bFailed )
 			return false;
 	return true;
 }
@@ -169,7 +174,7 @@ void StageStats::CommitScores( bool bSummary )
 		hs.SetSurviveSeconds( m_player[p].fAliveSeconds );
 		hs.SetModifiers( GAMESTATE->m_pPlayerState[p]->m_PlayerOptions.GetString() );
 		hs.SetDateTime( DateTime::GetNowDateTime() );
-		hs.SetPlayerGuid( PROFILEMAN->IsPersistentProfile(p) ? PROFILEMAN->GetProfile(p)->m_sGuid : CString("") );
+		hs.SetPlayerGuid( PROFILEMAN->IsPersistentProfile(p) ? PROFILEMAN->GetProfile(p)->m_sGuid : RString("") );
 		hs.SetMachineGuid( PROFILEMAN->GetMachineProfile()->m_sGuid );
 		hs.SetProductID( PREFSMAN->m_iProductID );
 		FOREACH_TapNoteScore( tns )
@@ -274,14 +279,16 @@ class LunaStageStats: public Luna<StageStats>
 public:
 	LunaStageStats() { LUA->Register( Register ); }
 
-	static int GetPlayerStageStats( T* p, lua_State *L )	{ p->m_player[IArg(1)].PushSelf(L); return 1; }
+	static int GetPlayerStageStats( T* p, lua_State *L )		{ p->m_player[IArg(1)].PushSelf(L); return 1; }
+	static int GetMultiPlayerStageStats( T* p, lua_State *L )	{ p->m_multiPlayer[IArg(1)].PushSelf(L); return 1; }
 	static int GetGameplaySeconds( T* p, lua_State *L )		{ lua_pushnumber(L, p->fGameplaySeconds); return 1; }
-	static int OnePassed( T* p, lua_State *L )				{ lua_pushboolean(L, p->OnePassed()); return 1; }
-	static int AllFailed( T* p, lua_State *L )				{ lua_pushboolean(L, p->AllFailed()); return 1; }
+	static int OnePassed( T* p, lua_State *L )			{ lua_pushboolean(L, p->OnePassed()); return 1; }
+	static int AllFailed( T* p, lua_State *L )			{ lua_pushboolean(L, p->AllFailed()); return 1; }
 
 	static void Register(lua_State *L)
 	{
 		ADD_METHOD( GetPlayerStageStats );
+		ADD_METHOD( GetMultiPlayerStageStats );
 		ADD_METHOD( GetGameplaySeconds );
 		ADD_METHOD( OnePassed );
 		ADD_METHOD( AllFailed );

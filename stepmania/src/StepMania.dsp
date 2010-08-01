@@ -1,5 +1,5 @@
 # Microsoft Developer Studio Project File - Name="StepMania" - Package Owner=<4>
-# Microsoft Developer Studio Generated Build File, Format Version 60000
+# Microsoft Developer Studio Generated Build File, Format Version 6.00
 # ** DO NOT EDIT **
 
 # TARGTYPE "Win32 (x86) Application" 0x0101
@@ -44,7 +44,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /Gm /GX /ZI /Od /I "." /I "SDL-1.2.5\include" /I "SDL_image-1.2" /I "plib-1.6.0" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "DEBUG" /Fr /YX"global.h" /FD /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "." /I "vorbis" /I "libjpeg" /I "lua-5.0\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "WINDOWS" /D "_MBCS" /D "DEBUG" /FR /YX"global.h" /FD /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "." /I "vorbis" /I "libjpeg" /I "lua-5.0\include" /I "ffmpeg\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "WINDOWS" /D "_MBCS" /D "DEBUG" /FR /YX"global.h" /FD /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -55,14 +55,14 @@ BSC32=bscmake.exe
 LINK32=link.exe
 # ADD BASE LINK32 $(intdir)\verstub.obj kernel32.lib shell32.lib user32.lib gdi32.lib advapi32.lib winmm.lib /nologo /subsystem:windows /pdb:"../debug6/StepMania-debug.pdb" /map /debug /machine:I386 /nodefaultlib:"libcmtd.lib" /out:"../StepMania-debug.exe"
 # SUBTRACT BASE LINK32 /verbose /profile /pdb:none /incremental:no /nodefaultlib
-# ADD LINK32 $(intdir)\verstub.obj kernel32.lib gdi32.lib shell32.lib user32.lib advapi32.lib winmm.lib /nologo /subsystem:windows /map /debug /machine:I386 /nodefaultlib:"msvcrt.lib" /out:"../Program/StepMania-debug.exe"
+# ADD LINK32 $(intdir)\verstub.obj kernel32.lib gdi32.lib shell32.lib user32.lib advapi32.lib winmm.lib /nologo /subsystem:windows /map /debug /machine:I386 /nodefaultlib:"msvcrt.lib" /out:"../../stepmania/Program/StepMania-debug.exe"
 # SUBTRACT LINK32 /verbose /profile /pdb:none /incremental:no /nodefaultlib
 # Begin Special Build Tool
 IntDir=.\../Debug6
-TargetDir=\cvs\stepmania\Program
+TargetDir=\projects\stepmania\stepmania\Program
 TargetName=StepMania-debug
 SOURCE="$(InputPath)"
-PreLink_Cmds=archutils\Win32\verinc                                                                                                                                                                                                                	cl                                                                        /Zl                                                                        /nologo                                                                        /c                                                                        verstub.cpp                                                                        /Fo$(IntDir)\ 
+PreLink_Cmds=archutils\Win32\verinc 	cl  /Zl  /nologo  /c  verstub.cpp  /Fo$(IntDir)\ 
 PostBuild_Cmds=archutils\Win32\mapconv $(IntDir)\$(TargetName).map $(TargetDir)\StepMania.vdi
 # End Special Build Tool
 
@@ -81,7 +81,7 @@ PostBuild_Cmds=archutils\Win32\mapconv $(IntDir)\$(TargetName).map $(TargetDir)\
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /GX /Zi /O2 /Ob2 /I "." /I "SDL-1.2.5\include" /I "SDL_image-1.2" /I "plib-1.6.0" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /FR /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /Ob2 /I "." /I "vorbis" /I "libjpeg" /I "lua-5.0\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "WINDOWS" /D "_MBCS" /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /Ob2 /I "." /I "vorbis" /I "libjpeg" /I "lua-5.0\include" /I "ffmpeg\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "WINDOWS" /D "_MBCS" /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -96,10 +96,10 @@ LINK32=link.exe
 # SUBTRACT LINK32 /pdb:none
 # Begin Special Build Tool
 IntDir=.\../Release6
-TargetDir=\cvs\stepmania\Program
+TargetDir=\projects\stepmania\stepmania\Program
 TargetName=StepMania
 SOURCE="$(InputPath)"
-PreLink_Cmds=archutils\Win32\verinc                          	cl                           /Zl                           /nologo                           /c                           verstub.cpp                           /Fo$(IntDir)\ 
+PreLink_Cmds=archutils\Win32\verinc 	cl  /Zl  /nologo  /c  verstub.cpp  /Fo$(IntDir)\ 
 PostBuild_Cmds=archutils\Win32\mapconv $(IntDir)\$(TargetName).map $(TargetDir)\StepMania.vdi
 # End Special Build Tool
 
@@ -448,14 +448,6 @@ SOURCE=.\RageSoundReader_WAV.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\RageSoundResampler.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\RageSoundResampler.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\RageSoundUtil.cpp
 # End Source File
 # Begin Source File
@@ -673,6 +665,14 @@ SOURCE=.\ActorCommands.cpp
 # Begin Source File
 
 SOURCE=.\ActorCommands.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\AdjustSync.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\AdjustSync.h
 # End Source File
 # Begin Source File
 
@@ -896,6 +896,14 @@ SOURCE=.\Inventory.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\LocalizedString.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\LocalizedString.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\LuaBinding.cpp
 # End Source File
 # Begin Source File
@@ -932,6 +940,14 @@ SOURCE=.\LyricsLoader.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\MenuInput.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\MenuInput.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\NoteData.cpp
 # End Source File
 # Begin Source File
@@ -953,14 +969,6 @@ SOURCE=.\NoteDataWithScoring.cpp
 # Begin Source File
 
 SOURCE=.\NoteDataWithScoring.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\NoteFieldPositioning.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\NoteFieldPositioning.h
 # End Source File
 # Begin Source File
 
@@ -1108,15 +1116,19 @@ SOURCE=.\RandomSample.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\ScoreKeeper.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\ScoreKeeper.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\ScoreKeeperMAX2.cpp
+SOURCE=.\ScoreKeeperNormal.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\ScoreKeeperMAX2.h
+SOURCE=.\ScoreKeeperNormal.h
 # End Source File
 # Begin Source File
 
@@ -1129,6 +1141,10 @@ SOURCE=.\ScoreKeeperRave.h
 # Begin Source File
 
 SOURCE=.\ScreenDimensions.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenDimensions.h
 # End Source File
 # Begin Source File
 
@@ -1208,6 +1224,10 @@ SOURCE=.\StyleUtil.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\ThemeMetric.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\TimingData.cpp
 # End Source File
 # Begin Source File
@@ -1238,6 +1258,14 @@ SOURCE=.\TrailUtil.cpp
 
 SOURCE=.\TrailUtil.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\Tween.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\Tween.h
+# End Source File
 # End Group
 # Begin Group "File Types"
 
@@ -1265,6 +1293,14 @@ SOURCE=.\XmlFile.cpp
 # Begin Source File
 
 SOURCE=.\XmlFile.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\XmlFileUtil.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\XmlFileUtil.h
 # End Source File
 # End Group
 # Begin Group "StepMania"
@@ -1372,6 +1408,14 @@ SOURCE=.\arch\ArchHooks\ArchHooks_Win32.cpp
 
 SOURCE=.\arch\ArchHooks\ArchHooks_Win32.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\arch\ArchHooks\ArchHooks_Win32Static.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\arch\ArchHooks\ArchHooksUtil.cpp
+# End Source File
 # End Group
 # Begin Group "InputHandler"
 
@@ -1474,11 +1518,27 @@ SOURCE=.\arch\MovieTexture\MovieTexture_FFMpeg.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\arch\MovieTexture\MovieTexture_Generic.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\arch\MovieTexture\MovieTexture_Generic.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\arch\MovieTexture\MovieTexture_Null.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\arch\MovieTexture\MovieTexture_Null.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\arch\MovieTexture\MovieTexture_Theora.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\arch\MovieTexture\MovieTexture_Theora.h
 # End Source File
 # End Group
 # Begin Group "LowLevelWindow"
@@ -1631,6 +1691,18 @@ SOURCE=.\archutils\Win32\arch_setup.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\archutils\Win32\arch_time.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\CommandLine.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\CommandLine.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\archutils\Win32\Crash.cpp
 # End Source File
 # Begin Source File
@@ -1639,11 +1711,35 @@ SOURCE=.\archutils\Win32\Crash.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\archutils\Win32\CrashHandlerChild.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\CrashHandlerInternal.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\CrashHandlerNetworking.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\CrashHandlerNetworking.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\archutils\Win32\DebugInfoHunt.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\archutils\Win32\DebugInfoHunt.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\DialogUtil.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\DialogUtil.h
 # End Source File
 # Begin Source File
 
@@ -1671,6 +1767,14 @@ SOURCE=.\archutils\Win32\GraphicsWindow.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\archutils\Win32\MessageWindow.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\MessageWindow.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\archutils\Win32\RegistryAccess.cpp
 # End Source File
 # Begin Source File
@@ -1684,6 +1788,14 @@ SOURCE=.\archutils\Win32\RestartProgram.cpp
 # Begin Source File
 
 SOURCE=.\archutils\Win32\RestartProgram.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\SpecialDirs.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\SpecialDirs.h
 # End Source File
 # Begin Source File
 
@@ -1715,6 +1827,14 @@ SOURCE=.\archutils\Win32\WindowIcon.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\archutils\Win32\WindowsDialogBox.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\WindowsDialogBox.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\archutils\Win32\WindowsResources.h
 # End Source File
 # Begin Source File
@@ -1722,6 +1842,14 @@ SOURCE=.\archutils\Win32\WindowsResources.h
 SOURCE=.\archutils\Win32\WindowsResources.rc
 # End Source File
 # End Group
+# Begin Source File
+
+SOURCE=.\ExportNsisStrings.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ExportNsisStrings.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\GameLoop.cpp
@@ -1750,7 +1878,15 @@ SOURCE=.\global.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\ScreenDimensions.h
+SOURCE=.\ProductInfo.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\SpecialFiles.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\SpecialFiles.h
 # End Source File
 # Begin Source File
 
@@ -1827,6 +1963,14 @@ SOURCE=.\BitmapText.cpp
 # Begin Source File
 
 SOURCE=.\BitmapText.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\DynamicActorScroller.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\DynamicActorScroller.h
 # End Source File
 # Begin Source File
 
@@ -2022,27 +2166,11 @@ SOURCE=.\Foreground.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\GhostArrow.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\GhostArrow.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\GhostArrowRow.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\GhostArrowRow.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\HoldGhostArrow.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\HoldGhostArrow.h
 # End Source File
 # Begin Source File
 
@@ -2059,6 +2187,10 @@ SOURCE=.\Judgment.cpp
 # Begin Source File
 
 SOURCE=.\Judgment.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\LifeMeter.cpp
 # End Source File
 # Begin Source File
 
@@ -2127,14 +2259,6 @@ SOURCE=.\Player.cpp
 # Begin Source File
 
 SOURCE=.\Player.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\PlayerScoreList.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\PlayerScoreList.h
 # End Source File
 # Begin Source File
 
@@ -2586,14 +2710,6 @@ SOURCE=.\ScreenEdit.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\ScreenEditCourseMods.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenEditCourseMods.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\ScreenEditMenu.cpp
 
 !IF  "$(CFG)" == "StepMania - Win32 Debug"
@@ -2625,14 +2741,6 @@ SOURCE=.\ScreenEvaluation.cpp
 # Begin Source File
 
 SOURCE=.\ScreenEvaluation.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenEvaluationMultiplayer.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenEvaluationMultiplayer.h
 # End Source File
 # Begin Source File
 
@@ -2676,19 +2784,19 @@ SOURCE=.\ScreenGameplayLesson.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\ScreenGameplayMultiplayer.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenGameplayMultiplayer.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\ScreenGameplayNormal.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\ScreenGameplayNormal.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenGameplaySyncMachine.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenGameplaySyncMachine.h
 # End Source File
 # Begin Source File
 
@@ -2705,14 +2813,6 @@ SOURCE=.\ScreenInstructions.cpp
 # Begin Source File
 
 SOURCE=.\ScreenInstructions.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenJoinMultiplayer.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenJoinMultiplayer.h
 # End Source File
 # Begin Source File
 
@@ -2852,6 +2952,14 @@ SOURCE=.\ScreenOptionsManageCourses.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\ScreenOptionsManageEditSteps.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenOptionsManageEditSteps.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\ScreenOptionsManageProfiles.cpp
 # End Source File
 # Begin Source File
@@ -2873,6 +2981,14 @@ SOURCE=.\ScreenOptionsMasterPrefs.cpp
 # Begin Source File
 
 SOURCE=.\ScreenOptionsMasterPrefs.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenOptionsMemoryCard.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenOptionsMemoryCard.h
 # End Source File
 # Begin Source File
 
@@ -2996,6 +3112,14 @@ SOURCE=.\ScreenSelectStyle.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\ScreenServiceAction.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenServiceAction.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\ScreenSetTime.cpp
 # End Source File
 # Begin Source File
@@ -3036,6 +3160,14 @@ SOURCE=.\ScreenStage.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\ScreenStatsOverlay.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenStatsOverlay.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\ScreenSyncOverlay.cpp
 # End Source File
 # Begin Source File
@@ -3049,14 +3181,6 @@ SOURCE=.\ScreenSystemLayer.cpp
 # Begin Source File
 
 SOURCE=.\ScreenSystemLayer.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenTest.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\ScreenTest.h
 # End Source File
 # Begin Source File
 
@@ -3108,11 +3232,27 @@ SOURCE=.\ScreenTitleMenu.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\ScreenUnlock.cpp
+SOURCE=.\ScreenUnlockBrowse.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\ScreenUnlock.h
+SOURCE=.\ScreenUnlockBrowse.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenUnlockCelebrate.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenUnlockCelebrate.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenUnlockStatus.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ScreenUnlockStatus.h
 # End Source File
 # Begin Source File
 
@@ -3605,11 +3745,23 @@ SOURCE=.\cursor1.cur
 # End Source File
 # Begin Source File
 
+SOURCE=.\archutils\Win32\DialogCrashHeader.bmp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\DialogErrorHeader.bmp
+# End Source File
+# Begin Source File
+
 SOURCE=.\error.bmp
 # End Source File
 # Begin Source File
 
 SOURCE=.\error2.bmp
+# End Source File
+# Begin Source File
+
+SOURCE=.\archutils\Win32\header.bmp
 # End Source File
 # Begin Source File
 

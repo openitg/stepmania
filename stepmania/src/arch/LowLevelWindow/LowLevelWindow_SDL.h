@@ -2,21 +2,24 @@
 #define LOW_LEVEL_WINDOW_SDL_H
 
 #include "LowLevelWindow.h"
+#include "RageDisplay.h"
 
 class LowLevelWindow_SDL: public LowLevelWindow
 {
 public:
 	LowLevelWindow_SDL();
 	~LowLevelWindow_SDL();
-	void *GetProcAddress(CString s);
-	CString TryVideoMode( RageDisplay::VideoModeParams p, bool &bNewDeviceOut );
+	void *GetProcAddress(RString s);
+	RString TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut );
+	virtual void GetDisplayResolutions( DisplayResolutions &out ) const;
+
 	void SwapBuffers();
 	void Update();
 
-	RageDisplay::VideoModeParams GetVideoModeParams() const { return CurrentParams; }
+	const VideoModeParams &GetActualVideoModeParams() const { return CurrentParams; }
 
 private:
-	RageDisplay::VideoModeParams CurrentParams;
+	VideoModeParams CurrentParams;
 };
 
 #ifdef ARCH_LOW_LEVEL_WINDOW

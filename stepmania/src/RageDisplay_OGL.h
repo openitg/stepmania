@@ -8,17 +8,26 @@ class RageDisplay_OGL: public RageDisplay
 public:
 	RageDisplay_OGL();
 	virtual ~RageDisplay_OGL();
-	CString Init( VideoModeParams p, bool bAllowUnacceleratedRenderer );
+	virtual RString Init( const VideoModeParams &p, bool bAllowUnacceleratedRenderer );
 
-	bool IsSoftwareRenderer();
+	virtual RString GetApiDescription() const { return "OpenGL"; }
+	virtual void GetDisplayResolutions( DisplayResolutions &out ) const;
+	virtual float GetMonitorAspectRatio() const;
 	void ResolutionChanged();
 	const PixelFormatDesc *GetPixelFormatDesc(PixelFormat pf) const;
 
+	bool SupportsThreadedRendering();
+	void BeginConcurrentRenderingMainThread();
+	void EndConcurrentRenderingMainThread();
+	void BeginConcurrentRendering();
+	void EndConcurrentRendering();
+
 	bool BeginFrame();	
 	void EndFrame();
-	VideoModeParams GetVideoModeParams() const;
+	VideoModeParams GetActualVideoModeParams() const;
 	void SetBlendMode( BlendMode mode );
 	bool SupportsTextureFormat( PixelFormat pixfmt, bool realtime=false );
+	bool SupportsPerVertexMatrixScale();
 	unsigned CreateTexture( 
 		PixelFormat pixfmt, 
 		RageSurface* img,
@@ -31,7 +40,7 @@ public:
 	void DeleteTexture( unsigned uTexHandle );
 	void ClearAllTextures();
 	int GetNumTextureUnits();
-	void SetTexture( int iTextureUnitIndex, RageTexture* pTexture );
+	void SetTexture( TextureUnit tu, RageTexture* pTexture );
 	void SetTextureModeModulate();
 	void SetTextureModeGlow();
 	void SetTextureModeAdd();
@@ -71,7 +80,7 @@ public:
 	virtual void SetPolygonMode( PolygonMode pm );
 	virtual void SetLineWidth( float fWidth );
 
-	CString GetTextureDiagnostics( unsigned id ) const;
+	RString GetTextureDiagnostics( unsigned id ) const;
 
 protected:
 	void DrawQuadsInternal( const RageSpriteVertex v[], int iNumVerts );
@@ -82,9 +91,8 @@ protected:
 	void DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int iMeshIndex );
 	void DrawLineStripInternal( const RageSpriteVertex v[], int iNumVerts, float LineWidth );
 
-	CString TryVideoMode( VideoModeParams params, bool &bNewDeviceOut );
+	RString TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut );
 	RageSurface* CreateScreenshot();
-	void SetViewport(int shift_left, int shift_down);
 	PixelFormat GetImgPixelFormat( RageSurface* &img, bool &FreeImg, int width, int height, bool bPalettedTexture );
 	bool SupportsSurfaceFormat( PixelFormat pixfmt );
 	
