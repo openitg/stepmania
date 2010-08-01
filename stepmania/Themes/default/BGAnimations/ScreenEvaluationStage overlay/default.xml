@@ -1,0 +1,13 @@
+<ActorFrame><children>
+	<Layer File="life graph.xml"
+		InitCommand="x,SCREEN_LEFT+96;y,SCREEN_CENTER_Y+91;"
+	>
+		<Param Name="Player" Value="PLAYER_1" />
+	</Layer>
+
+	<Layer File="life graph.xml"
+		InitCommand="x,SCREEN_RIGHT-96;y,SCREEN_CENTER_Y+91;"
+	>
+		<Param Name="Player" Value="PLAYER_2" />
+	</Layer>
+</children></ActorFrame>

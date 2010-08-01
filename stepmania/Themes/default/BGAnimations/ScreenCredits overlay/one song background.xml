@@ -1,0 +1,10 @@
+<ActorFrame><children>
+	<Layer
+		File="@GetRandomSongBackground()"
+		InitCommand="scaletoclipped,312,232"
+	/>
+
+	<Layer
+		File="@THEME:GetPathG('ScreenCredits','background frame')"
+	/>
+</children></ActorFrame>

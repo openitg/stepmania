@@ -1,0 +1,68 @@
+<ActorFrame><children>
+	<ActorFrame OnCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y+90;sleep,0.1;decelerate,0.6;y,SCREEN_CENTER_Y"><children>
+		<Layer
+			File="1.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == '1'"
+		/>
+		<Layer
+			File="2.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == '2'"
+		/>
+		<Layer
+			File="3.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == '3'"
+		/>
+		<Layer
+			File="4.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == '4'"
+		/>
+		<Layer
+			File="5.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == '5'"
+		/>
+		<Layer
+			File="6.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == '6'"
+		/>
+		<Layer
+			File="final.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == 'Final'"
+		/>
+		<Layer
+			File="extra1.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == 'Extra1'"
+		/>
+		<Layer
+			File="extra2.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == 'Extra2'"
+		/>
+		<Layer
+			File="event.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == 'Event'"
+		/>
+		<!--
+		todo: find out why these won't show if event mode is on
+		GameState.cpp says that event mode has precedence over the three course types; should this be true?
+		-->
+		<Layer
+			File="nonstop.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == 'Nonstop'"
+		/>
+		<Layer
+			File="oni.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == 'Oni'"
+		/>
+		<Layer
+			File="endless.png"
+			Condition="StageToString( GAMESTATE:GetCurrentStage() ) == 'Endless'"
+		/>
+	</children></ActorFrame>
+	<Layer
+		File="../_black.png"
+		OnCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y+50;zoomtowidth,400;zoomtoheight,80;vertalign,top"
+	/>
+	<Layer
+		File="../_underline.png"
+		OnCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y+50;zoomx,0.5;diffusealpha,0.5;linear,0.1;zoomx,1;diffusealpha,1;sleep,0.1;accelerate,0.2;zoomx,0;diffusealpha,0"
+	/>
+</children></ActorFrame>

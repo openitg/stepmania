@@ -1,0 +1,4 @@
+<ActorFrame> <children>
+	<Layer File="LeftToRight" />
+	<Layer Type="Quad" OnCommand="diffuse,#000000;stretchto,+64,-16,+1200,+16" />
+</children> </ActorFrame>

@@ -1,0 +1,49 @@
+<ActorFrame><children>
+	<Layer File="@THEME:GetPathG('', '_stars')" />
+
+	<!-- Cleared -->
+	<Layer
+		Type="ActorFrame"
+		Condition="GAMESTATE:GetPlayMode() ~= PLAY_MODE_BATTLE and GAMESTATE:GetPlayMode() ~= PLAY_MODE_RAVE"
+	><children>
+		<Layer
+			File="extra1"
+			Condition="GAMESTATE:IsFinalStage()"
+			StartTransitioningCommand="hide_if,not GAMESTATE:HasEarnedExtraStage()"
+		/>
+		<Layer
+			File="extra2"
+			Condition="GAMESTATE:IsExtraStage()"
+			StartTransitioningCommand="hide_if,not GAMESTATE:HasEarnedExtraStage()"
+		/>
+		<Layer
+			File="cleared.png"
+			InitCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y"
+			StartTransitioningCommand="hide_if,GAMESTATE:HasEarnedExtraStage()"
+			OnCommand="diffusealpha,0;sleep,1.5;linear,0.5;diffusealpha,1;sleep,2;linear,0.5;diffusealpha,0"
+		/>
+	</children></Layer>
+	<Layer
+		Type="ActorFrame"
+		Condition="GAMESTATE:GetPlayMode() == PLAY_MODE_BATTLE or GAMESTATE:GetPlayMode() == PLAY_MODE_RAVE"
+	><children>
+		<Layer
+			File="p1 win.png"
+			InitCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y"
+			StartTransitioningCommand="hide_if,not GAMESTATE:IsWinner(PLAYER_1)"
+			OnCommand="diffusealpha,0;sleep,1.5;linear,0.5;diffusealpha,1;sleep,2;linear,0.5;diffusealpha,0"
+		/>
+		<Layer
+			File="p2 win.png"
+			InitCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y"
+			StartTransitioningCommand="hide_if,not GAMESTATE:IsWinner(PLAYER_2)"
+			OnCommand="diffusealpha,0;sleep,1.5;linear,0.5;diffusealpha,1;sleep,2;linear,0.5;diffusealpha,0"
+		/>
+		<Layer
+			File="draw.png"
+			InitCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y"
+			StartTransitioningCommand="hide_if,not GAMESTATE:IsDraw()"
+			OnCommand="diffusealpha,0;sleep,1.5;linear,0.5;diffusealpha,1;sleep,2;linear,0.5;diffusealpha,0"
+		/>
+	</children></Layer>
+</children></ActorFrame>

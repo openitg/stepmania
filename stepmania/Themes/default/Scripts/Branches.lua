@@ -14,6 +14,11 @@ function ScreenCautionBranch()
 	return "ScreenSelectStyle"
 end
 
+function ScreenSelectGroupBranch()
+	if PREFSMAN:GetPreference("ShowSelectGroup") then return "ScreenSelectGroup" end
+	return GetScreenInstructions()
+end
+
 function SongSelectionScreen()
 	local pm = GAMESTATE:GetPlayMode()
 	if pm==PLAY_MODE_NONSTOP	then return "ScreenSelectCourseNonstop" end
@@ -53,7 +58,6 @@ function ScreenPlayerOptionsNext()
 end
 
 function GetGameplayScreen()
-	if IsExtraStage() or IsExtraStage2() then return "ScreenGameplay" end
 	return "ScreenGameplay"
 end
 
@@ -81,9 +85,10 @@ function GetEvaluationNextScreen( sNextScreen, sFailedScreen, sEndScreen )
 		Trace( "IsEventMode" )
 		return sNextScreen
 	end
-
+	
+	local bIsExtraStage = GAMESTATE:IsExtraStage() or GAMESTATE:IsExtraStage2()
 	-- Not in event mode.  If failed, go to the game over screen.
-	if STATSMAN:GetCurStageStats():AllFailed() then
+	if STATSMAN:GetCurStageStats():AllFailed() and not bIsExtraStage then
 		Trace( "Failed" )
 		return sFailedScreen
 	end
@@ -92,7 +97,7 @@ function GetEvaluationNextScreen( sNextScreen, sFailedScreen, sEndScreen )
 	if sIsStage then
 		local bHasAnotherStage = GAMESTATE:HasEarnedExtraStage()
 		bHasAnotherStage = bHasAnotherStage or not
-			(GAMESTATE:IsFinalStage() or GAMESTATE:IsExtraStage() or GAMESTATE:IsExtraStage2() )
+			(GAMESTATE:IsFinalStage() or bIsExtraStage )
 		if bHasAnotherStage then
 			Trace( "Another" )
 			return sNextScreen
@@ -131,31 +136,27 @@ function GetGameplayNextScreen()
 	Trace( "GetGameplayNextScreen: " )
 	local Passed = not AllFailed()
 	Trace( " Passed = "..tostring(Passed) )
-	Trace( " IsSyncDataChanged = "..tostring(GAMESTATE:IsSyncDataChanged()) )
 	Trace( " IsCourseMode = "..tostring(GAMESTATE:IsCourseMode()) )
-	Trace( " IsExtraStage = "..tostring(IsExtraStage()) )
-	Trace( " IsExtraStage2 = "..tostring(IsExtraStage2()) )
+	Trace( " IsExtraStage = "..tostring(GAMESTATE:IsExtraStage()) )
+	Trace( " IsExtraStage2 = "..tostring(GAMESTATE:IsExtraStage2()) )
 	Trace( " Event mode = "..tostring(IsEventMode()) )
 	
-	if GAMESTATE:IsSyncDataChanged() then 
-		return "ScreenSaveSync"
-	end
-
-	if Passed or GAMESTATE:IsCourseMode() or
-		IsExtraStage() or IsExtraStage2()
-	then
-		Trace( "Go to evaluation screen" )
-		return SelectEvaluationScreen()
-	end
-
-	if IsEventMode() then
-		Trace( "Go to song selection screen" )
-		-- DeletePreparedScreens()
-		return SongSelectionScreen()
-	end
-
-	Trace( "ScreenGameOver" )
-	return "ScreenGameOver"
+	return SelectEvaluationScreen()
+--	if Passed or GAMESTATE:IsCourseMode() or
+--		GAMESTATE:IsExtraStage() or GAMESTATE:IsExtraStage2()
+--	then
+--		Trace( "Go to evaluation screen" )
+--		return SelectEvaluationScreen()
+--	end
+--
+--	if IsEventMode() then
+--		Trace( "Go to song selection screen" )
+--		-- DeletePreparedScreens()
+--		return SongSelectionScreen()
+--	end
+--
+--	Trace( "ScreenGameOver" )
+--	return "ScreenGameOver"
 end
 
 local function ShowScreenInstructions()

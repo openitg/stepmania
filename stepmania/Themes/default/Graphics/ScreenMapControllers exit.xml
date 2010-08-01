@@ -1,0 +1,11 @@
+<BitmapText
+	Font="_Arial 14 shadow"
+	Text="Exit"
+	InitCommand="x,SCREEN_CENTER_X;zoom,0.75;shadowlength,0;diffuse,#808080"
+	OnCommand="diffusealpha,0;decelerate,0.5;diffusealpha,1"
+	OffCommand="stoptweening;accelerate,0.3;diffusealpha,0;queuecommand,Hide"
+	HideCommand="hidden,1"
+
+	GainFocusCommand="diffuseshift;effectcolor2,#808080;effectcolor1,#FFFFFF"
+	LoseFocusCommand="stopeffect"
+/>

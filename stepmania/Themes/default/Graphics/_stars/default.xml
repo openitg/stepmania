@@ -1,0 +1,158 @@
+<ActorFrame> <children>
+	<!-- 7 LeftToRight wiping stars -->
+	<Layer
+		File="_stars left to right.png"
+		OnCommand="x,-64;y,48;linear,2;addx,960"
+	/>
+
+	<Layer
+		File="_stars left to right.png"
+		OnCommand="x,-128;y,112;linear,2;addx,960"
+	/>
+
+	<Layer
+		File="_stars left to right.png"
+		OnCommand="x,-192;y,176;linear,2;addx,960"
+	/>
+
+	<Layer
+		File="_stars left to right.png"
+		OnCommand="x,-256;y,SCREEN_CENTER_Y;linear,2;addx,960"
+	/>
+
+	<Layer
+		File="_stars left to right.png"
+		OnCommand="x,-192;y,304;linear,2;addx,960"
+	/>
+
+	<Layer
+		File="_stars left to right.png"
+		OnCommand="x,-128;y,368;linear,2;addx,960"
+	/>
+
+	<Layer
+		File="_stars left to right.png"
+		OnCommand="x,-64;y,432;linear,2;addx,960"
+	/>
+
+
+	<!-- 7 LeftToRight trailing bars -->
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,-64;y,48;horizalign,right;addx,-64;linear,2;addx,960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,-128;y,112;horizalign,right;addx,-64;linear,2;addx,960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,-192;y,176;horizalign,right;addx,-64;linear,2;addx,960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,-256;y,SCREEN_CENTER_Y;horizalign,right;addx,-64;linear,2;addx,960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,-192;y,304;horizalign,right;addx,-64;linear,2;addx,960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,-128;y,368;horizalign,right;addx,-64;linear,2;addx,960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,-64;y,432;horizalign,right;addx,-64;linear,2;addx,960"
+	/>
+
+
+	<!-- 8 RightToLeft wiping stars -->
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,64;y,16;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,128;y,80;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,192;y,144;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,256;y,208;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,256;y,272;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,192;y,336;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,128;y,400;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+	<Layer
+		File="_stars right to left.png"
+		OnCommand="x,64;y,464;addx,SCREEN_WIDTH;linear,2;addx,-960"
+	/>
+
+
+	<!-- 8 RightToLeft leading bars -->
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,64;y,16;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,128;y,80;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,192;y,144;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,256;y,208;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,256;y,272;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,192;y,336;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,128;y,400;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+
+	<Layer
+		Type="Quad"
+		OnCommand="setsize,960,32;diffuse,#000000;x,64;y,464;addx,SCREEN_WIDTH;horizalign,left;addx,64;linear,2;addx,-960"
+	/>
+</children> </ActorFrame>

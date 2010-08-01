@@ -1,0 +1,6 @@
+<ActorFrame><children>
+	<Layer
+		File="bg.png"
+		OnCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y;zoom,2;spin;"
+	/>
+</children></ActorFrame>

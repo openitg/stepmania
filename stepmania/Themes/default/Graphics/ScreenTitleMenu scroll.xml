@@ -1,0 +1,15 @@
+<ActorFrame
+	OnCommand=""
+	OffFocusedCommand=""
+	OffUnfocusedCommand=""
+><children>
+	<BitmapText
+		Text="@string.upper(THEME:GetString( 'ScreenTitleMenu', ThisGameCommand:GetText() ))"
+		File="ScreenTitleMenu choices"
+		OnCommand="horizalign,center;"
+		GainFocusCommand="StopTweening;DiffuseShift;EffectPeriod,0.5;EffectColor1,0.5,1,0.5,1;EffectColor2,0.25,0.5,0.25,1;linear,0.5;zoom,1.2"
+		LoseFocusCommand="StopTweening;StopEffect;Linear,0.3;Zoom,1.0"
+		EnabledCommand=""
+		DisabledCommand="Diffuse,0.5,0.5,0.5,1"
+	/>
+</children></ActorFrame>

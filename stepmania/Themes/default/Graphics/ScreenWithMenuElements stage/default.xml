@@ -1,0 +1,16 @@
+<ActorFrame><children>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_1" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_2" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_3" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_4" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_5" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_6" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_FINAL" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_EVENT" /> </Layer>
+<!--	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_NONSTOP" /> </Layer> -->
+<!--	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_ENDLESS" /> </Layer> -->
+<!--	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_ONI" /> </Layer> -->
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_DEMO" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_EXTRA1" /> </Layer>
+	<Layer File="stage graphic"> <Param Name="Stage" Value="STAGE_EXTRA2" /> </Layer>
+</children></ActorFrame>

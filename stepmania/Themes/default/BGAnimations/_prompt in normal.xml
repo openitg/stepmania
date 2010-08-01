@@ -1,0 +1,4 @@
+<ActorFrame> <children>
+	<Sound Path="@THEME:GetPathS('', '_prompt')" StartTransitioningCommand="play" />
+	<Actor OnCommand="sleep,0.3" />
+</children> </ActorFrame>

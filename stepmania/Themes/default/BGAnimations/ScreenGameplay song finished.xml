@@ -1,0 +1,5 @@
+<!-- Delay the "CLEARED" animation in non-course mode by one second. -->
+<Actor
+	OnCommand="diffusealpha,0;sleep,1"
+	Condition="not GAMESTATE:IsCourseMode()"
+/>

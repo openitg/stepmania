@@ -1,0 +1,6 @@
+<ActorFrame><children>
+	<Layer
+        File="gameover.png"
+        InitCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y;diffusealpha,0;linear,0.3;diffusealpha,0.75;sleep,5;"
+    />
+</children></ActorFrame>

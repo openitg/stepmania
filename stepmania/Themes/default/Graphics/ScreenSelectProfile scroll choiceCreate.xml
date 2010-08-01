@@ -1,0 +1,11 @@
+<AutoActor
+	File="Common normal"
+	Text="Create New"
+	OnCommand="diffusealpha,0;linear,0.3;diffusealpha,1"
+	OffCommand="linear,0.3;diffusealpha,0"
+	InitCommand="HorizAlign,left;ShadowLength,2"
+	GainFocusCommand="StopTweening;DiffuseShift;EffectPeriod,0.5;EffectColor1,1,0.5,0.5,1;EffectColor2,0.5,0.25,0.25,1;Linear,0;Zoom,1.0"
+	LoseFocusCommand="StopTweening;StopEffect;Linear,0;Zoom,0.9"
+	EnabledCommand=""
+	DisabledCommand="Diffuse,0.5,0.5,0.5,1"
+/>

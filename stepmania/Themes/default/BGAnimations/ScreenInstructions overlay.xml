@@ -1,0 +1,7 @@
+<ActorFrame> <children>
+	<Layer
+		File="@THEME:GetPathG('ScreenInstructions',PlayModeToString(GAMESTATE:GetPlayMode()))"
+		OnCommand="x,SCREEN_LEFT-SCREEN_WIDTH;y,SCREEN_CENTER_Y;sleep,0.4;decelerate,0.6;x,SCREEN_CENTER_X"
+		OffCommand="stoptweening;accelerate,0.3;x,SCREEN_RIGHT+self:GetWidth()"
+	/>
+</children> </ActorFrame>

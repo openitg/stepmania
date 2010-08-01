@@ -1,0 +1,10 @@
+<Layer
+	File="@'_stage ' .. StageToString(Stage)"
+	Condition="GAMESTATE:IsStagePossible(Stage)"
+	InitCommand="playcommand,Update"
+	CurrentSongChangedMessageCommand="playcommand,Update"
+
+	UpdateCommand="hidden,GAMESTATE:GetCurrentStage() == self.Stage and 0 or 1"
+>
+	<Input Name="Stage" />
+</Layer>

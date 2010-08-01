@@ -1,0 +1,21 @@
+<ActorFrame><children>
+	<Layer
+		Type="GraphDisplay"
+		OnCommand="%function(self)
+		local Stats = STATSMAN:GetCurStageStats();
+			self:LoadFromStats( Stats, Stats:GetPlayerStageStats(self.Player) )
+		end"
+	>
+	<Input Name="Player" />
+		<Texture
+			File="LifeGraph p1"
+			InitCommand="ztest,1;diffusealpha,0;"
+			OnCommand="linear,0.5;diffusealpha,1;"
+			OffCommand="linear,0.5;diffusealpha,0"
+		/>
+		<Line InitCommand="hidden,1" />
+		<Body InitCommand="zwrite,1;blend,noeffect" />
+		<SongBoundary Type="Actor" InitCommand="hidden,1" />
+		<Barely Type="Actor" InitCommand="hidden,1" />
+	</Layer>
+</children></ActorFrame>

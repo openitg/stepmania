@@ -1,0 +1,31 @@
+<ActorFrame><children>
+	<Layer
+		Type="Quad"
+		OnCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y;zoomtowidth,SCREEN_WIDTH;zoomtoheight,SCREEN_HEIGHT;diffuse,#000000;sleep,0.5;linear,0.8;diffusealpha,0;"
+	/>
+	<Layer File="LeftToRight.png" OnCommand="x,-64;y,64;linear,2;addx,1088" />
+	<Layer File="LeftToRight.png" OnCommand="x,-128;y,128;linear,2;addx,1088" />
+	<Layer File="LeftToRight.png" OnCommand="x,-192;y,192;linear,2;addx,1088" />
+	<Layer File="LeftToRight.png" OnCommand="x,-256;y,256;linear,2;addx,1088" />
+	<Layer File="LeftToRight.png" OnCommand="x,-320;y,320;linear,2;addx,1088" />
+	<Layer File="LeftToRight.png" OnCommand="x,-384;y,384;linear,2;addx,1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-64;y,64;horizalign,left;addx,64;zoomtowidth,1088;linear,2;addx,1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-128;y,128;horizalign,left;addx,64;zoomtowidth,1088;linear,2;addx,1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-192;y,192;horizalign,left;addx,64;zoomtowidth,1088;linear,2;addx,1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-256;y,256;horizalign,left;addx,64;zoomtowidth,1088;linear,2;addx,1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-320;y,320;horizalign,left;addx,64;zoomtowidth,1088;linear,2;addx,1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-384;y,384;horizalign,left;addx,64;zoomtowidth,1088;linear,2;addx,1088" />
+	<Layer File="RightToLeft.png" OnCommand="x,-64;y,64;addx,1088;addy,32;linear,2;addx,-1088" />
+	<Layer File="RightToLeft.png" OnCommand="x,-128;y,128;addx,1088;addy,32;linear,2;addx,-1088" />
+	<Layer File="RightToLeft.png" OnCommand="x,-192;y,192;addx,1088;addy,32;linear,2;addx,-1088" />
+	<Layer File="RightToLeft.png" OnCommand="x,-256;y,256;addx,1088;addy,32;linear,2;addx,-1088" />
+	<Layer File="RightToLeft.png" OnCommand="x,-320;y,320;addx,1088;addy,32;linear,2;addx,-1088" />
+	<Layer File="RightToLeft.png" OnCommand="x,-384;y,384;addx,1088;addy,32;linear,2;addx,-1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-64;y,64;addx,1088;addy,32;horizalign,right;addx,-64;zoomtowidth,1088;linear,2;addx,-1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-128;y,128;addx,1088;addy,32;horizalign,right;addx,-64;zoomtowidth,1088;linear,2;addx,-1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-192;y,192;addx,1088;addy,32;horizalign,right;addx,-64;zoomtowidth,1088;linear,2;addx,-1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-256;y,256;addx,1088;addy,32;horizalign,right;addx,-64;zoomtowidth,1088;linear,2;addx,-1088" />
+	<Layer File="../_black.png"	OnCommand="texturewrapping,1;x,-320;y,320;addx,1088;addy,32;horizalign,right;addx,-64;zoomtowidth,1088;linear,2;addx,-1088" />
+	<Layer File="../_black.png" OnCommand="texturewrapping,1;x,-384;y,384;addx,1088;addy,32;horizalign,right;addx,-64;zoomtowidth,1088;linear,2;addx,-1088" />
+</children></ActorFrame>
+

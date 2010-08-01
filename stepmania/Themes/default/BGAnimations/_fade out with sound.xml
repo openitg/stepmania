@@ -1,0 +1,4 @@
+<ActorFrame> <children>
+	<Sound Path="@THEME:GetPathS('', '_swoosh normal')" StartTransitioningCommand="play" />
+	<Layer File="_fade out normal" />
+</children> </ActorFrame>

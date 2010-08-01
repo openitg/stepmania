@@ -1,0 +1,23 @@
+<Layer
+	Type="ActorScroller"
+	SecondsPerItem="4.25"
+	NumItemsToDraw="4" 
+	TransformFunction="function(self,offset,itemIndex,numItems)
+			self:y(-240*offset);
+		end"
+    OnCommand="scrollwithpadding,2,3;"
+>
+<children>
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+	<Layer File="one song background" />
+</children>
+</Layer>
+

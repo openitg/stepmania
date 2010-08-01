@@ -21,11 +21,11 @@ function FindSelection( list )
 end
 
 -- Look up each value in a table, returning a table with the resulting strings.
-function TableMetricLookup( t, group )
+function TableStringLookup( t, group )
 	local ret = { }
 	for key, val in t do
 		Trace(val)
-		ret[key] = THEME:GetMetric(group,val)
+		ret[key] = THEME:GetString(group,val)
 	end
 	return ret
 end
@@ -47,11 +47,11 @@ function split( delimiter, text )
 end
 
 function join( delimiter, list )
-	local ret = ""
-	for i = 1,table.getn(list) do 
-		ret = ret .. delimiter .. list[i] 
+	local ret = list[1]
+	for i = 2,table.getn(list) do
+	ret = ret .. delimiter .. list[i]
 	end
-	return ret
+	return ret or ""
 end
 
 function wrap(val,n)
@@ -84,6 +84,25 @@ function tableshuffle( t )
 		table.insert( ret, math.random(i), t[i] );
 	end
 	return ret
+end
+
+function GetRandomSongBackground()
+	for i=0,50 do
+		local song = SONGMAN:GetRandomSong()
+		if song then
+			local path = song:GetBackgroundPath()
+			if path then return path end
+		end
+	end
+	return THEME:GetPathG("", "_blank")
+end
+
+function GetSongBackground()
+	local Path = GAMESTATE:GetCurrentSong():GetBackgroundPath()
+	if not Path then
+		return THEME:GetPathG("Common","fallback background")
+	end
+	return Path
 end
 
 -- (c) 2005 Glenn Maynard, Chris Danford

@@ -1,0 +1,150 @@
+<Layer
+	Type="ActorScroller"
+	SecondsPerItem="0.40"
+	NumItemsToDraw="40"
+	TransformFunction="function(self,offset,itemIndex,numItems)
+			self:y(30*offset);
+		end"
+	OnCommand="zoom,.64;scrollwithpadding,12,0;"
+>
+<children>
+	<!-- I'm not comfortable including assets or code from people who want
+	     to keep their name a secret.  If they believe their contribution places
+	     them at any kind of risk, then we should be just as wary.  Also, it
+	     often makes it hard to track people down a year or more later if
+	     necessary. -->
+
+	<Layer Type="BitmapText" Text="STEPMANIA TEAM" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#8080FF" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	
+	<Layer Type="BitmapText" Text="☆☆GRAPHICS☆☆" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#FF8080" />
+	<Layer Type="BitmapText" Text="Lucas “v1ral” Tang"  File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="SPiGuMuS"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? -->
+	<Layer Type="BitmapText" Text="Visage"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? makes para para theme graphics for me, wants to do BM and IIDX graphics too. - Friez -->
+	<Layer Type="BitmapText" Text="Ryan “Plaguefox” McKanna" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Lamden “Cloud34” Travis"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  ddrmaniax admin / did a graphic or two for me - friez -->
+	<Layer Type="BitmapText" Text="Michael “Redcrusher” Curry"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  ez2 graphics - friez -->
+	<Layer Type="BitmapText" Text="Steve “healing_vision” Klise" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Mauro Panichella" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Popnko"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? makes popnmusic graphics for me - Friez -->
+	<Layer Type="BitmapText" Text="Griever (Julian)"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? -->
+	<Layer Type="BitmapText" Text="Miguel Moore" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Dj “AeON ExOdus” Washington" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Xelf"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? -->
+	<Layer Type="BitmapText" Text="James “SPDS” Sanders" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="k0ldx"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? -->
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+
+	<Layer Type="BitmapText" Text="☆☆THEME CODE☆☆" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#FF8080" />
+	<Layer Type="BitmapText" Text="AJ “AJ 187” Kelly" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Dan “dieKatze88” Colardeau" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Mike “mDaWg” Calfin" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	
+	<Layer Type="BitmapText" Text="☆☆WEB DESIGN☆☆" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#FF8080" />
+	<Layer Type="BitmapText" Text="Brian “Bork” Bugh" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+
+	<Layer Type="BitmapText" Text="☆☆SOUND☆☆" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#FF8080" />
+	<Layer Type="BitmapText" Text="Kyle “KeeL” Ward" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Jim “Izlude” Cabeen" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Sanxion7" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+
+	<Layer Type="BitmapText" Text="☆☆PROGRAMMING☆☆" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#FF8080" />
+	<Layer Type="BitmapText" Text="Chris Danford" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Frieza" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Glenn Maynard" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Bruno Figueiredo" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Peter “Dro Kulix” May" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Jared “nmspaz” Roberts" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Brendan “binarys” Walker" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Lance “Neovanglist” Gilbert" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Michel Donais" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Ben “Mantis” Nordstrom" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Chris “Parasyte” Gomez" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Michael “dirkthedaring” Patterson" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Sauleil “angedelamort” Lamarre" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Edwin Evans" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Brian “Bork” Bugh" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Joel “Elvis314” Maher" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Garth “Kefabi” Smith" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Pkillah"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? -->
+	<Layer Type="BitmapText" Text="Robert Kemmetmueller" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Ben “Shabach” Andersen" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Will “SlinkyWizard” Valladao" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="TheChip"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? -->
+	<Layer Type="BitmapText" Text="David “WarriorBob” H"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  who? He does documentation on Stepmania when a release comes out. Thats who - Frieza -->
+	<Layer Type="BitmapText" Text="Mike Waltson" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Kevin “Miryokuteki” Slaughter" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Thad “Coderjoe” Ward" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Steve Checkoway" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Sean Burke" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="XPort" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Charles Lohr" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Josh “Axlecrusher” Allen" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+    <Layer Type="BitmapText" Text="Jason “Wolfman2000” Felds" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+
+	<Layer Type="BitmapText" Text="☆☆SPECIAL THANKS TO☆☆" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#FF8080" />
+	<Layer Type="BitmapText" Text="SimWolf"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  dwi -->
+	<Layer Type="BitmapText" Text="DJ DraftHorse"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  also dwi -->
+	<Layer Type="BitmapText" Text="Dance With Intensity"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  DWI!  -->
+	<Layer Type="BitmapText" Text="BeMaNiRuler" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="DDRLlama" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="DDRManiaX"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  boards and all round support -->
+	<Layer Type="BitmapText" Text="NMR" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="DJ Paranoia"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  pop'n stuff, general help - friez -->
+	<Layer Type="BitmapText" Text="DJ Yuz"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  same as above -->
+	<Layer Type="BitmapText" Text="Reo"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  pop'n stuff. -->
+	<Layer Type="BitmapText" Text="Random Hajile"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  sent me 3DDX stuff - friez -->
+	<Layer Type="BitmapText" Text="Chocobo Ghost"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  sent me ez2 stuff - friez -->
+	<Layer Type="BitmapText" Text="Tyma"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  sent me popnmusic stuff - friez -->
+	<Layer Type="BitmapText" Text="Deluxe"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  para para noteskins - friez -->
+	<Layer Type="BitmapText" Text="Lagged" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="The Melting Pot" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="DDRJamz Global BBS" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Eric “WaffleKing” Webster" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Gotetsu" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Mark “Foobly” Verrey" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Mandarin Blue" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Kenny “AngelTK” Lai" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="curewater" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Bill “DMAshura” Shillito" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Illusionz - Issaquah, WA" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Quarters - Kirkland, WA" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Pier Amusements - Bournemouth, UK"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  Pump inspiration -->
+	<Layer Type="BitmapText" Text="Westcliff Amusements - Bournemouth, UK"  File="ScreenCredits titles" OnCommand="zoom,0.5" /><!--  Ez2dancer inspiriation -->
+
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />	
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="" File="ScreenCredits titles" OnCommand="zoom,0.5" />
+	<Layer Type="BitmapText" Text="Join the StepMania team" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#8080FF" />
+	<Layer Type="BitmapText" Text="and help us out!" File="ScreenCredits titles" OnCommand="zoom,0.5;diffuse,#8080FF" />
+</children>
+</Layer>

@@ -1,0 +1,6 @@
+<ActorFrame><children>
+    <Layer
+        File="bg.png"
+        OnCommand="texcoordvelocity,0,-1;x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y;zoomtowidth,SCREEN_WIDTH;zoomtoheight,SCREEN_HEIGHT;customtexturerect,0,0,5,5;diffuse,0.8,0.8,0.8,1;"
+    />
+</children></ActorFrame>

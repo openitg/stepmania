@@ -1,0 +1,24 @@
+<ActorFrame><children>
+    <Layer
+        File="help.png"
+        InitCommand="x,SCREEN_LEFT+64;y,SCREEN_CENTER_Y;"
+        OnCommand="horizalign,left;finishtweening"
+        EditCommand="playcommand,Show"
+        PlayCommand="playcommand,Hide"
+        RecordCommand="playcommand,Hide"
+        RecordPausedCommand="playcommand,Hide"
+        ShowCommand="stoptweening;accelerate,0.25;x,SCREEN_LEFT+64"
+        HideCommand="stoptweening;accelerate,0.25;x,SCREEN_LEFT-128"
+    />
+    <Layer
+        File="info.png"
+        InitCommand="x,SCREEN_RIGHT-64;y,SCREEN_CENTER_Y;"
+        OnCommand="horizalign,right;finishtweening"
+        EditCommand="playcommand,Show"
+        PlayCommand="playcommand,Hide"
+        RecordCommand="playcommand,Hide"
+        RecordPausedCommand="playcommand,Hide"
+        ShowCommand="stoptweening;accelerate,0.25;x,SCREEN_RIGHT-64"
+        HideCommand="stoptweening;accelerate,0.25;x,SCREEN_RIGHT+128"
+    />
+</children></ActorFrame>

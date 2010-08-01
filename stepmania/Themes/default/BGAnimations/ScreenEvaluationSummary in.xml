@@ -1,0 +1,8 @@
+<ActorFrame> <children>
+	<Sound Path="@THEME:GetPathS('', '_swoosh and more')" StartTransitioningCommand="play" />
+	<Actor OnCommand="sleep,1.3" />
+	<Layer
+		File="_moveon"
+		OnCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y;zoomy,1;diffusealpha,1;linear,0.5;diffusealpha,0;zoomy,0"
+	/>
+</children> </ActorFrame>

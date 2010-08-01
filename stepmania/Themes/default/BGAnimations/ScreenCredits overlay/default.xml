@@ -1,0 +1,13 @@
+<ActorFrame><children>
+	<Layer File="song background scroller" InitCommand="x,SCREEN_CENTER_X-160;y,SCREEN_CENTER_Y" />
+	<Layer File="credits" InitCommand="x,SCREEN_CENTER_X+160;y,SCREEN_CENTER_Y" />
+
+	<Layer
+		Type="Quad"
+		InitCommand="diffuse,#000000;setsize,SCREEN_WIDTH,60;x,SCREEN_CENTER_X;y,SCREEN_TOP+30;diffusebottomedge,0,0,0,0"
+	/>
+	<Layer
+		Type="Quad"
+		InitCommand="diffuse,#000000;setsize,SCREEN_WIDTH,60;x,SCREEN_CENTER_X;y,SCREEN_BOTTOM-30;diffusetopedge,0,0,0,0"
+	/>
+</children></ActorFrame>

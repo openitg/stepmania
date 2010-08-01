@@ -1,0 +1,11 @@
+<ActorFrame
+	OnCommand=""
+	OffFocusedCommand=""
+	OffUnfocusedCommand=""
+><children>
+	<BitmapText
+		Text="@THEME:GetString('PaneDisplay',text)"
+		File="ScreenManager credits"
+		OnCommand="ShadowLength,0;horizalign,left;"
+	/>
+</children></ActorFrame>

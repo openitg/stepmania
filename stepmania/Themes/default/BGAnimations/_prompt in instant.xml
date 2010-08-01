@@ -1,0 +1,1 @@
+<Sound Path="@THEME:GetPathS('', '_prompt')" StartTransitioningCommand="play" />

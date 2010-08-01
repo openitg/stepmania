@@ -1,0 +1,7 @@
+<ActorFrame> <children>
+	<Sound Path="@THEME:GetPathS('', '_swoosh normal')" StartTransitioningCommand="play" />
+	<Layer
+		Type="Quad"
+		OnCommand="diffuse,#000000;stretchto,SCREEN_LEFT,SCREEN_TOP,SCREEN_RIGHT,SCREEN_BOTTOM;diffusealpha,0;linear,0.3;diffusealpha,1;linear,1"
+	/>
+</children> </ActorFrame>

@@ -1,0 +1,4 @@
+<Layer
+	File="_black.png"
+	InitCommand="x,SCREEN_CENTER_X;y,SCREEN_CENTER_Y;ZoomToWidth,SCREEN_WIDTH;ZoomToHeight,SCREEN_HEIGHT;diffusealpha,0;linear,0.3;diffusealpha,0.75"
+/>
