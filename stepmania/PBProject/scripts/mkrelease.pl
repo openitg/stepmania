@@ -32,6 +32,7 @@ my @filelist = qw( Announcers/instructions.txt
 		   Data/Translations.xml
 		   Data/AI.ini
 		   Data/splash.png
+                   Data/NamesBlacklist.txt
 		   StepMania.app );
 my @docs = ( "BGAnimation conditionals.txt",
 	     "BMA-fmt.txt",
