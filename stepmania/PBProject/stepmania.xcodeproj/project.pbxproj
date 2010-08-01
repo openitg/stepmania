@@ -215,6 +215,10 @@
 		AA275C9812057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA275C9612057BE900E37368 /* LowLevelWindow_MacOSX.mm */; };
 		AA275C9912057BE900E37368 /* LowLevelWindow_MacOSX.h in Headers */ = {isa = PBXBuildFile; fileRef = AA275C9512057BE900E37368 /* LowLevelWindow_MacOSX.h */; };
 		AA275C9A12057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA275C9612057BE900E37368 /* LowLevelWindow_MacOSX.mm */; };
+		AA275CC51205986B00E37368 /* InputHandler_MacOSX_HID.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA275CC31205986B00E37368 /* InputHandler_MacOSX_HID.cpp */; };
+		AA275CC61205986B00E37368 /* InputHandler_MacOSX_HID.h in Headers */ = {isa = PBXBuildFile; fileRef = AA275CC41205986B00E37368 /* InputHandler_MacOSX_HID.h */; };
+		AA275CC71205986B00E37368 /* InputHandler_MacOSX_HID.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA275CC31205986B00E37368 /* InputHandler_MacOSX_HID.cpp */; };
+		AA275CC81205986B00E37368 /* InputHandler_MacOSX_HID.h in Headers */ = {isa = PBXBuildFile; fileRef = AA275CC41205986B00E37368 /* InputHandler_MacOSX_HID.h */; };
 		AA2828B2062FC0B7006F61EC /* SignalHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = AADB4E8C04D50FB900D02EE9 /* SignalHandler.h */; };
 		AA2828B3062FC0B8006F61EC /* SignalHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AADB4E8B04D50FB900D02EE9 /* SignalHandler.cpp */; };
 		AA28B47C058F2F5E0097C109 /* MemoryCardManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA28B47A058F2F5D0097C109 /* MemoryCardManager.cpp */; };
@@ -1074,7 +1078,6 @@
 		AA40D36309A08D650068C0D5 /* DynamicActorScroller.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF3442A08F1C36A0006EDB7 /* DynamicActorScroller.h */; };
 		AA40D36409A08D650068C0D5 /* ScoreKeeperNormal.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF34ADD0900AEBD0006EDB7 /* ScoreKeeperNormal.h */; };
 		AA40D36509A08D650068C0D5 /* ScreenStatsOverlay.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF34AEC0900B00C0006EDB7 /* ScreenStatsOverlay.h */; };
-		AA40D36609A08D650068C0D5 /* InputHandler_Carbon.h in Headers */ = {isa = PBXBuildFile; fileRef = AA69675006840991007802A5 /* InputHandler_Carbon.h */; };
 		AA40D36709A08D650068C0D5 /* MovieTexture_Generic.h in Headers */ = {isa = PBXBuildFile; fileRef = AAA372D10909934500141131 /* MovieTexture_Generic.h */; };
 		AA40D36809A08D650068C0D5 /* MovieTexture_Theora.h in Headers */ = {isa = PBXBuildFile; fileRef = AAA372D30909934500141131 /* MovieTexture_Theora.h */; };
 		AA40D36909A08D650068C0D5 /* Selector_MemoryCardDriver.h in Headers */ = {isa = PBXBuildFile; fileRef = AACF47B10949A24F0011B9F3 /* Selector_MemoryCardDriver.h */; };
@@ -1458,7 +1461,6 @@
 		AA40D4F809A08D650068C0D5 /* DynamicActorScroller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF3442908F1C36A0006EDB7 /* DynamicActorScroller.cpp */; };
 		AA40D4F909A08D650068C0D5 /* ScoreKeeperNormal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF34ADC0900AEBD0006EDB7 /* ScoreKeeperNormal.cpp */; };
 		AA40D4FA09A08D650068C0D5 /* ScreenStatsOverlay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF34AEB0900B00C0006EDB7 /* ScreenStatsOverlay.cpp */; };
-		AA40D4FB09A08D650068C0D5 /* InputHandler_Carbon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA69675106840991007802A5 /* InputHandler_Carbon.cpp */; };
 		AA40D4FC09A08D650068C0D5 /* MovieTexture_Generic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAA372D00909934500141131 /* MovieTexture_Generic.cpp */; };
 		AA40D4FD09A08D650068C0D5 /* MovieTexture_Theora.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAA372D20909934500141131 /* MovieTexture_Theora.cpp */; };
 		AA40D4FF09A08D650068C0D5 /* LifeMeter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA2FB638091212AF000FD574 /* LifeMeter.cpp */; };
@@ -1797,8 +1799,6 @@
 		AAF34ADF0900AEBD0006EDB7 /* ScoreKeeperNormal.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF34ADD0900AEBD0006EDB7 /* ScoreKeeperNormal.h */; };
 		AAF34AED0900B00C0006EDB7 /* ScreenStatsOverlay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF34AEB0900B00C0006EDB7 /* ScreenStatsOverlay.cpp */; };
 		AAF34AEE0900B00C0006EDB7 /* ScreenStatsOverlay.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF34AEC0900B00C0006EDB7 /* ScreenStatsOverlay.h */; };
-		AAF34B190900D1A20006EDB7 /* InputHandler_Carbon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA69675106840991007802A5 /* InputHandler_Carbon.cpp */; };
-		AAF34B1A0900D1AA0006EDB7 /* InputHandler_Carbon.h in Headers */ = {isa = PBXBuildFile; fileRef = AA69675006840991007802A5 /* InputHandler_Carbon.h */; };
 		AAF4206705D63FA700056441 /* ModelManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF4206505D63FA700056441 /* ModelManager.cpp */; };
 		AAF4206805D63FA700056441 /* ModelManager.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF4206605D63FA700056441 /* ModelManager.h */; };
 		AAF4206B05D6400800056441 /* RageModelGeometry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF4206905D6400800056441 /* RageModelGeometry.cpp */; };
@@ -2050,6 +2050,8 @@
 		AA275B9712056B2900E37368 /* print.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = print.c; sourceTree = "<group>"; };
 		AA275C9512057BE900E37368 /* LowLevelWindow_MacOSX.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LowLevelWindow_MacOSX.h; sourceTree = "<group>"; };
 		AA275C9612057BE900E37368 /* LowLevelWindow_MacOSX.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = LowLevelWindow_MacOSX.mm; sourceTree = "<group>"; };
+		AA275CC31205986B00E37368 /* InputHandler_MacOSX_HID.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = InputHandler_MacOSX_HID.cpp; sourceTree = "<group>"; };
+		AA275CC41205986B00E37368 /* InputHandler_MacOSX_HID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InputHandler_MacOSX_HID.h; sourceTree = "<group>"; };
 		AA28B47A058F2F5D0097C109 /* MemoryCardManager.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = MemoryCardManager.cpp; path = ../src/MemoryCardManager.cpp; sourceTree = "<group>"; };
 		AA28B47B058F2F5D0097C109 /* MemoryCardManager.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = MemoryCardManager.h; path = ../src/MemoryCardManager.h; sourceTree = "<group>"; };
 		AA29CE570558741A00961A51 /* Info-StepMania.plist */ = {isa = PBXFileReference; explicitFileType = text.plist; path = "Info-StepMania.plist"; sourceTree = SOURCE_ROOT; };
@@ -2108,8 +2110,6 @@
 		AA64218706EC606F00C21584 /* RageFileDriverMemory.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = RageFileDriverMemory.h; path = ../src/RageFileDriverMemory.h; sourceTree = "<group>"; };
 		AA658779098C322800CE55CC /* ScreenUnlockStatus.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ScreenUnlockStatus.cpp; path = ../src/ScreenUnlockStatus.cpp; sourceTree = "<group>"; };
 		AA65877A098C322800CE55CC /* ScreenUnlockStatus.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ScreenUnlockStatus.h; path = ../src/ScreenUnlockStatus.h; sourceTree = "<group>"; };
-		AA69675006840991007802A5 /* InputHandler_Carbon.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = InputHandler_Carbon.h; sourceTree = "<group>"; };
-		AA69675106840991007802A5 /* InputHandler_Carbon.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; path = InputHandler_Carbon.cpp; sourceTree = "<group>"; };
 		AA6DAF0805300B3D00D02EE9 /* ScoreDisplayPercentage.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = ScoreDisplayPercentage.cpp; path = ../src/ScoreDisplayPercentage.cpp; sourceTree = "<group>"; };
 		AA6DAF0905300B3D00D02EE9 /* ScoreDisplayPercentage.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = ScoreDisplayPercentage.h; path = ../src/ScoreDisplayPercentage.h; sourceTree = "<group>"; };
 		AA6E000A047711F3005F316C /* Screen.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = Screen.cpp; path = ../src/Screen.cpp; sourceTree = "<group>"; };
@@ -3407,12 +3407,12 @@
 			children = (
 				AAB3B36B04C38B4600D02EE9 /* InputHandler.cpp */,
 				AAB3B36C04C38B4600D02EE9 /* InputHandler.h */,
-				AA69675106840991007802A5 /* InputHandler_Carbon.cpp */,
-				AA69675006840991007802A5 /* InputHandler_Carbon.h */,
 				AA272BF704C7B37A00D02EE9 /* InputHandler_DirectInput.cpp */,
 				AA272BF804C7B37A00D02EE9 /* InputHandler_DirectInput.h */,
 				AA272BF904C7B37A00D02EE9 /* InputHandler_DirectInputHelper.cpp */,
 				AA272BFA04C7B37A00D02EE9 /* InputHandler_DirectInputHelper.h */,
+				AA275CC31205986B00E37368 /* InputHandler_MacOSX_HID.cpp */,
+				AA275CC41205986B00E37368 /* InputHandler_MacOSX_HID.h */,
 				AAFC6CEF072A30440053AAD3 /* InputHandler_MonkeyKeyboard.cpp */,
 				AAFC6CF0072A30440053AAD3 /* InputHandler_MonkeyKeyboard.h */,
 				AA6E01560477136A005F316C /* InputHandler_SDL.cpp */,
@@ -4596,7 +4596,6 @@
 				AAF3442C08F1C36A0006EDB7 /* DynamicActorScroller.h in Headers */,
 				AAF34ADF0900AEBD0006EDB7 /* ScoreKeeperNormal.h in Headers */,
 				AAF34AEE0900B00C0006EDB7 /* ScreenStatsOverlay.h in Headers */,
-				AAF34B1A0900D1AA0006EDB7 /* InputHandler_Carbon.h in Headers */,
 				AAA372D50909934500141131 /* MovieTexture_Generic.h in Headers */,
 				AAA372D70909934500141131 /* MovieTexture_Theora.h in Headers */,
 				AACF47B20949A24F0011B9F3 /* Selector_MemoryCardDriver.h in Headers */,
@@ -4649,6 +4648,7 @@
 				F44EE8CD1205597B008AE060 /* CommandLineActions.h in Headers */,
 				F44EE8D512055A30008AE060 /* FileDownload.h in Headers */,
 				AA275C9712057BE900E37368 /* LowLevelWindow_MacOSX.h in Headers */,
+				AA275CC61205986B00E37368 /* InputHandler_MacOSX_HID.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5066,7 +5066,6 @@
 				AA40D36309A08D650068C0D5 /* DynamicActorScroller.h in Headers */,
 				AA40D36409A08D650068C0D5 /* ScoreKeeperNormal.h in Headers */,
 				AA40D36509A08D650068C0D5 /* ScreenStatsOverlay.h in Headers */,
-				AA40D36609A08D650068C0D5 /* InputHandler_Carbon.h in Headers */,
 				AA40D36709A08D650068C0D5 /* MovieTexture_Generic.h in Headers */,
 				AA40D36809A08D650068C0D5 /* MovieTexture_Theora.h in Headers */,
 				AA40D36909A08D650068C0D5 /* Selector_MemoryCardDriver.h in Headers */,
@@ -5117,6 +5116,7 @@
 				AA275C5C12056B2A00E37368 /* lvm.h in Headers */,
 				AA275C5E12056B2A00E37368 /* lzio.h in Headers */,
 				AA275C9912057BE900E37368 /* LowLevelWindow_MacOSX.h in Headers */,
+				AA275CC81205986B00E37368 /* InputHandler_MacOSX_HID.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5636,7 +5636,6 @@
 				AAF3442B08F1C36A0006EDB7 /* DynamicActorScroller.cpp in Sources */,
 				AAF34ADE0900AEBD0006EDB7 /* ScoreKeeperNormal.cpp in Sources */,
 				AAF34AED0900B00C0006EDB7 /* ScreenStatsOverlay.cpp in Sources */,
-				AAF34B190900D1A20006EDB7 /* InputHandler_Carbon.cpp in Sources */,
 				AAA372D40909934500141131 /* MovieTexture_Generic.cpp in Sources */,
 				AAA372D60909934500141131 /* MovieTexture_Theora.cpp in Sources */,
 				AA2FB639091212B0000FD574 /* LifeMeter.cpp in Sources */,
@@ -5703,6 +5702,7 @@
 				F44EE8CC1205597B008AE060 /* CommandLineActions.cpp in Sources */,
 				F44EE8D412055A30008AE060 /* FileDownload.cpp in Sources */,
 				AA275C9812057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */,
+				AA275CC51205986B00E37368 /* InputHandler_MacOSX_HID.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6073,7 +6073,6 @@
 				AA40D4F809A08D650068C0D5 /* DynamicActorScroller.cpp in Sources */,
 				AA40D4F909A08D650068C0D5 /* ScoreKeeperNormal.cpp in Sources */,
 				AA40D4FA09A08D650068C0D5 /* ScreenStatsOverlay.cpp in Sources */,
-				AA40D4FB09A08D650068C0D5 /* InputHandler_Carbon.cpp in Sources */,
 				AA40D4FC09A08D650068C0D5 /* MovieTexture_Generic.cpp in Sources */,
 				AA40D4FD09A08D650068C0D5 /* MovieTexture_Theora.cpp in Sources */,
 				AA40D4FF09A08D650068C0D5 /* LifeMeter.cpp in Sources */,
@@ -6137,6 +6136,7 @@
 				AA275C5D12056B2A00E37368 /* lzio.c in Sources */,
 				AA275C6012056B2A00E37368 /* print.c in Sources */,
 				AA275C9A12057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */,
+				AA275CC71205986B00E37368 /* InputHandler_MacOSX_HID.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
