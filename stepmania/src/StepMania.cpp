@@ -885,7 +885,7 @@ int main(int argc, char* argv[])
 	/* Set up the theme and announcer, and switch to the last game type. */
 	ReadGamePrefsFromDisk( true );
 
-	CommandLineActions::Handle(loading_window);
+//	CommandLineActions::Handle(loading_window);
 
 	{
 		/* Now that THEME is loaded, load the icon for the current theme into the
