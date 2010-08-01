@@ -150,7 +150,7 @@ static bool UsbKeyToDeviceButton( UInt8 iUsbKey, DeviceButton &buttonOut )
 	return false;
 }
 
-void KeyboardDevice::AddElement( int usagePage, int usage, int cookie, const CFDictionaryRef properties )
+void KeyboardDevice::AddElement( int usagePage, int usage, IOHIDElementCookie cookie, const CFDictionaryRef properties )
 {
 	if( usagePage != kHIDPage_KeyboardOrKeypad )
 		return;
@@ -162,18 +162,22 @@ void KeyboardDevice::AddElement( int usagePage, int usage, int cookie, const CFD
 
 void KeyboardDevice::Open()
 {
-	for( hash_map<int,DeviceButton>::const_iterator i = m_Mapping.begin(); i != m_Mapping.end(); ++i )
+	for( hash_map<IOHIDElementCookie,DeviceButton>::const_iterator i = m_Mapping.begin(); i != m_Mapping.end(); ++i )
+	{
+		//LOG->Trace( "Adding %s to queue, cookie %p", DeviceButtonToString(i->second).c_str(), i->first );
 		AddElementToQueue( i->first );
+	}
 }
 
-void KeyboardDevice::GetButtonPresses( vector<pair<DeviceInput, bool> >& vPresses, int cookie,
-				       int value, const RageTimer& now ) const
+void KeyboardDevice::GetButtonPresses( vector<DeviceInput>& vPresses, IOHIDElementCookie cookie, int value, const RageTimer& now ) const
 {
-	hash_map<int, DeviceButton>::const_iterator iter = m_Mapping.find( cookie );
+	hash_map<IOHIDElementCookie, DeviceButton>::const_iterator iter = m_Mapping.find( cookie );
 	
 	if( iter != m_Mapping.end() )
-		vPresses.push_back( pair<DeviceInput, bool>(DeviceInput(DEVICE_KEYBOARD, iter->second, value, now), value) );
-	
+	{
+		//LOG->Trace( "Pushed %s", DeviceButtonToString(iter->second).c_str() );
+		vPresses.push_back( DeviceInput(DEVICE_KEYBOARD, iter->second, value, now) );
+	}
 }
 	
 void KeyboardDevice::GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevices ) const
@@ -183,24 +187,6 @@ void KeyboardDevice::GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevice
 	vDevices.insert( vDevices.begin(), InputDeviceInfo(DEVICE_KEYBOARD, "Keyboard") );
 }
 
-
-static bool DeviceButtonToUsbKey( DeviceButton button, UInt8 &iUsbKeyOut )
-{
-	for( int i=0; i<256; i++ )
-	{
-		UInt8 iUsbKey = (UInt8)i;
-		DeviceButton button2;
-		if( !UsbKeyToDeviceButton(iUsbKey,button2) )
-			continue;
-		if( button == button2 )
-		{
-			iUsbKeyOut = iUsbKey;
-			return true;
-		}
-	}
-	
-	return false;
-}
 
 // http://lists.apple.com/archives/carbon-dev/2005/Feb/msg00071.html
 // index represents USB keyboard usage value, content is Mac virtual keycode
@@ -480,23 +466,25 @@ static UInt8 g_iUsbKeyToMacVirtualKey[256] =
 	0xFF,	/* FF no event */
 };
 
-static bool UsbKeyToMacVirtualKey( UInt8 iUsbKey, UInt8 &iMacVirtualKeyOut )
-{
-	// iUsbKey is always < ARRAYSIZE(g_iUsbKeyToMacVirtualKey)
-	iMacVirtualKeyOut = g_iUsbKeyToMacVirtualKey[iUsbKey];
-	return iMacVirtualKeyOut != 0xFF;
-}
+static UInt8 g_iDeviceButtonToMacVirtualKey[KEY_OTHER_0];
 
 bool KeyboardDevice::DeviceButtonToMacVirtualKey( DeviceButton button, UInt8 &iMacVKOut )
 {
-	UInt8 iUsbKey = 0;
-	if( !DeviceButtonToUsbKey(button,iUsbKey) )
-		return false;
-
-	if( !UsbKeyToMacVirtualKey(iUsbKey, iMacVKOut) )
-		return false;
-		
-	return true;
+	static bool bInited = false;
+	
+	if( !bInited )
+	{
+		memset( g_iDeviceButtonToMacVirtualKey, 0xFF, sizeof(g_iDeviceButtonToMacVirtualKey) );
+		for( int iUsbKey = 0; iUsbKey < 256; ++iUsbKey )
+		{
+			DeviceButton button2;
+			if( UsbKeyToDeviceButton(iUsbKey, button2) && size_t(button2) < sizeof(g_iDeviceButtonToMacVirtualKey) )
+				g_iDeviceButtonToMacVirtualKey[button2] = g_iUsbKeyToMacVirtualKey[iUsbKey];
+		}
+		bInited = true;
+	}
+	iMacVKOut = g_iDeviceButtonToMacVirtualKey[button];
+	return iMacVKOut != 0xFF;
 }
 
 		

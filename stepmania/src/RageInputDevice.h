@@ -53,6 +53,7 @@ enum InputDevice
 const RString& InputDeviceToString( InputDevice i );
 InputDevice StringToInputDevice( const RString& s );
 inline bool IsJoystick( InputDevice id ) { return DEVICE_JOY1 <= id && id < DEVICE_JOY1+NUM_JOYSTICKS; }
+inline bool IsPump( InputDevice id ) { return id == DEVICE_PUMP1 || id == DEVICE_PUMP2; }
 
 
 struct InputDeviceInfo

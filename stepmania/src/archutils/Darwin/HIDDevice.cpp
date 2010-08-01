@@ -16,7 +16,6 @@ HIDDevice::~HIDDevice()
 		{
 			CALL( m_Queue, stop );
 			runLoopSource = CALL( m_Queue, getAsyncEventSource );
-			mach_port_deallocate( mach_task_self(), CALL(m_Queue, getAsyncPort) );
 			CFRunLoopSourceInvalidate( runLoopSource );
 			CFRelease( runLoopSource );
 		}
@@ -39,7 +38,7 @@ bool HIDDevice::Open( io_object_t device )
 	CFTypeRef object;
 	
 	result = IORegistryEntryCreateCFProperties( device, &properties, kCFAllocatorDefault, kNilOptions );
-	if ( result != KERN_SUCCESS || !properties )
+	if( result != KERN_SUCCESS || !properties )
 	{
 		LOG->Warn( "Couldn't get properties." );
 		return false;
@@ -51,25 +50,30 @@ bool HIDDevice::Open( io_object_t device )
 	CFTypeRef pidRef = CFDictionaryGetValue( properties, CFSTR(kIOHIDProductIDKey) );
 	int vid, pid;
 	
-	if( vidRef && !IntValue(vidRef, vid) )
+	if( !IntValue(vidRef, vid) )
 		vid = 0;
-	if( pidRef && !IntValue(pidRef, pid) )
+	if( !IntValue(pidRef, pid) )
 		pid = 0;
-	
-	if( !SupportsVidPid(vid, pid) )
+	if( !InitDevice(vid, pid) )
 	{
+		LOG->Warn( "Couldn't initialize device." );
 		CFRelease( properties );
 		return false;
 	}
 	
 	if( object && CFGetTypeID(object) == CFStringGetTypeID() )
-		m_sDescription = CFStringGetCStringPtr( CFStringRef(object), CFStringGetSystemEncoding() );
+	{
+		const char *str = CFStringGetCStringPtr( CFStringRef(object), CFStringGetSystemEncoding() );
+		m_sDescription = str? str:"";
+	}
 	if( m_sDescription == "" )
 		m_sDescription = ssprintf( "%04x:%04x", vid, pid );
+	LOG->Trace( "\t\tDevice description: %s", m_sDescription.c_str() );
 	
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementKey) );
 	if ( !object || CFGetTypeID(object) != CFArrayGetTypeID() )
 	{
+		LOG->Warn( "Couldn't get HID elements." );
 		CFRelease( properties );
 		return false;
 	}
@@ -136,13 +140,14 @@ bool HIDDevice::Open( io_object_t device )
 	}
 	
 	Open();
+	LOG->Trace( "\t\tDevice open" );
 	return true;
 }
 
 void HIDDevice::StartQueue( CFRunLoopRef loopRef, IOHIDCallbackFunction callback, void *target, int refCon )
 {
 	CFRunLoopSourceRef runLoopSource;
-	// This creates a run loop source and a mach port. They are released in the dtor.
+	// This creates a run loop source. It is released in the dtor.
 	IOReturn ret = CALL( m_Queue, createAsyncEventSource, &runLoopSource );
 	
 	if( ret != kIOReturnSuccess )
@@ -167,7 +172,6 @@ void HIDDevice::StartQueue( CFRunLoopRef loopRef, IOHIDCallbackFunction callback
 	
 	if( ret != kIOReturnSuccess )
 	{
-		mach_port_deallocate( mach_task_self(), CALL(m_Queue, getAsyncPort) );
 		CFRunLoopSourceInvalidate( runLoopSource );
 		CFRelease( runLoopSource );
 		
@@ -186,16 +190,15 @@ void HIDDevice::AddLogicalDevice( const void *value, void *context )
 	HIDDevice *This = (HIDDevice *)context;
 	CFTypeRef object;
 	int usage, usagePage;
-	CFTypeID numID = CFNumberGetTypeID();
 	
 	// Get usage page
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementUsagePageKey) );
-	if( !object || CFGetTypeID(object) != numID || !IntValue(object, usagePage) )
+	if( !IntValue(object, usagePage) )
 		return;
 	
 	// Get usage
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementUsageKey) );
-	if( !object || CFGetTypeID(object) != numID || !IntValue(object, usage) )
+	if( !IntValue(object, usage) )
 		return;
 	
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementKey) );
@@ -219,8 +222,8 @@ void HIDDevice::AddElement( const void *value, void *context )
 	CFDictionaryRef properties = CFDictionaryRef( value );
 	HIDDevice *This = (HIDDevice *)context;
 	CFTypeRef object;
-	CFTypeID numID = CFNumberGetTypeID();
-	int cookie, usage, usagePage;
+	int usage, usagePage;
+	long cookie;
 	
 	// Recursively add elements
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementKey) );
@@ -234,20 +237,20 @@ void HIDDevice::AddElement( const void *value, void *context )
 	
 	// Get usage page
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementUsagePageKey) );
-	if( !object || CFGetTypeID(object) != numID || !IntValue(object, usagePage) )
+	if( !IntValue(object, usagePage) )
 		return;
 	
 	// Get usage
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementUsageKey) );
-	if( !object || CFGetTypeID(object) != numID || !IntValue(object, usage) )
+	if( !IntValue(object, usage) )
 		return;
 	
 	
 	// Get cookie
 	object = CFDictionaryGetValue( properties, CFSTR(kIOHIDElementCookieKey) );
-	if( !object || CFGetTypeID(object) != numID || !IntValue(object, cookie) )
+	if( !LongValue(object, cookie) )
 		return;
-	This->AddElement( usagePage, usage, cookie, properties );
+	This->AddElement( usagePage, usage, IOHIDElementCookie(cookie), properties );
 }
 
 /*

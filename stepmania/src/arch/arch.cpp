@@ -55,8 +55,8 @@ void MakeInputHandlers( const RString &drivers, vector<InputHandler *> &Add )
 #ifdef USE_INPUT_HANDLER_XBOX
 		if( !s->CompareNoCase("Xbox") )		ret = new InputHandler_Xbox;
 #endif
-#ifdef USE_INPUT_HANDLER_CARBON
-		if( !s->CompareNoCase("Carbon") )	ret = new InputHandler_Carbon;
+#ifdef USE_INPUT_HANDLER_MACOSX_HID
+		if( !s->CompareNoCase("MacOSX") )	ret = new InputHandler_MacOSX_HID;
 #endif
 
 		if( ret == NULL )

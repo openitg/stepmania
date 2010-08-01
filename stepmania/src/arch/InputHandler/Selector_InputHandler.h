@@ -18,7 +18,7 @@
 #if defined(HAVE_X11)
 #include "InputHandler_X11.h"
 #elif defined(MACOSX)
-#include "InputHandler_Carbon.h"
+#include "InputHandler_MacOSX_HID.h"
 #elif defined(HAVE_SDL)
 #include "InputHandler_SDL.h"
 #endif

@@ -1,26 +1,24 @@
 #include "global.h"
 #include "PumpDevice.h"
-#include "EnumHelper.h"
 
 void PumpDevice::Open()
 {
-	AddElementToQueue( 2 );
-	AddElementToQueue( 3 );
-	AddElementToQueue( 4 );
-	AddElementToQueue( 6 );
-	AddElementToQueue( 7 );
-	AddElementToQueue( 8 );
+	AddElementToQueue( IOHIDElementCookie(2) );
+	AddElementToQueue( IOHIDElementCookie(3) );
+	AddElementToQueue( IOHIDElementCookie(4) );
+	AddElementToQueue( IOHIDElementCookie(6) );
+	AddElementToQueue( IOHIDElementCookie(7) );
+	AddElementToQueue( IOHIDElementCookie(8) );
 }
 
-void PumpDevice::GetButtonPresses( vector<pair<DeviceInput, bool> >& vPresses, int cookie,
-				   int value, const RageTimer& now ) const
+void PumpDevice::GetButtonPresses( vector<DeviceInput>& vPresses, IOHIDElementCookie cookie, int value, const RageTimer& now ) const
 {
 	DeviceButton db1 = DeviceButton_Invalid;
 	DeviceButton db2 = DeviceButton_Invalid;
 	bool pressed1 = !(value & 0x1);
 	bool pressed2 = !(value & 0x2);
 	
-	switch( cookie )
+	switch( uintptr_t(cookie) )
 	{
 	case 2:
 		db2 = JOY_BUTTON_1; // bit 9
@@ -47,20 +45,14 @@ void PumpDevice::GetButtonPresses( vector<pair<DeviceInput, bool> >& vPresses, i
 		break;
 	}
 	if( db1 != DeviceButton_Invalid )
-	{
-		DeviceInput di( m_Id, db1, pressed1 ? 1.0f : 0.0f , now );
-		vPresses.push_back( pair<DeviceInput, bool>(di, pressed1) );
-	}
+		vPresses.push_back( DeviceInput(m_Id, db1, pressed1 ? 1.0f : 0.0f , now) );
 	if( db2 != DeviceButton_Invalid )
-	{
-		DeviceInput di( m_Id, db2, pressed2 ? 1.0f : 0.0f , now );
-		vPresses.push_back( pair<DeviceInput, bool>(di, pressed2) );
-	}
+		vPresses.push_back( DeviceInput(m_Id, db2, pressed2 ? 1.0f : 0.0f , now) );
 }
 
 int PumpDevice::AssignIDs( InputDevice startID )
 {
-	if( startID < DEVICE_PUMP1 || startID > DEVICE_PUMP2 )
+	if( !IsPump(startID) )
 		return -1;
 	m_Id = startID;
 	return 1;
@@ -68,7 +60,7 @@ int PumpDevice::AssignIDs( InputDevice startID )
 
 void PumpDevice::GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevices ) const
 {
-	vDevices.push_back( InputDeviceInfo(m_Id,"Pump USB") );
+	vDevices.push_back( InputDeviceInfo(m_Id, "Pump USB") );
 }
 
 /*

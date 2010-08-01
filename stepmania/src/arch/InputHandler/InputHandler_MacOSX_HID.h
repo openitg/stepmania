@@ -1,42 +1,46 @@
-#ifndef JOYSTICK_DEVICE_H
-#define JOYSTICK_DEVICE_H
+#ifndef INPUT_HANDLER_MACOSX_HID_H
+#define INPUT_HANDLER_MACOSX_HID_H
 
-#include "HIDDevice.h"
+#include <vector>
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
+#include "InputHandler.h"
+#include "RageThreads.h"
 
-struct Joystick
-{
-	InputDevice id;
-	// map cookie to button
-	__gnu_cxx::hash_map<IOHIDElementCookie, DeviceButton> mapping;
-	IOHIDElementCookie x_axis, y_axis, z_axis, x_rot, y_rot, z_rot, hat;
-	int x_min, x_max;
-	int y_min, y_max;
-	int z_min, z_max;
-	int rx_min, rx_max;
-	int ry_min, ry_max;
-	int rz_min, rz_max;
-	int hat_min, hat_max;
-	
-	Joystick();
-};
+class HIDDevice;
 
-class JoystickDevice : public HIDDevice
+class InputHandler_MacOSX_HID : public InputHandler
 {
 private:
-	vector<Joystick> m_vSticks;
+	vector<HIDDevice *> m_vDevices;
+	RageThread m_InputThread;
+	RageSemaphore m_Sem;
+	CFRunLoopRef m_LoopRef;
+	CFRunLoopSourceRef m_SourceRef;
+	vector<io_iterator_t> m_vIters; // We don't really care about these but they need to stick around
+	IONotificationPortRef m_NotifyPort;
+	RageMutex m_ChangeLock;
+	bool m_bChanged;
 	
-protected:
-	bool AddLogicalDevice( int usagePage, int usage );
-	void AddElement( int usagePage, int usage, IOHIDElementCookie cookie, const CFDictionaryRef properties );
-	void Open();
-	bool InitDevice( int vid, int pid );
-	
+	static int Run( void *data );
+	static void DeviceAdded( void *refCon, io_iterator_t iter );
+	static void DeviceChanged( void *refCon, io_service_t service, natural_t messageType, void *arg );
+	void StartDevices();
+	void AddDevices( int usagePage, int usage, InputDevice &id );
+
 public:
-	void GetButtonPresses( vector<DeviceInput>& vPresses, IOHIDElementCookie cookie, int value, const RageTimer& now ) const;
-	int AssignIDs( InputDevice startID );
-	void GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevices ) const;
+	InputHandler_MacOSX_HID();
+	~InputHandler_MacOSX_HID();
+
+	bool DevicesChanged() { LockMut( m_ChangeLock ); return m_bChanged; }
+	void GetDevicesAndDescriptions( vector<InputDeviceInfo>& vDevicesOut );
+	RString GetDeviceSpecificInputString( const DeviceInput &di );
+	wchar_t DeviceButtonToChar( DeviceButton button, bool bUseCurrentKeyModifiers );
+	static void QueueCallback( void *target, int result, void *refcon, void *sender );
+	
 };
 
+#define USE_INPUT_HANDLER_MACOSX_HID
 
 #endif
 
@@ -64,3 +68,4 @@ public:
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+
