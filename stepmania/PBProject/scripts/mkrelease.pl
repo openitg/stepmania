@@ -38,15 +38,44 @@ my $destname = @ARGV ? "$id-$ARGV[0]" : "$family-$ver";
 $destname =~ s/\s+/-/g;
 
 my $tmp = tempdir;
+my $dstdir = "$tmp/$id";
+mkdir $dstdir;
 
-# Copy StepMania and make smzip
-system 'cp', '-r', "$srcdir/StepMania.app", $tmp and die "cp -r failed: $!\n";
-system 'strip', '-x', "$tmp/StepMania.app/Contents/MacOS/StepMania";
-system "$srcdir/Utils/CreatePackage.pl", $srcdir, "$tmp/StepMania.app/Contents/Resources" and die "mksmdata.pl failed: $!\n";
+# Copy StepMania
+system 'cp', '-r', "$srcdir/StepMania.app", $dstdir and die "cp -r failed: $!\n";
+system 'strip', '-x', "$dstdir/StepMania.app/Contents/MacOS/StepMania";
 
-# Copy docs
-mkdir "$tmp/Docs";
-copy "$srcdir/Docs/$_", "$tmp/Docs/$_" for @docs;
+#system "$srcdir/Utils/CreatePackage.pl", $srcdir, "$dstdir/StepMania.app/Contents/Resources" and die "mksmdata.pl failed: $!\n";
+
+my @files = (
+	"Announcers",
+	"BackgroundEffects",
+	"BackgroundTransitions",
+	"BGAnimations",
+	"CDTitles",
+	"Characters",
+	"Courses/Samples",
+	"Data",
+	"NoteSkins/common/default",
+	"NoteSkins/dance/default",
+	"NoteSkins/dance/flat",
+	"Packages",
+	"RandomMovies",
+	"Songs",
+	"Themes/default",
+);
+foreach my $x ( @files )
+{
+	print "$dstdir/" . dirname $x . "\n";
+	mkpath "$dstdir/" . dirname $x;
+	system 'cp', '-r', "$srcdir/$x", "$dstdir/$x" and die "cp -r failed: $!\n";
+}
+
+
+# clean up .svn dirs
+my @svndirs = split /\n/, `find "$dstdir" -type d -name .svn`;
+rmtree \@svndirs;
+
 
 # Make a dmg
 system qw/hdiutil create -ov -format UDZO -imagekey zlib-level=9 -srcfolder/, $tmp, '-volname', $destname, "$root/$destname-mac.dmg";
