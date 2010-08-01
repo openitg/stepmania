@@ -12,8 +12,6 @@
 #include <IOKit/IOMessage.h>
 #include <Carbon/Carbon.h>
 
-#define ARRAYLEN(a) (sizeof(a) / sizeof((a)[0]))
-
 void InputHandler_MacOSX_HID::QueueCallback( void *target, int result, void *refcon, void *sender )
 {
 	// The result seems useless as you can't actually return anything...
@@ -409,7 +407,7 @@ wchar_t InputHandler_MacOSX_HID::DeviceButtonToChar( DeviceButton button, bool b
 			UniChar unicodeInputString[4];
 			UniCharCount length;
 			OSStatus status = UCKeyTranslate( *KeyLayout, iMacVirtualKey, kUCKeyActionDown, modifiers,
-							  keyboardType, 0, &iDeadKeyState, ARRAYLEN(unicodeInputString),
+							  keyboardType, 0, &iDeadKeyState, ARRAYSIZE(unicodeInputString),
 							  &length, unicodeInputString );
 			
 			if( status )
