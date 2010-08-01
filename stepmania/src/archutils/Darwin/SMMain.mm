@@ -78,10 +78,6 @@
 
 - (BOOL) application:(NSApplication *)app openFile:(NSString *)file
 {
-	NSRunAlertPanel(@"Close Document",
-					@"openFile",
-					@"OK", @"Cancel", nil );
-	
 	NSArray *files = [NSArray arrayWithObject:file];
 	if( m_bApplicationLaunched )
 		[NSTask launchedTaskWithLaunchPath:[NSString stringWithUTF8String:m_pArgv[0]] arguments:files];
@@ -92,10 +88,6 @@
 
 - (void) application:(NSApplication *)app openFiles:(NSArray *)files
 {
-	NSRunAlertPanel(@"Close Document",
-					@"openFiles",
-					@"OK", @"Cancel", nil );
-	
 	if( m_bApplicationLaunched )
 		[NSTask launchedTaskWithLaunchPath:[NSString stringWithUTF8String:m_pArgv[0]] arguments:files];
 	else
