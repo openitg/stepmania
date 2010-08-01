@@ -1774,6 +1774,10 @@
 		EE3C05FF12051E8500AB0455 /* lzio.c in Sources */ = {isa = PBXBuildFile; fileRef = EE3C059A12051E8500AB0455 /* lzio.c */; };
 		EE3C060012051E8500AB0455 /* lzio.h in Headers */ = {isa = PBXBuildFile; fileRef = EE3C059B12051E8500AB0455 /* lzio.h */; };
 		EE3C060212051E8500AB0455 /* print.c in Sources */ = {isa = PBXBuildFile; fileRef = EE3C059D12051E8500AB0455 /* print.c */; };
+		F44EE8CC1205597B008AE060 /* CommandLineActions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F44EE8CA1205597B008AE060 /* CommandLineActions.cpp */; };
+		F44EE8CD1205597B008AE060 /* CommandLineActions.h in Headers */ = {isa = PBXBuildFile; fileRef = F44EE8CB1205597B008AE060 /* CommandLineActions.h */; };
+		F44EE8D412055A30008AE060 /* FileDownload.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F44EE8D212055A30008AE060 /* FileDownload.cpp */; };
+		F44EE8D512055A30008AE060 /* FileDownload.h in Headers */ = {isa = PBXBuildFile; fileRef = F44EE8D312055A30008AE060 /* FileDownload.h */; };
 		F4BC045409E6B578003F770B /* ScreenGameplaySyncMachine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAB55EB509A7E3D3008FDC69 /* ScreenGameplaySyncMachine.cpp */; };
 		F4BC045509E6B582003F770B /* ScreenGameplaySyncMachine.h in Headers */ = {isa = PBXBuildFile; fileRef = AAB55EB609A7E3D3008FDC69 /* ScreenGameplaySyncMachine.h */; };
 /* End PBXBuildFile section */
@@ -2786,6 +2790,10 @@
 		EE3C059A12051E8500AB0455 /* lzio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lzio.c; path = src/lzio.c; sourceTree = "<group>"; };
 		EE3C059B12051E8500AB0455 /* lzio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lzio.h; path = src/lzio.h; sourceTree = "<group>"; };
 		EE3C059D12051E8500AB0455 /* print.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = print.c; path = src/print.c; sourceTree = "<group>"; };
+		F44EE8CA1205597B008AE060 /* CommandLineActions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CommandLineActions.cpp; sourceTree = "<group>"; };
+		F44EE8CB1205597B008AE060 /* CommandLineActions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommandLineActions.h; sourceTree = "<group>"; };
+		F44EE8D212055A30008AE060 /* FileDownload.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = FileDownload.cpp; path = ../src/FileDownload.cpp; sourceTree = SOURCE_ROOT; };
+		F44EE8D312055A30008AE060 /* FileDownload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FileDownload.h; path = ../src/FileDownload.h; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -3478,6 +3486,8 @@
 		AA6EFDC804770AF1005F316C /* DataStructures */ = {
 			isa = PBXGroup;
 			children = (
+				F44EE8D212055A30008AE060 /* FileDownload.cpp */,
+				F44EE8D312055A30008AE060 /* FileDownload.h */,
 				AA84B7050996F8370085EECB /* AdjustSync.cpp */,
 				AA84B7060996F8370085EECB /* AdjustSync.h */,
 				AAFF5541054E736D00D02EE9 /* Attack.cpp */,
@@ -3646,6 +3656,8 @@
 		AA6EFE6A04770D01005F316C /* StepMania */ = {
 			isa = PBXGroup;
 			children = (
+				F44EE8CA1205597B008AE060 /* CommandLineActions.cpp */,
+				F44EE8CB1205597B008AE060 /* CommandLineActions.h */,
 				AAFAB5CB08890B5200767BF7 /* GameLoop.cpp */,
 				AAFAB5CC08890B5200767BF7 /* GameLoop.h */,
 				AAA71EA005EE154E00D2E8FF /* global.cpp */,
@@ -4574,6 +4586,8 @@
 				EE3C05FC12051E8500AB0455 /* lundump.h in Headers */,
 				EE3C05FE12051E8500AB0455 /* lvm.h in Headers */,
 				EE3C060012051E8500AB0455 /* lzio.h in Headers */,
+				F44EE8CD1205597B008AE060 /* CommandLineActions.h in Headers */,
+				F44EE8D512055A30008AE060 /* FileDownload.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5603,6 +5617,8 @@
 				EE3C05FD12051E8500AB0455 /* lvm.c in Sources */,
 				EE3C05FF12051E8500AB0455 /* lzio.c in Sources */,
 				EE3C060212051E8500AB0455 /* print.c in Sources */,
+				F44EE8CC1205597B008AE060 /* CommandLineActions.cpp in Sources */,
+				F44EE8D412055A30008AE060 /* FileDownload.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
