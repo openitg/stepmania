@@ -9,7 +9,7 @@
 #define PRODUCT_FAMILY_BARE StepMania
 #define PRODUCT_ID_BARE StepMania4
 // String used for the install directory and registry locations
-#define PRODUCT_VER_BARE 4.0.b2
+#define PRODUCT_VER_BARE 4.0.b3
 
 // These cannot be #undef'd so make them unlikely to conflict with anything
 #define PRODUCT_STRINGIFY(x) #x
