@@ -7,6 +7,7 @@
 #include "archutils/Darwin/Crash.h"
 #include "archutils/Unix/CrashHandler.h"
 #include "archutils/Unix/SignalHandler.h"
+#include "archutils/Unix/EmergencyShutdown.h"
 #include "ProductInfo.h"
 #include <Carbon/Carbon.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -44,26 +45,35 @@ static bool IsFatalSignal( int signal )
 	}
 }
 
-static void DoCleanShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
+static bool DoCleanShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 {
 	if( IsFatalSignal(signal) )
-		return;
+		return false;
 
 	/* ^C. */
 	ArchHooks::SetUserQuit();
+	return true;
 }
 
 #if defined(CRASH_HANDLER)
-static void DoCrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
+static bool DoCrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
 {
 	/* Don't dump a debug file if the user just hit ^C. */
 	if( !IsFatalSignal(signal) )
-		return;
+		return false;
 
 	CrashHandler::CrashSignalHandler( signal, si, uc );
 	/* not reached */
+	return true;
 }
 #endif
+
+static bool DoEmergencyShutdown( int signal, siginfo_t *si, const ucontext_t *us )
+{
+	if( IsFatalSignal(signal) )
+		_exit( 1 ); // We ran the crash handler already
+	return false;
+}
 
 ArchHooks_darwin::ArchHooks_darwin()
 {
@@ -72,8 +82,10 @@ ArchHooks_darwin::ArchHooks_darwin()
 	
 #if defined(CRASH_HANDLER)
 	CrashHandler::CrashHandlerHandleArgs( g_argc, g_argv );
+	CrashHandler::InitializeCrashHandler();
 	SignalHandler::OnClose( DoCrashSignalHandler );
 #endif
+	SignalHandler::OnClose( DoEmergencyShutdown );
 #if REAL_TIME_CRITICAL_SECTION
 	TimeCritMutex = new RageMutex("TimeCritMutex");
 #endif

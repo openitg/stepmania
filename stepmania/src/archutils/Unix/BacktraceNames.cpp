@@ -42,7 +42,7 @@ void BacktraceNames::Demangle()
 		return;
 	
 	int status = 0;
-	char *name = abi::__cxa_demangle( Symbol, 0, 0, &status );
+	char *name = abi::__cxa_demangle( Symbol, NULL, NULL, &status );
 	if( name )
 	{
 		Symbol = name;
@@ -62,7 +62,7 @@ void BacktraceNames::Demangle()
 		fprintf( stderr, "Invalid arguments.\n" );
 		break;
 	default:
-		fprintf( stderr, "Unexpected __cxa_demangle status: %i", status );
+		fprintf( stderr, "Unexpected __cxa_demangle status: %i\n", status );
 		break;
 	}
 }
@@ -119,13 +119,13 @@ void BacktraceNames::FromAddr( const void *p )
      * between one function and the next, because the first lookup will succeed.
      */
     Dl_info di;
-    if( !dladdr(p, &di) || di.dli_sname == NULL )
+    if( !dladdr((void *) p, &di) || di.dli_sname == NULL )
     {
 		if( !dladdr( ((char *) p) - 8, &di) )
 			return;
     }
 
-    Symbol = di.dli_sname;
+    Symbol = di.dli_sname? di.dli_sname:"";
     File = di.dli_fname;
     Offset = (char*)(p)-(char*)di.dli_saddr;
 }
@@ -311,8 +311,7 @@ void BacktraceNames::FromString( RString s )
     unsigned pos = 0;
     while( pos < s.size() && s[pos] != '(' && s[pos] != '[' )
         File += s[pos++];
-    TrimRight( File );
-    TrimLeft( File );
+    Trim( File );
 
     if( pos < s.size() && s[pos] == '(' )
     {

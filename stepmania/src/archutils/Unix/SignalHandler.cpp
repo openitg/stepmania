@@ -4,7 +4,7 @@
 #include "SignalHandler.h"
 #include "GetSysInfo.h"
 
-#if defined(LINUX)
+#if defined(UNIX)
 #include "archutils/Unix/LinuxThreadHelpers.h"
 #endif
 
@@ -71,8 +71,23 @@ SaveSignals::~SaveSignals()
 
 static void SigHandler( int signal, siginfo_t *si, void *ucp )
 {
+	bool bMaskSignal = false;
 	for( unsigned i = 0; i < handlers.size(); ++i )
-		handlers[i]( signal, si, (const ucontext_t *)ucp );
+		bMaskSignal |= handlers[i]( signal, si, (const ucontext_t *)ucp );
+	if( !bMaskSignal )
+	{
+		struct sigaction sa;
+		sa.sa_flags = 0;
+		sigemptyset( &sa.sa_mask );
+
+		/* Set up the default signal handler. */
+		sa.sa_handler = SIG_DFL;
+
+		struct sigaction old;
+		sigaction( signal, &sa, &old );
+		raise( signal );
+		sigaction( signal, &old, NULL );
+	}
 }
 
 int find_stack_direction2( char *p )
@@ -177,19 +192,6 @@ void SignalHandler::OnClose( handler h )
 		sigaction( SIGPIPE, &sa, NULL );
 	}
 	handlers.push_back(h);
-}
-
-/* Revert to the default signal handler.  This is called */
-void SignalHandler::ResetSignalHandlers()
-{
-	struct sigaction sa;
-	sa.sa_flags = 0;
-	sigemptyset( &sa.sa_mask );
-
-	/* Set up the default signal handler. */
-	sa.sa_handler = SIG_DFL;
-	for(int i = 0; signals[i] != -1; ++i)
-		sigaction( signals[i], &sa, NULL );
 }
 
 /*
