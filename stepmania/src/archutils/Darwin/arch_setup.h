@@ -35,12 +35,12 @@ typedef unsigned long long UInt64;
 #define HAVE_MACHINE_ENDIAN_H
 
 #define BACKTRACE_LOOKUP_METHOD_DLADDR
+#define CRASH_HANDLER
 #if defined(__ppc__)
 # define CPU_PPC
 # define ENDIAN_BIG
 //# define BACKTRACE_LOOKUP_METHOD_DARWIN_DYLD
 # define BACKTRACE_METHOD_POWERPC_DARWIN
-# define CRASH_HANDLER
 #elif defined(__i386__)
 # define CPU_X86
 # define ENDIAN_LITTLE
