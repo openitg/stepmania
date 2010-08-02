@@ -29,7 +29,7 @@
 #define DEFAULT_MOVIE_DRIVER_LIST "Theora,FFMpeg,DShow,Null"
 
 /* RageSoundDrivers */
-#define DEFAULT_SOUND_DRIVER_LIST "ALSA,ALSA-sw,DirectSound-sw,CoreAudio,OSS,WaveOut,Null"
+#define DEFAULT_SOUND_DRIVER_LIST "ALSA,ALSA-sw,DirectSound-sw,AudioUnit,OSS,WaveOut,Null"
 // Disable DirectSound since -SW is more compatible and we don't need low-latency without keysounds
 //#define DEFAULT_SOUND_DRIVER_LIST "ALSA,DirectSound,ALSA-sw,DirectSound-sw,CoreAudio,OSS,WaveOut,Null"
 

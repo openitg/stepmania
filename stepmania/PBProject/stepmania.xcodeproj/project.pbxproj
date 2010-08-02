@@ -90,7 +90,6 @@
 		AA1B083E0762532800835464 /* GameCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1B08390762532800835464 /* GameCommand.cpp */; };
 		AA1B083F0762532800835464 /* GameCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = AA1B083A0762532800835464 /* GameCommand.h */; };
 		AA1B08400762532800835464 /* Preference.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1B083B0762532800835464 /* Preference.cpp */; };
-		AA1CD943060AE571003702C4 /* RageSoundDriver_Generic_Software.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1CD941060AE571003702C4 /* RageSoundDriver_Generic_Software.cpp */; };
 		AA1CD944060AE571003702C4 /* RageSoundDriver_Generic_Software.h in Headers */ = {isa = PBXBuildFile; fileRef = AA1CD942060AE571003702C4 /* RageSoundDriver_Generic_Software.h */; };
 		AA1F9C4709AF1BF5002C15A8 /* PumpDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = AA1F9C4509AF1BF5002C15A8 /* PumpDevice.h */; };
 		AA1F9C4809AF1BF5002C15A8 /* PumpDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1F9C4609AF1BF5002C15A8 /* PumpDevice.cpp */; };
@@ -421,7 +420,6 @@
 		AA29CD140558741A00961A51 /* NoteDataUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = AA4F38C104E2D0B700D02EE9 /* NoteDataUtil.h */; };
 		AA29CD150558741A00961A51 /* ProductInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = AAADA4AE04E5F3DE00D02EE9 /* ProductInfo.h */; };
 		AA29CD1B0558741A00961A51 /* BeginnerHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = AAC28BBA04F758E500D02EE9 /* BeginnerHelper.h */; };
-		AA29CD1C0558741A00961A51 /* RageSoundDriver_CA.h in Headers */ = {isa = PBXBuildFile; fileRef = AA7D404604FC3C270020E02B /* RageSoundDriver_CA.h */; };
 		AA29CD1D0558741A00961A51 /* MovieTexture_FFMpeg.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14ED100509F40000E3FAD7 /* MovieTexture_FFMpeg.h */; };
 		AA29CD1F0558741A00961A51 /* ProfileManager.h in Headers */ = {isa = PBXBuildFile; fileRef = AA1C6557050D234B0073A143 /* ProfileManager.h */; };
 		AA29CD200558741A00961A51 /* RageSoundReader_WAV.h in Headers */ = {isa = PBXBuildFile; fileRef = AA1C65A7050FD21F0073A143 /* RageSoundReader_WAV.h */; };
@@ -622,7 +620,6 @@
 		AA29CE180558741A00961A51 /* Steps.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF430FD04DC98BC00D02EE9 /* Steps.cpp */; };
 		AA29CE190558741A00961A51 /* NoteDataUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA4F38C004E2D0B700D02EE9 /* NoteDataUtil.cpp */; };
 		AA29CE1E0558741A00961A51 /* BeginnerHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAC28BB904F758E500D02EE9 /* BeginnerHelper.cpp */; };
-		AA29CE1F0558741A00961A51 /* RageSoundDriver_CA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA7D404704FC3C270020E02B /* RageSoundDriver_CA.cpp */; };
 		AA29CE200558741A00961A51 /* MovieTexture_FFMpeg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA14ED0F0509F40000E3FAD7 /* MovieTexture_FFMpeg.cpp */; };
 		AA29CE220558741A00961A51 /* ProfileManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1C6556050D234B0073A143 /* ProfileManager.cpp */; };
 		AA29CE230558741A00961A51 /* RageSoundReader_WAV.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1C65A6050FD21F0073A143 /* RageSoundReader_WAV.cpp */; };
@@ -867,7 +864,6 @@
 		AA40D27E09A08D650068C0D5 /* NoteDataUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = AA4F38C104E2D0B700D02EE9 /* NoteDataUtil.h */; };
 		AA40D27F09A08D650068C0D5 /* ProductInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = AAADA4AE04E5F3DE00D02EE9 /* ProductInfo.h */; };
 		AA40D28009A08D650068C0D5 /* BeginnerHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = AAC28BBA04F758E500D02EE9 /* BeginnerHelper.h */; };
-		AA40D28109A08D650068C0D5 /* RageSoundDriver_CA.h in Headers */ = {isa = PBXBuildFile; fileRef = AA7D404604FC3C270020E02B /* RageSoundDriver_CA.h */; };
 		AA40D28209A08D650068C0D5 /* MovieTexture_FFMpeg.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14ED100509F40000E3FAD7 /* MovieTexture_FFMpeg.h */; };
 		AA40D28309A08D650068C0D5 /* ProfileManager.h in Headers */ = {isa = PBXBuildFile; fileRef = AA1C6557050D234B0073A143 /* ProfileManager.h */; };
 		AA40D28409A08D650068C0D5 /* RageSoundReader_WAV.h in Headers */ = {isa = PBXBuildFile; fileRef = AA1C65A7050FD21F0073A143 /* RageSoundReader_WAV.h */; };
@@ -1277,7 +1273,6 @@
 		AA40D43209A08D650068C0D5 /* Steps.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF430FD04DC98BC00D02EE9 /* Steps.cpp */; };
 		AA40D43309A08D650068C0D5 /* NoteDataUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA4F38C004E2D0B700D02EE9 /* NoteDataUtil.cpp */; };
 		AA40D43409A08D650068C0D5 /* BeginnerHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAC28BB904F758E500D02EE9 /* BeginnerHelper.cpp */; };
-		AA40D43509A08D650068C0D5 /* RageSoundDriver_CA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA7D404704FC3C270020E02B /* RageSoundDriver_CA.cpp */; };
 		AA40D43609A08D650068C0D5 /* MovieTexture_FFMpeg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA14ED0F0509F40000E3FAD7 /* MovieTexture_FFMpeg.cpp */; };
 		AA40D43709A08D650068C0D5 /* ProfileManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1C6556050D234B0073A143 /* ProfileManager.cpp */; };
 		AA40D43809A08D650068C0D5 /* RageSoundReader_WAV.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1C65A6050FD21F0073A143 /* RageSoundReader_WAV.cpp */; };
@@ -1330,7 +1325,6 @@
 		AA40D46909A08D650068C0D5 /* ScreenSetTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA0A3DE6060513A00044E6B1 /* ScreenSetTime.cpp */; };
 		AA40D46A09A08D650068C0D5 /* NetworkSyncManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE78049060814AC0034E65F /* NetworkSyncManager.cpp */; };
 		AA40D46C09A08D650068C0D5 /* ActiveAttackList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE7812B0608249E0034E65F /* ActiveAttackList.cpp */; };
-		AA40D46D09A08D650068C0D5 /* RageSoundDriver_Generic_Software.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA1CD941060AE571003702C4 /* RageSoundDriver_Generic_Software.cpp */; };
 		AA40D46E09A08D650068C0D5 /* ScreenTestLights.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF7435906110E8D00B19AD1 /* ScreenTestLights.cpp */; };
 		AA40D46F09A08D650068C0D5 /* RageDisplay_Null.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAF7458E061181F700B19AD1 /* RageDisplay_Null.cpp */; };
 		AA40D47409A08D650068C0D5 /* RageSoundPosMap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAD36082062BB8AE00D0CED8 /* RageSoundPosMap.cpp */; };
@@ -1762,6 +1756,8 @@
 		AADD1CC6095C233F0088C9DF /* LocalizedString.h in Headers */ = {isa = PBXBuildFile; fileRef = AADD1CC3095C233F0088C9DF /* LocalizedString.h */; };
 		AAE2D6D40A67481E00071546 /* ScoreKeeper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE2D6D30A67481E00071546 /* ScoreKeeper.cpp */; };
 		AAE2D6D50A67481E00071546 /* ScoreKeeper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE2D6D30A67481E00071546 /* ScoreKeeper.cpp */; };
+		AAE5923C1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE5923B1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp */; };
+		AAE5923D1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE5923B1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp */; };
 		AAE66F740657634D002E3AD9 /* CryptMD5.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE66F650657634D002E3AD9 /* CryptMD5.cpp */; };
 		AAE66F750657634D002E3AD9 /* CryptMD5.h in Headers */ = {isa = PBXBuildFile; fileRef = AAE66F660657634D002E3AD9 /* CryptMD5.h */; };
 		AAE66F790657634D002E3AD9 /* CryptRand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAE66F6A0657634D002E3AD9 /* CryptRand.cpp */; };
@@ -1969,7 +1965,6 @@
 		AA1C65A5050FD21F0073A143 /* RageSoundReader_Vorbisfile.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = RageSoundReader_Vorbisfile.h; path = ../src/RageSoundReader_Vorbisfile.h; sourceTree = "<group>"; };
 		AA1C65A6050FD21F0073A143 /* RageSoundReader_WAV.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = RageSoundReader_WAV.cpp; path = ../src/RageSoundReader_WAV.cpp; sourceTree = "<group>"; };
 		AA1C65A7050FD21F0073A143 /* RageSoundReader_WAV.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = RageSoundReader_WAV.h; path = ../src/RageSoundReader_WAV.h; sourceTree = "<group>"; };
-		AA1CD941060AE571003702C4 /* RageSoundDriver_Generic_Software.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; path = RageSoundDriver_Generic_Software.cpp; sourceTree = "<group>"; };
 		AA1CD942060AE571003702C4 /* RageSoundDriver_Generic_Software.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = RageSoundDriver_Generic_Software.h; sourceTree = "<group>"; };
 		AA1DC47204A485E900D02EE9 /* ActorUtil.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = ActorUtil.h; path = ../src/ActorUtil.h; sourceTree = "<group>"; };
 		AA1DC47404A4861700D02EE9 /* ScreenSelectMaster.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = ScreenSelectMaster.cpp; path = ../src/ScreenSelectMaster.cpp; sourceTree = "<group>"; };
@@ -2477,8 +2472,6 @@
 		AA7ADC24072CAB7F00C50A7F /* RageSoundReader_Chain.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = RageSoundReader_Chain.h; path = ../src/RageSoundReader_Chain.h; sourceTree = "<group>"; };
 		AA7ADC25072CAB7F00C50A7F /* RageSoundUtil.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = RageSoundUtil.cpp; path = ../src/RageSoundUtil.cpp; sourceTree = "<group>"; };
 		AA7ADC26072CAB7F00C50A7F /* RageSoundUtil.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = RageSoundUtil.h; path = ../src/RageSoundUtil.h; sourceTree = "<group>"; };
-		AA7D404604FC3C270020E02B /* RageSoundDriver_CA.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = RageSoundDriver_CA.h; sourceTree = "<group>"; };
-		AA7D404704FC3C270020E02B /* RageSoundDriver_CA.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; path = RageSoundDriver_CA.cpp; sourceTree = "<group>"; };
 		AA7DA2EF085760E90057F1EA /* BackgroundUtil.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = BackgroundUtil.cpp; path = ../src/BackgroundUtil.cpp; sourceTree = "<group>"; };
 		AA7DA2F0085760E90057F1EA /* BackgroundUtil.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = BackgroundUtil.h; path = ../src/BackgroundUtil.h; sourceTree = "<group>"; };
 		AA80C70A07F2047200C99272 /* Selector_ArchHooks.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = Selector_ArchHooks.h; path = ArchHooks/Selector_ArchHooks.h; sourceTree = "<group>"; };
@@ -2749,6 +2742,7 @@
 		AAE443EC04B0F9F600D02EE9 /* CombinedLifeMeterTug.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = CombinedLifeMeterTug.h; path = ../src/CombinedLifeMeterTug.h; sourceTree = "<group>"; };
 		AAE443F304B0FEB700D02EE9 /* ScoreKeeperRave.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; name = ScoreKeeperRave.cpp; path = ../src/ScoreKeeperRave.cpp; sourceTree = "<group>"; };
 		AAE443F404B0FEB700D02EE9 /* ScoreKeeperRave.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = ScoreKeeperRave.h; path = ../src/ScoreKeeperRave.h; sourceTree = "<group>"; };
+		AAE5923B1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RageSoundDriver_Generic_Software.cpp; sourceTree = "<group>"; };
 		AAE66F630657634D002E3AD9 /* CryptBn.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; path = CryptBn.cpp; sourceTree = "<group>"; };
 		AAE66F640657634D002E3AD9 /* CryptBn.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = CryptBn.h; sourceTree = "<group>"; };
 		AAE66F650657634D002E3AD9 /* CryptMD5.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; path = CryptMD5.cpp; sourceTree = "<group>"; };
@@ -3369,9 +3363,7 @@
 				AABE37030497CF85005F316C /* RageSoundDriver.h */,
 				AA8CF5160A4518BE0005F1B4 /* RageSoundDriver_AU.cpp */,
 				AA8CF5150A4518BE0005F1B4 /* RageSoundDriver_AU.h */,
-				AA7D404704FC3C270020E02B /* RageSoundDriver_CA.cpp */,
-				AA7D404604FC3C270020E02B /* RageSoundDriver_CA.h */,
-				AA1CD941060AE571003702C4 /* RageSoundDriver_Generic_Software.cpp */,
+				AAE5923B1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp */,
 				AA1CD942060AE571003702C4 /* RageSoundDriver_Generic_Software.h */,
 				AA6E012E047712BE005F316C /* RageSoundDriver_Null.cpp */,
 				AA6E012F047712BE005F316C /* RageSoundDriver_Null.h */,
@@ -4382,7 +4374,6 @@
 				AA29CD140558741A00961A51 /* NoteDataUtil.h in Headers */,
 				AA29CD150558741A00961A51 /* ProductInfo.h in Headers */,
 				AA29CD1B0558741A00961A51 /* BeginnerHelper.h in Headers */,
-				AA29CD1C0558741A00961A51 /* RageSoundDriver_CA.h in Headers */,
 				AA29CD1D0558741A00961A51 /* MovieTexture_FFMpeg.h in Headers */,
 				AA29CD1F0558741A00961A51 /* ProfileManager.h in Headers */,
 				AA29CD200558741A00961A51 /* RageSoundReader_WAV.h in Headers */,
@@ -4855,7 +4846,6 @@
 				AA40D27E09A08D650068C0D5 /* NoteDataUtil.h in Headers */,
 				AA40D27F09A08D650068C0D5 /* ProductInfo.h in Headers */,
 				AA40D28009A08D650068C0D5 /* BeginnerHelper.h in Headers */,
-				AA40D28109A08D650068C0D5 /* RageSoundDriver_CA.h in Headers */,
 				AA40D28209A08D650068C0D5 /* MovieTexture_FFMpeg.h in Headers */,
 				AA40D28309A08D650068C0D5 /* ProfileManager.h in Headers */,
 				AA40D28409A08D650068C0D5 /* RageSoundReader_WAV.h in Headers */,
@@ -5449,7 +5439,6 @@
 				AA29CE180558741A00961A51 /* Steps.cpp in Sources */,
 				AA29CE190558741A00961A51 /* NoteDataUtil.cpp in Sources */,
 				AA29CE1E0558741A00961A51 /* BeginnerHelper.cpp in Sources */,
-				AA29CE1F0558741A00961A51 /* RageSoundDriver_CA.cpp in Sources */,
 				AA29CE200558741A00961A51 /* MovieTexture_FFMpeg.cpp in Sources */,
 				AA29CE220558741A00961A51 /* ProfileManager.cpp in Sources */,
 				AA29CE230558741A00961A51 /* RageSoundReader_WAV.cpp in Sources */,
@@ -5504,7 +5493,6 @@
 				AAE7804B060814AC0034E65F /* NetworkSyncManager.cpp in Sources */,
 				AAE7808706081A000034E65F /* ezsockets.cpp in Sources */,
 				AAE7812D0608249E0034E65F /* ActiveAttackList.cpp in Sources */,
-				AA1CD943060AE571003702C4 /* RageSoundDriver_Generic_Software.cpp in Sources */,
 				AAF7435B06110E8D00B19AD1 /* ScreenTestLights.cpp in Sources */,
 				AAF74590061181F700B19AD1 /* RageDisplay_Null.cpp in Sources */,
 				AAD36084062BB8AE00D0CED8 /* RageSoundPosMap.cpp in Sources */,
@@ -5703,6 +5691,7 @@
 				F44EE8D412055A30008AE060 /* FileDownload.cpp in Sources */,
 				AA275C9812057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */,
 				AA275CC51205986B00E37368 /* InputHandler_MacOSX_HID.cpp in Sources */,
+				AAE5923C1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5889,7 +5878,6 @@
 				AA40D43209A08D650068C0D5 /* Steps.cpp in Sources */,
 				AA40D43309A08D650068C0D5 /* NoteDataUtil.cpp in Sources */,
 				AA40D43409A08D650068C0D5 /* BeginnerHelper.cpp in Sources */,
-				AA40D43509A08D650068C0D5 /* RageSoundDriver_CA.cpp in Sources */,
 				AA40D43609A08D650068C0D5 /* MovieTexture_FFMpeg.cpp in Sources */,
 				AA40D43709A08D650068C0D5 /* ProfileManager.cpp in Sources */,
 				AA40D43809A08D650068C0D5 /* RageSoundReader_WAV.cpp in Sources */,
@@ -5942,7 +5930,6 @@
 				AA40D46909A08D650068C0D5 /* ScreenSetTime.cpp in Sources */,
 				AA40D46A09A08D650068C0D5 /* NetworkSyncManager.cpp in Sources */,
 				AA40D46C09A08D650068C0D5 /* ActiveAttackList.cpp in Sources */,
-				AA40D46D09A08D650068C0D5 /* RageSoundDriver_Generic_Software.cpp in Sources */,
 				AA40D46E09A08D650068C0D5 /* ScreenTestLights.cpp in Sources */,
 				AA40D46F09A08D650068C0D5 /* RageDisplay_Null.cpp in Sources */,
 				AA40D47409A08D650068C0D5 /* RageSoundPosMap.cpp in Sources */,
@@ -6137,6 +6124,7 @@
 				AA275C6012056B2A00E37368 /* print.c in Sources */,
 				AA275C9A12057BE900E37368 /* LowLevelWindow_MacOSX.mm in Sources */,
 				AA275CC71205986B00E37368 /* InputHandler_MacOSX_HID.cpp in Sources */,
+				AAE5923D1206CA1200C325E1 /* RageSoundDriver_Generic_Software.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

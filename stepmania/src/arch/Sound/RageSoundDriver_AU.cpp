@@ -1,5 +1,5 @@
+#include "global.h"
 #include "RageSoundDriver_AU.h"
-#include "RageUtil.h"
 #include "RageLog.h"
 #include "PrefsManager.h"
 #include "archutils/Darwin/DarwinThreadHelpers.h"
@@ -10,13 +10,10 @@ static const UInt32 kChannelsPerFrame = 2;
 static const UInt32 kBitsPerChannel = 16;
 static const UInt32 kBytesPerPacket = kChannelsPerFrame * kBitsPerChannel / 8;
 static const UInt32 kBytesPerFrame = kBytesPerPacket;
-static const UInt32 kFormatFlags = kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsSignedInteger;
+static const UInt32 kFormatFlags = kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
 
-
-RageSound_AU::RageSound_AU() : m_OutputUnit(NULL), m_OutputDevice(NULL), m_iSampleRate(0),
-	m_fLatency(0.0), m_iLastSampleTime(0), m_iOffset(0), m_pIOThread(NULL)
-{
-}
+#define WERROR(str, num, extra...) str ": '%s' (%lu).", ## extra, FourCCToString(num).c_str(), (num)
+#define ERROR(str, num, extra...) (ssprintf(WERROR(str, (num), ## extra)))
 
 static inline RString FourCCToString( uint32_t num )
 {
@@ -38,16 +35,94 @@ static inline RString FourCCToString( uint32_t num )
 	
 	return s;
 }
-#define WERROR(str, num, extra...) str ": '%s' (%lu).", ## extra, FourCCToString(num).c_str(), (num)
-#define ERROR(str, num, extra...) (ssprintf(WERROR(str, (num), ## extra)))
+
+RageSoundDriver_AU::RageSoundDriver_AU() : m_OutputUnit(NULL), m_iSampleRate(0), m_bDone(false), m_bStarted(false),
+	m_pIOThread(NULL), m_pNotificationThread(NULL), m_Semaphore("Sound")
+{
+}
 
 
-RString RageSound_AU::Init()
+void RageSoundDriver_AU::NameHALThread( CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *inRefCon )
+{
+	RageSoundDriver_AU *This = (RageSoundDriver_AU *)inRefCon;
+	CFRunLoopObserverInvalidate( observer );
+	CFRelease( observer );
+	This->m_pNotificationThread = new RageThreadRegister( "HAL notification thread" );
+	This->m_Semaphore.Post();
+}
+
+static void SetSampleRate( AudioUnit au, Float64 desiredRate )
+{
+	AudioDeviceID OutputDevice;
+	OSStatus error;
+	UInt32 size = sizeof( AudioDeviceID );
+	
+	if( (error = AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
+					  kAudioUnitScope_Global, 0, &OutputDevice, &size)) )
+	{
+		LOG->Warn( WERROR("No output device", error) );
+		return;
+	}
+	
+	Float64 rate = 0.0;
+	size = sizeof( Float64 );
+	if( (error = AudioDeviceGetProperty(OutputDevice, 0, false, kAudioDevicePropertyNominalSampleRate,
+					    &size, &rate)) )
+	{
+		LOG->Warn( WERROR("Couldn't get the device's sample rate", error) );
+		return;
+	}
+	if( rate == desiredRate )
+		return;
+	
+	if( (error = AudioDeviceGetPropertyInfo(OutputDevice, 0, false, kAudioDevicePropertyAvailableNominalSampleRates,
+						&size, NULL)) )
+	{
+		LOG->Warn( WERROR("Couldn't get available nominal sample rates info", error) );
+		return;
+	}
+	
+	const int num = size/sizeof(AudioValueRange);
+	AudioValueRange *ranges = new AudioValueRange[num];
+	
+	if( (error = AudioDeviceGetProperty(OutputDevice, 0, false, kAudioDevicePropertyAvailableNominalSampleRates,
+					    &size, ranges)) )
+	{
+		LOG->Warn( WERROR("Couldn't get available nominal sample rates", error) );
+		delete[] ranges;
+		return;
+	}
+	
+	Float64 bestRate = 0.0;
+	for( int i = 0; i < num; ++i )
+	{
+		if( desiredRate >= ranges[i].mMinimum && desiredRate <= ranges[i].mMaximum )
+		{
+			bestRate = desiredRate;
+			break;
+		}
+		/* XXX: If the desired rate is supported by the device, then change it, if not
+		 * then we should select the "best" rate. I don't really know what such a best
+		 * rate would be. The rate closest to the desired value? A multiple of 2?
+		 * For now give up if the desired sample rate isn't available. */		
+	}
+	delete[] ranges;
+	if( bestRate == 0.0 )
+		return;
+		
+	if( (error = AudioDeviceSetProperty(OutputDevice, NULL, 0, false, kAudioDevicePropertyNominalSampleRate,
+					    sizeof(Float64), &bestRate)) )
+	{
+		LOG->Warn( WERROR("Couldn't set the device's sample rate", error) );
+	}
+}
+
+RString RageSoundDriver_AU::Init()
 {
 	ComponentDescription desc;
 	
 	desc.componentType = kAudioUnitType_Output;
-	desc.componentSubType = kAudioUnitSubType_HALOutput;
+	desc.componentSubType = kAudioUnitSubType_DefaultOutput;
 	desc.componentManufacturer = kAudioUnitManufacturer_Apple;
 	desc.componentFlags = 0;
 	desc.componentFlagsMask = 0;
@@ -87,9 +162,15 @@ RString RageSound_AU::Init()
 	streamFormat.mChannelsPerFrame = kChannelsPerFrame;
 	streamFormat.mBitsPerChannel = kBitsPerChannel;
 	
-	if( streamFormat.mSampleRate <= 0 )
+	if( streamFormat.mSampleRate <= 0.0 )
 		streamFormat.mSampleRate = 44100.0;
 	m_iSampleRate = int( streamFormat.mSampleRate );
+	m_TimeScale = streamFormat.mSampleRate / AudioGetHostClockFrequency();
+	
+	// Try to set the hardware sample rate.
+	SetSampleRate( m_OutputUnit, streamFormat.mSampleRate );
+
+
 	error = AudioUnitSetProperty( m_OutputUnit,
 				      kAudioUnitProperty_StreamFormat,
 				      kAudioUnitScope_Input,
@@ -108,129 +189,170 @@ RString RageSound_AU::Init()
 				      sizeof(renderQuality) );
 	if( error != noErr )
 		LOG->Warn( WERROR("Failed to set the maximum render quality", error) );
-	
-	
-	UInt32 data = 1;
-	error = AudioUnitSetProperty( m_OutputUnit,
-				      kAudioOutputUnitProperty_EnableIO,
-				      kAudioUnitScope_Output,
-				      0,
-				      &data,
-				      sizeof(data) );
-	if( error != noErr )
-		return ERROR( "Could not enable output I/O", error );
-	
-	UInt32 size = sizeof(AudioDeviceID);
-	
-	error = AudioHardwareGetProperty( kAudioHardwarePropertyDefaultOutputDevice, &size, &m_OutputDevice );
-	if( error != noErr )
-		return ERROR( "Could not get the default output device", error );
-	
-	error = AudioUnitSetProperty( m_OutputUnit,
-				      kAudioOutputUnitProperty_CurrentDevice,
-				      kAudioUnitScope_Global,
-				      0,
-				      &m_OutputDevice,
-				      sizeof(AudioDeviceID) );
-	if( error != noErr )
-		return ERROR( "Could not set the default output device", error );
-	
-	// XXX set channel map
-#if 1
-	data = 0;
-	error = AudioUnitSetProperty( m_OutputUnit,
-				      2007, //kAudioOutputUnitProperty_StartTimestampsAtZero,
-				      kAudioUnitScope_Global,
-				      0,
-				      &data,
-				      sizeof(data) );
-	if( error != noErr )
-		return ERROR( "Could not set AudioUnit to use the device's time stamps", error );
-#endif
-	
+		
 	// Initialize the AU.
-	error = AudioUnitInitialize( m_OutputUnit );
-	if( error != noErr )
+	if( (error = AudioUnitInitialize(m_OutputUnit)) )
 		return ERROR( "Could not initialize the AudioUnit", error );
 	
-	Float64 latency = 0.0;
-	
-	size = sizeof(latency);
-	error = AudioUnitGetProperty( m_OutputUnit,
-				      kAudioUnitProperty_Latency,
-				      kAudioUnitScope_Output,
-				      0,
-				      &latency,
-				      &size );
-	if( error != noErr )
-		LOG->Warn( WERROR("Could not get latency", error) );
-	LOG->Info( "Latency: %lf", latency );
-	m_fLatency = latency;
-	
 	StartDecodeThread();
-	error = AudioOutputUnitStart( m_OutputUnit );
-	if( error != noErr )
+	
+	// Get the HAL's runloop and attach an observer.
+	{
+		CFRunLoopObserverRef observerRef;
+		CFRunLoopRef runLoopRef;
+		CFRunLoopObserverContext context = { 0, this, NULL, NULL, NULL };
+		UInt32 size = sizeof( CFRunLoopRef );
+
+		if( (error = AudioHardwareGetProperty(kAudioHardwarePropertyRunLoop, &size, &runLoopRef)) )
+			return ERROR( "Couldn't get the HAL's run loop", error);
+		
+		observerRef = CFRunLoopObserverCreate( kCFAllocatorDefault, kCFRunLoopAllActivities, false, 0, NameHALThread, &context );
+		CFRunLoopAddObserver( runLoopRef, observerRef, kCFRunLoopDefaultMode );
+		CFRunLoopWakeUp( runLoopRef );
+		m_Semaphore.Wait();
+	}
+
+	if( (error = AudioOutputUnitStart(m_OutputUnit)) )
 		return ERROR( "Could not start the AudioUnit", error );
+	m_bStarted = true;
 	return RString();
 }
 
-RageSound_AU::~RageSound_AU()
+RageSoundDriver_AU::~RageSoundDriver_AU()
 {
-	AudioOutputUnitStop( m_OutputUnit );
+	if( !m_OutputUnit )
+		return;
+	if( m_bStarted )
+	{
+		m_bDone = true;
+		m_Semaphore.Wait();
+	}
 	AudioUnitUninitialize( m_OutputUnit );
 	CloseComponent( m_OutputUnit );
+	delete m_pIOThread;
+	delete m_pNotificationThread;
 }
 
-int64_t RageSound_AU::GetPosition( const RageSoundBase *sound ) const
+int64_t RageSoundDriver_AU::GetPosition( const RageSoundBase *sound ) const
 {
-	AudioTimeStamp time;
-	OSStatus error;
-	
-	if( (error = AudioDeviceGetCurrentTime(m_OutputDevice, &time)) )
-	{
-		if( error != kAudioHardwareNotRunningError )
-			FAIL_M( ERROR("GetCurrentTime() failed", error) );
-		return m_iLastSampleTime;
-	}
-	m_iLastSampleTime = int64_t( time.mSampleTime ) + m_iOffset;
-	return m_iLastSampleTime;
+	return int64_t( m_TimeScale * AudioGetCurrentHostTime() );
 }
 
 
-void RageSound_AU::SetupDecodingThread()
+void RageSoundDriver_AU::SetupDecodingThread()
 {
 	/* Increase the scheduling precedence of the decoder thread. */
 	SetThreadPrecedence( 0.75f );
 }
 
-OSStatus RageSound_AU::Render( void *inRefCon,
+float RageSoundDriver_AU::GetPlayLatency() const
+{
+	OSStatus error;
+	UInt32 bufferSize;
+	AudioDeviceID OutputDevice;
+	UInt32 size = sizeof( AudioDeviceID );
+	Float64 sampleRate;
+	
+	if( (error = AudioUnitGetProperty(m_OutputUnit, kAudioOutputUnitProperty_CurrentDevice,
+					  kAudioUnitScope_Global, 0, &OutputDevice, &size)) )
+	{
+		LOG->Warn( WERROR("No output device", error) );
+		return 0.0f;
+	}
+	
+	size = sizeof( Float64 );
+	if( (error = AudioDeviceGetProperty(OutputDevice, 0, false, kAudioDevicePropertyNominalSampleRate, &size, &sampleRate)) )
+	{
+		LOG->Warn( WERROR("Couldn't get the device sample rate", error) );
+		return 0.0f;
+	}	
+
+	size = sizeof( UInt32 );
+	if( (error = AudioDeviceGetProperty(OutputDevice, 0, false, kAudioDevicePropertyBufferFrameSize, &size, &bufferSize)) )
+	{
+		LOG->Warn( WERROR("Couldn't determine buffer size", error) );
+		bufferSize = 0;
+	}
+	
+	UInt32 frames;
+	
+	size = sizeof( UInt32 );
+	if( (error = AudioDeviceGetProperty(OutputDevice, 0, false, kAudioDevicePropertyLatency, &size, &frames)) )
+	{
+		LOG->Warn( WERROR( "Couldn't get device latency", error) );
+		frames = 0;
+	}
+
+	bufferSize += frames;
+	size = sizeof( UInt32 );
+	if( (error = AudioDeviceGetProperty(OutputDevice, 0, false, kAudioDevicePropertySafetyOffset, &size, &frames)) )
+	{
+		LOG->Warn( WERROR("Couldn't get device safety offset", error) );
+		frames = 0;
+	}
+	bufferSize += frames;
+	size = sizeof( UInt32 );
+
+	do {
+		if( (error = AudioDeviceGetPropertyInfo(OutputDevice, 0, false, kAudioDevicePropertyStreams, &size, NULL)) )
+		{
+			LOG->Warn( WERROR("Device has no streams", error) );
+			break;
+		}
+		int num = size / sizeof( AudioStreamID );
+		if( num == 0 )
+		{
+			LOG->Warn( "Device has no streams." );
+			break;
+		}
+		AudioStreamID *streams = new AudioStreamID[num];
+
+		if( (error = AudioDeviceGetProperty(OutputDevice, 0, false, kAudioDevicePropertyStreams, &size, streams)) )
+		{
+			LOG->Warn( WERROR("Cannot get device's streams", error) );
+			delete[] streams;
+			break;
+		}
+		if( (error = AudioStreamGetProperty(streams[0], 0, kAudioDevicePropertyLatency, &size, &frames)) )
+		{
+			LOG->Warn( WERROR("Stream does not report latency", error) );
+			frames = 0;
+		}
+		delete[] streams;
+		bufferSize += frames;
+	} while( false );
+	
+	return float( bufferSize / sampleRate );
+}
+	
+
+OSStatus RageSoundDriver_AU::Render( void *inRefCon,
 			       AudioUnitRenderActionFlags *ioActionFlags,
 			       const AudioTimeStamp *inTimeStamp,
 			       UInt32 inBusNumber,
 			       UInt32 inNumberFrames,
 			       AudioBufferList *ioData )
 {
-	RageSound_AU *This = (RageSound_AU *)inRefCon;
-	AudioTimeStamp time;
-	
-	time.mFlags = inTimeStamp->mFlags & ~kAudioTimeStampHostTimeValid;
-	
-	AudioDeviceTranslateTime( This->m_OutputDevice, inTimeStamp, &time );
-	//ASSERT( time.mFlags & kAudioTimeStampHostTimeValid );
-	
+	RageSoundDriver_AU *This = (RageSoundDriver_AU *)inRefCon;
+
 	if( unlikely(This->m_pIOThread == NULL) )
 		This->m_pIOThread = new RageThreadRegister( "HAL I/O thread" );
+
 	AudioBuffer &buf = ioData->mBuffers[0];
-	//int64_t decodePos = int64_t( time.mSampleTime ) + This->m_iOffset;
-	int64_t decodePos = int64_t( inTimeStamp->mSampleTime ) + This->m_iOffset;
+	int64_t now = int64_t( This->m_TimeScale * AudioGetCurrentHostTime() );
+	int64_t next = int64_t( This->m_TimeScale * inTimeStamp->mHostTime );
 	
-	This->Mix( (int16_t *)buf.mData, inNumberFrames, decodePos, This->GetPosition(NULL) );
+	This->Mix( (int16_t *)buf.mData, inNumberFrames, next, now );
+	if( unlikely(This->m_bDone) )
+	{
+		AudioOutputUnitStop( This->m_OutputUnit );
+		This->m_Semaphore.Post();
+	}	
 	return noErr;
 }
 
-
 /*
- * (c) 2004-2006 Steve Checkoway
+ * (c) 2004-2007 Steve Checkoway
  * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a

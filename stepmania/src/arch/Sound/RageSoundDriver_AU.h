@@ -5,14 +5,14 @@
 #include "RageThreads.h"
 #include <AudioUnit/AudioUnit.h>
 
-class RageSound_AU : public RageSound_Generic_Software
+class RageSoundDriver_AU: public RageSound_Generic_Software
 {
 public:
-	RageSound_AU();
+	RageSoundDriver_AU();
 	RString Init();
-	~RageSound_AU();
-	float GetPlayLatency() const { return m_fLatency; }
-	int GetSampleRate( int rate ) const { return m_iSampleRate; }
+	~RageSoundDriver_AU();
+	float GetPlayLatency() const;
+	int GetSampleRate() const { return m_iSampleRate; }
 	int64_t GetPosition( const RageSoundBase *sound ) const;
 	
 protected:
@@ -25,16 +25,20 @@ private:
 				UInt32 inBusNumber,
 				UInt32 inNumberFrames,
 				AudioBufferList *ioData );
+	static void NameHALThread( CFRunLoopObserverRef, CFRunLoopActivity activity, void *inRefCon );
+
+	double m_TimeScale;
 	AudioUnit m_OutputUnit;
-	AudioDeviceID m_OutputDevice;
 	int m_iSampleRate;
-	float m_fLatency;
-	mutable int64_t m_iLastSampleTime;
-	int64_t m_iOffset;
+	bool m_bDone;
+	bool m_bStarted;
 	RageThreadRegister *m_pIOThread;
+	RageThreadRegister *m_pNotificationThread;
+	RageSemaphore m_Semaphore;
 };
 
 #define USE_RAGE_SOUND_AU
+
 #endif
 /*
  * (c) 2004-2006 Steve Checkoway
