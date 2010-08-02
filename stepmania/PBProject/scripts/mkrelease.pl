@@ -30,6 +30,7 @@ while( <FH> )
 	} elsif( /^#define\s+PRODUCT_VER_BARE\s+(.*?)\s*$/ ) {
 		$ver = $1;
 	}
+	
 }
 close FH;
 
@@ -44,6 +45,10 @@ mkdir $dstdir;
 # Copy StepMania
 system 'cp', '-r', "$srcdir/StepMania.app", $dstdir and die "cp -r failed: $!\n";
 system 'strip', '-x', "$dstdir/StepMania.app/Contents/MacOS/StepMania";
+
+# SUPER HACK: Setting the position of the first non-hidden file icon doesn't take effect for some reason.  Figure out why eventually so that we can remove 0dummy.
+system 'cp', 'scripts/0dummy', "$tmp/" and die "ln -s failed: $!\n";
+system 'cp', 'scripts/Applications', "$tmp/" and die "ln -s failed: $!\n";
 
 #system "$srcdir/Utils/CreatePackage.pl", $srcdir, "$dstdir/StepMania.app/Contents/Resources" and die "mksmdata.pl failed: $!\n";
 
@@ -77,6 +82,14 @@ my @svndirs = split /\n/, `find "$dstdir" -type d -name .svn`;
 rmtree \@svndirs;
 
 
-# Make a dmg
-system qw/hdiutil create -ov -format UDZO -imagekey zlib-level=9 -srcfolder/, $tmp, '-volname', $destname, "$root/$destname-mac.dmg";
+# Make a dmg (old)
+#system qw/hdiutil create -ov -format UDZO -imagekey zlib-level=9 -srcfolder/, $tmp, '-volname', $destname, "$root/$destname-mac.dmg";
+my $dmg = "$root/$destname-mac.dmg";
+
+# Make a dmg (new)
+system 'rm', $dmg;
+system 'sh', 'scripts/yoursway-create-dmg-1.0.0.2/create-dmg', '--window-size', '750', '370', '--background', 'scripts/background.png', '--icon-size', '64', '--volname', "$family $ver", '--icon', '0dummy', '600', '250', '--icon', 'Applications', '450', '250', '--icon', $id, '270', '250', $dmg, $tmp;
+
+
 rmtree $tmp;
+
