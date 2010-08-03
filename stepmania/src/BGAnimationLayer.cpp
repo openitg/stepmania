@@ -293,13 +293,22 @@ void BGAnimationLayer::LoadFromAniLayerFile( const RString& sPath )
 						m_fTileVelocityY = +PARTICLE_SPEED;
 						break;
 					case EFFECT_TILE_FLIP_X:
-						pSprite->SetEffectSpin( RageVector3(2,0,0) );
+						{
+							apActorCommands ap( new ActorCommands(ssprintf("spin;effectmagnitude,2,0,0")) );
+							pSprite->AddCommand( "On", ap );
+						}
 						break;
 					case EFFECT_TILE_FLIP_Y:
-						pSprite->SetEffectSpin( RageVector3(0,2,0) );
+						{
+							apActorCommands ap( new ActorCommands(ssprintf("spin;effectmagnitude,0,2,0")) );
+							pSprite->AddCommand( "On", ap );
+						}
 						break;
 					case EFFECT_TILE_PULSE:
-						pSprite->SetEffectPulse( 1, 0.3f, 1.f );
+						{
+							apActorCommands ap( new ActorCommands(ssprintf("pulse;effectmagnitude,0.3,1,0;effectperiod,1")) );
+							pSprite->AddCommand( "On", ap );
+						}
 						break;
 					default:
 						ASSERT(0);
