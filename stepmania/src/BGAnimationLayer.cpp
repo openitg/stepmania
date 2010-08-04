@@ -214,8 +214,17 @@ void BGAnimationLayer::LoadFromAniLayerFile( const RString& sPath )
 				this->AddChild( pSprite );
 				pSprite->Load( sPath );
 				pSprite->SetZoom( 0.7f + 0.6f*i/(float)iNumParticles );
-				pSprite->SetX( randomf( GetGuardRailLeft(pSprite), GetGuardRailRight(pSprite) ) );
-				pSprite->SetY( randomf( GetGuardRailTop(pSprite), GetGuardRailBottom(pSprite) ) );
+				switch( effect )
+				{
+				case EFFECT_PARTICLES_BOUNCE:
+					pSprite->SetX( randomf( GetGuardRailLeft(pSprite), GetGuardRailRight(pSprite) ) );
+					pSprite->SetY( randomf( GetGuardRailTop(pSprite), GetGuardRailBottom(pSprite) ) );
+					break;
+				default:
+					pSprite->SetX( randomf( GetOffScreenLeft(pSprite), GetOffScreenRight(pSprite) ) );
+					pSprite->SetY( randomf( GetOffScreenTop(pSprite), GetOffScreenBottom(pSprite) ) );
+					break;
+				}
 
 				switch( effect )
 				{
@@ -238,6 +247,8 @@ void BGAnimationLayer::LoadFromAniLayerFile( const RString& sPath )
 					pSprite->SetZoom( 1 );
 					m_vParticleVelocity.push_back( RageVector3( randomf(), randomf(), 0 ) );
 					RageVec3Normalize( &m_vParticleVelocity[i], &m_vParticleVelocity[i] );
+					m_vParticleVelocity[i].x *= PARTICLE_SPEED;
+					m_vParticleVelocity[i].y *= PARTICLE_SPEED;
 					break;
 				default:
 					ASSERT(0);
