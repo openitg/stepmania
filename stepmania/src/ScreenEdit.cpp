@@ -937,14 +937,22 @@ void ScreenEdit::Update( float fDeltaTime )
 
 
 	// Update trailing beat
-	float fDelta = GAMESTATE->m_fSongBeat - m_fTrailingBeat;
-	if( fabsf(fDelta) < 10 )
-		fapproach( m_fTrailingBeat, GAMESTATE->m_fSongBeat,
-			fDeltaTime*40 / m_NoteFieldEdit.GetPlayerState()->m_CurrentPlayerOptions.m_fScrollSpeed );
+	if( m_EditState != STATE_EDITING )
+	{
+		// Snap in playback and in record so that we don't smooth scroll through negative BPM or negative stops.
+		m_fTrailingBeat = GAMESTATE->m_fSongBeat;
+	}
 	else
-		fapproach( m_fTrailingBeat, GAMESTATE->m_fSongBeat,
-			fabsf(fDelta) * fDeltaTime*5 );
-
+	{
+		float fDelta = GAMESTATE->m_fSongBeat - m_fTrailingBeat;
+		if( fabsf(fDelta) < 10 )
+			fapproach( m_fTrailingBeat, GAMESTATE->m_fSongBeat,
+				fDeltaTime*40 / m_NoteFieldEdit.GetPlayerState()->m_CurrentPlayerOptions.m_fScrollSpeed );
+		else
+			fapproach( m_fTrailingBeat, GAMESTATE->m_fSongBeat,
+				fabsf(fDelta) * fDeltaTime*5 );
+	}
+	
 	PlayTicks();
 }
 
