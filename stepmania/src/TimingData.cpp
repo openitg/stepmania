@@ -220,15 +220,15 @@ void TimingData::GetBeatAndBPSFromElapsedTimeNoOffset( float fElapsedTime, float
 		const float fStartBeatNextSegment = NoteRowToBeat( iStartRowNextSegment );
 		const float fBPS = m_BPMSegments[i].m_fBPS;
 
-		for( unsigned j=0; j<m_StopSegments.size(); j++ )	// foreach freeze
+		FOREACH_CONST( StopSegment, m_StopSegments, ss )
 		{
-			if( !bIsFirstBPMSegment && iStartRowThisSegment >= m_StopSegments[j].m_iStartRow )
+			if( !bIsFirstBPMSegment && iStartRowThisSegment >= ss->m_iStartRow )
 				continue;
-			if( !bIsLastBPMSegment && m_StopSegments[j].m_iStartRow > iStartRowNextSegment )
+			if( !bIsLastBPMSegment && ss->m_iStartRow > iStartRowNextSegment )
 				continue;
 
 				// this freeze lies within this BPMSegment
-			const int iRowsBeatsSinceStartOfSegment = m_StopSegments[j].m_iStartRow - iStartRowThisSegment;
+			const int iRowsBeatsSinceStartOfSegment = ss->m_iStartRow - iStartRowThisSegment;
 			const float fBeatsSinceStartOfSegment = NoteRowToBeat(iRowsBeatsSinceStartOfSegment);
 			const float fFreezeStartSecond = fBeatsSinceStartOfSegment / fBPS;
 			
@@ -236,12 +236,12 @@ void TimingData::GetBeatAndBPSFromElapsedTimeNoOffset( float fElapsedTime, float
 				break;
 
 			// the freeze segment is <= current time
-			fElapsedTime -= m_StopSegments[j].m_fStopSeconds;
+			fElapsedTime -= ss->m_fStopSeconds;
 
 			if( fFreezeStartSecond >= fElapsedTime )
 			{
 				/* The time lies within the stop. */
-				fBeatOut = NoteRowToBeat(m_StopSegments[j].m_iStartRow);
+				fBeatOut = NoteRowToBeat(ss->m_iStartRow);
 				fBPSOut = fBPS;
 				bFreezeOut = true;
 				return;
