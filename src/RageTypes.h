@@ -81,6 +81,16 @@ enum PolygonMode
 };
 LuaDeclareType( PolygonMode );
 
+enum TextGlowMode
+{
+	TextGlowMode_Inner,
+	TextGlowMode_Stroke,
+	TextGlowMode_Both,
+	NUM_TextGlowMode,
+	TextGlowMode_Invalid
+};
+LuaDeclareType( TextGlowMode );
+
 struct lua_State;
 
 struct RageVector2

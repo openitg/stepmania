@@ -173,6 +173,15 @@ static const char *ZTestModeNames[] =
 XToString( ZTestMode );
 LuaXType( ZTestMode );
 
+static const char *TextGlowModeNames[] =
+{
+	"Inner",
+	"Stroke",
+	"Both"
+};
+XToString( TextGlowMode );
+LuaXType( TextGlowMode );
+
 int LuaFunc_color( lua_State *L )
 {
 	RString sColor = SArg(1);

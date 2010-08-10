@@ -57,7 +57,9 @@ BitmapText::BitmapText()
 
 	m_StrokeColor = RageColor(1,1,1,1);
 
-	SetShadowLength( 4 );
+	SetShadowLength( 2 );
+
+	m_TextGlowMode = TextGlowMode_Both;
 }
 
 BitmapText::~BitmapText()
@@ -696,9 +698,21 @@ void BitmapText::DrawPrimitives()
 			for( ; i < iEnd; ++i )
 				m_aVertices[i].c = attr.glow;
 		}
-		// draw glow using the base texture and the glow texture.  Otherwise, glow looks too tame on BitmapText that has a stroke.
-		DrawChars( false );
-		DrawChars( true );
+		/* Draw glow using the base texture and the glow texture. Otherwise,
+		 * glow looks too tame on BitmapText that has a stroke. - Chris
+		 *
+		 * This doesn't work well if the font is using an invisible stroke,
+		 * as the invisible stroke will glow as well (which is sometimes
+		 * unwanted). -aj
+		 */
+		if(m_TextGlowMode == TextGlowMode_Inner || m_TextGlowMode == TextGlowMode_Both)
+		{
+			DrawChars( false );
+		}
+		if(m_TextGlowMode == TextGlowMode_Stroke || m_TextGlowMode == TextGlowMode_Both)
+		{
+			DrawChars( true );
+		}
 	}
 }
 

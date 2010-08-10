@@ -42,6 +42,8 @@ public:
 	void SetStrokeColor( RageColor c )	{ m_StrokeColor = c; }
 	RageColor GetStrokeColor()		{ return m_StrokeColor; }
 
+	void SetTextGlowMode( TextGlowMode tgm )	{ m_TextGlowMode = tgm; }
+
 	void GetLines( vector<wstring> &wTextLines ) const { wTextLines = m_wTextLines; }
 	const vector<wstring> &GetLines() const { return m_wTextLines; }
 
@@ -58,7 +60,7 @@ public:
 		
 		void FromStack( lua_State *L, int iPos );
 	};
-	
+
 	Attribute GetDefaultAttribute() const;
 	void AddAttribute( size_t iPos, const Attribute &attr );
 	void ClearAttributes();
@@ -88,7 +90,8 @@ protected:
 	bool				m_bHasGlowAttribute;
 
 	RageColor		m_StrokeColor;
-	
+	TextGlowMode	m_TextGlowMode;
+
 	// recalculate the items in SetText()
 	void BuildChars();
 	void DrawChars( bool bUseStrokeTexture );
