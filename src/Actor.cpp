@@ -1382,8 +1382,6 @@ public:
 	static int backfacecull( T* p, lua_State *L )		{ p->SetCullMode((BIArg(1)) ? CULL_BACK : CULL_NONE); return 0; }
 	static int cullmode( T* p, lua_State *L )		{ p->SetCullMode( Enum::Check<CullMode>(L, 1)); return 0; }
 	static int visible( T* p, lua_State *L )		{ p->SetVisible(BIArg(1)); return 0; }
-	// TODO: Remove hidden and leave visible
-	static int hidden( T* p, lua_State *L )			{ p->SetVisible(!BIArg(1)); return 0; }
 	static int hibernate( T* p, lua_State *L )		{ p->SetHibernate(FArg(1)); return 0; }
 	static int draworder( T* p, lua_State *L )		{ p->SetDrawOrder(IArg(1)); return 0; }
 	static int playcommand( T* p, lua_State *L )
@@ -1587,7 +1585,6 @@ public:
 		ADD_METHOD( backfacecull );
 		ADD_METHOD( cullmode );
 		ADD_METHOD( visible );
-		ADD_METHOD( hidden );
 		ADD_METHOD( hibernate );
 		ADD_METHOD( draworder );
 		ADD_METHOD( playcommand );
