@@ -227,7 +227,6 @@ Section "Main Section" SecMain
 
 	CreateDirectory "$INSTDIR\BGAnimations"
 	SetOutPath "$INSTDIR\BGAnimations"
-	File "BGAnimations\instructions.txt"
 
 	CreateDirectory "$INSTDIR\CDTitles"
 	SetOutPath "$INSTDIR\CDTitles"
