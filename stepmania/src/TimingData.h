@@ -79,6 +79,12 @@ public:
 		return fBeat;
 	}
 	float GetElapsedTimeFromBeatNoOffset( float fBeat ) const;
+	struct UnreachableSegment
+	{
+		int iNoteRowStart;
+		int iNoteRowEnd;
+	};
+	void GetUnreachableSegments( vector<UnreachableSegment> &vUnreachable ) const;
 
 	bool HasBpmChanges() const;
 	bool HasStops() const;

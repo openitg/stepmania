@@ -1367,8 +1367,21 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 
 	int iNumMissesFound = 0;
 
+	vector<TimingData::UnreachableSegment> vUnreachable;
+	GAMESTATE->m_pCurSong->m_Timing.GetUnreachableSegments( vUnreachable );
+
 	FOREACH_NONEMPTY_ROW_ALL_TRACKS_RANGE( m_NoteData, r, iStartCheckingAt, iMissIfOlderThanThisIndex-1 )
 	{
+		bool bUnreachable = false;
+		FOREACH_CONST( TimingData::UnreachableSegment, vUnreachable, u )
+		{
+			if( r >= u->iNoteRowStart && r <= u->iNoteRowEnd )
+			{
+				bUnreachable = true;
+				break;
+			}
+		}
+
 		bool MissedNoteOnThisRow = false;
 		for( int t=0; t<m_NoteData.GetNumTracks(); t++ )
 		{
@@ -1400,7 +1413,12 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 			{
 				// A normal note.  Penalize for not stepping on it.
 				MissedNoteOnThisRow = true;
-				tn.result.tns =	TNS_Miss;
+				// Auto W3 (life-neutral in most themes) unreachable notes to make songs with negative BPMs at least playable.  
+				// Otherwise, we judge all unhittable notes at misses and have immediate fails.
+				if( bUnreachable )
+					tn.result.tns =	TNS_W3;
+				else
+					tn.result.tns =	TNS_Miss;
 			}
 
 			m_NoteData.SetTapNote( t, r, tn );
