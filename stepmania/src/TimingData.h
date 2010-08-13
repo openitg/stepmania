@@ -42,6 +42,22 @@ struct StopSegment
 	bool operator!=( const StopSegment &other ) const { return !operator==(other); }
 };
 
+struct WarpSegment 
+{
+	WarpSegment() { m_iStartRow = -1; m_fWarpBeats = -1; }
+	WarpSegment( int s, float b ) { m_iStartRow = s; m_fWarpBeats = b; }
+	int m_iStartRow;
+	float m_fWarpBeats;
+
+	bool operator==( const WarpSegment &other ) const
+	{
+		COMPARE( m_iStartRow );
+		COMPARE( m_fWarpBeats );
+		return true;
+	}
+	bool operator!=( const WarpSegment &other ) const { return !operator==(other); }
+};
+
 class TimingData
 {
 public:
@@ -57,6 +73,7 @@ public:
 	void MultiplyBPMInBeatRange( int iStartIndex, int iEndIndex, float fFactor );
 	void AddBPMSegment( const BPMSegment &seg );
 	void AddStopSegment( const StopSegment &seg );
+	void AddWarpSegment( const WarpSegment &seg );
 	int GetBPMSegmentIndexAtBeat( float fBeat );
 	BPMSegment& GetBPMSegmentAtBeat( float fBeat );
 
@@ -109,6 +126,7 @@ public:
 	RString						m_sFile;		// informational only
 	vector<BPMSegment>			m_BPMSegments;	// this must be sorted before gameplay
 	vector<StopSegment>			m_StopSegments;	// this must be sorted before gameplay
+	vector<WarpSegment>			m_WarpSegments;	// this must be sorted before gameplay
 	float	m_fBeat0OffsetInSeconds;
 };
 

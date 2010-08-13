@@ -127,7 +127,6 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 				out.AddStopSegment( new_seg );
 			}
 		}
-
 		else if( sValueName=="BPMS" )
 		{
 			vector<RString> arrayBPMChangeExpressions;
@@ -154,6 +153,33 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 				new_seg.SetBPM( fNewBPM );
 				
 				out.AddBPMSegment( new_seg );
+			}
+		}
+		else if( sValueName=="WARPS" )
+		{
+			vector<RString> vsWarps;
+			split( sParams[1], ",", vsWarps );
+
+			FOREACH_CONST( RString, vsWarps, sWarp )
+			{
+				vector<RString> vs;
+				split( *sWarp, "=", vs );
+				/* XXX: Once we have a way to display warnings that the user actually
+				 * cares about (unlike most warnings), this should be one of them. */
+				if(vs.size() != 2)
+				{
+					LOG->Warn( "Invalid #%s value \"%s\" (must have exactly one '='), ignored",
+						sValueName.c_str(), sWarp->c_str() );
+					continue;
+				}
+
+				const float fStartBeat = StringToFloat( vs[0] );
+				const float fWarpBeats = StringToFloat( vs[1] );
+				
+				WarpSegment seg;
+				seg.m_iStartRow = BeatToNoteRow(fStartBeat);
+				seg.m_fWarpBeats = fWarpBeats;
+				out.AddWarpSegment( seg );
 			}
 		}
 	}

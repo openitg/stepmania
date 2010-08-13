@@ -25,7 +25,6 @@ static int CompareBPMSegments(const BPMSegment &seg1, const BPMSegment &seg2)
 {
 	return seg1.m_iStartIndex < seg2.m_iStartIndex;
 }
-
 void SortBPMSegmentsArray( vector<BPMSegment> &arrayBPMSegments )
 {
 	sort( arrayBPMSegments.begin(), arrayBPMSegments.end(), CompareBPMSegments );
@@ -35,10 +34,18 @@ static int CompareStopSegments(const StopSegment &seg1, const StopSegment &seg2)
 {
 	return seg1.m_iStartRow < seg2.m_iStartRow;
 }
-
 void SortStopSegmentsArray( vector<StopSegment> &arrayStopSegments )
 {
 	sort( arrayStopSegments.begin(), arrayStopSegments.end(), CompareStopSegments );
+}
+
+static int CompareWarpSegments(const WarpSegment &seg1, const WarpSegment &seg2)
+{
+	return seg1.m_iStartRow < seg2.m_iStartRow;
+}
+void SortWarpSegmentsArray( vector<WarpSegment> &v )
+{
+	sort( v.begin(), v.end(), CompareWarpSegments );
 }
 
 void TimingData::GetActualBPM( float &fMinBPMOut, float &fMaxBPMOut ) const
@@ -64,6 +71,12 @@ void TimingData::AddStopSegment( const StopSegment &seg )
 {
 	m_StopSegments.push_back( seg );
 	SortStopSegmentsArray( m_StopSegments );
+}
+
+void TimingData::AddWarpSegment( const WarpSegment &seg )
+{
+	m_WarpSegments.push_back( seg );
+	SortWarpSegmentsArray( m_WarpSegments );
 }
 
 /* Change an existing BPM segment, merge identical segments together or insert a new one. */
