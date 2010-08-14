@@ -210,24 +210,23 @@ struct UnreachableNoteInfo
 	float fLengthSeconds;
 };
 
-void GetBeatAndBPSFromElapsedTimeNoOffsetInternal( const TimingData &td, float fElapsedTime, float &fBeatOut, float &fBPSOut, bool &bFreezeOut, vector<UnreachableNoteInfo> *pvUnreachableNoteRows )
+void TimingData::GetBeatAndBPSFromElapsedTimeNoOffset( float fElapsedTime, float &fBeatOut, float &fBPSOut, bool &bFreezeOut ) const
 {
 //	LOG->Trace( "GetBeatAndBPSFromElapsedTime( fElapsedTime = %f )", fElapsedTime );
 
-	fElapsedTime += td.m_fBeat0OffsetInSeconds;
+	fElapsedTime += m_fBeat0OffsetInSeconds;
 
-
-	for( unsigned i=0; i<td.m_BPMSegments.size(); i++ ) // foreach BPMSegment
+	for( unsigned i=0; i<m_BPMSegments.size(); i++ ) // foreach BPMSegment
 	{
-		const int iStartRowThisSegment = td.m_BPMSegments[i].m_iStartIndex;
+		const int iStartRowThisSegment = m_BPMSegments[i].m_iStartIndex;
 		const float fStartBeatThisSegment = NoteRowToBeat( iStartRowThisSegment );
 		const bool bIsFirstBPMSegment = i==0;
-		const bool bIsLastBPMSegment = i==td.m_BPMSegments.size()-1;
-		const int iStartRowNextSegment = bIsLastBPMSegment ? MAX_NOTE_ROW : td.m_BPMSegments[i+1].m_iStartIndex; 
+		const bool bIsLastBPMSegment = i==m_BPMSegments.size()-1;
+		const int iStartRowNextSegment = bIsLastBPMSegment ? MAX_NOTE_ROW : m_BPMSegments[i+1].m_iStartIndex; 
 		const float fStartBeatNextSegment = NoteRowToBeat( iStartRowNextSegment );
-		const float fBPS = td.m_BPMSegments[i].m_fBPS;
+		const float fBPS = m_BPMSegments[i].m_fBPS;
 
-		FOREACH_CONST( StopSegment, td.m_StopSegments, ss )
+		FOREACH_CONST( StopSegment, m_StopSegments, ss )
 		{
 			if( !bIsFirstBPMSegment && iStartRowThisSegment >= ss->m_iStartRow )
 				continue;
@@ -245,12 +244,6 @@ void GetBeatAndBPSFromElapsedTimeNoOffsetInternal( const TimingData &td, float f
 
 			// the freeze segment is <= current time
 			fElapsedTime -= ss->m_fStopSeconds;
-
-			if( pvUnreachableNoteRows && ss->m_fStopSeconds < 0 )
-			{
-				UnreachableNoteInfo uni = { ss->m_iStartRow, ss->m_fStopSeconds * -1 };
-				pvUnreachableNoteRows->push_back( uni );
-			}
 
 			if( fFreezeStartSecond >= fElapsedTime )
 			{
@@ -275,35 +268,26 @@ void GetBeatAndBPSFromElapsedTimeNoOffsetInternal( const TimingData &td, float f
 
 		// this BPMSegment is NOT the current segment
 		fElapsedTime -= fSecondsInThisSegment;
-
-		if( pvUnreachableNoteRows && fSecondsInThisSegment < 0 )
-		{
-			UnreachableNoteInfo uni = { iStartRowThisSegment, fSecondsInThisSegment * -1 };
-			pvUnreachableNoteRows->push_back( uni );
-		}
 	}
-}
-
-void TimingData::GetBeatAndBPSFromElapsedTimeNoOffset( float fElapsedTime, float &fBeatOut, float &fBPSOut, bool &bFreezeOut ) const
-{
-	return GetBeatAndBPSFromElapsedTimeNoOffsetInternal( *this, fElapsedTime, fBeatOut, fBPSOut, bFreezeOut, NULL);
 }
 
 void TimingData::GetUnreachableSegments( vector<UnreachableSegment> &vUnreachable ) const
 {
-	float fBeat, fThrowAway;
-	bool bThrowAway;
-	vector<UnreachableNoteInfo> vUnis;
-	GetBeatAndBPSFromElapsedTimeNoOffsetInternal( *this, 99999, fBeat, fThrowAway, bThrowAway, &vUnis );
-	FOREACH_CONST( UnreachableNoteInfo, vUnis, uni )
+	FOREACH_CONST( BPMSegment, m_BPMSegments, seg )
 	{
-		float fStartBeat = NoteRowToBeat( uni->iStartRow );
-		float fStartSeconds = GetElapsedTimeFromBeat( fStartBeat );
-		float fEndSeconds = fStartSeconds + uni->fLengthSeconds;
-		float fEndBeat = GetBeatFromElapsedTime( fEndSeconds );
-		int iRowEnd = BeatToNoteRow( fEndBeat );
-
-		UnreachableSegment us = { uni->iStartRow, iRowEnd };
+		bool bIsLast = seg == m_BPMSegments.end();
+		if( bIsLast )
+			continue;
+		
+		bool bIsInfiniteBPM = seg->m_fBPS >= BPMSegment::INFINITE_BPS;
+		if( !bIsInfiniteBPM )
+			continue;
+			
+		int iSegmentEnd = (seg + 1)->m_iStartIndex;
+		
+		UnreachableSegment us;
+		us.iNoteRowStart = seg->m_iStartIndex;
+		us.iNoteRowEnd = iSegmentEnd;
 		vUnreachable.push_back( us );
 	}
 }
