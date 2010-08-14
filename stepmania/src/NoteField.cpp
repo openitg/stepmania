@@ -216,7 +216,7 @@ void NoteField::DrawBeatBar( const float fBeat )
 {
 	bool bIsMeasure = fmodf( fBeat, (float)BEATS_PER_MEASURE ) == 0;
 	int iMeasureIndex = (int)fBeat / BEATS_PER_MEASURE;
-	int iMeasureNoDisplay = iMeasureIndex+1;
+	int iMeasureNoDisplay = iMeasureIndex;
 
 	NoteType nt = BeatToNoteType( fBeat );
 
