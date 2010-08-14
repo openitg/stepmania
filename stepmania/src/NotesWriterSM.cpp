@@ -103,16 +103,6 @@ void NotesWriterSM::WriteGlobalTags( RageFile &f, const Song &out )
 	}
 	f.PutLine( ";" );
 
-	f.Write( "#WARPS:" );
-	FOREACH_CONST( WarpSegment, out.m_Timing.m_WarpSegments, warp )
-	{
-		f.PutLine( ssprintf( "%.3f=%.3f", NoteRowToBeat(warp->m_iStartRow), warp->m_fWarpBeats ) );
-		bool bLast = warp == out.m_Timing.m_WarpSegments.end();
-		if( !bLast )
-			f.Write( "," );
-	}
-	f.PutLine( ";" );
-
 	FOREACH_BackgroundLayer( b )
 	{
 		if( b==0 )
