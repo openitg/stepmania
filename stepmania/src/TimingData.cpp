@@ -6,6 +6,9 @@
 #include "NoteTypes.h"
 #include <float.h>
 
+const float BPMSegment::INFINITE_BPM = 9999999.f;
+const float BPMSegment::INFINITE_BPS = INFINITE_BPM / 60.f;
+
 void BPMSegment::SetBPM( float f )
 {
 	m_fBPS = f / 60.0f;
@@ -39,15 +42,6 @@ void SortStopSegmentsArray( vector<StopSegment> &arrayStopSegments )
 	sort( arrayStopSegments.begin(), arrayStopSegments.end(), CompareStopSegments );
 }
 
-static int CompareWarpSegments(const WarpSegment &seg1, const WarpSegment &seg2)
-{
-	return seg1.m_iStartRow < seg2.m_iStartRow;
-}
-void SortWarpSegmentsArray( vector<WarpSegment> &v )
-{
-	sort( v.begin(), v.end(), CompareWarpSegments );
-}
-
 void TimingData::GetActualBPM( float &fMinBPMOut, float &fMaxBPMOut ) const
 {
 	fMinBPMOut = FLT_MAX;
@@ -71,12 +65,6 @@ void TimingData::AddStopSegment( const StopSegment &seg )
 {
 	m_StopSegments.push_back( seg );
 	SortStopSegmentsArray( m_StopSegments );
-}
-
-void TimingData::AddWarpSegment( const WarpSegment &seg )
-{
-	m_WarpSegments.push_back( seg );
-	SortWarpSegmentsArray( m_WarpSegments );
 }
 
 /* Change an existing BPM segment, merge identical segments together or insert a new one. */
@@ -479,6 +467,80 @@ bool TimingData::HasBpmChanges() const
 bool TimingData::HasStops() const
 {
 	return m_StopSegments.size()>0;
+}
+
+void TimingData::FixNegativeBpmsAndNegativeStops()
+{
+	// probe to find unreachable segments.
+	vector<UnreachableSegment> vUnreachable;
+	{
+		vector<int> viUnreachableStartRows;
+		FOREACH_CONST( BPMSegment, m_BPMSegments, seg )
+		{
+			if( seg->m_fBPS >= 0 )
+				continue;
+			viUnreachableStartRows.push_back( seg->m_iStartIndex );
+		}
+		FOREACH_CONST( StopSegment, m_StopSegments, seg )
+		{
+			if( seg->m_fStopSeconds >= 0 )
+				continue;
+			viUnreachableStartRows.push_back( seg->m_iStartRow );
+		}
+
+		FOREACH_CONST( int, viUnreachableStartRows, iStartRow )
+		{
+			// Negative segments are the beginning of a discontinuity.  If we map the start beat of the segment to seconds and back to beats, we'll get the end of the segment.
+			float fStartBeat = NoteRowToBeat(*iStartRow);
+			float fStartSecs = GetElapsedTimeFromBeatNoOffset( fStartBeat );
+			float fEndBeat = GetBeatFromElapsedTime( fStartSecs+0.0001f );
+			int iRowEnd = BeatToNoteRow( fEndBeat );
+
+			UnreachableSegment us;
+			us.iNoteRowStart = *iStartRow;
+			us.iNoteRowEnd = iRowEnd;
+			vUnreachable.push_back( us );
+		}
+
+		// TODO: collapse overlapping segments
+	}
+
+	FOREACH_CONST( UnreachableSegment, vUnreachable, us )
+	{
+		// save the BPM at the end of the unreachable segment
+		float fUnreachableEndBeat = NoteRowToBeat( us->iNoteRowEnd );
+		float fAfterUnreachableBPM = this->GetBPMAtBeat(fUnreachableEndBeat);
+
+		// clobber all BPMSegments and StopSegments that lie within the unreachable segment
+		for( int i=m_BPMSegments.size()-1; i>=0; i-- )
+		{
+			bool bStartsInsideUnreachable = m_BPMSegments[i].m_iStartIndex >= us->iNoteRowStart && m_BPMSegments[i].m_iStartIndex < us->iNoteRowEnd;
+			if( bStartsInsideUnreachable )
+				m_BPMSegments.erase( m_BPMSegments.begin() + i );
+		}
+		for( int i=m_StopSegments.size()-1; i>=0; i-- )
+		{
+			bool bInsideUnreachable = m_StopSegments[i].m_iStartRow >= us->iNoteRowStart && m_StopSegments[i].m_iStartRow < us->iNoteRowEnd;
+			if( bInsideUnreachable )
+				m_StopSegments.erase( m_StopSegments.begin() + i );
+		}
+
+		// insert the infinite BPM segment to warp
+		{
+			BPMSegment seg;
+			seg.m_iStartIndex = us->iNoteRowStart;
+			seg.m_fBPS = BPMSegment::INFINITE_BPS;
+			this->AddBPMSegment( seg );
+		}
+
+		// set the BPM at the end of the unreachable segment to stop the warp
+		{
+			BPMSegment seg;
+			seg.m_iStartIndex = BeatToNoteRow(fUnreachableEndBeat);
+			seg.m_fBPS = fAfterUnreachableBPM / 60;
+			this->AddBPMSegment( seg );
+		}
+	}
 }
 
 /*

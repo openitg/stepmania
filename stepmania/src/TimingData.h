@@ -12,7 +12,7 @@ struct BPMSegment
 	BPMSegment() { m_iStartIndex = -1; m_fBPS = -1; }
 	BPMSegment( int s, float b ) { m_iStartIndex = s; m_fBPS = b/60.0f; }
 	int m_iStartIndex;
-	float m_fBPS;
+	float m_fBPS;	// must be >= 0
 
 	void SetBPM( float f );
 	float GetBPM() const;
@@ -24,6 +24,14 @@ struct BPMSegment
 		return true;
 	}
 	bool operator!=( const BPMSegment &other ) const { return !operator==(other); }
+
+
+	// The sentinel value is a positive number that is so large that it would never be a practical BPM value to reach in the editor.
+	// Why a large positive number?  
+	// - This number is easy to sl
+	// - negative values used to cause a warp ahead, and we don't want to confuse this old functionality with the new.
+	static const float INFINITE_BPM;
+	static const float INFINITE_BPS;
 };
 
 struct StopSegment 
@@ -31,7 +39,7 @@ struct StopSegment
 	StopSegment() { m_fStopSeconds = -1; m_iStartRow = -1; }
 	StopSegment( int s, float f ) { m_iStartRow = s; m_fStopSeconds = f; }
 	int m_iStartRow;
-	float m_fStopSeconds;
+	float m_fStopSeconds;	// must be non-0
 
 	bool operator==( const StopSegment &other ) const
 	{
@@ -40,22 +48,6 @@ struct StopSegment
 		return true;
 	}
 	bool operator!=( const StopSegment &other ) const { return !operator==(other); }
-};
-
-struct WarpSegment 
-{
-	WarpSegment() { m_iStartRow = -1; m_fWarpBeats = -1; }
-	WarpSegment( int s, float b ) { m_iStartRow = s; m_fWarpBeats = b; }
-	int m_iStartRow;
-	float m_fWarpBeats;
-
-	bool operator==( const WarpSegment &other ) const
-	{
-		COMPARE( m_iStartRow );
-		COMPARE( m_fWarpBeats );
-		return true;
-	}
-	bool operator!=( const WarpSegment &other ) const { return !operator==(other); }
 };
 
 class TimingData
@@ -73,7 +65,6 @@ public:
 	void MultiplyBPMInBeatRange( int iStartIndex, int iEndIndex, float fFactor );
 	void AddBPMSegment( const BPMSegment &seg );
 	void AddStopSegment( const StopSegment &seg );
-	void AddWarpSegment( const WarpSegment &seg );
 	int GetBPMSegmentIndexAtBeat( float fBeat );
 	BPMSegment& GetBPMSegmentAtBeat( float fBeat );
 
@@ -123,10 +114,11 @@ public:
 	void InsertRows( int iStartRow, int iRowsToAdd );
 	void DeleteRows( int iStartRow, int iRowsToDelete );
 
+	void FixNegativeBpmsAndNegativeStops();
+
 	RString						m_sFile;		// informational only
 	vector<BPMSegment>			m_BPMSegments;	// this must be sorted before gameplay
 	vector<StopSegment>			m_StopSegments;	// this must be sorted before gameplay
-	vector<WarpSegment>			m_WarpSegments;	// this must be sorted before gameplay
 	float	m_fBeat0OffsetInSeconds;
 };
 
