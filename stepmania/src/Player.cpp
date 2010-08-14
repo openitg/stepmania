@@ -1405,9 +1405,10 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 
 				//Let the server know we avoided a mine
 				//Hit mines are sent to the server in HandleTapScore
-				NSMAN->ReportScore( m_pPlayerState->m_PlayerNumber, tn.result.tns,
-				m_pPlayerStageStats->iScore,
-				m_pPlayerStageStats->iCurCombo );
+				if( m_pPlayerStageStats )
+					NSMAN->ReportScore( m_pPlayerState->m_PlayerNumber, tn.result.tns,
+						m_pPlayerStageStats->iScore,
+						m_pPlayerStageStats->iCurCombo );
 			}
 			else
 			{
