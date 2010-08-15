@@ -55,10 +55,10 @@ static bool DoCrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *u
 }
 #endif
 
-static void EmergencyShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
+static bool EmergencyShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 {
 	if( !IsFatalSignal(signal) )
-		return;
+		return false;
 
 	DoEmergencyShutdown();
 
@@ -70,6 +70,7 @@ static void EmergencyShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 	SignalHandler::ResetSignalHandlers();
 	raise( signal );
 #endif
+	return false;
 }
 	
 #if defined(HAVE_TLS)

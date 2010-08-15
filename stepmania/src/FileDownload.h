@@ -3,7 +3,7 @@
 
 #if !defined(WITHOUT_NETWORKING)
 
-#include "EzSockets.h"
+#include "ezsockets.h"
 #include "RageFile.h"
 
 class FileDownload

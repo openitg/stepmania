@@ -21,7 +21,7 @@ LIBS += -lpthread -lrt
 Screens = \
 Screen.cpp Screen.h ScreenAttract.cpp ScreenAttract.h \
 ScreenBookkeeping.cpp ScreenBookkeeping.h \
-ScreenCenterImage.cpp ScreenCenterImage.h ScreenCredits.cpp ScreenCredits.h \
+ScreenCredits.cpp ScreenCredits.h \
 ScreenDebugOverlay.cpp ScreenDebugOverlay.h \
 ScreenDemonstration.cpp ScreenDemonstration.h ScreenDimensions.h \
 ScreenEdit.cpp ScreenEdit.h \
@@ -139,11 +139,13 @@ MsdFile.cpp MsdFile.h \
 XmlFile.cpp XmlFile.h \
 XmlFileUtil.cpp XmlFileUtil.h
 
-StepMania = ExportNsisStrings.cpp ExportNsisStrings.h \
+StepMania = \
 StdString.h \
 StepMania.cpp StepMania.h \
 GameLoop.cpp GameLoop.h \
 global.cpp global.h \
+CommandLineActions.cpp CommandLineActions.h \
+FileDownload.cpp FileDownload.h \
 SpecialFiles.cpp SpecialFiles.h
 
 LoadingWindow = arch/LoadingWindow/LoadingWindow.h \
