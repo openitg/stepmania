@@ -13,6 +13,7 @@ static RString PLAYER_COLOR_NAME( size_t p ) { return ssprintf("ColorP%dCommand"
 
 ThemeMetric<RString>			CommonMetrics::INITIAL_SCREEN			("Common","InitialScreen", true); // always reevaluate metric
 ThemeMetric<RString>			CommonMetrics::FIRST_ATTRACT_SCREEN		("Common","FirstAttractScreen");
+ThemeMetric<RString>			CommonMetrics::SELECT_MUSIC_SCREEN		("Common","SelectMusicScreen");
 ThemeMetric<RString>			CommonMetrics::DEFAULT_MODIFIERS		("Common","DefaultModifiers" );
 ThemeMetric<RString>			CommonMetrics::DEFAULT_CPU_MODIFIERS		("Common","DefaultCpuModifiers" );
 ThemeMetric1D<apActorCommands>		CommonMetrics::PLAYER_COLOR			("Common",PLAYER_COLOR_NAME,NUM_PLAYERS);

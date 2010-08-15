@@ -20,7 +20,7 @@ const RString INSTALLER_LANGUAGES_DIR = "Themes/_Installer/Languages/";
 static const RString TEMP_ZIP_MOUNT_POINT = "/@temp-zip/";
 const RString TEMP_OS_MOUNT_POINT = "/@temp-os/";
 
-void InstallSmzip( const RString &sZipFile )
+void InstallSmzip( const RString &sZipFile, PlayAfterLaunchInfo &out )
 {
 	if( !FILEMAN->Mount( "zip", sZipFile, TEMP_ZIP_MOUNT_POINT ) )
 		FAIL_M("Failed to mount " + sZipFile );
@@ -55,17 +55,13 @@ void InstallSmzip( const RString &sZipFile )
 		RString sDir, sThrowAway;
 		splitpath( sDestFile, sDir, sThrowAway, sThrowAway );
 
-		/*
-		vector<RString> vsWhitelistExtractDirs;
-		vsWhitelistExtractDirs.push_back( "/Songs/" );
-		vsWhitelistExtractDirs.push_back( "/BGAnimations/" );
-		vsWhitelistExtractDirs.push_back( "/RandomMovies/" );
-		vsWhitelistExtractDirs.push_back( "/Themes/" );
-		FOREACH_CONST( RString, vsWhitelistExtractDirs, sWhitelistDir )
-		{
-		if( !BeginsWith(sDir,"/Songs/") || BeginsWith(sDir,"/BGAnimations/") || BeginsWith(sDir,"/Ran/" )
-			continue;
-		*/
+
+		vector<RString> vsDirParts;
+		split( sDir, "/", vsDirParts, true );
+		if( vsDirParts.size() == 3 && vsDirParts[0].EqualsNoCase("Songs") )
+			out.sSongDir = "/" + sDir;
+		else if( vsDirParts.size() == 2 && vsDirParts[0].EqualsNoCase("Themes") )
+			out.sTheme = vsDirParts[1];
 
 		FILEMAN->CreateDir( sDir );
 
@@ -80,7 +76,7 @@ void InstallSmzip( const RString &sZipFile )
 	Dialog::OK("Successfully installed " + Basename(sZipFile) );
 }
 
-void InstallSmzipOsArg( const RString &sOsZipFile, LoadingWindow *pLW )
+void InstallSmzipOsArg( const RString &sOsZipFile, LoadingWindow *pLW, PlayAfterLaunchInfo &out )
 {
 	pLW->SetText("Installing " + sOsZipFile );
 
@@ -89,7 +85,7 @@ void InstallSmzipOsArg( const RString &sOsZipFile, LoadingWindow *pLW )
 
 	if( !FILEMAN->Mount( "dir", sOsDir, TEMP_OS_MOUNT_POINT ) )
 		FAIL_M("Failed to mount " + sOsDir );
-	InstallSmzip( TEMP_OS_MOUNT_POINT + sFilename + sExt );
+	InstallSmzip( TEMP_OS_MOUNT_POINT + sFilename + sExt, out );
 
 	FILEMAN->Unmount( "dir", sOsDir, TEMP_OS_MOUNT_POINT );
 }
@@ -101,7 +97,7 @@ struct FileCopyResult
 	RString sFile, sComment;
 };
 
-static void HandleSmzmlArg( RString s, LoadingWindow *pLW )
+static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &out )
 {
 	pLW->SetText("Installing " + s );
 
@@ -155,7 +151,7 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW )
 			if( fd.IsFinished() )
 				break;
 		}
-		InstallSmzip( sDestFile );
+		InstallSmzip( sDestFile, out );
 		FILEMAN->Remove( sDestFile );
 	}
 }
@@ -204,19 +200,20 @@ bool IsSmzip(RString ext)
 	return ext.EqualsNoCase("smzip") || ext.EqualsNoCase("zip");
 }
 
-static void DoInstalls(LoadingWindow *pLW)
+PlayAfterLaunchInfo DoInstalls(LoadingWindow *pLW)
 {
-
+	PlayAfterLaunchInfo ret;
 	for( int i = 1; i<g_argc; ++i )
 	{
 		RString s = g_argv[i];
 		
 		RString ext = GetExtension(s);
 		if( IsSmxml(ext) )
-			HandleSmzmlArg(s, pLW);
+			HandleSmzmlArg(s, pLW, ret);
 		else if( IsSmzip(ext) )
-			InstallSmzipOsArg(s, pLW);
+			InstallSmzipOsArg(s, pLW, ret);
 	}
+	return ret;
 }
 
 
@@ -238,9 +235,9 @@ static void DoLuaInformation()
 	*/
 }
 
-void CommandLineActions::Handle(LoadingWindow* pLW)
+PlayAfterLaunchInfo CommandLineActions::Handle(LoadingWindow* pLW)
 {
-	DoInstalls(pLW);
+	PlayAfterLaunchInfo ret = DoInstalls(pLW);
 	bool bExitAfter = false;
 	if( GetCommandlineArgument("ExportNsisStrings") )
 	{
@@ -254,6 +251,7 @@ void CommandLineActions::Handle(LoadingWindow* pLW)
 	}
 	if( bExitAfter )
 		exit(0);
+	return ret;
 }
 
 

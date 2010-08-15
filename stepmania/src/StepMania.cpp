@@ -885,7 +885,7 @@ int main(int argc, char* argv[])
 	/* Set up the theme and announcer, and switch to the last game type. */
 	ReadGamePrefsFromDisk( true );
 
-	CommandLineActions::Handle(loading_window);
+	PlayAfterLaunchInfo playAfterLaunchInfo = CommandLineActions::Handle(loading_window);
 
 	{
 		/* Now that THEME is loaded, load the icon for the current theme into the
@@ -960,7 +960,29 @@ int main(int argc, char* argv[])
 	/* Now that GAMESTATE is reset, tell SCREENMAN to update the theme (load
 	 * overlay screens and global sounds), and load the initial screen. */
 	SCREENMAN->ThemeChanged();
-	SCREENMAN->SetNewScreen( CommonMetrics::INITIAL_SCREEN );
+	{
+		Song* pSong = NULL;
+		RString sInitialScreen;
+		if( playAfterLaunchInfo.sSongDir.length() > 0 )
+			pSong = SONGMAN->GetSongFromDir( playAfterLaunchInfo.sSongDir );
+		if( pSong )
+		{
+			vector<const Style*> vpStyle;
+			GAMEMAN->GetStylesForGame( GAMESTATE->m_pCurGame, vpStyle, false );
+			GAMESTATE->m_PlayMode.Set( PLAY_MODE_REGULAR );
+			GAMESTATE->m_bSideIsJoined[0] = true;
+			GAMESTATE->m_MasterPlayerNumber = PLAYER_1;
+			GAMESTATE->m_pCurStyle.Set( vpStyle[0] );
+			GAMESTATE->m_pCurSong.Set( pSong );
+			sInitialScreen = CommonMetrics::SELECT_MUSIC_SCREEN; 
+		}
+		else
+		{
+			sInitialScreen = CommonMetrics::INITIAL_SCREEN;
+		}
+		 
+		SCREENMAN->SetNewScreen( sInitialScreen );
+	}
 
 	// Do this after ThemeChanged so that we can show a system message
 	RString sMessage;
