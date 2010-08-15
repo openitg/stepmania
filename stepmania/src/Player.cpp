@@ -1217,6 +1217,9 @@ void Player::HandleStep( int col, const RageTimer &tm, bool bHeld )
 
 		if( score == TNS_HitMine )
 		{
+			tn.result.tns = TNS_HitMine;
+			tn.result.bHidden = true;
+
 			if( tn.bKeysound && tn.iKeysoundIndex < (int) m_vKeysounds.size() )
 				m_vKeysounds[tn.iKeysoundIndex].Play();
 			else
@@ -1231,8 +1234,6 @@ void Player::HandleStep( int col, const RageTimer &tm, bool bHeld )
 			if( m_pCombinedLifeMeter )
 				m_pCombinedLifeMeter->ChangeLife( m_pPlayerState->m_PlayerNumber, tn.result.tns );
 			
-			tn.result.tns = TNS_HitMine;
-			tn.result.bHidden = true;
 			m_NoteData.SetTapNote( col, iIndexOverlappingNote, tn );
 			if( m_pNoteField )
 				m_pNoteField->DidTapNote( col, tn.result.tns, false );
