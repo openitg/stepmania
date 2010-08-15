@@ -1215,6 +1215,29 @@ void Player::HandleStep( int col, const RageTimer &tm, bool bHeld )
 			}
 		}
 
+		if( score == TNS_HitMine )
+		{
+			if( tn.bKeysound && tn.iKeysoundIndex < (int) m_vKeysounds.size() )
+				m_vKeysounds[tn.iKeysoundIndex].Play();
+			else
+				m_soundMine.Play();
+			
+			if( m_pLifeMeter )
+				m_pLifeMeter->ChangeLife( tn.result.tns );
+			if( m_pScoreDisplay )
+				m_pScoreDisplay->OnJudgment( tn.result.tns );
+			if( m_pSecondaryScoreDisplay )
+				m_pSecondaryScoreDisplay->OnJudgment( tn.result.tns );
+			if( m_pCombinedLifeMeter )
+				m_pCombinedLifeMeter->ChangeLife( m_pPlayerState->m_PlayerNumber, tn.result.tns );
+			
+			tn.result.tns = TNS_HitMine;
+			tn.result.bHidden = true;
+			m_NoteData.SetTapNote( col, iIndexOverlappingNote, tn );
+			if( m_pNoteField )
+				m_pNoteField->DidTapNote( col, tn.result.tns, false );
+		}
+
 		if( m_pPlayerState->m_PlayerController == PC_HUMAN && score >= TNS_W3 ) 
 			AdjustSync::HandleAutosync( fNoteOffset );
 
@@ -1280,7 +1303,7 @@ void Player::DisplayJudgedRow( int iIndexThatWasSteppedOn, TapNoteScore score, i
 	
 	bBright = bBright || m_pPlayerState->m_PlayerOptions.m_fBlind;
 	if( m_pNoteField )
-		m_pNoteField->DidTapNote( iTrack, TNS_W1, bBright );
+		m_pNoteField->DidTapNote( iTrack, score, bBright );
 }
 
 void Player::OnRowCompletelyJudged( int iIndexThatWasSteppedOn )
@@ -1592,28 +1615,6 @@ void Player::HandleTapRowScore( unsigned row )
 		const TapNote &tn = m_NoteData.GetTapNote( track, row );
 		if( tn.pn != PLAYER_INVALID && tn.pn != pn )
 			continue;
-		if( tn.result.tns == TNS_HitMine )
-		{
-			if( tn.bKeysound && tn.iKeysoundIndex < (int) m_vKeysounds.size() )
-				m_vKeysounds[tn.iKeysoundIndex].Play();
-			else
-				m_soundMine.Play();
-			
-			if( m_pLifeMeter )
-				m_pLifeMeter->ChangeLife( tn.result.tns );
-			if( m_pScoreDisplay )
-				m_pScoreDisplay->OnJudgment( tn.result.tns );
-			if( m_pSecondaryScoreDisplay )
-				m_pSecondaryScoreDisplay->OnJudgment( tn.result.tns );
-			if( m_pCombinedLifeMeter )
-				m_pCombinedLifeMeter->ChangeLife( pn, tn.result.tns );
-			
-			TapNote tn2 = tn;
-			tn2.result.bHidden = true;
-			m_NoteData.SetTapNote( track, row, tn2 );
-			if( m_pNoteField )
-				m_pNoteField->DidTapNote( track, tn.result.tns, false );
-		}
 				
 		if( m_pPrimaryScoreKeeper )
 			m_pPrimaryScoreKeeper->HandleTapScore( tn );
