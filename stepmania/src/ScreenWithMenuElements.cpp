@@ -285,8 +285,6 @@ void ScreenWithMenuElements::TweenOffScreen()
 
 void ScreenWithMenuElements::Cancel( ScreenMessage smSendWhenDone )
 {
-	m_sNextScreen = GetPrevScreen();
-
 	if( m_Cancel.IsTransitioning() )
 		return;	// ignore
 
