@@ -61,7 +61,6 @@ protected:
 	Transition			m_Cancel;
 
 	ThemeMetric<bool>		PLAY_MUSIC;
-	ThemeMetric<bool>		CANCEL_TRANSITIONS_OUT;
 	ThemeMetric<float>		TIMER_SECONDS;
 
 private:
