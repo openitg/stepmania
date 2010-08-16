@@ -294,6 +294,17 @@ void ActorScroller::PositionItemsAndDrawPrimitives( bool bDrawPrimitives )
 	}
 }
 
+void ActorScroller::SetDestinationItem( float fItemIndex )
+{
+	m_fDestinationItem = fItemIndex; 
+	m_iFirstSubActorIndex = 0;
+}
+void ActorScroller::SetCurrentAndDestinationItem( float fItemIndex )
+{
+	m_fCurrentItem = fItemIndex;
+	SetDestinationItem( fItemIndex );
+}
+
 // lua start
 #include "LuaBinding.h"
 

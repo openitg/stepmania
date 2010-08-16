@@ -31,8 +31,8 @@ public:
 	void LoadFromNode( const RString &sDir, const XNode *pNode );
 	virtual Actor *Copy() const;
 	
-	void SetDestinationItem( float fItemIndex )				{ m_fDestinationItem = fItemIndex; }
-	void SetCurrentAndDestinationItem( float fItemIndex )	{ m_fCurrentItem = m_fDestinationItem = fItemIndex; }
+	void SetDestinationItem( float fItemIndex );
+	void SetCurrentAndDestinationItem( float fItemIndex );
 	float GetCurrentItem() const							{ return m_fCurrentItem; }
 	float GetDestinationItem() const						{ return m_fDestinationItem; }
 	void ScrollThroughAllItems();

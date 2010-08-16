@@ -24,7 +24,6 @@ CourseContentsList::CourseContentsList()
 		m_vpDisplay.push_back( new CourseEntryDisplay );
 
 	m_fTimeUntilScroll = 0;
-	m_fItemAtPosition0InList = 0;
 }
 
 CourseContentsList::~CourseContentsList()
@@ -70,7 +69,7 @@ void CourseContentsList::SetFromGameState()
 
 		this->AddChild( &d );
 
-		d.SetFromGameState( (int)(truncf(m_fItemAtPosition0InList))+i );
+		d.SetFromGameState( i );
 	}
 
 	bool bLoop = pMasterTrail->m_vEntries.size() > uNumEntriesToShow;
