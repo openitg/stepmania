@@ -1,22 +1,26 @@
-#ifndef ScreenPackages_H
-#define ScreenPackages_H
+#ifndef FileTransfer_H
+#define FileTransfer_H
 
 #if !defined(WITHOUT_NETWORKING)
 
 #include "ezsockets.h"
 #include "RageFile.h"
 
-class FileDownload
+class FileTransfer
 {
 public:
-	FileDownload();
-	~FileDownload();
+	FileTransfer();
+	~FileTransfer();
 
 	void StartDownload( const RString &sURL, const RString &sDestFile );
-	void CancelDownload( );
+	void StartUpload( const RString &sURL, const RString &sSrcFile );
+	
+	void Cancel( );
 	RString Update(float fDeltaTime);
 	bool IsFinished();
 private:
+	enum TransferType { download, upload };
+	void StartTransfer( TransferType type, const RString &sURL, const RString &sSrcFile, const RString &sDestFile );
 	int m_iPackagesPos;
 	int m_iLinksPos;
 

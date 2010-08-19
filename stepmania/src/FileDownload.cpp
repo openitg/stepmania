@@ -7,7 +7,7 @@
 #include "SpecialFiles.h"
 #include "RageLog.h"
 
-FileDownload::FileDownload()
+FileTransfer::FileTransfer()
 {
 	m_iPackagesPos = 0;
 	m_iLinksPos = 0;
@@ -33,12 +33,12 @@ FileDownload::FileDownload()
 	m_fOutputFile.Close();
 }
 
-FileDownload::~FileDownload()
+FileTransfer::~FileTransfer()
 {
 	m_fOutputFile.Close();
 }
 
-RString FileDownload::Update( float fDeltaTime )
+RString FileTransfer::Update( float fDeltaTime )
 {
 	HTTPUpdate();
 
@@ -56,7 +56,7 @@ RString FileDownload::Update( float fDeltaTime )
 	return m_sStatus;
 }
 
-void FileDownload::UpdateProgress()
+void FileTransfer::UpdateProgress()
 {
 	float DownloadedRatio;
 
@@ -66,7 +66,7 @@ void FileDownload::UpdateProgress()
 		DownloadedRatio = float(m_iDownloaded) / float(m_iTotalBytes);
 }
 
-void FileDownload::CancelDownload( )
+void FileTransfer::Cancel( )
 {
 	m_wSocket.close();
 	m_bIsDownloading = false;
@@ -78,7 +78,17 @@ void FileDownload::CancelDownload( )
 	FILEMAN->Remove( "Packages/" + m_sEndName );
 }
 
-void FileDownload::StartDownload( const RString &sURL, const RString &sDestFile )
+void FileTransfer::StartDownload( const RString &sURL, const RString &sDestFile )
+{
+	StartTransfer( download, sURL, "", sDestFile );
+}
+
+void FileTransfer::StartUpload( const RString &sURL, const RString &sSrcFile )
+{
+	StartTransfer( upload, sURL, sSrcFile, "" );
+}
+
+void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const RString &sSrcFile, const RString &sDestFile )
 {
 	RString Proto;
 	RString Server;
@@ -159,14 +169,41 @@ void FileDownload::StartDownload( const RString &sURL, const RString &sDestFile 
 	}
 	
 	//Produce HTTP header
+	RString sAction;
+	switch( type )
+	{
+	case upload: sAction = "POST"; break;
+	case download: sAction = "GET"; break;
+	}
 
-	RString Header="";
+	RString sHeader = sAction+" "+sAddress+" HTTP/1.0\r\n";
+	sHeader += "Host: " + Server + "\r\n";
+	sHeader += "Connection: closed\r\n";
+	RString sRequestPayload;
+	if( type == upload )
+	{
+		// read request payload
+		//sRequestPayload = "asdasdasdasdjhakdhjkahdjkahdkjashdjksa";
+		
+		RageFile f;
+		if( !f.Open( sSrcFile ) )
+			FAIL_M( f.GetError() );
+		sRequestPayload.reserve( f.GetFileSize() );
+		int iBytesRead = f.Read( sRequestPayload );
+		if( iBytesRead == -1 )
+			FAIL_M( f.GetError() );
+		
+	}
+	if( sRequestPayload.size() > 0 )
+	{
+		sHeader += "Content-Type: application/octet-stream\r\n";
+		sHeader += "Content-Length: " + ssprintf("%d",sRequestPayload.size()) + "\r\n";
+	}
+	sHeader += "\r\n";
+	m_wSocket.SendData( sHeader.c_str(), sHeader.length() );
 
-	Header = "GET "+sAddress+" HTTP/1.0\r\n";
-	Header+= "Host: " + Server + "\r\n";
-	Header+= "Connection: closed\r\n\r\n";
+	m_wSocket.SendData( sRequestPayload.GetBuffer(), sRequestPayload.size() );
 
-	m_wSocket.SendData( Header.c_str(), Header.length() );
 	m_sStatus = "Header Sent.";
 	m_wSocket.blocking = false;
 	m_bIsDownloading = true;
@@ -188,7 +225,7 @@ static size_t FindEndOfHeaders( const RString &buf )
 		return string::npos;
 }
 
-void FileDownload::HTTPUpdate()
+void FileTransfer::HTTPUpdate()
 {
 	if( !m_bIsDownloading )
 		return;
@@ -287,7 +324,7 @@ void FileDownload::HTTPUpdate()
 	}
 }
 
-bool FileDownload::ParseHTTPAddress( const RString &URL, RString &sProto, RString &sServer, int &iPort, RString &sAddress )
+bool FileTransfer::ParseHTTPAddress( const RString &URL, RString &sProto, RString &sServer, int &iPort, RString &sAddress )
 {
 	// [PROTO://]SERVER[:PORT][/URL]
 
@@ -317,7 +354,7 @@ bool FileDownload::ParseHTTPAddress( const RString &URL, RString &sProto, RStrin
 	return true;
 }
 
-bool FileDownload::IsFinished()
+bool FileTransfer::IsFinished()
 {
 	return m_bFinished;
 }

@@ -139,9 +139,10 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &
 
 	FOREACH_CONST( RString, vsUrls, s )
 	{
-		FileDownload fd;
+		FileTransfer fd;
 		RString sDestFile = SpecialFiles::CACHE_DIR + "Downloads/" + Basename(*s);
 		fd.StartDownload( *s, sDestFile );
+		//fd.StartUpload( "http://www.stepmania.com/api_test.php", SpecialFiles::CACHE_DIR + "Uploads/test.smzip" );
 		while( true )
 		{
 			float fSleepSeconds = 0.1f;
