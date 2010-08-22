@@ -767,6 +767,10 @@ static void ApplyLogPreferences()
 
 static LocalizedString COULDNT_OPEN_LOADING_WINDOW( "StepMania", "Couldn't open any loading windows." );
 
+#include "Song.h"
+#include "SongManager.h"
+#include "ExportPackage.h"
+
 int main(int argc, char* argv[])
 {	
 	RageThreadRegister thread( "Main thread" );
@@ -923,6 +927,13 @@ int main(int argc, char* argv[])
 	UNLOCKMAN	= new UnlockManager;
 	SONGMAN->UpdatePopular();
 	SONGMAN->UpdatePreferredSort();
+
+
+	const Song *pSong = SONGMAN->GetAllSongs()[0];
+	RString sError;
+	ExportPackage::PublishSong( pSong,  sError);
+
+
 
 	/* This shouldn't need to be here; if it's taking long enough that this is
 	 * even visible, we should be fixing it, not showing a progress display. */
