@@ -4,7 +4,6 @@
 #define CreateZip_H
 
 
-
 // ZIP functions -- for creating zip files
 // This file is a repackaged form of the Info-Zip source code available
 // at www.info-zip.org. The original copyright notice may be found in
@@ -21,10 +20,11 @@ typedef DWORD ZRESULT;
 // return codes from any of the zip functions. Listed later.
 
 
-
-HZIP CreateZip(const TCHAR *fn, const char *password);
-HZIP CreateZip(void *buf,unsigned int len, const char *password);
-HZIP CreateZipHandle(HANDLE h, const char *password);
+class CreateZip
+{
+	HZIP hz;
+public:
+	CreateZip(const TCHAR *fn, const char *password);
 // CreateZip - call this to start the creation of a zip file.
 // As the zip is being created, it will be stored somewhere:
 // to a pipe:              CreateZipHandle(hpipe_write);
@@ -55,12 +55,8 @@ HZIP CreateZipHandle(HANDLE h, const char *password);
 // but for real windows, the zip makes its own copy of your handle, so you
 // can close yours anytime.
 
-
-ZRESULT ZipAdd(HZIP hz,const TCHAR *dstzn, const TCHAR *fn);
-ZRESULT ZipAdd(HZIP hz,const TCHAR *dstzn, void *src,unsigned int len);
-ZRESULT ZipAddHandle(HZIP hz,const TCHAR *dstzn, HANDLE h);
-ZRESULT ZipAddHandle(HZIP hz,const TCHAR *dstzn, HANDLE h, unsigned int len);
-ZRESULT ZipAddFolder(HZIP hz,const TCHAR *dstzn);
+ZRESULT ZipAdd(const TCHAR *dstzn, const TCHAR *fn);
+ZRESULT ZipAddFolder(const TCHAR *dstzn);
 // ZipAdd - call this for each file to be added to the zip.
 // dstzn is the name that the file will be stored as in the zip file.
 // The file to be added to the zip can come
@@ -81,8 +77,9 @@ ZRESULT ZipGetMemory(HZIP hz, void **buf, unsigned long *len);
 // buf will receive a pointer to its start, and len its length.
 // Note: you can't add any more after calling this.
 
-ZRESULT CloseZip(HZIP hz);
+ZRESULT CloseZip();
 // CloseZip - the zip handle must be closed with this function.
+};
 
 unsigned int FormatZipMessage(ZRESULT code, TCHAR *buf,unsigned int len);
 // FormatZipMessage - given an error code, formats it as a string.
@@ -181,26 +178,6 @@ unsigned int FormatZipMessage(ZRESULT code, TCHAR *buf,unsigned int len);
 //                     CloseHandle(hread);
 //                     return 0; 
 //                   }
-
-
-
-// Now we indulge in a little skullduggery so that the code works whether
-// the user has included just zip or both zip and unzip.
-// Idea: if header files for both zip and unzip are present, then presumably
-// the cpp files for zip and unzip are both present, so we will call
-// one or the other of them based on a dynamic choice. If the header file
-// for only one is present, then we will bind to that particular one.
-ZRESULT CloseZipZ(HZIP hz);
-unsigned int FormatZipMessageZ(ZRESULT code, char *buf,unsigned int len);
-bool IsZipHandleZ(HZIP hz);
-#ifdef _unzip_H
-#undef CloseZip
-#define CloseZip(hz) (IsZipHandleZ(hz)?CloseZipZ(hz):CloseZipU(hz))
-#else
-#define CloseZip CloseZipZ
-#define FormatZipMessage FormatZipMessageZ
-#endif
-
 
 
 #endif
