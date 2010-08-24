@@ -12,7 +12,7 @@
 
 
 #ifndef _unzip_H
-DECLARE_HANDLE(HZIP);
+//DECLARE_HANDLE(HZIP);
 #endif
 // An HZIP identifies a zip file that is being created
 
@@ -73,12 +73,6 @@ ZRESULT ZipAddFolder(const TCHAR *dstzn);
 // compressed item itself, which in turn makes it easier when unzipping the
 // zipfile from a pipe.
 
-ZRESULT ZipGetMemory(HZIP hz, void **buf, unsigned long *len);
-// ZipGetMemory - If the zip was created in memory, via ZipCreate(0,len),
-// then this function will return information about that memory block.
-// buf will receive a pointer to its start, and len its length.
-// Note: you can't add any more after calling this.
-
 ZRESULT CloseZip();
 // CloseZip - the zip handle must be closed with this function.
 };
@@ -106,7 +100,6 @@ unsigned int FormatZipMessage(ZRESULT code, TCHAR *buf,unsigned int len);
 // The following come from mistakes on the part of the caller
 #define ZR_CALLERMASK 0x00FF0000
 #define ZR_ARGS       0x00010000     // general mistake with the arguments
-#define ZR_NOTMMAP    0x00020000     // tried to ZipGetMemory, but that only works on mmap zipfiles, which yours wasn't
 #define ZR_MEMSIZE    0x00030000     // the memory size is too small
 #define ZR_FAILED     0x00040000     // the thing was already failed when you called this function
 #define ZR_ENDED      0x00050000     // the zip creation has already been closed

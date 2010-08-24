@@ -2185,7 +2185,6 @@ const config configuration_table[10] = {
 		static unsigned swrite(void *param,const char *buf, unsigned size);
 		unsigned int write(const char *buf,unsigned int size);
 		bool oseek(unsigned int pos);
-		ZRESULT GetMemory(void **pbuf, unsigned long *plen);
 		ZRESULT Close();
 
 		// some variables to do with the file currently being read:
@@ -2300,19 +2299,9 @@ const config configuration_table[10] = {
 		return false;
 	}
 
-	ZRESULT TZip::GetMemory(void **pbuf, unsigned long *plen)
-	{ // When the user calls GetMemory, they're presumably at the end
-		// of all their adding. In any case, we have to add the central
-		// directory now, otherwise the memory we tell them won't be complete.
-		if (!hasputcen) AddCentral(); hasputcen=true;
-		if (pbuf!=NULL) *pbuf=(void*)obuf;
-		if (plen!=NULL) *plen=writ;
-		if (obuf==NULL) return ZR_NOTMMAP;
-		return ZR_OK;
-	}
-
 	ZRESULT TZip::Close()
-	{ // if the directory hadn't already been added through a call to GetMemory,
+	{
+		// if the directory hadn't already been added through a call to GetMemory,
 		// then we do it now
 		ZRESULT res=ZR_OK; 
 		if (!hasputcen) 
@@ -2700,7 +2689,6 @@ const config configuration_table[10] = {
 		case ZR_READ: msg="Error reading file"; break;
 		case ZR_ARGS: msg="Caller: faulty arguments"; break;
 		case ZR_PARTIALUNZ: msg="Caller: the file had already been partially unzipped"; break;
-		case ZR_NOTMMAP: msg="Caller: can only get memory of a memory zipfile"; break;
 		case ZR_MEMSIZE: msg="Caller: not enough space allocated for memory zipfile"; break;
 		case ZR_FAILED: msg="Caller: there was a previous error"; break;
 		case ZR_ENDED: msg="Caller: additions to the zip have already been ended"; break;
@@ -2789,10 +2777,4 @@ const config configuration_table[10] = {
 		return lasterrorZ;
 	}
 
-	bool IsZipHandleZ(HZIP hz)
-	{ 
-		if (hz==0) return false;
-		TZipHandleData *han = (TZipHandleData*)hz;
-		return (han->flag==2);
-	}
 
