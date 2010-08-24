@@ -1,9 +1,12 @@
 // Adapted from http://www.codeproject.com/KB/files/zip_utils.aspx
+#include "global.h"
 
 #include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
 #include "CreateZip.h"
+#include "RageFile.h"
+#include "RageUtil.h"
 
 
 // THIS FILE is almost entirely based upon code by info-zip.
@@ -2166,52 +2169,72 @@ const config configuration_table[10] = {
 
 
 	ZRESULT GetFileInfo(HANDLE hf, ulg *attr, long *size, iztimes *times, ulg *timestamp)
-	{ // The handle must be a handle to a file
+	{
+		// The handle must be a handle to a file
 		// The date and time is returned in a long with the date most significant to allow
 		// unsigned integer comparison of absolute times. The attributes have two
 		// high bytes unix attr, and two low bytes a mapping of that to DOS attr.
 		//struct stat s; int res=stat(fn,&s); if (res!=0) return false;
 		// translate windows file attributes into zip ones.
 		BY_HANDLE_FILE_INFORMATION bhi; BOOL res=GetFileInformationByHandle(hf,&bhi);
-		if (!res) return ZR_NOFILE;
+		if (!res)
+			return ZR_NOFILE;
 		DWORD fa=bhi.dwFileAttributes; ulg a=0;
 		// Zip uses the lower word for its interpretation of windows stuff
-		if (fa&FILE_ATTRIBUTE_READONLY) a|=0x01;
-		if (fa&FILE_ATTRIBUTE_HIDDEN)   a|=0x02;
-		if (fa&FILE_ATTRIBUTE_SYSTEM)   a|=0x04;
-		if (fa&FILE_ATTRIBUTE_DIRECTORY)a|=0x10;
-		if (fa&FILE_ATTRIBUTE_ARCHIVE)  a|=0x20;
+		if (fa&FILE_ATTRIBUTE_READONLY)
+			a|=0x01;
+		if (fa&FILE_ATTRIBUTE_HIDDEN)
+			a|=0x02;
+		if (fa&FILE_ATTRIBUTE_SYSTEM)
+			a|=0x04;
+		if (fa&FILE_ATTRIBUTE_DIRECTORY)
+			a|=0x10;
+		if (fa&FILE_ATTRIBUTE_ARCHIVE)
+			a|=0x20;
 		// It uses the upper word for standard unix attr, which we manually construct
-		if (fa&FILE_ATTRIBUTE_DIRECTORY)a|=0x40000000;  // directory
-		else a|=0x80000000;  // normal file
+		if (fa&FILE_ATTRIBUTE_DIRECTORY)
+			a|=0x40000000;  // directory
+		else 
+			a|=0x80000000;  // normal file
 		a|=0x01000000;      // readable
-		if (fa&FILE_ATTRIBUTE_READONLY) {} else a|=0x00800000; // writeable
+		if (fa&FILE_ATTRIBUTE_READONLY) 
+		{
+		}
+		else 
+			a|=0x00800000; // writeable
 		// now just a small heuristic to check if it's an executable:
-		DWORD red, hsize=GetFileSize(hf,NULL); if (hsize>40)
-		{ SetFilePointer(hf,0,NULL,FILE_BEGIN); unsigned short magic; ReadFile(hf,&magic,sizeof(magic),&red,NULL);
-		SetFilePointer(hf,36,NULL,FILE_BEGIN); unsigned long hpos;  ReadFile(hf,&hpos,sizeof(hpos),&red,NULL);
-		if (magic==0x54AD && hsize>hpos+4+20+28)
-		{ SetFilePointer(hf,hpos,NULL,FILE_BEGIN); unsigned long signature; ReadFile(hf,&signature,sizeof(signature),&red,NULL);
-		if (signature==IMAGE_DOS_SIGNATURE || signature==IMAGE_OS2_SIGNATURE
-			|| signature==IMAGE_OS2_SIGNATURE_LE || signature==IMAGE_NT_SIGNATURE)
-		{ a |= 0x00400000; // executable
-		}
-		}
+		DWORD red, hsize=GetFileSize(hf,NULL); 
+		if (hsize>40)
+		{
+			SetFilePointer(hf,0,NULL,FILE_BEGIN); unsigned short magic; ReadFile(hf,&magic,sizeof(magic),&red,NULL);
+			SetFilePointer(hf,36,NULL,FILE_BEGIN); unsigned long hpos;  ReadFile(hf,&hpos,sizeof(hpos),&red,NULL);
+			if (magic==0x54AD && hsize>hpos+4+20+28)
+			{ 
+				SetFilePointer(hf,hpos,NULL,FILE_BEGIN); unsigned long signature; ReadFile(hf,&signature,sizeof(signature),&red,NULL);
+				if (signature==IMAGE_DOS_SIGNATURE || signature==IMAGE_OS2_SIGNATURE || signature==IMAGE_OS2_SIGNATURE_LE || signature==IMAGE_NT_SIGNATURE)
+				{
+					a |= 0x00400000; // executable
+				}
+			}
 		}
 		//
-		if (attr!=NULL) *attr = a;
-		if (size!=NULL) *size = hsize;
+		if (attr!=NULL) 
+			*attr = a;
+		if (size!=NULL) 
+			*size = hsize;
 		if (times!=NULL)
-		{ // lutime_t is 32bit number of seconds elapsed since 0:0:0GMT, Jan1, 1970.
+		{
+			// lutime_t is 32bit number of seconds elapsed since 0:0:0GMT, Jan1, 1970.
 			// but FILETIME is 64bit number of 100-nanosecs since Jan1, 1601
 			times->atime = filetime2timet(bhi.ftLastAccessTime);
 			times->mtime = filetime2timet(bhi.ftLastWriteTime);
 			times->ctime = filetime2timet(bhi.ftCreationTime);
 		}
 		if (timestamp!=NULL)
-		{ WORD dosdate,dostime;
-		filetime2dosdatetime(bhi.ftLastWriteTime,&dosdate,&dostime);
-		*timestamp = (WORD)dostime | (((DWORD)dosdate)<<16);
+		{ 
+			WORD dosdate,dostime;
+			filetime2dosdatetime(bhi.ftLastWriteTime,&dosdate,&dostime);
+			*timestamp = (WORD)dostime | (((DWORD)dosdate)<<16);
 		}
 		return ZR_OK;
 	}
@@ -2257,7 +2280,7 @@ const config configuration_table[10] = {
 		TZipFileInfo *zfis;       // each file gets added onto this list, for writing the table at the end
 		TState *state;            // we use just one state object per zip, because it's big (500k)
 
-		ZRESULT Create(void *z,unsigned int len,DWORD flags);
+		ZRESULT Create(void *z,DWORD flags);
 		static unsigned sflush(void *param,const char *buf, unsigned *size);
 		static unsigned swrite(void *param,const char *buf, unsigned size);
 		unsigned int write(const char *buf,unsigned int size);
@@ -2271,7 +2294,7 @@ const config configuration_table[10] = {
 		ulg attr; iztimes times; ulg timestamp;  // all open_* methods set these
 		bool iseekable; long isize,ired;         // size is not set until close() on pips
 		ulg crc;                                 // crc is not set until close(). iwrit is cumulative
-		HANDLE hfin;           // for input files and pipes
+		RageFile *hfin;           // for input files and pipes
 		const char *bufin; unsigned int lenin,posin; // for memory
 		// and a variable for what we've done with the input: (i.e. compressed it!)
 		ulg csize;                               // compressed size, set by the compression routines
@@ -2282,6 +2305,7 @@ const config configuration_table[10] = {
 		ZRESULT open_file(const TCHAR *fn);
 		ZRESULT open_handle(HANDLE hf);
 		ZRESULT open_dir();
+		ZRESULT set_times();
 		static unsigned sread(TState &s,char *buf,unsigned size);
 		unsigned read(char *buf, unsigned size);
 		ZRESULT iclose();
@@ -2296,9 +2320,10 @@ const config configuration_table[10] = {
 
 
 
-	ZRESULT TZip::Create(void *z,unsigned int len,DWORD flags)
+	ZRESULT TZip::Create(void *z,DWORD flags)
 	{ 
-		if (hfout!=0 || hmapout!=0 || obuf!=0 || writ!=0 || oerr!=ZR_OK || hasputcen) return ZR_NOTINITED;
+		if (hfout!=0 || hmapout!=0 || obuf!=0 || writ!=0 || oerr!=ZR_OK || hasputcen) 
+			return ZR_NOTINITED;
 		//
 		if (flags==ZIP_FILENAME)
 		{ 
@@ -2315,7 +2340,7 @@ const config configuration_table[10] = {
 			return ZR_OK;
 		}
 		else 
-return ZR_ARGS;
+			return ZR_ARGS;
 	}
 
 	unsigned TZip::sflush(void *param,const char *buf, unsigned *size)
@@ -2373,15 +2398,25 @@ return ZR_ARGS;
 
 	bool TZip::oseek(unsigned int pos)
 	{ 
-		if (!ocanseek) {oerr=ZR_SEEK; return false;}
+		if (!ocanseek)
+		{
+			oerr=ZR_SEEK; 
+			return false;
+		}
 		if (obuf!=0)
-		{ if (pos>=mapsize) {oerr=ZR_MEMSIZE; return false;}
-		opos=pos;
-		return true;
+		{
+			if (pos>=mapsize)
+			{
+				oerr=ZR_MEMSIZE; 
+				return false;
+			}
+			opos=pos;
+			return true;
 		}
 		else if (hfout!=0)
-		{ SetFilePointer(hfout,pos+ooffset,NULL,FILE_BEGIN);
-		return true;
+		{ 
+			SetFilePointer(hfout,pos+ooffset,NULL,FILE_BEGIN);
+			return true;
 		}
 		oerr=ZR_NOTINITED; return 0;
 	}
@@ -2409,45 +2444,45 @@ return ZR_ARGS;
 
 
 
+#define ZIP_ATTR_READONLY 0x01
+#define ZIP_ATTR_HIDDEN 0x02
+#define ZIP_ATTR_SYSTEM 0x04
+#define ZIP_ATTR_DIRECTORY 0x10
+#define ZIP_ATTR_ARCHIVE 0x20
+#define ZIP_ATTR_DIRECTORY2 0x40000000
+#define ZIP_ATTR_NORMAL_FILE 0x80000000
+#define ZIP_ATTR_READABLE 0x01000000
+#define ZIP_ATTR_WRITEABLE 0x00800000
+#define ZIP_ATTR_EXECUTABLE 0x00400000
 
 	ZRESULT TZip::open_file(const TCHAR *fn)
 	{ 
 		hfin=0; bufin=0; crc=CRCVAL_INITIAL; isize=0; csize=0; ired=0;
 		if (fn==0) 
 			return ZR_ARGS;
-		HANDLE hf = CreateFile(fn,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,0,NULL);
-		if (hf==INVALID_HANDLE_VALUE) 
-			return ZR_NOFILE;
-		ZRESULT res = open_handle(hf);
-		if (res!=ZR_OK) 
+		hfin = new RageFile();
+		if( !hfin->Open(fn) )
 		{
-			CloseHandle(hf); 
-			return res;
+			SAFE_DELETE( hfin );
+			return ZR_NOFILE;
 		}
-		return ZR_OK;
-	}
-	ZRESULT TZip::open_handle(HANDLE hf)
-	{
-		hfin=0; bufin=0; crc=CRCVAL_INITIAL; isize=0; csize=0; ired=0;
-
-		if (hf==0 || hf==INVALID_HANDLE_VALUE) 
-			return ZR_ARGS;
-		SetFilePointer(hfout,0,0,FILE_CURRENT);
-		ZRESULT res = GetFileInfo(hf,&attr,&isize,&times,&timestamp);
-		if (res!=ZR_OK) 
-			return res;
-		SetFilePointer(hf,0,NULL,FILE_BEGIN); // because GetFileInfo will have screwed it up
+		isize = hfin->GetFileSize();
 		iseekable=true; 
-		hfin=hf;
-		return ZR_OK;
+		attr= ZIP_ATTR_NORMAL_FILE | ZIP_ATTR_READABLE | ZIP_ATTR_WRITEABLE;
+		SetFilePointer(hfout,0,0,FILE_CURRENT);
+		return set_times();
 	}
 
 	ZRESULT TZip::open_dir()
 	{ 
 		hfin=0; bufin=0; crc=CRCVAL_INITIAL; isize=0; csize=0; ired=0;
-		attr= 0x41C00010; // a readable writable directory, and again directory
+		attr= ZIP_ATTR_DIRECTORY2 | ZIP_ATTR_READABLE | ZIP_ATTR_WRITEABLE | ZIP_ATTR_DIRECTORY;
 		isize = 0;
 		iseekable=false;
+		return set_times();
+	}
+	ZRESULT TZip::set_times()
+	{
 		SYSTEMTIME st; GetLocalTime(&st);
 		FILETIME ft;   SystemTimeToFileTime(&st,&ft);
 		WORD dosdate,dostime; filetime2dosdatetime(ft,&dosdate,&dostime);
@@ -2470,7 +2505,8 @@ return ZR_ARGS;
 		{ 
 			if (posin>=lenin) return 0; // end of input
 			ulg red = lenin-posin;
-			if (red>size) red=size;
+			if (red>size) 
+				red=size;
 			memcpy(buf, bufin+posin, red);
 			posin += red;
 			ired += red;
@@ -2478,23 +2514,31 @@ return ZR_ARGS;
 			return red;
 		}
 		else if (hfin!=0)
-		{ DWORD red;
-		BOOL ok = ReadFile(hfin,buf,size,&red,NULL);
-		if (!ok) return 0;
-		ired += red;
-		crc = crc32(crc, (uch*)buf, red);
-		return red;
+		{ 
+			int red = hfin->Read(buf,size);
+			if (red <= 0)
+				return 0;
+			ired += red;
+			crc = crc32(crc, (uch*)buf, red);
+			return red;
 		}
-		else {oerr=ZR_NOTINITED; return 0;}
+		else
+		{
+			oerr=ZR_NOTINITED; 
+			return 0;
+		}
 	}
 
 	ZRESULT TZip::iclose()
 	{ 
-		if (hfin!=0) CloseHandle(hfin); hfin=0;
+		if (hfin!=0)
+			SAFE_DELETE( hfin); 
 		bool mismatch = (isize!=-1 && isize!=ired);
 		isize=ired; // and crc has been being updated anyway
-		if (mismatch) return ZR_MISSIZE;
-		else return ZR_OK;
+		if (mismatch) 
+			return ZR_MISSIZE;
+		else 
+			return ZR_OK;
 	}
 
 
@@ -2526,9 +2570,14 @@ return ZR_ARGS;
 	{ 
 		ulg size=0;
 		for (;;)
-		{ unsigned int cin=read(buf,16384); if (cin<=0 || cin==(unsigned int)EOF) break;
-		unsigned int cout = write(buf,cin); if (cout!=cin) return ZR_MISSIZE;
-		size += cin;
+		{
+			unsigned int cin=read(buf,16384); 
+			if (cin<=0 || cin==(unsigned int)EOF) 
+				break;
+			unsigned int cout = write(buf,cin); 
+			if (cout!=cin) 
+				return ZR_MISSIZE;
+			size += cin;
 		}
 		csize=size;
 		return ZR_OK;
@@ -2657,19 +2706,28 @@ return ZR_ARGS;
 		char encbuf[12]; for (int i=0; i<12; i++) encbuf[i]=(char)((rand()>>7)&0xff);
 		encbuf[11] = (char)((zfi.tim>>8)&0xff);
 		for (int ei=0; ei<12; ei++) encbuf[ei]=zencode(keys,encbuf[ei]);
-		if (password!=0 && !isdir) {swrite(this,encbuf,12); writ+=12;}
+		if (password!=0 && !isdir)
+		{
+			swrite(this,encbuf,12); 
+			writ+=12;
+		}
 
 		//(2) Write deflated/stored file to zip file
 		ZRESULT writeres=ZR_OK;
 		encwriting = (password!=0 && !isdir);  // an object member variable to say whether we write to disk encrypted
-		if (!isdir && method==DEFLATE) writeres=ideflate(&zfi);
-		else if (!isdir && method==STORE) writeres=istore();
-		else if (isdir) csize=0;
+		if (!isdir && method==DEFLATE) 
+			writeres=ideflate(&zfi);
+		else if (!isdir && method==STORE) 
+			writeres=istore();
+		else if (isdir) 
+			csize=0;
 		encwriting = false;
 		iclose();
 		writ += csize;
-		if (oerr!=ZR_OK) return oerr;
-		if (writeres!=ZR_OK) return ZR_WRITE;
+		if (oerr!=ZR_OK) 
+			return oerr;
+		if (writeres!=ZR_OK)
+			return ZR_WRITE;
 
 		// (3) Either rewrite the local header with correct information...
 		bool first_header_has_size_right = (zfi.siz==csize+passex);
@@ -2677,29 +2735,46 @@ return ZR_ARGS;
 		zfi.siz = csize+passex;
 		zfi.len = isize;
 		if (ocanseek && (password==0 || isdir))
-		{ zfi.how = (ush)method;
-		if ((zfi.flg & 1) == 0) zfi.flg &= ~8; // clear the extended local header flag
-		zfi.lflg = zfi.flg;
-		// rewrite the local header:
-		if (!oseek(zfi.off-ooffset)) return ZR_SEEK;
-		if ((r = putlocal(&zfi, swrite,this)) != ZE_OK) return ZR_WRITE;
-		if (!oseek(writ)) return ZR_SEEK;
+		{
+			zfi.how = (ush)method;
+			if ((zfi.flg & 1) == 0) 
+				zfi.flg &= ~8; // clear the extended local header flag
+			zfi.lflg = zfi.flg;
+			// rewrite the local header:
+			if (!oseek(zfi.off-ooffset)) 
+				return ZR_SEEK;
+			if ((r = putlocal(&zfi, swrite,this)) != ZE_OK) 
+				return ZR_WRITE;
+			if (!oseek(writ)) 
+				return ZR_SEEK;
 		}
 		else
-		{ // (4) ... or put an updated header at the end
-			if (zfi.how != (ush) method) return ZR_NOCHANGE;
-			if (method==STORE && !first_header_has_size_right) return ZR_NOCHANGE;
-			if ((r = putextended(&zfi, swrite,this)) != ZE_OK) return ZR_WRITE;
+		{ 
+			// (4) ... or put an updated header at the end
+			if (zfi.how != (ush) method) 
+				return ZR_NOCHANGE;
+			if (method==STORE && !first_header_has_size_right) 
+				return ZR_NOCHANGE;
+			if ((r = putextended(&zfi, swrite,this)) != ZE_OK) 
+				return ZR_WRITE;
 			writ += 16L;
 			zfi.flg = zfi.lflg; // if flg modified by inflate, for the central index
 		}
-		if (oerr!=ZR_OK) return oerr;
+		if (oerr!=ZR_OK)
+			return oerr;
 
 		// Keep a copy of the zipfileinfo, for our end-of-zip directory
 		char *cextra = new char[zfi.cext]; memcpy(cextra,zfi.cextra,zfi.cext); zfi.cextra=cextra;
 		TZipFileInfo *pzfi = new TZipFileInfo; memcpy(pzfi,&zfi,sizeof(zfi));
-		if (zfis==NULL) zfis=pzfi;
-		else {TZipFileInfo *z=zfis; while (z->nxt!=NULL) z=z->nxt; z->nxt=pzfi;}
+		if (zfis==NULL) 
+			zfis=pzfi;
+		else 
+		{
+			TZipFileInfo *z=zfis; 
+			while (z->nxt!=NULL) 
+				z=z->nxt; 
+			z->nxt=pzfi;
+		}
 		return ZR_OK;
 	}
 
@@ -2783,10 +2858,10 @@ return ZR_ARGS;
 	} TZipHandleData;
 
 
-	HZIP CreateZipInternal(void *z,unsigned int len,DWORD flags, const char *password)
+	HZIP CreateZipInternal(void *z,DWORD flags, const char *password)
 	{ 
 		TZip *zip = new TZip(password);
-		lasterrorZ = zip->Create(z,len,flags);
+		lasterrorZ = zip->Create(z,flags);
 		if (lasterrorZ!=ZR_OK)
 		{
 			delete zip;
@@ -2799,7 +2874,7 @@ return ZR_ARGS;
 	}
 	CreateZip::CreateZip(const TCHAR *fn, const char *password)
 	{
-		hz=CreateZipInternal((void*)fn,0,ZIP_FILENAME,password);
+		hz=CreateZipInternal((void*)fn,ZIP_FILENAME,password);
 	}
 
 
@@ -2820,8 +2895,14 @@ return ZR_ARGS;
 		lasterrorZ = zip->Add(dstzn,src,flags);
 		return lasterrorZ;
 	}
-	ZRESULT CreateZip::ZipAdd(const TCHAR *dstzn, const TCHAR *fn) {return ZipAddInternal(hz,dstzn,(void*)fn,ZIP_FILENAME);}
-	ZRESULT CreateZip::ZipAddFolder(const TCHAR *dstzn) {return ZipAddInternal(hz,dstzn,0,ZIP_FOLDER);}
+	ZRESULT CreateZip::ZipAdd(const TCHAR *dstzn, const TCHAR *fn)
+	{
+		return ZipAddInternal(hz,dstzn,(void*)fn,ZIP_FILENAME);
+	}
+	ZRESULT CreateZip::ZipAddFolder(const TCHAR *dstzn)
+	{
+		return ZipAddInternal(hz,dstzn,0,ZIP_FOLDER);
+	}
 
 
 
