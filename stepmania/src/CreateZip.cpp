@@ -2130,26 +2130,6 @@ const config configuration_table[10] = {
 
 
 
-
-
-
-
-	bool HasZipSuffix(const TCHAR *fn)
-	{ const TCHAR *ext = fn+_tcslen(fn);
-	while (ext>fn && *ext!='.') ext--;
-	if (ext==fn && *ext!='.') return false;
-	if (_tcsicmp(ext,_T(".Z"))==0) return true;
-	if (_tcsicmp(ext,_T(".zip"))==0) return true;
-	if (_tcsicmp(ext,_T(".zoo"))==0) return true;
-	if (_tcsicmp(ext,_T(".arc"))==0) return true;
-	if (_tcsicmp(ext,_T(".lzh"))==0) return true;
-	if (_tcsicmp(ext,_T(".arj"))==0) return true;
-	if (_tcsicmp(ext,_T(".gz"))==0) return true;
-	if (_tcsicmp(ext,_T(".tgz"))==0) return true;
-	return false;
-	}
-
-
 	lutime_t filetime2timet(const FILETIME ft)
 	{ __int64 i = *(__int64*)&ft;
 	return (lutime_t)((i-116444736000000000)/10000000);
@@ -2166,84 +2146,6 @@ const config configuration_table[10] = {
 		*dostime |= (WORD)((st.wMinute&0x3f) << 5);
 		*dostime |= (WORD)((st.wSecond*2)&0x1f);
 	}
-
-
-	ZRESULT GetFileInfo(HANDLE hf, ulg *attr, long *size, iztimes *times, ulg *timestamp)
-	{
-		// The handle must be a handle to a file
-		// The date and time is returned in a long with the date most significant to allow
-		// unsigned integer comparison of absolute times. The attributes have two
-		// high bytes unix attr, and two low bytes a mapping of that to DOS attr.
-		//struct stat s; int res=stat(fn,&s); if (res!=0) return false;
-		// translate windows file attributes into zip ones.
-		BY_HANDLE_FILE_INFORMATION bhi; BOOL res=GetFileInformationByHandle(hf,&bhi);
-		if (!res)
-			return ZR_NOFILE;
-		DWORD fa=bhi.dwFileAttributes; ulg a=0;
-		// Zip uses the lower word for its interpretation of windows stuff
-		if (fa&FILE_ATTRIBUTE_READONLY)
-			a|=0x01;
-		if (fa&FILE_ATTRIBUTE_HIDDEN)
-			a|=0x02;
-		if (fa&FILE_ATTRIBUTE_SYSTEM)
-			a|=0x04;
-		if (fa&FILE_ATTRIBUTE_DIRECTORY)
-			a|=0x10;
-		if (fa&FILE_ATTRIBUTE_ARCHIVE)
-			a|=0x20;
-		// It uses the upper word for standard unix attr, which we manually construct
-		if (fa&FILE_ATTRIBUTE_DIRECTORY)
-			a|=0x40000000;  // directory
-		else 
-			a|=0x80000000;  // normal file
-		a|=0x01000000;      // readable
-		if (fa&FILE_ATTRIBUTE_READONLY) 
-		{
-		}
-		else 
-			a|=0x00800000; // writeable
-		// now just a small heuristic to check if it's an executable:
-		DWORD red, hsize=GetFileSize(hf,NULL); 
-		if (hsize>40)
-		{
-			SetFilePointer(hf,0,NULL,FILE_BEGIN); unsigned short magic; ReadFile(hf,&magic,sizeof(magic),&red,NULL);
-			SetFilePointer(hf,36,NULL,FILE_BEGIN); unsigned long hpos;  ReadFile(hf,&hpos,sizeof(hpos),&red,NULL);
-			if (magic==0x54AD && hsize>hpos+4+20+28)
-			{ 
-				SetFilePointer(hf,hpos,NULL,FILE_BEGIN); unsigned long signature; ReadFile(hf,&signature,sizeof(signature),&red,NULL);
-				if (signature==IMAGE_DOS_SIGNATURE || signature==IMAGE_OS2_SIGNATURE || signature==IMAGE_OS2_SIGNATURE_LE || signature==IMAGE_NT_SIGNATURE)
-				{
-					a |= 0x00400000; // executable
-				}
-			}
-		}
-		//
-		if (attr!=NULL) 
-			*attr = a;
-		if (size!=NULL) 
-			*size = hsize;
-		if (times!=NULL)
-		{
-			// lutime_t is 32bit number of seconds elapsed since 0:0:0GMT, Jan1, 1970.
-			// but FILETIME is 64bit number of 100-nanosecs since Jan1, 1601
-			times->atime = filetime2timet(bhi.ftLastAccessTime);
-			times->mtime = filetime2timet(bhi.ftLastWriteTime);
-			times->ctime = filetime2timet(bhi.ftCreationTime);
-		}
-		if (timestamp!=NULL)
-		{ 
-			WORD dosdate,dostime;
-			filetime2dosdatetime(bhi.ftLastWriteTime,&dosdate,&dostime);
-			*timestamp = (WORD)dostime | (((DWORD)dosdate)<<16);
-		}
-		return ZR_OK;
-	}
-
-
-
-
-
-
 
 
 	class TZip
