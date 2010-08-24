@@ -2720,14 +2720,15 @@ const config configuration_table[10] = {
 
 
 
-	typedef struct
+	class TZipHandleData
 	{ 
+	public:
 		DWORD flag;
 		TZip *zip;
-	} TZipHandleData;
+	};
 
 
-	HZIP CreateZipInternal(void *z,DWORD flags, const char *password)
+	TZipHandleData *CreateZipInternal(void *z,DWORD flags, const char *password)
 	{ 
 		TZip *zip = new TZip(password);
 		lasterrorZ = zip->Create(z,flags);
@@ -2739,7 +2740,7 @@ const config configuration_table[10] = {
 		TZipHandleData *han = new TZipHandleData;
 		han->flag=2; 
 		han->zip=zip; 
-		return (HZIP)han;
+		return han;
 	}
 	CreateZip::CreateZip(const TCHAR *fn, const char *password)
 	{
@@ -2747,14 +2748,8 @@ const config configuration_table[10] = {
 	}
 
 
-	ZRESULT ZipAddInternal(HZIP hz,const TCHAR *dstzn, void *src, DWORD flags)
+	ZRESULT ZipAddInternal(TZipHandleData* han,const TCHAR *dstzn, void *src, DWORD flags)
 	{ 
-		if (hz==0)
-		{
-			lasterrorZ=ZR_ARGS;
-			return ZR_ARGS;
-		}
-		TZipHandleData *han = (TZipHandleData*)hz;
 		if (han->flag!=2)
 		{
 			lasterrorZ=ZR_ZMODE;
@@ -2773,29 +2768,6 @@ const config configuration_table[10] = {
 		return ZipAddInternal(hz,dstzn,0,ZIP_FOLDER);
 	}
 
-
-
-	ZRESULT ZipGetMemory(HZIP hz, void **buf, unsigned long *len)
-	{ 
-		if (hz==0)
-		{
-			if (buf!=0)
-				*buf=0;
-			if (len!=0)
-				*len=0;
-			lasterrorZ=ZR_ARGS;
-			return ZR_ARGS;
-		}
-		TZipHandleData *han = (TZipHandleData*)hz;
-		if (han->flag!=2) 
-		{
-			lasterrorZ=ZR_ZMODE;
-			return ZR_ZMODE;
-		}
-		TZip *zip = han->zip;
-		lasterrorZ = zip->GetMemory(buf,len);
-		return lasterrorZ;
-	}
 
 	ZRESULT CreateZip::CloseZip()
 	{ 

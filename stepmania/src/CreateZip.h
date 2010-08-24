@@ -16,13 +16,15 @@ DECLARE_HANDLE(HZIP);
 #endif
 // An HZIP identifies a zip file that is being created
 
+class TZipHandleData;
+
 typedef DWORD ZRESULT;
 // return codes from any of the zip functions. Listed later.
 
 
 class CreateZip
 {
-	HZIP hz;
+	TZipHandleData* hz;
 public:
 	CreateZip(const TCHAR *fn, const char *password);
 // CreateZip - call this to start the creation of a zip file.
