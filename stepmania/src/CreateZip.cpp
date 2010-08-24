@@ -2151,7 +2151,7 @@ const config configuration_table[10] = {
 	class TZip
 	{ 
 	public:
-		TZip(const char *pwd) : hfout(0),mustclosehfout(false),hmapout(0),zfis(0),obuf(0),hfin(0),writ(0),oerr(false),hasputcen(false),ooffset(0),encwriting(false),encbuf(0),password(0), state(0)
+		TZip(const char *pwd) : pfout(NULL),hmapout(0),zfis(0),obuf(0),hfin(0),writ(0),oerr(false),hasputcen(false),ooffset(0),encwriting(false),encbuf(0),password(0), state(0)
 		{
 			if (pwd!=0 && *pwd!=0) {
 				password=new char[strlen(pwd)+1]; 
@@ -2163,13 +2163,11 @@ const config configuration_table[10] = {
 		// These variables say about the file we're writing into
 		// We can write to pipe, file-by-handle, file-by-name, memory-to-memmapfile
 		char *password;           // keep a copy of the password
-		HANDLE hfout;             // if valid, we'll write here (for files or pipes)
-		bool mustclosehfout;      // if true, we are responsible for closing hfout
+		RageFile *pfout;             // if valid, we'll write here (for files or pipes)
 		HANDLE hmapout;           // otherwise, we'll write here (for memmap)
 		unsigned ooffset;         // for hfout, this is where the pointer was initially
 		ZRESULT oerr;             // did a write operation give rise to an error?
 		unsigned writ;            // how far have we written. This is maintained by Add, not write(), to avoid confusion over seeks
-		bool ocanseek;            // can we seek?
 		char *obuf;               // this is where we've locked mmap to view.
 		unsigned int opos;        // current pos in the mmap
 		unsigned int mapsize;     // the size of the map we created
@@ -2224,21 +2222,19 @@ const config configuration_table[10] = {
 
 	ZRESULT TZip::Create(void *z,DWORD flags)
 	{ 
-		if (hfout!=0 || hmapout!=0 || obuf!=0 || writ!=0 || oerr!=ZR_OK || hasputcen) 
+		if (pfout!=0 || hmapout!=0 || obuf!=0 || writ!=0 || oerr!=ZR_OK || hasputcen) 
 			return ZR_NOTINITED;
 		//
 		if (flags==ZIP_FILENAME)
 		{ 
 			const TCHAR *fn = (const TCHAR*)z;
-			hfout = CreateFile(fn,GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
-			if (hfout==INVALID_HANDLE_VALUE) 
+			pfout = new RageFile();
+			if( !pfout->Open( fn, RageFile::WRITE ) )
 			{
-				hfout=0; 
+				pfout = NULL; 
 				return ZR_NOFILE;
 			}
-			ocanseek=true;
 			ooffset=0;
-			mustclosehfout=true;
 			return ZR_OK;
 		}
 		else 
@@ -2289,38 +2285,19 @@ const config configuration_table[10] = {
 			opos+=size;
 			return size;
 		}
-		else if (hfout!=0)
-		{ 
-			DWORD writ; 
-			WriteFile(hfout,srcbuf,size,&writ,NULL);
+		else if (pfout != NULL)
+		{
+			DWORD writ = pfout->Write( srcbuf, size );
 			return writ;
 		}
-		oerr=ZR_NOTINITED; return 0;
+		oerr=ZR_NOTINITED;
+		return 0;
 	}
 
 	bool TZip::oseek(unsigned int pos)
 	{ 
-		if (!ocanseek)
-		{
-			oerr=ZR_SEEK; 
-			return false;
-		}
-		if (obuf!=0)
-		{
-			if (pos>=mapsize)
-			{
-				oerr=ZR_MEMSIZE; 
-				return false;
-			}
-			opos=pos;
-			return true;
-		}
-		else if (hfout!=0)
-		{ 
-			SetFilePointer(hfout,pos+ooffset,NULL,FILE_BEGIN);
-			return true;
-		}
-		oerr=ZR_NOTINITED; return 0;
+		oerr=ZR_SEEK; 
+		return false;
 	}
 
 	ZRESULT TZip::GetMemory(void **pbuf, unsigned long *plen)
@@ -2337,10 +2314,17 @@ const config configuration_table[10] = {
 	ZRESULT TZip::Close()
 	{ // if the directory hadn't already been added through a call to GetMemory,
 		// then we do it now
-		ZRESULT res=ZR_OK; if (!hasputcen) res=AddCentral(); hasputcen=true;
-		if (obuf!=0 && hmapout!=0) UnmapViewOfFile(obuf); obuf=0;
-		if (hmapout!=0) CloseHandle(hmapout); hmapout=0;
-		if (hfout!=0 && mustclosehfout) CloseHandle(hfout); hfout=0; mustclosehfout=false;
+		ZRESULT res=ZR_OK; 
+		if (!hasputcen) 
+			res=AddCentral(); 
+		hasputcen=true;
+		if (obuf!=0 && hmapout!=0) 
+			UnmapViewOfFile(obuf); 
+		obuf=0;
+		if (hmapout!=0) 
+			CloseHandle(hmapout); 
+		hmapout=0;
+		SAFE_DELETE( pfout );
 		return res;
 	}
 
@@ -2371,7 +2355,6 @@ const config configuration_table[10] = {
 		isize = hfin->GetFileSize();
 		iseekable=true; 
 		attr= ZIP_ATTR_NORMAL_FILE | ZIP_ATTR_READABLE | ZIP_ATTR_WRITEABLE;
-		SetFilePointer(hfout,0,0,FILE_CURRENT);
 		return set_times();
 	}
 
@@ -2636,32 +2619,16 @@ const config configuration_table[10] = {
 		zfi.crc = crc;
 		zfi.siz = csize+passex;
 		zfi.len = isize;
-		if (ocanseek && (password==0 || isdir))
-		{
-			zfi.how = (ush)method;
-			if ((zfi.flg & 1) == 0) 
-				zfi.flg &= ~8; // clear the extended local header flag
-			zfi.lflg = zfi.flg;
-			// rewrite the local header:
-			if (!oseek(zfi.off-ooffset)) 
-				return ZR_SEEK;
-			if ((r = putlocal(&zfi, swrite,this)) != ZE_OK) 
-				return ZR_WRITE;
-			if (!oseek(writ)) 
-				return ZR_SEEK;
-		}
-		else
-		{ 
-			// (4) ... or put an updated header at the end
-			if (zfi.how != (ush) method) 
-				return ZR_NOCHANGE;
-			if (method==STORE && !first_header_has_size_right) 
-				return ZR_NOCHANGE;
-			if ((r = putextended(&zfi, swrite,this)) != ZE_OK) 
-				return ZR_WRITE;
-			writ += 16L;
-			zfi.flg = zfi.lflg; // if flg modified by inflate, for the central index
-		}
+		// (4) ... or put an updated header at the end
+		if (zfi.how != (ush) method) 
+			return ZR_NOCHANGE;
+		if (method==STORE && !first_header_has_size_right) 
+			return ZR_NOCHANGE;
+		if ((r = putextended(&zfi, swrite,this)) != ZE_OK) 
+			return ZR_WRITE;
+		writ += 16L;
+		zfi.flg = zfi.lflg; // if flg modified by inflate, for the central index
+
 		if (oerr!=ZR_OK)
 			return oerr;
 
@@ -2832,9 +2799,17 @@ const config configuration_table[10] = {
 
 	ZRESULT CreateZip::CloseZip()
 	{ 
-		if (hz==0) {lasterrorZ=ZR_ARGS;return ZR_ARGS;}
+		if (hz==0)
+		{
+			lasterrorZ=ZR_ARGS;
+			return ZR_ARGS;
+		}
 		TZipHandleData *han = (TZipHandleData*)hz;
-		if (han->flag!=2) {lasterrorZ=ZR_ZMODE;return ZR_ZMODE;}
+		if (han->flag!=2)
+		{
+			lasterrorZ=ZR_ZMODE;
+			return ZR_ZMODE;
+		}
 		TZip *zip = han->zip;
 		lasterrorZ = zip->Close();
 		delete zip;
