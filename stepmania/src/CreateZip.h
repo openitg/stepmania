@@ -11,7 +11,7 @@
 // extend its use in Windows/C++. Also to add encryption and unicode.
 
 
-class TZipHandleData;
+class TZip;
 
 typedef unsigned long ZRESULT;
 // return codes from any of the zip functions. Listed later.
@@ -19,7 +19,7 @@ typedef unsigned long ZRESULT;
 
 class CreateZip
 {
-	TZipHandleData* hz;
+	TZip* hz;
 public:
 	CreateZip(const TCHAR *fn, const char *password);
 // CreateZip - call this to start the creation of a zip file.
