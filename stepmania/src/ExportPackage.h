@@ -6,10 +6,8 @@ class Song;
 
 namespace ExportPackage
 {
-	bool PublishSongWithUI( const Song *pSong );
-	bool PublishSong( const Song *pSong, RString &sErrorOut );
-	bool ExportSongPackage( const Song *pSong, RString &sErrorOut );
-	bool ExportPackage( RString sPackageName, RString sDirToExport, RString &sErrorOut );
+	void PublishSongWithUI( const Song *pSong );
+	void ExportSongWithUI( const Song *pSong );
 };
 
 #endif 

@@ -8,6 +8,7 @@
 #include "Song.h"
 #include "FileDownload.h"
 #include "CreateZip.h"
+#include "ScreenPrompt.h"
 
 static RString ReplaceInvalidFileNameChars( RString sOldFileName )
 {
@@ -20,22 +21,6 @@ static RString ReplaceInvalidFileNameChars( RString sOldFileName )
 	for( unsigned i=0; i<sizeof(charsToReplace); i++ )
 		sNewFileName.Replace( charsToReplace[i], '_' );
 	return sNewFileName;
-}
-
-bool ExportPackage::PublishSong( const Song *pSong, RString &sErrorOut )
-{
-	RString sDirToExport = pSong->GetSongDir();
-	RString sPackageName = ReplaceInvalidFileNameChars( sDirToExport + ".smzip" );
-
-	RString sSmzipFile = SpecialFiles::CACHE_DIR + "Uploads/" + sPackageName + ".smzip";
-
-	if( ExportPackage(sSmzipFile, sDirToExport, sErrorOut) )
-		return false;
-
-	FileTransfer ft;
-	ft.StartUpload( "http://www.stepmania.com/upload/", sSmzipFile );
-	
-	return true;
 }
 
 void StripIgnoredSmzipFiles( vector<RString> &vsFilesInOut )
@@ -57,7 +42,7 @@ void StripIgnoredSmzipFiles( vector<RString> &vsFilesInOut )
 	}
 }
 
-bool ExportPackage::ExportPackage( RString sSmzipFile, RString sDirToExport, RString &sErrorOut )
+bool ExportDir( RString sSmzipFile, RString sDirToExport, RString &sErrorOut )
 {
 	//sSmzipFile = "/simple1.zip";
 
@@ -91,6 +76,48 @@ bool ExportPackage::ExportPackage( RString sSmzipFile, RString sDirToExport, RSt
 	}
 	
 	return true;
+}
+
+RString PublishSong( const Song *pSong )
+{
+	RString sDirToExport = pSong->GetSongDir();
+	RString sPackageName = ReplaceInvalidFileNameChars( sDirToExport + ".smzip" );
+
+	RString sSmzipFile = SpecialFiles::CACHE_DIR + "Uploads/" + sPackageName;
+
+	RString sErrorOut;
+	if( !ExportDir(sSmzipFile, sDirToExport, sErrorOut) )
+		return "Failed to export '" + sDirToExport + "' to '" + sSmzipFile + "'";
+
+	FileTransfer ft;
+	ft.StartUpload( "http://www.stepmania.com/upload/", sSmzipFile );
+	
+	return "Published as '" + sSmzipFile + "'";
+}
+
+RString ExportSong( const Song *pSong )
+{
+	RString sDirToExport = pSong->GetSongDir();
+	RString sPackageName = ReplaceInvalidFileNameChars( sDirToExport + ".smzip" );
+
+	RString sSmzipFile = SpecialFiles::DESKTOP_DIR + sPackageName;
+
+	RString sErrorOut;
+	if( !ExportDir(sSmzipFile, sDirToExport, sErrorOut) )
+		return "Failed to export '" + sDirToExport + "' to '" + sSmzipFile + "'";
+
+	return "Exported as '" + sSmzipFile + "'";
+}
+
+void ExportPackage::PublishSongWithUI( const Song *pSong )
+{
+	RString sResult = PublishSong( pSong );
+	ScreenPrompt::Prompt( SM_None, sResult );
+}
+void ExportPackage::ExportSongWithUI( const Song *pSong )
+{
+	RString sResult = ExportSong( pSong );
+	ScreenPrompt::Prompt( SM_None, sResult );
 }
 
 /*

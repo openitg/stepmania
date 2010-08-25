@@ -928,14 +928,6 @@ int main(int argc, char* argv[])
 	SONGMAN->UpdatePopular();
 	SONGMAN->UpdatePreferredSort();
 
-
-	/*
-	const Song *pSong = SONGMAN->GetAllSongs()[0];
-	RString sError;
-	ExportPackage::PublishSong( pSong,  sError);
-	*/
-
-
 	///* This shouldn't need to be here; if it's taking long enough that this is
 	// * even visible, we should be fixing it, not showing a progress display. */
 	//CatalogXml::Save( loading_window );

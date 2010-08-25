@@ -64,8 +64,8 @@ public:
 	void ReCalculateRadarValuesAndLastBeat();	// called by TidyUpData, and after saving
 	void TranslateTitles();	// called by TidyUpData
 
-	void SaveToSMFile( RString sPath, bool bSavingCache );
-	void Save();	// saves SM and DWI
+	bool SaveToSMFile( RString sPath, bool bSavingCache );
+	bool Save();	// saves SM and DWI
 	void SaveToCacheFile();
 	void SaveToDWIFile();
 

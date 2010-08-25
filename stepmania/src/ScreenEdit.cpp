@@ -35,6 +35,7 @@
 #include "NotesWriterSM.h"
 #include "LocalizedString.h"
 #include "AdjustSync.h"
+#include "ExportPackage.h"
 
 static Preference<float> g_iDefaultRecordLength( "DefaultRecordLength", 4 );
 static Preference<bool> g_bEditorShowBGChangesPlay( "EditorShowBGChangesPlay", false );
@@ -476,6 +477,8 @@ static MenuDef g_MainMenu(
 	MenuRowDef( ScreenEdit::play_whole_song,		"Play whole song",		true, EditMode_Practice, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::play_current_beat_to_end,	"Play current beat to end",	true, EditMode_Practice, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::save,				"Save",				true, EditMode_Home, true, true, 0, NULL ),
+	MenuRowDef( ScreenEdit::publish,			"Publish to StepMania.com",	true, EditMode_Home, true, true, 0, NULL ),
+	MenuRowDef( ScreenEdit::export,				"Export .smzip to Desktop",	true, EditMode_Home, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::revert_to_last_save,		"Revert to last save",		true, EditMode_Home, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::revert_from_disk,		"Revert from disk",		true, EditMode_Full, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::options,			"Editor options",		true, EditMode_Practice, true, true, 0, NULL ),
@@ -2352,7 +2355,8 @@ void ScreenEdit::ScrollTo( float fDestinationBeat )
 	m_soundChangeLine.Play();
 }
 
-static LocalizedString SAVE_SUCCESSFUL				( "ScreenEdit", "Save successful." );
+static LocalizedString SAVE_SUCCESSFUL		( "ScreenEdit", "Save successful." );
+static LocalizedString SAVE_FAILED		( "ScreenEdit", "Save failed." );
 
 void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 {
@@ -2546,10 +2550,7 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 		m_pSteps->SetSavedToDisk( true );
 		CopyToLastSave();
 
-		if( m_CurrentAction == save_on_exit )
-			ScreenPrompt::Prompt( SM_DoExit, SAVE_SUCCESSFUL );
-		else
-			SCREENMAN->SystemMessage( SAVE_SUCCESSFUL );
+		SCREENMAN->SystemMessage( SAVE_SUCCESSFUL );
 	}
 	else if( SM == SM_SaveFailed ) // save failed; stay in the editor
 	{
@@ -2558,6 +2559,8 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 		LOG->Trace( "Save failed.  Changes uncommitted from memory." );
 		CopyFromLastSave();
 		m_pSteps->SetNoteData( m_NoteDataEdit );
+
+		SCREENMAN->SystemMessage( SAVE_FAILED);
 	}
 	else if( SM == SM_DoExit )
 	{
@@ -2767,68 +2770,9 @@ void ScreenEdit::HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAns
 			break;
 		case save:
 		case save_on_exit:
-			{
-				m_CurrentAction = c;
-
-				// copy edit into current Steps
-				Song* pSong = GAMESTATE->m_pCurSong;
-				Steps* pSteps = GAMESTATE->m_pCurSteps[PLAYER_1];
-				ASSERT( pSteps );
-
-				pSteps->SetNoteData( m_NoteDataEdit );
-				pSteps->CalculateRadarValues( pSong->m_fMusicLengthSeconds );
-
-				switch( EDIT_MODE.GetValue() )
-				{
-				DEFAULT_FAIL( EDIT_MODE.GetValue() );
-				case EditMode_Home:
-					{
-						ASSERT( pSteps->IsAnEdit() );
-
-						NotesWriterSM w;
-						RString sError;
-						if( !w.WriteEditFileToMachine(pSong,pSteps,sError) )
-						{
-							ScreenPrompt::Prompt( SM_None, sError );
-							break;
-						}
-
-						// HACK: clear undo, so "exit" below knows we don't need to save.
-						// This only works because important non-steps data can't be changed in
-						// home mode (BPMs, stops).
-						ClearUndo();
-
-						SCREENMAN->ZeroNextUpdate();
-
-						HandleScreenMessage( SM_SaveSuccessful );
-
-						/* FIXME
-						RString s;
-						switch( c )
-						{
-						case save:			s = "ScreenMemcardSaveEditsAfterSave";	break;
-						case save_on_exit:	s = "ScreenMemcardSaveEditsAfterExit";	break;
-						default:		ASSERT(0);
-						}
-						SCREENMAN->AddNewScreenToTop( s );
-						*/
-					}
-					break;
-				case EditMode_Full: 
-					{
-						pSong->Save();
-						SCREENMAN->ZeroNextUpdate();
-
-						HandleScreenMessage( SM_SaveSuccessful );
-					}
-					break;
-				case EditMode_CourseMods:
-				case EditMode_Practice:
-					break;
-				}
-
-				m_soundSave.Play();
-			}
+		case export:
+		case publish:
+			Save(c);
 			break;
 		case revert_to_last_save:
 			ScreenPrompt::Prompt( SM_DoRevertToLastSave, REVERT_LAST_SAVE.GetValue() + "\n\n" + DESTROY_ALL_UNSAVED_CHANGES.GetValue(), PROMPT_YES_NO, ANSWER_NO );
@@ -2890,6 +2834,91 @@ void ScreenEdit::HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAns
 			}
 			break;
 	};
+}
+
+void ScreenEdit::Save(MainMenuChoice c)
+{
+	m_CurrentAction = c;
+
+	// copy edit into current Steps
+	Song* pSong = GAMESTATE->m_pCurSong;
+	Steps* pSteps = GAMESTATE->m_pCurSteps[PLAYER_1];
+	ASSERT( pSteps );
+
+	pSteps->SetNoteData( m_NoteDataEdit );
+	pSteps->CalculateRadarValues( pSong->m_fMusicLengthSeconds );
+
+	switch( EDIT_MODE.GetValue() )
+	{
+	DEFAULT_FAIL( EDIT_MODE.GetValue() );
+	case EditMode_Home:
+		{
+			ASSERT( pSteps->IsAnEdit() );
+
+			NotesWriterSM w;
+			RString sError;
+			if( !w.WriteEditFileToMachine(pSong,pSteps,sError) )
+			{
+				ScreenPrompt::Prompt( SM_None, sError );
+				break;
+			}
+
+			// HACK: clear undo, so "exit" below knows we don't need to save.
+			// This only works because important non-steps data can't be changed in
+			// home mode (BPMs, stops).
+			ClearUndo();
+
+			SCREENMAN->ZeroNextUpdate();
+
+			HandleScreenMessage( SM_SaveSuccessful );
+
+			/* FIXME
+			RString s;
+			switch( c )
+			{
+			case save:			s = "ScreenMemcardSaveEditsAfterSave";	break;
+			case save_on_exit:	s = "ScreenMemcardSaveEditsAfterExit";	break;
+			default:		ASSERT(0);
+			}
+			SCREENMAN->AddNewScreenToTop( s );
+			*/
+		}
+		break;
+	case EditMode_Full: 
+		{
+			bool b = pSong->Save();
+			if( b )
+				m_soundSave.Play();
+			else
+				SCREENMAN->PlayInvalidSound();
+
+			if( !b )
+			{
+				HandleScreenMessage( SM_SaveFailed );
+				break;
+			}
+
+			switch( m_CurrentAction )
+			{
+			case save:
+			case save_on_exit:
+				HandleScreenMessage( SM_SaveSuccessful );
+				break;
+			case publish:
+				ExportPackage::PublishSongWithUI(pSong);
+				break;
+			case export:
+				ExportPackage::ExportSongWithUI(pSong);
+				break;
+			}
+
+			SCREENMAN->ZeroNextUpdate();
+		}
+		break;
+	case EditMode_CourseMods:
+	case EditMode_Practice:
+		break;
+	}
 }
 
 void ScreenEdit::HandleAreaMenuChoice( AreaMenuChoice c, const vector<int> &iAnswers, bool bAllowUndo )

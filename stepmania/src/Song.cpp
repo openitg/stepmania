@@ -714,7 +714,7 @@ bool Song::HasStepsTypeAndDifficulty( StepsType st, Difficulty dc ) const
 	return SongUtil::GetOneSteps( this, st, dc ) != NULL;
 }
 
-void Song::Save()
+bool Song::Save()
 {
 	LOG->Trace( "Song::SaveToSongFile()" );
 
@@ -722,7 +722,7 @@ void Song::Save()
 	TranslateTitles();
 
 	/* Save the new files.  These calls make backups on their own. */
-	SaveToSMFile( GetSongFilePath(), false );
+	bool b = SaveToSMFile( GetSongFilePath(), false );
 	SaveToDWIFile();
 	SaveToCacheFile();
 
@@ -744,10 +744,11 @@ void Song::Save()
 		} else
 			FILEMAN->Remove( sOldPath );
 	}
+	return b;
 }
 
 
-void Song::SaveToSMFile( RString sPath, bool bSavingCache )
+bool Song::SaveToSMFile( RString sPath, bool bSavingCache )
 {
 	LOG->Trace( "Song::SaveToSMFile('%s')", sPath.c_str() );
 
@@ -756,7 +757,7 @@ void Song::SaveToSMFile( RString sPath, bool bSavingCache )
 		FileCopy( sPath, sPath + ".old" );
 
 	NotesWriterSM wr;
-	wr.Write(sPath, *this, bSavingCache);
+	return wr.Write(sPath, *this, bSavingCache);
 }
 
 void Song::SaveToCacheFile()
