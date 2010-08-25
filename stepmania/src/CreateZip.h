@@ -11,14 +11,9 @@
 // extend its use in Windows/C++. Also to add encryption and unicode.
 
 
-#ifndef _unzip_H
-//DECLARE_HANDLE(HZIP);
-#endif
-// An HZIP identifies a zip file that is being created
-
 class TZipHandleData;
 
-typedef DWORD ZRESULT;
+typedef unsigned long ZRESULT;
 // return codes from any of the zip functions. Listed later.
 
 

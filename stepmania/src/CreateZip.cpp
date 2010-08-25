@@ -4,10 +4,12 @@
 #include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
+#include <time.h>
 #include "CreateZip.h"
 #include "RageFile.h"
 #include "RageUtil.h"
 
+//#define MAX_PATH 1024
 
 // THIS FILE is almost entirely based upon code by info-zip.
 // It has been modified by Lucian Wischik. The modifications
@@ -431,8 +433,8 @@ const config configuration_table[10] = {
 	int base_dist[D_CODES];
 	// First normalized distance for each code (0 = distance of 1)
 
-	uch far l_buf[LIT_BUFSIZE];  // buffer for literals/lengths
-	ush far d_buf[DIST_BUFSIZE]; // buffer for distances
+	uch l_buf[LIT_BUFSIZE];  // buffer for literals/lengths
+	ush d_buf[DIST_BUFSIZE]; // buffer for distances
 
 	uch flag_buf[(LIT_BUFSIZE/8)];
 	// flag_buf is a bit array distinguishing literals from lengths in
@@ -577,7 +579,7 @@ const config configuration_table[10] = {
 		int mark;                     // Marker for files to operate on
 		int trash;                    // Marker for files to delete
 		int dosflag;                  // Set to force MSDOS file attributes
-		struct zlist far *nxt;        // Pointer to next header in list
+		struct zlist *nxt;        // Pointer to next header in list
 	} TZipFileInfo;
 
 
@@ -1583,10 +1585,10 @@ const config configuration_table[10] = {
 	int longest_match(TState &state,IPos cur_match)
 	{
 		unsigned chain_length = state.ds.max_chain_length;   /* max hash chain length */
-		register uch far *scan = state.ds.window + state.ds.strstart; /* current string */
-		register uch far *match;                    /* matched string */
+		register uch *scan = state.ds.window + state.ds.strstart; /* current string */
+		register uch *match;                    /* matched string */
 		register int len;                           /* length of current match */
-		int best_len = state.ds.prev_length;                 /* best match length so far */
+		int best_len = state.ds.prev_length;                 /* best match length so */
 		IPos limit = state.ds.strstart > (IPos)MAX_DIST ? state.ds.strstart - (IPos)MAX_DIST : NIL;
 		/* Stop when cur_match becomes <= limit. To simplify the code,
 		* we prevent matches with the string of window index 0.
@@ -1598,7 +1600,7 @@ const config configuration_table[10] = {
 
 
 
-		register uch far *strend = state.ds.window + state.ds.strstart + MAX_MATCH;
+		register uch *strend = state.ds.window + state.ds.strstart + MAX_MATCH;
 		register uch scan_end1  = scan[best_len-1];
 		register uch scan_end   = scan[best_len];
 
@@ -1966,7 +1968,7 @@ const config configuration_table[10] = {
 
 
 
-	int putlocal(struct zlist far *z, WRITEFUNC wfunc,void *param)
+	int putlocal(struct zlist *z, WRITEFUNC wfunc,void *param)
 	{ // Write a local header described by *z to file *f.  Return a ZE_ error code.
 		PUTLG(LOCSIG, f);
 		PUTSH(z->ver, f);
@@ -1987,7 +1989,7 @@ const config configuration_table[10] = {
 		return ZE_OK;
 	}
 
-	int putextended(struct zlist far *z, WRITEFUNC wfunc, void *param)
+	int putextended(struct zlist *z, WRITEFUNC wfunc, void *param)
 	{ // Write an extended local header described by *z to file *f. Returns a ZE_ code
 		PUTLG(EXTLOCSIG, f);
 		PUTLG(z->crc, f);
@@ -1996,7 +1998,7 @@ const config configuration_table[10] = {
 		return ZE_OK;
 	}
 
-	int putcentral(struct zlist far *z, WRITEFUNC wfunc, void *param)
+	int putcentral(struct zlist *z, WRITEFUNC wfunc, void *param)
 	{ // Write a central header entry of *z to file *f. Returns a ZE_ code.
 		PUTLG(CENSIG, f);
 		PUTSH(z->vem, f);
@@ -2130,23 +2132,6 @@ const config configuration_table[10] = {
 
 
 
-	lutime_t filetime2timet(const FILETIME ft)
-	{ __int64 i = *(__int64*)&ft;
-	return (lutime_t)((i-116444736000000000)/10000000);
-	}
-
-	void filetime2dosdatetime(const FILETIME ft, WORD *dosdate,WORD *dostime)
-	{ // date: bits 0-4 are day of month 1-31. Bits 5-8 are month 1..12. Bits 9-15 are year-1980
-		// time: bits 0-4 are seconds/2, bits 5-10 are minute 0..59. Bits 11-15 are hour 0..23
-		SYSTEMTIME st; FileTimeToSystemTime(&ft,&st); 
-		*dosdate = (WORD)(((st.wYear-1980)&0x7f) << 9);
-		*dosdate |= (WORD)((st.wMonth&0xf) << 5);
-		*dosdate |= (WORD)((st.wDay&0x1f));
-		*dostime = (WORD)((st.wHour&0x1f) << 11);
-		*dostime |= (WORD)((st.wMinute&0x3f) << 5);
-		*dostime |= (WORD)((st.wSecond*2)&0x1f);
-	}
-
 
 	class TZip
 	{ 
@@ -2167,7 +2152,7 @@ const config configuration_table[10] = {
 		HANDLE hmapout;           // otherwise, we'll write here (for memmap)
 		unsigned ooffset;         // for hfout, this is where the pointer was initially
 		ZRESULT oerr;             // did a write operation give rise to an error?
-		unsigned writ;            // how far have we written. This is maintained by Add, not write(), to avoid confusion over seeks
+		unsigned writ;            // how have we written. This is maintained by Add, not write(), to avoid confusion over seeks
 		char *obuf;               // this is where we've locked mmap to view.
 		unsigned int opos;        // current pos in the mmap
 		unsigned int mapsize;     // the size of the map we created
@@ -2355,12 +2340,30 @@ const config configuration_table[10] = {
 		iseekable=false;
 		return set_times();
 	}
+
+	
+	void filetime2dosdatetime(const tm st, WORD *dosdate,WORD *dostime)
+	{ 
+		// date: bits 0-4 are day of month 1-31. Bits 5-8 are month 1..12. Bits 9-15 are year-1980
+		// time: bits 0-4 are seconds/2, bits 5-10 are minute 0..59. Bits 11-15 are hour 0..23
+		*dosdate = (WORD)(((st.tm_year+1900-1980)&0x7f) << 9);
+		*dosdate |= (WORD)(((st.tm_mon+1)&0xf) << 5);
+		*dosdate |= (WORD)((st.tm_mday&0x1f));
+		*dostime = (WORD)((st.tm_hour&0x1f) << 11);
+		*dostime |= (WORD)((st.tm_min&0x3f) << 5);
+		*dostime |= (WORD)((st.tm_sec*2)&0x1f);
+	}
+
 	ZRESULT TZip::set_times()
 	{
-		SYSTEMTIME st; GetLocalTime(&st);
-		FILETIME ft;   SystemTimeToFileTime(&st,&ft);
-		WORD dosdate,dostime; filetime2dosdatetime(ft,&dosdate,&dostime);
-		times.atime = filetime2timet(ft);
+		time_t rawtime;
+		tm *ptm;
+		time ( &rawtime );
+		ptm = localtime ( &rawtime );
+
+		WORD dosdate,dostime; 
+		filetime2dosdatetime(*ptm,&dosdate,&dostime);
+		times.atime = time(NULL);
 		times.mtime = times.atime;
 		times.ctime = times.atime;
 		timestamp = (WORD)dostime | (((DWORD)dosdate)<<16);
