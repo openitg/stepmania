@@ -73,6 +73,66 @@
 //
 
 
+
+// These are the result codes:
+#define ZR_OK         0x00000000     // nb. the pseudo-code zr-recent is never returned,
+#define ZR_RECENT     0x00000001     // but can be passed to FormatZipMessage.
+// The following come from general system stuff (e.g. files not openable)
+#define ZR_GENMASK    0x0000FF00
+#define ZR_NODUPH     0x00000100     // couldn't duplicate the handle
+#define ZR_NOFILE     0x00000200     // couldn't create/open the file
+#define ZR_NOALLOC    0x00000300     // failed to allocate some resource
+#define ZR_WRITE      0x00000400     // a general error writing to the file
+#define ZR_NOTFOUND   0x00000500     // couldn't find that file in the zip
+#define ZR_MORE       0x00000600     // there's still more data to be unzipped
+#define ZR_CORRUPT    0x00000700     // the zipfile is corrupt or not a zipfile
+#define ZR_READ       0x00000800     // a general error reading the file
+// The following come from mistakes on the part of the caller
+#define ZR_CALLERMASK 0x00FF0000
+#define ZR_ARGS       0x00010000     // general mistake with the arguments
+#define ZR_MEMSIZE    0x00030000     // the memory size is too small
+#define ZR_FAILED     0x00040000     // the thing was already failed when you called this function
+#define ZR_ENDED      0x00050000     // the zip creation has already been closed
+#define ZR_MISSIZE    0x00060000     // the indicated input file size turned out mistaken
+#define ZR_PARTIALUNZ 0x00070000     // the file had already been partially unzipped
+#define ZR_ZMODE      0x00080000     // tried to mix creating/opening a zip 
+// The following come from bugs within the zip library itself
+#define ZR_BUGMASK    0xFF000000
+#define ZR_NOTINITED  0x01000000     // initialisation didn't work
+#define ZR_SEEK       0x02000000     // trying to seek in an unseekable file
+#define ZR_NOCHANGE   0x04000000     // changed its mind on storage, but not allowed
+#define ZR_FLATE      0x05000000     // an internal error in the de/inflation code
+
+	RString FormatZipMessageZ(ZRESULT code)
+	{ 
+		const char *msg="unknown zip result code";
+		switch (code)
+		{
+		case ZR_OK: msg="Success"; break;
+		case ZR_NODUPH: msg="Culdn't duplicate handle"; break;
+		case ZR_NOFILE: msg="Couldn't create/open file"; break;
+		case ZR_NOALLOC: msg="Failed to allocate memory"; break;
+		case ZR_WRITE: msg="Error writing to file"; break;
+		case ZR_NOTFOUND: msg="File not found in the zipfile"; break;
+		case ZR_MORE: msg="Still more data to unzip"; break;
+		case ZR_CORRUPT: msg="Zipfile is corrupt or not a zipfile"; break;
+		case ZR_READ: msg="Error reading file"; break;
+		case ZR_ARGS: msg="Caller: faulty arguments"; break;
+		case ZR_PARTIALUNZ: msg="Caller: the file had already been partially unzipped"; break;
+		case ZR_MEMSIZE: msg="Caller: not enough space allocated for memory zipfile"; break;
+		case ZR_FAILED: msg="Caller: there was a previous error"; break;
+		case ZR_ENDED: msg="Caller: additions to the zip have already been ended"; break;
+		case ZR_ZMODE: msg="Caller: mixing creation and opening of zip"; break;
+		case ZR_NOTINITED: msg="Zip-bug: internal initialisation not completed"; break;
+		case ZR_SEEK: msg="Zip-bug: trying to seek the unseekable"; break;
+		case ZR_MISSIZE: msg="Zip-bug: the anticipated size turned out wrong"; break;
+		case ZR_NOCHANGE: msg="Zip-bug: tried to change mind, but not allowed"; break;
+		case ZR_FLATE: msg="Zip-bug: an internal error during flation"; break;
+		}
+		return msg;
+	}
+
+
 typedef unsigned char uch;      // unsigned 8-bit value
 typedef unsigned short ush;     // unsigned 16-bit value
 typedef unsigned long ulg;      // unsigned 32-bit value
@@ -486,7 +546,7 @@ public:
 	// These variables say about the file we're writing into
 	// We can write to pipe, file-by-handle, file-by-name, memory-to-memmapfile
 	RageFile *pfout;             // if valid, we'll write here (for files or pipes)
-	unsigned ooffset;         // for hfout, this is where the pointer was initially
+	unsigned ooffset;         // for pfout, this is where the pointer was initially
 	ZRESULT oerr;             // did a write operation give rise to an error?
 	unsigned writ;            // how have we written. This is maintained by Add, not write(), to avoid confusion over seeks
 	unsigned int opos;        // current pos in the mmap
@@ -495,7 +555,7 @@ public:
 	//
 	TZipFileInfo *zfis;       // each file gets added onto this list, for writing the table at the end
 
-	ZRESULT Create(const TCHAR *fn,unsigned long flags);
+	ZRESULT Start(RageFile *f);
 	static unsigned sflush(void *param,const char *buf, unsigned *size);
 	static unsigned swrite(void *param,const char *buf, unsigned size);
 	unsigned int write(const char *buf,unsigned int size);
@@ -525,31 +585,21 @@ public:
 	ZRESULT ideflate(TZipFileInfo *zfi);
 	ZRESULT istore();
 
-	ZRESULT Add(const TCHAR *odstzn, void *src, unsigned long flags);
+	ZRESULT Add(const TCHAR *odstzn, const TCHAR *src, unsigned long flags);
 	ZRESULT AddCentral();
 
 };
 
 
 
-ZRESULT TZip::Create(const TCHAR *fn,unsigned long flags)
+ZRESULT TZip::Start(RageFile *f)
 { 
 	if (pfout!=0 || writ!=0 || oerr!=ZR_OK || hasputcen) 
 		return ZR_NOTINITED;
 	//
-	if (flags==ZIP_FILENAME)
-	{ 
-		pfout = new RageFile();
-		if( !pfout->Open( fn, RageFile::WRITE ) )
-		{
-			pfout = NULL; 
-			return ZR_NOFILE;
-		}
-		ooffset=0;
-		return ZR_OK;
-	}
-	else 
-		return ZR_ARGS;
+	pfout = f;
+	ooffset=0;
+	return ZR_OK;
 }
 
 unsigned TZip::sflush(void *param,const char *buf, unsigned *size)
@@ -597,7 +647,7 @@ ZRESULT TZip::Close()
 	if (!hasputcen) 
 		res=AddCentral(); 
 	hasputcen=true;
-	SAFE_DELETE( pfout );
+	pfout->Close();
 	return res;
 }
 
@@ -732,7 +782,7 @@ ZRESULT TZip::istore()
 
 
 bool has_seeded=false;
-ZRESULT TZip::Add(const TCHAR *odstzn, void *src,unsigned long flags)
+ZRESULT TZip::Add(const TCHAR *odstzn, const TCHAR *src,unsigned long flags)
 {
 	if (oerr)
 		return ZR_FAILED;
@@ -744,7 +794,12 @@ ZRESULT TZip::Add(const TCHAR *odstzn, void *src,unsigned long flags)
 	if (*dstzn==0) 
 		return ZR_ARGS;
 	TCHAR *d=dstzn; 
-	while (*d!=0) {if (*d=='\\') *d='/'; d++;}
+	while (*d!=0)
+	{
+		if (*d=='\\') 
+			*d='/'; 
+		d++;
+	}
 	bool isdir = (flags==ZIP_FOLDER);
 	bool needs_trailing_slash = (isdir && dstzn[_tcslen(dstzn)-1]!='/');
 	int method=STORE;
@@ -752,7 +807,7 @@ ZRESULT TZip::Add(const TCHAR *odstzn, void *src,unsigned long flags)
 	// now open whatever was our input source:
 	ZRESULT openres;
 	if (flags==ZIP_FILENAME) 
-		openres=open_file((const TCHAR*)src);
+		openres=open_file(src);
 	else if (flags==ZIP_FOLDER) 
 		openres=open_dir();
 	else 
@@ -772,7 +827,11 @@ ZRESULT TZip::Add(const TCHAR *odstzn, void *src,unsigned long flags)
 	strcpy(zfi.iname,dstzn);
 #endif
 	zfi.nam=strlen(zfi.iname);
-	if (needs_trailing_slash) {strcat(zfi.iname,"/"); zfi.nam++;}
+	if (needs_trailing_slash)
+	{
+		strcat(zfi.iname,"/"); 
+		zfi.nam++;
+	}
 	strcpy(zfi.zname,"");
 	zfi.extra=NULL; zfi.ext=0;   // extra header to go after this compressed data, and its length
 	zfi.cextra=NULL; zfi.cext=0; // extra header to go in the central end-of-zip directory, and its length
@@ -833,7 +892,7 @@ ZRESULT TZip::Add(const TCHAR *odstzn, void *src,unsigned long flags)
 		return oerr;
 	}
 
-	//(2) Write deflated/stored file to zip file
+	//(2) Write stored file to zip file
 	ZRESULT writeres=ZR_OK;
 	if (!isdir && method==STORE) 
 		writeres=istore();
@@ -931,38 +990,36 @@ CreateZip::CreateZip()
 	hz=NULL;
 }
 
-bool CreateZip::Start(const TCHAR *fn)
+bool CreateZip::Start( RageFile *f)
 {
 	hz = new TZip();
-	lasterrorZ = hz->Create(fn,ZIP_FILENAME);
-	if (lasterrorZ!=ZR_OK)
-	{
-		SAFE_DELETE( hz );
-		return false;
-	}
-	return true;
+	lasterrorZ = hz->Start(f);
+	return lasterrorZ == ZR_OK;
 }
-
-ZRESULT ZipAddInternal(TZip* zip,const TCHAR *dstzn, void *src, unsigned long flags)
-{ 
-	lasterrorZ = zip->Add(dstzn,src,flags);
-	return lasterrorZ;
-}
-ZRESULT CreateZip::ZipAdd(const TCHAR *dstzn, const TCHAR *fn)
+RString MakeDestZipFileName( RString fn )
 {
-	return ZipAddInternal(hz,dstzn,(void*)fn,ZIP_FILENAME);
+	// strip leading slash
+	fn.erase( fn.begin(), fn.begin()+1 );
+	return fn;
 }
-ZRESULT CreateZip::ZipAddFolder(const TCHAR *dstzn)
+bool CreateZip::AddFile(RString fn)
 {
-	return ZipAddInternal(hz,dstzn,0,ZIP_FOLDER);
+	lasterrorZ = hz->Add(MakeDestZipFileName(fn),fn,ZIP_FILENAME);
+	return lasterrorZ == ZR_OK;
 }
-
-ZRESULT CreateZip::Finish()
+bool CreateZip::AddDir(RString fn)
+{
+	lasterrorZ = hz->Add(MakeDestZipFileName(fn),NULL,ZIP_FOLDER);
+	return lasterrorZ == ZR_OK;
+}
+bool CreateZip::Finish()
 { 
-	TZip *zip = hz;
-	lasterrorZ = zip->Close();
-	SAFE_DELETE( zip );
-	return lasterrorZ;
+	lasterrorZ = hz->Close();
+	return lasterrorZ == ZR_OK;
 }
 
+RString CreateZip::GetError()
+{
+	return FormatZipMessageZ( lasterrorZ );
+}
 
