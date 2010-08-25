@@ -268,292 +268,8 @@ typedef unsigned IPos; // A Pos is an index in the character window. Pos is used
 	state.bs.out_buf[state.bs.out_offset++] = (char) (b); \
 }
 
-// DEFLATE.CPP HEADER
 
-#define HASH_BITS  15
-// For portability to 16 bit machines, do not use values above 15.
 
-#define HASH_SIZE (unsigned)(1<<HASH_BITS)
-#define HASH_MASK (HASH_SIZE-1)
-#define WMASK     (WSIZE-1)
-// HASH_SIZE and WSIZE must be powers of two
-
-#define NIL 0
-// Tail of hash chains
-
-#define FAST 4
-#define SLOW 2
-// speed options for the general purpose bit flag
-
-#define TOO_FAR 4096
-// Matches of length 3 are discarded if their distance exceeds TOO_FAR
-
-
-
-#define EQUAL 0
-// result of memcmp for equal strings
-
-
-// ===========================================================================
-// Local data used by the "longest match" routines.
-
-#define H_SHIFT  ((HASH_BITS+MIN_MATCH-1)/MIN_MATCH)
-// Number of bits by which ins_h and del_h must be shifted at each
-// input step. It must be such that after MIN_MATCH steps, the oldest
-// byte no longer takes part in the hash key, that is:
-//   H_SHIFT * MIN_MATCH >= HASH_BITS
-
-#define max_insert_length  max_lazy_match
-// Insert new strings in the hash table only if the match length
-// is not greater than this length. This saves time but degrades compression.
-// max_insert_length is used only for compression levels <= 3.
-
-
-
-const int extra_lbits[LENGTH_CODES] // extra bits for each length code
-= {0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0};
-
-const int extra_dbits[D_CODES] // extra bits for each distance code
-= {0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13};
-
-const int extra_blbits[BL_CODES]// extra bits for each bit length code
-= {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,3,7};
-
-const uch bl_order[BL_CODES] = {16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15};
-// The lengths of the bit length codes are sent in order of decreasing
-// probability, to avoid transmitting the lengths for unused bit length codes.
-
-
-typedef struct config {
-	ush good_length; // reduce lazy search above this match length
-	ush max_lazy;    // do not perform lazy search above this match length
-	ush nice_length; // quit search above this match length
-	ush max_chain;
-} config;
-
-// Values for max_lazy_match, good_match, nice_match and max_chain_length,
-// depending on the desired pack level (0..9). The values given below have
-// been tuned to exclude worst case performance for pathological files.
-// Better values may be found for specific files.
-//
-
-const config configuration_table[10] = {
-	//  good lazy nice chain
-	{0,    0,  0,    0},  // 0 store only
-	{4,    4,  8,    4},  // 1 maximum speed, no lazy matches
-	{4,    5, 16,    8},  // 2
-	{4,    6, 32,   32},  // 3
-	{4,    4, 16,   16},  // 4 lazy matches */
-	{8,   16, 32,   32},  // 5
-	{8,   16, 128, 128},  // 6
-	{8,   32, 128, 256},  // 7
-	{32, 128, 258, 1024}, // 8
-	{32, 258, 258, 4096}};// 9 maximum compression */
-
-	// Note: the deflate() code requires max_lazy >= MIN_MATCH and max_chain >= 4
-	// For deflate_fast() (levels <= 3) good is ignored and lazy has a different meaning.
-
-
-
-
-
-
-
-	// Data structure describing a single value and its code string.
-	typedef struct ct_data {
-		union {
-			ush  freq;       // frequency count
-			ush  code;       // bit string
-		} fc;
-		union {
-			ush  dad;        // father node in Huffman tree
-			ush  len;        // length of bit string
-		} dl;
-	} ct_data;
-
-	typedef struct tree_desc {
-		ct_data *dyn_tree;      // the dynamic tree
-		ct_data *static_tree;   // corresponding static tree or NULL
-		const int *extra_bits;  // extra bits for each code or NULL
-		int     extra_base;     // base index for extra_bits
-		int     elems;          // max number of elements in the tree
-		int     max_length;     // max bit length for the codes
-		int     max_code;       // largest code with non zero frequency
-	} tree_desc;
-
-
-
-
-	class TTreeState
-	{
-	public:
-		TTreeState();
-
-		ct_data dyn_ltree[HEAP_SIZE];    // literal and length tree
-		ct_data dyn_dtree[2*D_CODES+1];  // distance tree
-		ct_data static_ltree[L_CODES+2]; // the static literal tree...
-		// ... Since the bit lengths are imposed, there is no need for the L_CODES
-		// extra codes used during heap construction. However the codes 286 and 287
-		// are needed to build a canonical tree (see ct_init below).
-		ct_data static_dtree[D_CODES]; // the static distance tree...
-		// ... (Actually a trivial tree since all codes use 5 bits.)
-		ct_data bl_tree[2*BL_CODES+1];  // Huffman tree for the bit lengths
-
-		tree_desc l_desc;
-		tree_desc d_desc;
-		tree_desc bl_desc;
-
-		ush bl_count[MAX_BITS+1];  // number of codes at each bit length for an optimal tree
-
-		int heap[2*L_CODES+1]; // heap used to build the Huffman trees
-		int heap_len;               // number of elements in the heap
-		int heap_max;               // element of largest frequency
-		// The sons of heap[n] are heap[2*n] and heap[2*n+1]. heap[0] is not used.
-		// The same heap array is used to build all trees.
-
-		uch depth[2*L_CODES+1];
-		// Depth of each subtree used as tie breaker for trees of equal frequency
-
-		uch length_code[MAX_MATCH-MIN_MATCH+1];
-		// length code for each normalized match length (0 == MIN_MATCH)
-
-		uch dist_code[512];
-		// distance codes. The first 256 values correspond to the distances
-		// 3 .. 258, the last 256 values correspond to the top 8 bits of
-		// the 15 bit distances.
-
-		int base_length[LENGTH_CODES];
-		// First normalized length for each code (0 = MIN_MATCH)
-
-		int base_dist[D_CODES];
-		// First normalized distance for each code (0 = distance of 1)
-
-		uch l_buf[LIT_BUFSIZE];  // buffer for literals/lengths
-		ush d_buf[DIST_BUFSIZE]; // buffer for distances
-
-		uch flag_buf[(LIT_BUFSIZE/8)];
-		// flag_buf is a bit array distinguishing literals from lengths in
-		// l_buf, and thus indicating the presence or absence of a distance.
-
-		unsigned last_lit;    // running index in l_buf
-		unsigned last_dist;   // running index in d_buf
-		unsigned last_flags;  // running index in flag_buf
-		uch flags;            // current flags not yet saved in flag_buf
-		uch flag_bit;         // current bit used in flags
-		// bits are filled in flags starting at bit 0 (least significant).
-		// Note: these flags are overkill in the current code since we don't
-		// take advantage of DIST_BUFSIZE == LIT_BUFSIZE.
-
-		ulg opt_len;          // bit length of current block with optimal trees
-		ulg static_len;       // bit length of current block with static trees
-
-		ulg cmpr_bytelen;     // total byte length of compressed file
-		ulg cmpr_len_bits;    // number of bits past 'cmpr_bytelen'
-
-		ulg input_len;        // total byte length of input file
-		// input_len is for debugging only since we can get it by other means.
-
-		ush *file_type;       // pointer to UNKNOWN, BINARY or ASCII
-		//  int *file_method;     // pointer to DEFLATE or STORE
-	};
-
-	TTreeState::TTreeState()
-	{ 
-		tree_desc a = {dyn_ltree, static_ltree, extra_lbits, LITERALS+1, L_CODES, MAX_BITS, 0};  l_desc = a;
-		tree_desc b = {dyn_dtree, static_dtree, extra_dbits, 0,          D_CODES, MAX_BITS, 0};  d_desc = b;
-		tree_desc c = {bl_tree, NULL,       extra_blbits, 0,         BL_CODES, MAX_BL_BITS, 0};  bl_desc = c;
-		last_lit=0;
-		last_dist=0;
-		last_flags=0;
-	}
-
-
-
-	class TBitState
-	{
-	public:
-		int flush_flg;
-		//
-		unsigned bi_buf;
-		// Output buffer. bits are inserted starting at the bottom (least significant
-		// bits). The width of bi_buf must be at least 16 bits.
-		int bi_valid;
-		// Number of valid bits in bi_buf.  All bits above the last valid bit
-		// are always zero.
-		char *out_buf;
-		// Current output buffer.
-		unsigned out_offset;
-		// Current offset in output buffer.
-		// On 16 bit machines, the buffer is limited to 64K.
-		unsigned out_size;
-		// Size of current output buffer
-		ulg bits_sent;   // bit length of the compressed data  only needed for debugging???
-	};
-
-
-
-
-
-
-
-	class TDeflateState
-	{ 
-	public:
-		TDeflateState() {window_size=0;}
-
-		uch    window[2L*WSIZE];
-		// Sliding window. Input bytes are read into the second half of the window,
-		// and move to the first half later to keep a dictionary of at least WSIZE
-		// bytes. With this organization, matches are limited to a distance of
-		// WSIZE-MAX_MATCH bytes, but this ensures that IO is always
-		// performed with a length multiple of the block size. Also, it limits
-		// the window size to 64K, which is quite useful on MSDOS.
-		// To do: limit the window size to WSIZE+CBSZ if SMALL_MEM (the code would
-		// be less efficient since the data would have to be copied WSIZE/CBSZ times)
-		Pos    prev[WSIZE];
-		// Link to older string with same hash index. To limit the size of this
-		// array to 64K, this link is maintained only for the last 32K strings.
-		// An index in this array is thus a window index modulo 32K.
-		Pos    head[HASH_SIZE];
-		// Heads of the hash chains or NIL. If your compiler thinks that
-		// HASH_SIZE is a dynamic value, recompile with -DDYN_ALLOC.
-
-		ulg window_size;
-		// window size, 2*WSIZE except for MMAP or BIG_MEM, where it is the
-		// input file length plus MIN_LOOKAHEAD.
-
-		long block_start;
-		// window position at the beginning of the current output block. Gets
-		// negative when the window is moved backwards.
-
-		int sliding;
-		// Set to false when the input file is already in memory
-
-		unsigned ins_h;  // hash index of string to be inserted
-
-		unsigned int prev_length;
-		// Length of the best match at previous step. Matches not greater than this
-		// are discarded. This is used in the lazy match evaluation.
-
-		unsigned strstart;         // start of string to insert
-		unsigned match_start; // start of matching string
-		int      eofile;           // flag set at end of input file
-		unsigned lookahead;        // number of valid bytes ahead in window
-
-		unsigned max_chain_length;
-		// To speed up deflation, hash chains are never searched beyond this length.
-		// A higher limit improves compression ratio but degrades the speed.
-
-		unsigned int max_lazy_match;
-		// Attempt to find a better match only when the current match is strictly
-		// smaller than this value. This mechanism is used only for compression
-		// levels >= 4.
-
-		unsigned good_match;
-		// Use a faster search when the previous match is longer than this
-
-		int nice_match; // Stop searching when current match exceeds this
-	};
 
 	typedef __int64 lutime_t;       // define it ourselves since we don't include time.h
 
@@ -599,14 +315,14 @@ const config configuration_table[10] = {
 		void *param;
 		int level; bool seekable;
 		READFUNC readfunc; FLUSHFUNC flush_outbuf;
-		TTreeState ts; TBitState bs; TDeflateState ds;
 		const char *err;
 	};
 
 
 
 	int putlocal(struct zlist *z, WRITEFUNC wfunc,void *param)
-	{ // Write a local header described by *z to file *f.  Return a ZE_ error code.
+	{
+		// Write a local header described by *z to file *f.  Return a ZE_ error code.
 		PUTLG(LOCSIG, f);
 		PUTSH(z->ver, f);
 		PUTSH(z->lflg, f);
@@ -618,16 +334,20 @@ const config configuration_table[10] = {
 		PUTSH(z->nam, f);
 		PUTSH(z->ext, f);
 		size_t res = (size_t)wfunc(param, z->iname, (unsigned int)z->nam);
-		if (res!=z->nam) return ZE_TEMP;
+		if (res!=z->nam)
+			return ZE_TEMP;
 		if (z->ext)
-		{ res = (size_t)wfunc(param, z->extra, (unsigned int)z->ext);
-		if (res!=z->ext) return ZE_TEMP;
+		{
+			res = (size_t)wfunc(param, z->extra, (unsigned int)z->ext);
+			if (res!=z->ext)
+				return ZE_TEMP;
 		}
 		return ZE_OK;
 	}
 
 	int putextended(struct zlist *z, WRITEFUNC wfunc, void *param)
-	{ // Write an extended local header described by *z to file *f. Returns a ZE_ code
+	{
+		// Write an extended local header described by *z to file *f. Returns a ZE_ code
 		PUTLG(EXTLOCSIG, f);
 		PUTLG(z->crc, f);
 		PUTLG(z->siz, f);
@@ -636,7 +356,8 @@ const config configuration_table[10] = {
 	}
 
 	int putcentral(struct zlist *z, WRITEFUNC wfunc, void *param)
-	{ // Write a central header entry of *z to file *f. Returns a ZE_ code.
+	{
+		// Write a central header entry of *z to file *f. Returns a ZE_ code.
 		PUTLG(CENSIG, f);
 		PUTSH(z->vem, f);
 		PUTSH(z->ver, f);
@@ -662,7 +383,8 @@ const config configuration_table[10] = {
 
 
 	int putend(int n, ulg s, ulg c, extent m, char *z, WRITEFUNC wfunc, void *param)
-	{ // write the end of the central-directory-data to file *f.
+	{
+		// write the end of the central-directory-data to file *f.
 		PUTLG(ENDSIG, f);
 		PUTSH(0, f);
 		PUTSH(0, f);
@@ -833,17 +555,23 @@ const config configuration_table[10] = {
 	}
 
 	unsigned TZip::sflush(void *param,const char *buf, unsigned *size)
-	{ // static
-		if (*size==0) return 0;
+	{
+		// static
+		if (*size==0)
+			return 0;
 		TZip *zip = (TZip*)param;
 		unsigned int writ = zip->write(buf,*size);
-		if (writ!=0) *size=0;
+		if (writ!=0)
+			*size=0;
 		return writ;
 	}
 	unsigned TZip::swrite(void *param,const char *buf, unsigned size)
-	{ // static
-		if (size==0) return 0;
-		TZip *zip=(TZip*)param; return zip->write(buf,size);
+	{
+		// static
+		if (size==0) 
+			return 0;
+		TZip *zip=(TZip*)param;
+		return zip->write(buf,size);
 	}
 	unsigned int TZip::write(const char *buf,unsigned int size)
 	{ 
@@ -1114,10 +842,6 @@ const config configuration_table[10] = {
 		// generate some random bytes
 		if (!has_seeded) 
 			srand(0);
-		char encbuf[12]; 
-		for (int i=0; i<12; i++) 
-			encbuf[i]=(char)((rand()>>7)&0xff);
-		encbuf[11] = (char)((zfi.tim>>8)&0xff);
 
 		//(2) Write deflated/stored file to zip file
 		ZRESULT writeres=ZR_OK;
@@ -1168,7 +892,8 @@ const config configuration_table[10] = {
 	}
 
 	ZRESULT TZip::AddCentral()
-	{ // write central directory
+	{
+		// write central directory
 		int numentries = 0;
 		ulg pos_at_start_of_central = writ;
 		//ulg tot_unc_size=0, tot_compressed_size=0;
@@ -1208,39 +933,6 @@ const config configuration_table[10] = {
 
 
 	ZRESULT lasterrorZ=ZR_OK;
-
-	unsigned int FormatZipMessageZ(ZRESULT code, char *buf,unsigned int len)
-	{ 
-		if (code==ZR_RECENT) code=lasterrorZ;
-		const char *msg="unknown zip result code";
-		switch (code)
-		{ case ZR_OK: msg="Success"; break;
-		case ZR_NODUPH: msg="Culdn't duplicate handle"; break;
-		case ZR_NOFILE: msg="Couldn't create/open file"; break;
-		case ZR_NOALLOC: msg="Failed to allocate memory"; break;
-		case ZR_WRITE: msg="Error writing to file"; break;
-		case ZR_NOTFOUND: msg="File not found in the zipfile"; break;
-		case ZR_MORE: msg="Still more data to unzip"; break;
-		case ZR_CORRUPT: msg="Zipfile is corrupt or not a zipfile"; break;
-		case ZR_READ: msg="Error reading file"; break;
-		case ZR_ARGS: msg="Caller: faulty arguments"; break;
-		case ZR_PARTIALUNZ: msg="Caller: the file had already been partially unzipped"; break;
-		case ZR_MEMSIZE: msg="Caller: not enough space allocated for memory zipfile"; break;
-		case ZR_FAILED: msg="Caller: there was a previous error"; break;
-		case ZR_ENDED: msg="Caller: additions to the zip have already been ended"; break;
-		case ZR_ZMODE: msg="Caller: mixing creation and opening of zip"; break;
-		case ZR_NOTINITED: msg="Zip-bug: internal initialisation not completed"; break;
-		case ZR_SEEK: msg="Zip-bug: trying to seek the unseekable"; break;
-		case ZR_MISSIZE: msg="Zip-bug: the anticipated size turned out wrong"; break;
-		case ZR_NOCHANGE: msg="Zip-bug: tried to change mind, but not allowed"; break;
-		case ZR_FLATE: msg="Zip-bug: an internal error during flation"; break;
-		}
-		unsigned int mlen=(unsigned int)strlen(msg);
-		if (buf==0 || len==0) return mlen;
-		unsigned int n=mlen; if (n+1>len) n=len-1;
-		strncpy(buf,msg,n); buf[n]=0;
-		return mlen;
-	}
 
 
 	TZip *CreateZipInternal(void *z,unsigned long flags)
