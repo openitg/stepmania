@@ -21,55 +21,11 @@ class CreateZip
 {
 	TZip* hz;
 public:
-	CreateZip(const TCHAR *fn);
-// CreateZip - call this to start the creation of a zip file.
-// As the zip is being created, it will be stored somewhere:
-// to a pipe:              CreateZipHandle(hpipe_write);
-// in a file (by handle):  CreateZipHandle(hfile);
-// in a file (by name):    CreateZip("c:\\test.zip");
-// in memory:              CreateZip(buf, len);
-// or in pagefile memory:  CreateZip(0, len);
-// The final case stores it in memory backed by the system paging file,
-// where the zip may not exceed len bytes. This is a bit friendlier than
-// allocating memory with new[]: it won't lead to fragmentation, and the
-// memory won't be touched unless needed. That means you can give very
-// large estimates of the maximum-size without too much worry.
-// As for the password, it lets you encrypt every file in the archive.
-// (This api doesn't support per-file encryption.)
-// Note: because pipes don't allow random access, the structure of a zipfile
-// created into a pipe is slightly different from that created into a file
-// or memory. In particular, the compressed-size of the item cannot be
-// stored in the zipfile until after the item itself. (Also, for an item added
-// itself via a pipe, the uncompressed-size might not either be known until
-// after.) This is not normally a problem. But if you try to unzip via a pipe
-// as well, then the unzipper will not know these things about the item until
-// after it has been unzipped. Therefore: for unzippers which don't just write
-// each item to disk or to a pipe, but instead pre-allocate memory space into
-// which to unzip them, then either you have to create the zip not to a pipe,
-// or you have to add items not from a pipe, or at least when adding items
-// from a pipe you have to specify the length.
-// Note: for windows-ce, you cannot close the handle until after CloseZip.
-// but for real windows, the zip makes its own copy of your handle, so you
-// can close yours anytime.
-
-ZRESULT ZipAdd(const TCHAR *dstzn, const TCHAR *fn);
-ZRESULT ZipAddFolder(const TCHAR *dstzn);
-// ZipAdd - call this for each file to be added to the zip.
-// dstzn is the name that the file will be stored as in the zip file.
-// The file to be added to the zip can come
-// from a pipe:  ZipAddHandle(hz,"file.dat", hpipe_read);
-// from a file:  ZipAddHandle(hz,"file.dat", hfile);
-// from a filen: ZipAdd(hz,"file.dat", "c:\\docs\\origfile.dat");
-// from memory:  ZipAdd(hz,"subdir\\file.dat", buf,len);
-// (folder):     ZipAddFolder(hz,"subdir");
-// Note: if adding an item from a pipe, and if also creating the zip file itself
-// to a pipe, then you might wish to pass a non-zero length to the ZipAddHandle
-// function. This will let the zipfile store the item's size ahead of the
-// compressed item itself, which in turn makes it easier when unzipping the
-// zipfile from a pipe.
-
-ZRESULT CloseZip();
-// CloseZip - the zip handle must be closed with this function.
+	CreateZip();
+	bool Start(const TCHAR *fn);
+	ZRESULT ZipAdd(const TCHAR *dstzn, const TCHAR *fn);
+	ZRESULT ZipAddFolder(const TCHAR *dstzn);
+	ZRESULT Finish();
 };
 
 unsigned int FormatZipMessage(ZRESULT code, TCHAR *buf,unsigned int len);
