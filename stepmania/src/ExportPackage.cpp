@@ -38,8 +38,29 @@ bool ExportPackage::PublishSong( const Song *pSong, RString &sErrorOut )
 	return true;
 }
 
+void StripIgnoredSmzipFiles( vector<RString> &vsFilesInOut )
+{
+	for( int i=vsFilesInOut.size()-1; i>=0; i-- )
+	{
+		const RString &sFile = vsFilesInOut[i];
+
+		bool bEraseThis = false;
+		bEraseThis |= EndsWith( sFile, "smzip.ctl" );
+		bEraseThis |= EndsWith( sFile, ".old" );
+		bEraseThis |= EndsWith( sFile, "Thumbs.db" );
+		bEraseThis |= EndsWith( sFile, ".DS_Store" );
+		bEraseThis |= (sFile.find("CVS") != string::npos);
+		bEraseThis |= (sFile.find(".svn") != string::npos);
+
+		if( bEraseThis )
+			vsFilesInOut.erase( vsFilesInOut.begin()+i );
+	}
+}
+
 bool ExportPackage::ExportPackage( RString sSmzipFile, RString sDirToExport, RString &sErrorOut )
 {
+	//sSmzipFile = "/simple1.zip";
+
 	RageFile f;
 	// TODO: Mount Desktop/ for each OS
 	if( !f.Open(sSmzipFile, RageFile::WRITE) )
@@ -48,14 +69,12 @@ bool ExportPackage::ExportPackage( RString sSmzipFile, RString sDirToExport, RSt
 		return false;
 	}
 
-	/*
-	RageFileObjZip zip( &f );
-	zip.Start();
-	zip.SetGlobalComment( sComment );
+	CreateZip zip;
+	zip.Start(&f);
 
 	vector<RString> vs;
 	GetDirListingRecursive( sDirToExport, "*", vs );
-	SMPackageUtil::StripIgnoredSmzipFiles( vs );
+	StripIgnoredSmzipFiles( vs );
 	FOREACH( RString, vs, s )
 	{
 		if( !zip.AddFile( *s ) )
@@ -65,17 +84,12 @@ bool ExportPackage::ExportPackage( RString sSmzipFile, RString sDirToExport, RSt
 		}
 	}
 
-	if( zip.Finish() == -1 )
+	if( !zip.Finish() )
 	{
-		sErrorOut = ssprintf( "Couldn't write to file %s", fn.c_str(), f.GetError().c_str() );
+		sErrorOut = ssprintf( "Couldn't write to file %s", sSmzipFile.c_str(), f.GetError().c_str() );
 		return false;
 	}
-	*/
-	HZIP hz = CreateZip("simple1.zip",0);
-	ZipAdd(hz,"adad\\znsimple.bmp",  "simple.bmp");
-	ZipAdd(hz,"znsimple.txt",  "simple.txt");
-	CloseZip(hz);
-
+	
 	return true;
 }
 

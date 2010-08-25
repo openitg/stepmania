@@ -9,6 +9,7 @@ const RString SpecialFiles::LANGUAGES_SUBDIR = "Languages/";
 const RString SpecialFiles::BASE_LANGUAGE = "en";
 const RString SpecialFiles::METRICS_FILE = "metrics.ini";
 const RString SpecialFiles::CACHE_DIR = "Cache/";
+const RString SpecialFiles::DESKTOP_DIR = "Desktop/";
 const RString SpecialFiles::BASE_THEME_NAME = "default";
 const RString SpecialFiles::DEFAULTS_INI_PATH	= "Data/Defaults.ini";
 const RString SpecialFiles::STATIC_INI_PATH = "Data/Static.ini";
