@@ -1,7 +1,7 @@
 // Adapted from http://www.codeproject.com/KB/files/zip_utils.aspx
 #include "global.h"
 
-#include <windows.h>
+//#include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
 #include <time.h>
@@ -9,7 +9,7 @@
 #include "RageFile.h"
 #include "RageUtil.h"
 
-//#define MAX_PATH 1024
+#define MAX_PATH 1024
 
 // THIS FILE is almost entirely based upon code by info-zip.
 // It has been modified by Lucian Wischik. The modifications
@@ -2136,7 +2136,7 @@ const config configuration_table[10] = {
 	class TZip
 	{ 
 	public:
-		TZip(const char *pwd) : pfout(NULL),hmapout(0),zfis(0),obuf(0),hfin(0),writ(0),oerr(false),hasputcen(false),ooffset(0),encwriting(false),encbuf(0),password(0), state(0)
+		TZip(const char *pwd) : pfout(NULL),zfis(0),hfin(0),writ(0),oerr(false),hasputcen(false),ooffset(0),encwriting(false),encbuf(0),password(0), state(0)
 		{
 			if (pwd!=0 && *pwd!=0) {
 				password=new char[strlen(pwd)+1]; 
@@ -2149,11 +2149,9 @@ const config configuration_table[10] = {
 		// We can write to pipe, file-by-handle, file-by-name, memory-to-memmapfile
 		char *password;           // keep a copy of the password
 		RageFile *pfout;             // if valid, we'll write here (for files or pipes)
-		HANDLE hmapout;           // otherwise, we'll write here (for memmap)
 		unsigned ooffset;         // for hfout, this is where the pointer was initially
 		ZRESULT oerr;             // did a write operation give rise to an error?
 		unsigned writ;            // how have we written. This is maintained by Add, not write(), to avoid confusion over seeks
-		char *obuf;               // this is where we've locked mmap to view.
 		unsigned int opos;        // current pos in the mmap
 		unsigned int mapsize;     // the size of the map we created
 		bool hasputcen;           // have we yet placed the central directory?
@@ -2165,7 +2163,7 @@ const config configuration_table[10] = {
 		TZipFileInfo *zfis;       // each file gets added onto this list, for writing the table at the end
 		TState *state;            // we use just one state object per zip, because it's big (500k)
 
-		ZRESULT Create(void *z,DWORD flags);
+		ZRESULT Create(void *z,unsigned long flags);
 		static unsigned sflush(void *param,const char *buf, unsigned *size);
 		static unsigned swrite(void *param,const char *buf, unsigned size);
 		unsigned int write(const char *buf,unsigned int size);
@@ -2187,7 +2185,6 @@ const config configuration_table[10] = {
 
 
 		ZRESULT open_file(const TCHAR *fn);
-		ZRESULT open_handle(HANDLE hf);
 		ZRESULT open_dir();
 		ZRESULT set_times();
 		static unsigned sread(TState &s,char *buf,unsigned size);
@@ -2197,16 +2194,16 @@ const config configuration_table[10] = {
 		ZRESULT ideflate(TZipFileInfo *zfi);
 		ZRESULT istore();
 
-		ZRESULT Add(const TCHAR *odstzn, void *src, DWORD flags);
+		ZRESULT Add(const TCHAR *odstzn, void *src, unsigned long flags);
 		ZRESULT AddCentral();
 
 	};
 
 
 
-	ZRESULT TZip::Create(void *z,DWORD flags)
+	ZRESULT TZip::Create(void *z,unsigned long flags)
 	{ 
-		if (pfout!=0 || hmapout!=0 || obuf!=0 || writ!=0 || oerr!=ZR_OK || hasputcen) 
+		if (pfout!=0 || writ!=0 || oerr!=ZR_OK || hasputcen) 
 			return ZR_NOTINITED;
 		//
 		if (flags==ZIP_FILENAME)
@@ -2258,20 +2255,9 @@ const config configuration_table[10] = {
 				encbuf[i]=zencode(keys,encbuf[i]);
 			srcbuf=encbuf;
 		}
-		if (obuf!=0)
-		{ 
-			if (opos+size>=mapsize) 
-			{
-				oerr=ZR_MEMSIZE; 
-				return 0;
-			}
-			memcpy(obuf+opos, srcbuf, size);
-			opos+=size;
-			return size;
-		}
-		else if (pfout != NULL)
+		if (pfout != NULL)
 		{
-			DWORD writ = pfout->Write( srcbuf, size );
+			unsigned long writ = pfout->Write( srcbuf, size );
 			return writ;
 		}
 		oerr=ZR_NOTINITED;
@@ -2292,12 +2278,6 @@ const config configuration_table[10] = {
 		if (!hasputcen) 
 			res=AddCentral(); 
 		hasputcen=true;
-		if (obuf!=0 && hmapout!=0) 
-			UnmapViewOfFile(obuf); 
-		obuf=0;
-		if (hmapout!=0) 
-			CloseHandle(hmapout); 
-		hmapout=0;
 		SAFE_DELETE( pfout );
 		return res;
 	}
@@ -2342,16 +2322,16 @@ const config configuration_table[10] = {
 	}
 
 	
-	void filetime2dosdatetime(const tm st, WORD *dosdate,WORD *dostime)
+	void filetime2dosdatetime(const tm st, unsigned short *dosdate,unsigned short *dostime)
 	{ 
 		// date: bits 0-4 are day of month 1-31. Bits 5-8 are month 1..12. Bits 9-15 are year-1980
 		// time: bits 0-4 are seconds/2, bits 5-10 are minute 0..59. Bits 11-15 are hour 0..23
-		*dosdate = (WORD)(((st.tm_year+1900-1980)&0x7f) << 9);
-		*dosdate |= (WORD)(((st.tm_mon+1)&0xf) << 5);
-		*dosdate |= (WORD)((st.tm_mday&0x1f));
-		*dostime = (WORD)((st.tm_hour&0x1f) << 11);
-		*dostime |= (WORD)((st.tm_min&0x3f) << 5);
-		*dostime |= (WORD)((st.tm_sec*2)&0x1f);
+		*dosdate = (unsigned short)(((st.tm_year+1900-1980)&0x7f) << 9);
+		*dosdate |= (unsigned short)(((st.tm_mon+1)&0xf) << 5);
+		*dosdate |= (unsigned short)((st.tm_mday&0x1f));
+		*dostime = (unsigned short)((st.tm_hour&0x1f) << 11);
+		*dostime |= (unsigned short)((st.tm_min&0x3f) << 5);
+		*dostime |= (unsigned short)((st.tm_sec*2)&0x1f);
 	}
 
 	ZRESULT TZip::set_times()
@@ -2361,12 +2341,12 @@ const config configuration_table[10] = {
 		time ( &rawtime );
 		ptm = localtime ( &rawtime );
 
-		WORD dosdate,dostime; 
+		unsigned short dosdate,dostime; 
 		filetime2dosdatetime(*ptm,&dosdate,&dostime);
 		times.atime = time(NULL);
 		times.mtime = times.atime;
 		times.ctime = times.atime;
-		timestamp = (WORD)dostime | (((DWORD)dosdate)<<16);
+		timestamp = (unsigned short)dostime | (((unsigned long)dosdate)<<16);
 		return ZR_OK;
 	}
 
@@ -2434,7 +2414,7 @@ const config configuration_table[10] = {
 		state->ds.window_size=0;
 		//  I think that covers everything that needs to be initted.
 		//
-		bi_init(*state,buf, sizeof(buf), TRUE); // it used to be just 1024-size, not 16384 as here
+		bi_init(*state,buf, sizeof(buf), true); // it used to be just 1024-size, not 16384 as here
 		ct_init(*state,&zfi->att);
 		lm_init(*state,state->level, &zfi->flg);
 		ulg sz = deflate(*state);
@@ -2465,7 +2445,7 @@ const config configuration_table[10] = {
 
 
 	bool has_seeded=false;
-	ZRESULT TZip::Add(const TCHAR *odstzn, void *src,DWORD flags)
+	ZRESULT TZip::Add(const TCHAR *odstzn, void *src,unsigned long flags)
 	{
 		if (oerr)
 			return ZR_FAILED;
@@ -2579,10 +2559,14 @@ const config configuration_table[10] = {
 		for (const char *cp=password; cp!=0 && *cp!=0; cp++) 
 			update_keys(keys,*cp);
 		// generate some random bytes
-		if (!has_seeded) srand(GetTickCount()^(unsigned long)GetDesktopWindow());
-		char encbuf[12]; for (int i=0; i<12; i++) encbuf[i]=(char)((rand()>>7)&0xff);
+		if (!has_seeded) 
+			srand(0);
+		char encbuf[12]; 
+		for (int i=0; i<12; i++) 
+			encbuf[i]=(char)((rand()>>7)&0xff);
 		encbuf[11] = (char)((zfi.tim>>8)&0xff);
-		for (int ei=0; ei<12; ei++) encbuf[ei]=zencode(keys,encbuf[ei]);
+		for (int ei=0; ei<12; ei++) 
+			encbuf[ei]=zencode(keys,encbuf[ei]);
 		if (password!=0 && !isdir)
 		{
 			swrite(this,encbuf,12); 
@@ -2714,12 +2698,12 @@ const config configuration_table[10] = {
 	class TZipHandleData
 	{ 
 	public:
-		DWORD flag;
+		unsigned long flag;
 		TZip *zip;
 	};
 
 
-	TZipHandleData *CreateZipInternal(void *z,DWORD flags, const char *password)
+	TZipHandleData *CreateZipInternal(void *z,unsigned long flags, const char *password)
 	{ 
 		TZip *zip = new TZip(password);
 		lasterrorZ = zip->Create(z,flags);
@@ -2739,7 +2723,7 @@ const config configuration_table[10] = {
 	}
 
 
-	ZRESULT ZipAddInternal(TZipHandleData* han,const TCHAR *dstzn, void *src, DWORD flags)
+	ZRESULT ZipAddInternal(TZipHandleData* han,const TCHAR *dstzn, void *src, unsigned long flags)
 	{ 
 		if (han->flag!=2)
 		{
