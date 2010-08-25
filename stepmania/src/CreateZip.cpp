@@ -1,7 +1,5 @@
-// Adapted from http://www.codeproject.com/KB/files/zip_utils.aspx
 #include "global.h"
 
-//#include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
 #include <time.h>
@@ -11,6 +9,9 @@
 
 #define MAX_PATH 1024
 
+// TODO: remove header "extra fields" (the 3 dates)
+// Adapted for StepMania from http://www.codeproject.com/KB/files/zip_utils.aspx
+//
 // THIS FILE is almost entirely based upon code by info-zip.
 // It has been modified by Lucian Wischik. The modifications
 // were a complete rewrite of the bit of code that generates the
@@ -113,9 +114,7 @@ typedef unsigned IPos; // A Pos is an index in the character window. Pos is used
 #define BINARY  0
 #define ASCII   1
 
-#define BEST -1                 // Use best method (deflation or store)
 #define STORE 0                 // Store method
-#define DEFLATE 8               // Deflation method
 
 #define CRCVAL_INITIAL  0L
 
@@ -210,11 +209,6 @@ typedef unsigned IPos; // A Pos is an index in the character window. Pos is used
 #define BL_CODES  19
 // number of codes used to transfer the bit lengths
 
-
-#define STORED_BLOCK 0
-#define STATIC_TREES 1
-#define DYN_TREES    2
-// The three kinds of block type
 
 #define LIT_BUFSIZE  0x8000
 #define DIST_BUFSIZE  LIT_BUFSIZE
@@ -391,107 +385,109 @@ const config configuration_table[10] = {
 
 
 	class TTreeState
-	{ public:
-	TTreeState();
+	{
+	public:
+		TTreeState();
 
-	ct_data dyn_ltree[HEAP_SIZE];    // literal and length tree
-	ct_data dyn_dtree[2*D_CODES+1];  // distance tree
-	ct_data static_ltree[L_CODES+2]; // the static literal tree...
-	// ... Since the bit lengths are imposed, there is no need for the L_CODES
-	// extra codes used during heap construction. However the codes 286 and 287
-	// are needed to build a canonical tree (see ct_init below).
-	ct_data static_dtree[D_CODES]; // the static distance tree...
-	// ... (Actually a trivial tree since all codes use 5 bits.)
-	ct_data bl_tree[2*BL_CODES+1];  // Huffman tree for the bit lengths
+		ct_data dyn_ltree[HEAP_SIZE];    // literal and length tree
+		ct_data dyn_dtree[2*D_CODES+1];  // distance tree
+		ct_data static_ltree[L_CODES+2]; // the static literal tree...
+		// ... Since the bit lengths are imposed, there is no need for the L_CODES
+		// extra codes used during heap construction. However the codes 286 and 287
+		// are needed to build a canonical tree (see ct_init below).
+		ct_data static_dtree[D_CODES]; // the static distance tree...
+		// ... (Actually a trivial tree since all codes use 5 bits.)
+		ct_data bl_tree[2*BL_CODES+1];  // Huffman tree for the bit lengths
 
-	tree_desc l_desc;
-	tree_desc d_desc;
-	tree_desc bl_desc;
+		tree_desc l_desc;
+		tree_desc d_desc;
+		tree_desc bl_desc;
 
-	ush bl_count[MAX_BITS+1];  // number of codes at each bit length for an optimal tree
+		ush bl_count[MAX_BITS+1];  // number of codes at each bit length for an optimal tree
 
-	int heap[2*L_CODES+1]; // heap used to build the Huffman trees
-	int heap_len;               // number of elements in the heap
-	int heap_max;               // element of largest frequency
-	// The sons of heap[n] are heap[2*n] and heap[2*n+1]. heap[0] is not used.
-	// The same heap array is used to build all trees.
+		int heap[2*L_CODES+1]; // heap used to build the Huffman trees
+		int heap_len;               // number of elements in the heap
+		int heap_max;               // element of largest frequency
+		// The sons of heap[n] are heap[2*n] and heap[2*n+1]. heap[0] is not used.
+		// The same heap array is used to build all trees.
 
-	uch depth[2*L_CODES+1];
-	// Depth of each subtree used as tie breaker for trees of equal frequency
+		uch depth[2*L_CODES+1];
+		// Depth of each subtree used as tie breaker for trees of equal frequency
 
-	uch length_code[MAX_MATCH-MIN_MATCH+1];
-	// length code for each normalized match length (0 == MIN_MATCH)
+		uch length_code[MAX_MATCH-MIN_MATCH+1];
+		// length code for each normalized match length (0 == MIN_MATCH)
 
-	uch dist_code[512];
-	// distance codes. The first 256 values correspond to the distances
-	// 3 .. 258, the last 256 values correspond to the top 8 bits of
-	// the 15 bit distances.
+		uch dist_code[512];
+		// distance codes. The first 256 values correspond to the distances
+		// 3 .. 258, the last 256 values correspond to the top 8 bits of
+		// the 15 bit distances.
 
-	int base_length[LENGTH_CODES];
-	// First normalized length for each code (0 = MIN_MATCH)
+		int base_length[LENGTH_CODES];
+		// First normalized length for each code (0 = MIN_MATCH)
 
-	int base_dist[D_CODES];
-	// First normalized distance for each code (0 = distance of 1)
+		int base_dist[D_CODES];
+		// First normalized distance for each code (0 = distance of 1)
 
-	uch l_buf[LIT_BUFSIZE];  // buffer for literals/lengths
-	ush d_buf[DIST_BUFSIZE]; // buffer for distances
+		uch l_buf[LIT_BUFSIZE];  // buffer for literals/lengths
+		ush d_buf[DIST_BUFSIZE]; // buffer for distances
 
-	uch flag_buf[(LIT_BUFSIZE/8)];
-	// flag_buf is a bit array distinguishing literals from lengths in
-	// l_buf, and thus indicating the presence or absence of a distance.
+		uch flag_buf[(LIT_BUFSIZE/8)];
+		// flag_buf is a bit array distinguishing literals from lengths in
+		// l_buf, and thus indicating the presence or absence of a distance.
 
-	unsigned last_lit;    // running index in l_buf
-	unsigned last_dist;   // running index in d_buf
-	unsigned last_flags;  // running index in flag_buf
-	uch flags;            // current flags not yet saved in flag_buf
-	uch flag_bit;         // current bit used in flags
-	// bits are filled in flags starting at bit 0 (least significant).
-	// Note: these flags are overkill in the current code since we don't
-	// take advantage of DIST_BUFSIZE == LIT_BUFSIZE.
+		unsigned last_lit;    // running index in l_buf
+		unsigned last_dist;   // running index in d_buf
+		unsigned last_flags;  // running index in flag_buf
+		uch flags;            // current flags not yet saved in flag_buf
+		uch flag_bit;         // current bit used in flags
+		// bits are filled in flags starting at bit 0 (least significant).
+		// Note: these flags are overkill in the current code since we don't
+		// take advantage of DIST_BUFSIZE == LIT_BUFSIZE.
 
-	ulg opt_len;          // bit length of current block with optimal trees
-	ulg static_len;       // bit length of current block with static trees
+		ulg opt_len;          // bit length of current block with optimal trees
+		ulg static_len;       // bit length of current block with static trees
 
-	ulg cmpr_bytelen;     // total byte length of compressed file
-	ulg cmpr_len_bits;    // number of bits past 'cmpr_bytelen'
+		ulg cmpr_bytelen;     // total byte length of compressed file
+		ulg cmpr_len_bits;    // number of bits past 'cmpr_bytelen'
 
-	ulg input_len;        // total byte length of input file
-	// input_len is for debugging only since we can get it by other means.
+		ulg input_len;        // total byte length of input file
+		// input_len is for debugging only since we can get it by other means.
 
-	ush *file_type;       // pointer to UNKNOWN, BINARY or ASCII
-	//  int *file_method;     // pointer to DEFLATE or STORE
+		ush *file_type;       // pointer to UNKNOWN, BINARY or ASCII
+		//  int *file_method;     // pointer to DEFLATE or STORE
 	};
 
 	TTreeState::TTreeState()
-	{ tree_desc a = {dyn_ltree, static_ltree, extra_lbits, LITERALS+1, L_CODES, MAX_BITS, 0};  l_desc = a;
-	tree_desc b = {dyn_dtree, static_dtree, extra_dbits, 0,          D_CODES, MAX_BITS, 0};  d_desc = b;
-	tree_desc c = {bl_tree, NULL,       extra_blbits, 0,         BL_CODES, MAX_BL_BITS, 0};  bl_desc = c;
-	last_lit=0;
-	last_dist=0;
-	last_flags=0;
+	{ 
+		tree_desc a = {dyn_ltree, static_ltree, extra_lbits, LITERALS+1, L_CODES, MAX_BITS, 0};  l_desc = a;
+		tree_desc b = {dyn_dtree, static_dtree, extra_dbits, 0,          D_CODES, MAX_BITS, 0};  d_desc = b;
+		tree_desc c = {bl_tree, NULL,       extra_blbits, 0,         BL_CODES, MAX_BL_BITS, 0};  bl_desc = c;
+		last_lit=0;
+		last_dist=0;
+		last_flags=0;
 	}
 
 
 
 	class TBitState
-	{ public:
-
-	int flush_flg;
-	//
-	unsigned bi_buf;
-	// Output buffer. bits are inserted starting at the bottom (least significant
-	// bits). The width of bi_buf must be at least 16 bits.
-	int bi_valid;
-	// Number of valid bits in bi_buf.  All bits above the last valid bit
-	// are always zero.
-	char *out_buf;
-	// Current output buffer.
-	unsigned out_offset;
-	// Current offset in output buffer.
-	// On 16 bit machines, the buffer is limited to 64K.
-	unsigned out_size;
-	// Size of current output buffer
-	ulg bits_sent;   // bit length of the compressed data  only needed for debugging???
+	{
+	public:
+		int flush_flg;
+		//
+		unsigned bi_buf;
+		// Output buffer. bits are inserted starting at the bottom (least significant
+		// bits). The width of bi_buf must be at least 16 bits.
+		int bi_valid;
+		// Number of valid bits in bi_buf.  All bits above the last valid bit
+		// are always zero.
+		char *out_buf;
+		// Current output buffer.
+		unsigned out_offset;
+		// Current offset in output buffer.
+		// On 16 bit machines, the buffer is limited to 64K.
+		unsigned out_size;
+		// Size of current output buffer
+		ulg bits_sent;   // bit length of the compressed data  only needed for debugging???
 	};
 
 
@@ -501,61 +497,62 @@ const config configuration_table[10] = {
 
 
 	class TDeflateState
-	{ public:
-	TDeflateState() {window_size=0;}
+	{ 
+	public:
+		TDeflateState() {window_size=0;}
 
-	uch    window[2L*WSIZE];
-	// Sliding window. Input bytes are read into the second half of the window,
-	// and move to the first half later to keep a dictionary of at least WSIZE
-	// bytes. With this organization, matches are limited to a distance of
-	// WSIZE-MAX_MATCH bytes, but this ensures that IO is always
-	// performed with a length multiple of the block size. Also, it limits
-	// the window size to 64K, which is quite useful on MSDOS.
-	// To do: limit the window size to WSIZE+CBSZ if SMALL_MEM (the code would
-	// be less efficient since the data would have to be copied WSIZE/CBSZ times)
-	Pos    prev[WSIZE];
-	// Link to older string with same hash index. To limit the size of this
-	// array to 64K, this link is maintained only for the last 32K strings.
-	// An index in this array is thus a window index modulo 32K.
-	Pos    head[HASH_SIZE];
-	// Heads of the hash chains or NIL. If your compiler thinks that
-	// HASH_SIZE is a dynamic value, recompile with -DDYN_ALLOC.
+		uch    window[2L*WSIZE];
+		// Sliding window. Input bytes are read into the second half of the window,
+		// and move to the first half later to keep a dictionary of at least WSIZE
+		// bytes. With this organization, matches are limited to a distance of
+		// WSIZE-MAX_MATCH bytes, but this ensures that IO is always
+		// performed with a length multiple of the block size. Also, it limits
+		// the window size to 64K, which is quite useful on MSDOS.
+		// To do: limit the window size to WSIZE+CBSZ if SMALL_MEM (the code would
+		// be less efficient since the data would have to be copied WSIZE/CBSZ times)
+		Pos    prev[WSIZE];
+		// Link to older string with same hash index. To limit the size of this
+		// array to 64K, this link is maintained only for the last 32K strings.
+		// An index in this array is thus a window index modulo 32K.
+		Pos    head[HASH_SIZE];
+		// Heads of the hash chains or NIL. If your compiler thinks that
+		// HASH_SIZE is a dynamic value, recompile with -DDYN_ALLOC.
 
-	ulg window_size;
-	// window size, 2*WSIZE except for MMAP or BIG_MEM, where it is the
-	// input file length plus MIN_LOOKAHEAD.
+		ulg window_size;
+		// window size, 2*WSIZE except for MMAP or BIG_MEM, where it is the
+		// input file length plus MIN_LOOKAHEAD.
 
-	long block_start;
-	// window position at the beginning of the current output block. Gets
-	// negative when the window is moved backwards.
+		long block_start;
+		// window position at the beginning of the current output block. Gets
+		// negative when the window is moved backwards.
 
-	int sliding;
-	// Set to false when the input file is already in memory
+		int sliding;
+		// Set to false when the input file is already in memory
 
-	unsigned ins_h;  // hash index of string to be inserted
+		unsigned ins_h;  // hash index of string to be inserted
 
-	unsigned int prev_length;
-	// Length of the best match at previous step. Matches not greater than this
-	// are discarded. This is used in the lazy match evaluation.
+		unsigned int prev_length;
+		// Length of the best match at previous step. Matches not greater than this
+		// are discarded. This is used in the lazy match evaluation.
 
-	unsigned strstart;         // start of string to insert
-	unsigned match_start; // start of matching string
-	int      eofile;           // flag set at end of input file
-	unsigned lookahead;        // number of valid bytes ahead in window
+		unsigned strstart;         // start of string to insert
+		unsigned match_start; // start of matching string
+		int      eofile;           // flag set at end of input file
+		unsigned lookahead;        // number of valid bytes ahead in window
 
-	unsigned max_chain_length;
-	// To speed up deflation, hash chains are never searched beyond this length.
-	// A higher limit improves compression ratio but degrades the speed.
+		unsigned max_chain_length;
+		// To speed up deflation, hash chains are never searched beyond this length.
+		// A higher limit improves compression ratio but degrades the speed.
 
-	unsigned int max_lazy_match;
-	// Attempt to find a better match only when the current match is strictly
-	// smaller than this value. This mechanism is used only for compression
-	// levels >= 4.
+		unsigned int max_lazy_match;
+		// Attempt to find a better match only when the current match is strictly
+		// smaller than this value. This mechanism is used only for compression
+		// levels >= 4.
 
-	unsigned good_match;
-	// Use a faster search when the previous match is longer than this
+		unsigned good_match;
+		// Use a faster search when the previous match is longer than this
 
-	int nice_match; // Stop searching when current match exceeds this
+		int nice_match; // Stop searching when current match exceeds this
 	};
 
 	typedef __int64 lutime_t;       // define it ourselves since we don't include time.h
@@ -583,1388 +580,28 @@ const config configuration_table[10] = {
 	} TZipFileInfo;
 
 
-	struct TState;
-	typedef unsigned (*READFUNC)(TState &state, char *buf,unsigned size);
-	typedef unsigned (*FLUSHFUNC)(void *param, const char *buf, unsigned *size);
-	typedef unsigned (*WRITEFUNC)(void *param, const char *buf, unsigned size);
-	struct TState
-	{ void *param;
-	int level; bool seekable;
-	READFUNC readfunc; FLUSHFUNC flush_outbuf;
-	TTreeState ts; TBitState bs; TDeflateState ds;
-	const char *err;
-	};
 
 
 
 
-
-
-
-
-
-	void Assert(TState &state,bool cond, const char *msg)
-	{ if (cond) return;
-	state.err=msg;
-	}
 	void __cdecl Trace(const char *x, ...) {va_list paramList; va_start(paramList, x); paramList; va_end(paramList);}
 	void __cdecl Tracec(bool ,const char *x, ...) {va_list paramList; va_start(paramList, x); paramList; va_end(paramList);}
 
 
 
-	// ===========================================================================
-	// Local (static) routines in this file.
-	//
 
-	void init_block     (TState &);
-	void pqdownheap     (TState &,ct_data *tree, int k);
-	void gen_bitlen     (TState &,tree_desc *desc);
-	void gen_codes      (TState &state,ct_data *tree, int max_code);
-	void build_tree     (TState &,tree_desc *desc);
-	void scan_tree      (TState &,ct_data *tree, int max_code);
-	void send_tree      (TState &state,ct_data *tree, int max_code);
-	int  build_bl_tree  (TState &);
-	void send_all_trees (TState &state,int lcodes, int dcodes, int blcodes);
-	void compress_block (TState &state,ct_data *ltree, ct_data *dtree);
-	void set_file_type  (TState &);
-	void send_bits      (TState &state, int value, int length);
-	unsigned bi_reverse (unsigned code, int len);
-	void bi_windup      (TState &state);
-	void copy_block     (TState &state,char *buf, unsigned len, int header);
-
-
-#define send_code(state, c, tree) send_bits(state, tree[c].fc.code, tree[c].dl.len)
-	// Send a code of the given tree. c and tree must not have side effects
-
-	// alternatively...
-	//#define send_code(state, c, tree)
-	//     { if (state.verbose>1) fprintf(stderr,"\ncd %3d ",(c));
-	//       send_bits(state, tree[c].fc.code, tree[c].dl.len); }
-
-#define d_code(dist) ((dist) < 256 ? state.ts.dist_code[dist] : state.ts.dist_code[256+((dist)>>7)])
-	// Mapping from a distance to a distance code. dist is the distance - 1 and
-	// must not have side effects. dist_code[256] and dist_code[257] are never used.
-
-#define Max(a,b) (a >= b ? a : b)
-	/* the arguments must not have side effects */
-
-	/* ===========================================================================
-	* Allocate the match buffer, initialize the various tables and save the
-	* location of the internal file attribute (ascii/binary) and method
-	* (DEFLATE/STORE).
-	*/
-	void ct_init(TState &state, ush *attr)
+	struct TState;
+	typedef unsigned (*READFUNC)(TState &state, char *buf,unsigned size);
+	typedef unsigned (*FLUSHFUNC)(void *param, const char *buf, unsigned *size);
+	typedef unsigned (*WRITEFUNC)(void *param, const char *buf, unsigned size);
+	struct TState
 	{
-		int n;        /* iterates over tree elements */
-		int bits;     /* bit counter */
-		int length;   /* length value */
-		int code;     /* code value */
-		int dist;     /* distance index */
-
-		state.ts.file_type = attr;
-		//state.ts.file_method = method;
-		state.ts.cmpr_bytelen = state.ts.cmpr_len_bits = 0L;
-		state.ts.input_len = 0L;
-
-		if (state.ts.static_dtree[0].dl.len != 0) return; /* ct_init already called */
-
-		/* Initialize the mapping length (0..255) -> length code (0..28) */
-		length = 0;
-		for (code = 0; code < LENGTH_CODES-1; code++) {
-			state.ts.base_length[code] = length;
-			for (n = 0; n < (1<<extra_lbits[code]); n++) {
-				state.ts.length_code[length++] = (uch)code;
-			}
-		}
-		Assert(state,length == 256, "ct_init: length != 256");
-		/* Note that the length 255 (match length 258) can be represented
-		* in two different ways: code 284 + 5 bits or code 285, so we
-		* overwrite length_code[255] to use the best encoding:
-		*/
-		state.ts.length_code[length-1] = (uch)code;
-
-		/* Initialize the mapping dist (0..32K) -> dist code (0..29) */
-		dist = 0;
-		for (code = 0 ; code < 16; code++) {
-			state.ts.base_dist[code] = dist;
-			for (n = 0; n < (1<<extra_dbits[code]); n++) {
-				state.ts.dist_code[dist++] = (uch)code;
-			}
-		}
-		Assert(state,dist == 256, "ct_init: dist != 256");
-		dist >>= 7; /* from now on, all distances are divided by 128 */
-		for ( ; code < D_CODES; code++) {
-			state.ts.base_dist[code] = dist << 7;
-			for (n = 0; n < (1<<(extra_dbits[code]-7)); n++) {
-				state.ts.dist_code[256 + dist++] = (uch)code;
-			}
-		}
-		Assert(state,dist == 256, "ct_init: 256+dist != 512");
-
-		/* Construct the codes of the static literal tree */
-		for (bits = 0; bits <= MAX_BITS; bits++) state.ts.bl_count[bits] = 0;
-		n = 0;
-		while (n <= 143) state.ts.static_ltree[n++].dl.len = 8, state.ts.bl_count[8]++;
-		while (n <= 255) state.ts.static_ltree[n++].dl.len = 9, state.ts.bl_count[9]++;
-		while (n <= 279) state.ts.static_ltree[n++].dl.len = 7, state.ts.bl_count[7]++;
-		while (n <= 287) state.ts.static_ltree[n++].dl.len = 8, state.ts.bl_count[8]++;
-		/* fc.codes 286 and 287 do not exist, but we must include them in the
-		* tree construction to get a canonical Huffman tree (longest code
-		* all ones)
-		*/
-		gen_codes(state,(ct_data *)state.ts.static_ltree, L_CODES+1);
-
-		/* The static distance tree is trivial: */
-		for (n = 0; n < D_CODES; n++) {
-			state.ts.static_dtree[n].dl.len = 5;
-			state.ts.static_dtree[n].fc.code = (ush)bi_reverse(n, 5);
-		}
-
-		/* Initialize the first block of the first file: */
-		init_block(state);
-	}
-
-	/* ===========================================================================
-	* Initialize a new block.
-	*/
-	void init_block(TState &state)
-	{
-		int n; /* iterates over tree elements */
-
-		/* Initialize the trees. */
-		for (n = 0; n < L_CODES;  n++) state.ts.dyn_ltree[n].fc.freq = 0;
-		for (n = 0; n < D_CODES;  n++) state.ts.dyn_dtree[n].fc.freq = 0;
-		for (n = 0; n < BL_CODES; n++) state.ts.bl_tree[n].fc.freq = 0;
-
-		state.ts.dyn_ltree[END_BLOCK].fc.freq = 1;
-		state.ts.opt_len = state.ts.static_len = 0L;
-		state.ts.last_lit = state.ts.last_dist = state.ts.last_flags = 0;
-		state.ts.flags = 0; state.ts.flag_bit = 1;
-	}
-
-#define SMALLEST 1
-	/* Index within the heap array of least frequent node in the Huffman tree */
-
-
-	/* ===========================================================================
-	* Remove the smallest element from the heap and recreate the heap with
-	* one less element. Updates heap and heap_len.
-	*/
-#define pqremove(tree, top) \
-	{\
-	top = state.ts.heap[SMALLEST]; \
-	state.ts.heap[SMALLEST] = state.ts.heap[state.ts.heap_len--]; \
-	pqdownheap(state,tree, SMALLEST); \
-	}
-
-	/* ===========================================================================
-	* Compares to subtrees, using the tree depth as tie breaker when
-	* the subtrees have equal frequency. This minimizes the worst case length.
-	*/
-#define smaller(tree, n, m) \
-	(tree[n].fc.freq < tree[m].fc.freq || \
-	(tree[n].fc.freq == tree[m].fc.freq && state.ts.depth[n] <= state.ts.depth[m]))
-
-	/* ===========================================================================
-	* Restore the heap property by moving down the tree starting at node k,
-	* exchanging a node with the smallest of its two sons if necessary, stopping
-	* when the heap property is re-established (each father smaller than its
-	* two sons).
-	*/
-	void pqdownheap(TState &state,ct_data *tree, int k)
-	{
-		int v = state.ts.heap[k];
-		int j = k << 1;  /* left son of k */
-		int htemp;       /* required because of bug in SASC compiler */
-
-		while (j <= state.ts.heap_len) {
-			/* Set j to the smallest of the two sons: */
-			if (j < state.ts.heap_len && smaller(tree, state.ts.heap[j+1], state.ts.heap[j])) j++;
-
-			/* Exit if v is smaller than both sons */
-			htemp = state.ts.heap[j];
-			if (smaller(tree, v, htemp)) break;
-
-			/* Exchange v with the smallest son */
-			state.ts.heap[k] = htemp;
-			k = j;
-
-			/* And continue down the tree, setting j to the left son of k */
-			j <<= 1;
-		}
-		state.ts.heap[k] = v;
-	}
-
-	/* ===========================================================================
-	* Compute the optimal bit lengths for a tree and update the total bit length
-	* for the current block.
-	* IN assertion: the fields freq and dad are set, heap[heap_max] and
-	*    above are the tree nodes sorted by increasing frequency.
-	* OUT assertions: the field len is set to the optimal bit length, the
-	*     array bl_count contains the frequencies for each bit length.
-	*     The length opt_len is updated; static_len is also updated if stree is
-	*     not null.
-	*/
-	void gen_bitlen(TState &state,tree_desc *desc)
-	{
-		ct_data *tree  = desc->dyn_tree;
-		const int *extra     = desc->extra_bits;
-		int base            = desc->extra_base;
-		int max_code        = desc->max_code;
-		int max_length      = desc->max_length;
-		ct_data *stree = desc->static_tree;
-		int h;              /* heap index */
-		int n, m;           /* iterate over the tree elements */
-		int bits;           /* bit length */
-		int xbits;          /* extra bits */
-		ush f;              /* frequency */
-		int overflow = 0;   /* number of elements with bit length too large */
-
-		for (bits = 0; bits <= MAX_BITS; bits++) state.ts.bl_count[bits] = 0;
-
-		/* In a first pass, compute the optimal bit lengths (which may
-		* overflow in the case of the bit length tree).
-		*/
-		tree[state.ts.heap[state.ts.heap_max]].dl.len = 0; /* root of the heap */
-
-		for (h = state.ts.heap_max+1; h < HEAP_SIZE; h++) {
-			n = state.ts.heap[h];
-			bits = tree[tree[n].dl.dad].dl.len + 1;
-			if (bits > max_length) bits = max_length, overflow++;
-			tree[n].dl.len = (ush)bits;
-			/* We overwrite tree[n].dl.dad which is no longer needed */
-
-			if (n > max_code) continue; /* not a leaf node */
-
-			state.ts.bl_count[bits]++;
-			xbits = 0;
-			if (n >= base) xbits = extra[n-base];
-			f = tree[n].fc.freq;
-			state.ts.opt_len += (ulg)f * (bits + xbits);
-			if (stree) state.ts.static_len += (ulg)f * (stree[n].dl.len + xbits);
-		}
-		if (overflow == 0) return;
-
-		Trace("\nbit length overflow\n");
-		/* This happens for example on obj2 and pic of the Calgary corpus */
-
-		/* Find the first bit length which could increase: */
-		do {
-			bits = max_length-1;
-			while (state.ts.bl_count[bits] == 0) bits--;
-			state.ts.bl_count[bits]--;           /* move one leaf down the tree */
-			state.ts.bl_count[bits+1] += (ush)2; /* move one overflow item as its brother */
-			state.ts.bl_count[max_length]--;
-			/* The brother of the overflow item also moves one step up,
-			* but this does not affect bl_count[max_length]
-			*/
-			overflow -= 2;
-		} while (overflow > 0);
-
-		/* Now recompute all bit lengths, scanning in increasing frequency.
-		* h is still equal to HEAP_SIZE. (It is simpler to reconstruct all
-		* lengths instead of fixing only the wrong ones. This idea is taken
-		* from 'ar' written by Haruhiko Okumura.)
-		*/
-		for (bits = max_length; bits != 0; bits--) {
-			n = state.ts.bl_count[bits];
-			while (n != 0) {
-				m = state.ts.heap[--h];
-				if (m > max_code) continue;
-				if (tree[m].dl.len != (ush)bits) {
-					Trace("code %d bits %d->%d\n", m, tree[m].dl.len, bits);
-					state.ts.opt_len += ((long)bits-(long)tree[m].dl.len)*(long)tree[m].fc.freq;
-					tree[m].dl.len = (ush)bits;
-				}
-				n--;
-			}
-		}
-	}
-
-	/* ===========================================================================
-	* Generate the codes for a given tree and bit counts (which need not be
-	* optimal).
-	* IN assertion: the array bl_count contains the bit length statistics for
-	* the given tree and the field len is set for all tree elements.
-	* OUT assertion: the field code is set for all tree elements of non
-	*     zero code length.
-	*/
-	void gen_codes (TState &state, ct_data *tree, int max_code)
-	{
-		ush next_code[MAX_BITS+1]; /* next code value for each bit length */
-		ush code = 0;              /* running code value */
-		int bits;                  /* bit index */
-		int n;                     /* code index */
-
-		/* The distribution counts are first used to generate the code values
-		* without bit reversal.
-		*/
-		for (bits = 1; bits <= MAX_BITS; bits++) {
-			next_code[bits] = code = (ush)((code + state.ts.bl_count[bits-1]) << 1);
-		}
-		/* Check that the bit counts in bl_count are consistent. The last code
-		* must be all ones.
-		*/
-		Assert(state,code + state.ts.bl_count[MAX_BITS]-1 == (1<< ((ush) MAX_BITS)) - 1,
-			"inconsistent bit counts");
-		Trace("\ngen_codes: max_code %d ", max_code);
-
-		for (n = 0;  n <= max_code; n++) {
-			int len = tree[n].dl.len;
-			if (len == 0) continue;
-			/* Now reverse the bits */
-			tree[n].fc.code = (ush)bi_reverse(next_code[len]++, len);
-
-			//Tracec(tree != state.ts.static_ltree, "\nn %3d %c l %2d c %4x (%x) ", n, (isgraph(n) ? n : ' '), len, tree[n].fc.code, next_code[len]-1);
-		}
-	}
-
-	/* ===========================================================================
-	* Construct one Huffman tree and assigns the code bit strings and lengths.
-	* Update the total bit length for the current block.
-	* IN assertion: the field freq is set for all tree elements.
-	* OUT assertions: the fields len and code are set to the optimal bit length
-	*     and corresponding code. The length opt_len is updated; static_len is
-	*     also updated if stree is not null. The field max_code is set.
-	*/
-	void build_tree(TState &state,tree_desc *desc)
-	{
-		ct_data *tree   = desc->dyn_tree;
-		ct_data *stree  = desc->static_tree;
-		int elems            = desc->elems;
-		int n, m;          /* iterate over heap elements */
-		int max_code = -1; /* largest code with non zero frequency */
-		int node = elems;  /* next internal node of the tree */
-
-		/* Construct the initial heap, with least frequent element in
-		* heap[SMALLEST]. The sons of heap[n] are heap[2*n] and heap[2*n+1].
-		* heap[0] is not used.
-		*/
-		state.ts.heap_len = 0, state.ts.heap_max = HEAP_SIZE;
-
-		for (n = 0; n < elems; n++) {
-			if (tree[n].fc.freq != 0) {
-				state.ts.heap[++state.ts.heap_len] = max_code = n;
-				state.ts.depth[n] = 0;
-			} else {
-				tree[n].dl.len = 0;
-			}
-		}
-
-		/* The pkzip format requires that at least one distance code exists,
-		* and that at least one bit should be sent even if there is only one
-		* possible code. So to avoid special checks later on we force at least
-		* two codes of non zero frequency.
-		*/
-		while (state.ts.heap_len < 2) {
-			int newcp = state.ts.heap[++state.ts.heap_len] = (max_code < 2 ? ++max_code : 0);
-			tree[newcp].fc.freq = 1;
-			state.ts.depth[newcp] = 0;
-			state.ts.opt_len--; if (stree) state.ts.static_len -= stree[newcp].dl.len;
-			/* new is 0 or 1 so it does not have extra bits */
-		}
-		desc->max_code = max_code;
-
-		/* The elements heap[heap_len/2+1 .. heap_len] are leaves of the tree,
-		* establish sub-heaps of increasing lengths:
-		*/
-		for (n = state.ts.heap_len/2; n >= 1; n--) pqdownheap(state,tree, n);
-
-		/* Construct the Huffman tree by repeatedly combining the least two
-		* frequent nodes.
-		*/
-		do {
-			pqremove(tree, n);   /* n = node of least frequency */
-			m = state.ts.heap[SMALLEST];  /* m = node of next least frequency */
-
-			state.ts.heap[--state.ts.heap_max] = n; /* keep the nodes sorted by frequency */
-			state.ts.heap[--state.ts.heap_max] = m;
-
-			/* Create a new node father of n and m */
-			tree[node].fc.freq = (ush)(tree[n].fc.freq + tree[m].fc.freq);
-			state.ts.depth[node] = (uch) (Max(state.ts.depth[n], state.ts.depth[m]) + 1);
-			tree[n].dl.dad = tree[m].dl.dad = (ush)node;
-			/* and insert the new node in the heap */
-			state.ts.heap[SMALLEST] = node++;
-			pqdownheap(state,tree, SMALLEST);
-
-		} while (state.ts.heap_len >= 2);
-
-		state.ts.heap[--state.ts.heap_max] = state.ts.heap[SMALLEST];
-
-		/* At this point, the fields freq and dad are set. We can now
-		* generate the bit lengths.
-		*/
-		gen_bitlen(state,(tree_desc *)desc);
-
-		/* The field len is now set, we can generate the bit codes */
-		gen_codes (state,(ct_data *)tree, max_code);
-	}
-
-	/* ===========================================================================
-	* Scan a literal or distance tree to determine the frequencies of the codes
-	* in the bit length tree. Updates opt_len to take into account the repeat
-	* counts. (The contribution of the bit length codes will be added later
-	* during the construction of bl_tree.)
-	*/
-	void scan_tree (TState &state,ct_data *tree, int max_code)
-	{
-		int n;                     /* iterates over all tree elements */
-		int prevlen = -1;          /* last emitted length */
-		int curlen;                /* length of current code */
-		int nextlen = tree[0].dl.len; /* length of next code */
-		int count = 0;             /* repeat count of the current code */
-		int max_count = 7;         /* max repeat count */
-		int min_count = 4;         /* min repeat count */
-
-		if (nextlen == 0) max_count = 138, min_count = 3;
-		tree[max_code+1].dl.len = (ush)-1; /* guard */
-
-		for (n = 0; n <= max_code; n++) {
-			curlen = nextlen; nextlen = tree[n+1].dl.len;
-			if (++count < max_count && curlen == nextlen) {
-				continue;
-			} else if (count < min_count) {
-				state.ts.bl_tree[curlen].fc.freq = (ush)(state.ts.bl_tree[curlen].fc.freq + count);
-			} else if (curlen != 0) {
-				if (curlen != prevlen) state.ts.bl_tree[curlen].fc.freq++;
-				state.ts.bl_tree[REP_3_6].fc.freq++;
-			} else if (count <= 10) {
-				state.ts.bl_tree[REPZ_3_10].fc.freq++;
-			} else {
-				state.ts.bl_tree[REPZ_11_138].fc.freq++;
-			}
-			count = 0; prevlen = curlen;
-			if (nextlen == 0) {
-				max_count = 138, min_count = 3;
-			} else if (curlen == nextlen) {
-				max_count = 6, min_count = 3;
-			} else {
-				max_count = 7, min_count = 4;
-			}
-		}
-	}
-
-	/* ===========================================================================
-	* Send a literal or distance tree in compressed form, using the codes in
-	* bl_tree.
-	*/
-	void send_tree (TState &state, ct_data *tree, int max_code)
-	{
-		int n;                     /* iterates over all tree elements */
-		int prevlen = -1;          /* last emitted length */
-		int curlen;                /* length of current code */
-		int nextlen = tree[0].dl.len; /* length of next code */
-		int count = 0;             /* repeat count of the current code */
-		int max_count = 7;         /* max repeat count */
-		int min_count = 4;         /* min repeat count */
-
-		/* tree[max_code+1].dl.len = -1; */  /* guard already set */
-		if (nextlen == 0) max_count = 138, min_count = 3;
-
-		for (n = 0; n <= max_code; n++) {
-			curlen = nextlen; nextlen = tree[n+1].dl.len;
-			if (++count < max_count && curlen == nextlen) {
-				continue;
-			} else if (count < min_count) {
-				do { send_code(state, curlen, state.ts.bl_tree); } while (--count != 0);
-
-			} else if (curlen != 0) {
-				if (curlen != prevlen) {
-					send_code(state, curlen, state.ts.bl_tree); count--;
-				}
-				Assert(state,count >= 3 && count <= 6, " 3_6?");
-				send_code(state,REP_3_6, state.ts.bl_tree); send_bits(state,count-3, 2);
-
-			} else if (count <= 10) {
-				send_code(state,REPZ_3_10, state.ts.bl_tree); send_bits(state,count-3, 3);
-
-			} else {
-				send_code(state,REPZ_11_138, state.ts.bl_tree); send_bits(state,count-11, 7);
-			}
-			count = 0; prevlen = curlen;
-			if (nextlen == 0) {
-				max_count = 138, min_count = 3;
-			} else if (curlen == nextlen) {
-				max_count = 6, min_count = 3;
-			} else {
-				max_count = 7, min_count = 4;
-			}
-		}
-	}
-
-	/* ===========================================================================
-	* Construct the Huffman tree for the bit lengths and return the index in
-	* bl_order of the last bit length code to send.
-	*/
-	int build_bl_tree(TState &state)
-	{
-		int max_blindex;  /* index of last bit length code of non zero freq */
-
-		/* Determine the bit length frequencies for literal and distance trees */
-		scan_tree(state,(ct_data *)state.ts.dyn_ltree, state.ts.l_desc.max_code);
-		scan_tree(state,(ct_data *)state.ts.dyn_dtree, state.ts.d_desc.max_code);
-
-		/* Build the bit length tree: */
-		build_tree(state,(tree_desc *)(&state.ts.bl_desc));
-		/* opt_len now includes the length of the tree representations, except
-		* the lengths of the bit lengths codes and the 5+5+4 bits for the counts.
-		*/
-
-		/* Determine the number of bit length codes to send. The pkzip format
-		* requires that at least 4 bit length codes be sent. (appnote.txt says
-		* 3 but the actual value used is 4.)
-		*/
-		for (max_blindex = BL_CODES-1; max_blindex >= 3; max_blindex--) {
-			if (state.ts.bl_tree[bl_order[max_blindex]].dl.len != 0) break;
-		}
-		/* Update opt_len to include the bit length tree and counts */
-		state.ts.opt_len += 3*(max_blindex+1) + 5+5+4;
-		Trace("\ndyn trees: dyn %ld, stat %ld", state.ts.opt_len, state.ts.static_len);
-
-		return max_blindex;
-	}
-
-	/* ===========================================================================
-	* Send the header for a block using dynamic Huffman trees: the counts, the
-	* lengths of the bit length codes, the literal tree and the distance tree.
-	* IN assertion: lcodes >= 257, dcodes >= 1, blcodes >= 4.
-	*/
-	void send_all_trees(TState &state,int lcodes, int dcodes, int blcodes)
-	{
-		int rank;                    /* index in bl_order */
-
-		Assert(state,lcodes >= 257 && dcodes >= 1 && blcodes >= 4, "not enough codes");
-		Assert(state,lcodes <= L_CODES && dcodes <= D_CODES && blcodes <= BL_CODES,
-			"too many codes");
-		Trace("\nbl counts: ");
-		send_bits(state,lcodes-257, 5);
-		/* not +255 as stated in appnote.txt 1.93a or -256 in 2.04c */
-		send_bits(state,dcodes-1,   5);
-		send_bits(state,blcodes-4,  4); /* not -3 as stated in appnote.txt */
-		for (rank = 0; rank < blcodes; rank++) {
-			Trace("\nbl code %2d ", bl_order[rank]);
-			send_bits(state,state.ts.bl_tree[bl_order[rank]].dl.len, 3);
-		}    
-		Trace("\nbl tree: sent %ld", state.bs.bits_sent);
-
-		send_tree(state,(ct_data *)state.ts.dyn_ltree, lcodes-1); /* send the literal tree */
-		Trace("\nlit tree: sent %ld", state.bs.bits_sent);
-
-		send_tree(state,(ct_data *)state.ts.dyn_dtree, dcodes-1); /* send the distance tree */
-		Trace("\ndist tree: sent %ld", state.bs.bits_sent);
-	}
-
-	/* ===========================================================================
-	* Determine the best encoding for the current block: dynamic trees, static
-	* trees or store, and output the encoded block to the zip file. This function
-	* returns the total compressed length (in bytes) for the file so far.
-	*/
-	ulg flush_block(TState &state,char *buf, ulg stored_len, int eof)
-	{
-		ulg opt_lenb, static_lenb; /* opt_len and static_len in bytes */
-		int max_blindex;  /* index of last bit length code of non zero freq */
-
-		state.ts.flag_buf[state.ts.last_flags] = state.ts.flags; /* Save the flags for the last 8 items */
-
-		/* Check if the file is ascii or binary */
-		if (*state.ts.file_type == (ush)UNKNOWN) set_file_type(state);
-
-		/* Construct the literal and distance trees */
-		build_tree(state,(tree_desc *)(&state.ts.l_desc));
-		Trace("\nlit data: dyn %ld, stat %ld", state.ts.opt_len, state.ts.static_len);
-
-		build_tree(state,(tree_desc *)(&state.ts.d_desc));
-		Trace("\ndist data: dyn %ld, stat %ld", state.ts.opt_len, state.ts.static_len);
-		/* At this point, opt_len and static_len are the total bit lengths of
-		* the compressed block data, excluding the tree representations.
-		*/
-
-		/* Build the bit length tree for the above two trees, and get the index
-		* in bl_order of the last bit length code to send.
-		*/
-		max_blindex = build_bl_tree(state);
-
-		/* Determine the best encoding. Compute first the block length in bytes */
-		opt_lenb = (state.ts.opt_len+3+7)>>3;
-		static_lenb = (state.ts.static_len+3+7)>>3;
-		state.ts.input_len += stored_len; /* for debugging only */
-
-		Trace("\nopt %lu(%lu) stat %lu(%lu) stored %lu lit %u dist %u ",
-			opt_lenb, state.ts.opt_len, static_lenb, state.ts.static_len, stored_len,
-			state.ts.last_lit, state.ts.last_dist);
-
-		if (static_lenb <= opt_lenb) opt_lenb = static_lenb;
-
-		// Originally, zip allowed the file to be transformed from a compressed
-		// into a stored file in the case where compression failed, there
-		// was only one block, and it was allowed to change. I've removed this
-		// possibility since the code's cleaner if no changes are allowed.
-		//if (stored_len <= opt_lenb && eof && state.ts.cmpr_bytelen == 0L
-		//   && state.ts.cmpr_len_bits == 0L && state.seekable)
-		//{   // && state.ts.file_method != NULL
-		//    // Since LIT_BUFSIZE <= 2*WSIZE, the input data must be there:
-		//    Assert(state,buf!=NULL,"block vanished");
-		//    copy_block(state,buf, (unsigned)stored_len, 0); // without header
-		//    state.ts.cmpr_bytelen = stored_len;
-		//    Assert(state,false,"unimplemented *state.ts.file_method = STORE;");
-		//    //*state.ts.file_method = STORE;
-		//}
-		//else
-		if (stored_len+4 <= opt_lenb && buf != (char*)NULL) {
-			/* 4: two words for the lengths */
-			/* The test buf != NULL is only necessary if LIT_BUFSIZE > WSIZE.
-			* Otherwise we can't have processed more than WSIZE input bytes since
-			* the last block flush, because compression would have been
-			* successful. If LIT_BUFSIZE <= WSIZE, it is never too late to
-			* transform a block into a stored block.
-			*/
-			send_bits(state,(STORED_BLOCK<<1)+eof, 3);  /* send block type */
-			state.ts.cmpr_bytelen += ((state.ts.cmpr_len_bits + 3 + 7) >> 3) + stored_len + 4;
-			state.ts.cmpr_len_bits = 0L;
-
-			copy_block(state,buf, (unsigned)stored_len, 1); /* with header */
-		}
-		else if (static_lenb == opt_lenb) {
-			send_bits(state,(STATIC_TREES<<1)+eof, 3);
-			compress_block(state,(ct_data *)state.ts.static_ltree, (ct_data *)state.ts.static_dtree);
-			state.ts.cmpr_len_bits += 3 + state.ts.static_len;
-			state.ts.cmpr_bytelen += state.ts.cmpr_len_bits >> 3;
-			state.ts.cmpr_len_bits &= 7L;
-		}
-		else {
-			send_bits(state,(DYN_TREES<<1)+eof, 3);
-			send_all_trees(state,state.ts.l_desc.max_code+1, state.ts.d_desc.max_code+1, max_blindex+1);
-			compress_block(state,(ct_data *)state.ts.dyn_ltree, (ct_data *)state.ts.dyn_dtree);
-			state.ts.cmpr_len_bits += 3 + state.ts.opt_len;
-			state.ts.cmpr_bytelen += state.ts.cmpr_len_bits >> 3;
-			state.ts.cmpr_len_bits &= 7L;
-		}
-		Assert(state,((state.ts.cmpr_bytelen << 3) + state.ts.cmpr_len_bits) == state.bs.bits_sent, "bad compressed size");
-		init_block(state);
-
-		if (eof) {
-			// Assert(state,input_len == isize, "bad input size");
-			bi_windup(state);
-			state.ts.cmpr_len_bits += 7;  /* align on byte boundary */
-		}
-		Trace("\n");
-
-		return state.ts.cmpr_bytelen + (state.ts.cmpr_len_bits >> 3);
-	}
-
-	/* ===========================================================================
-	* Save the match info and tally the frequency counts. Return true if
-	* the current block must be flushed.
-	*/
-	int ct_tally (TState &state,int dist, int lc)
-	{
-		state.ts.l_buf[state.ts.last_lit++] = (uch)lc;
-		if (dist == 0) {
-			/* lc is the unmatched char */
-			state.ts.dyn_ltree[lc].fc.freq++;
-		} else {
-			/* Here, lc is the match length - MIN_MATCH */
-			dist--;             /* dist = match distance - 1 */
-			Assert(state,(ush)dist < (ush)MAX_DIST &&
-				(ush)lc <= (ush)(MAX_MATCH-MIN_MATCH) &&
-				(ush)d_code(dist) < (ush)D_CODES,  "ct_tally: bad match");
-
-			state.ts.dyn_ltree[state.ts.length_code[lc]+LITERALS+1].fc.freq++;
-			state.ts.dyn_dtree[d_code(dist)].fc.freq++;
-
-			state.ts.d_buf[state.ts.last_dist++] = (ush)dist;
-			state.ts.flags |= state.ts.flag_bit;
-		}
-		state.ts.flag_bit <<= 1;
-
-		/* Output the flags if they fill a byte: */
-		if ((state.ts.last_lit & 7) == 0) {
-			state.ts.flag_buf[state.ts.last_flags++] = state.ts.flags;
-			state.ts.flags = 0, state.ts.flag_bit = 1;
-		}
-		/* Try to guess if it is profitable to stop the current block here */
-		if (state.level > 2 && (state.ts.last_lit & 0xfff) == 0) {
-			/* Compute an upper bound for the compressed length */
-			ulg out_length = (ulg)state.ts.last_lit*8L;
-			ulg in_length = (ulg)state.ds.strstart-state.ds.block_start;
-			int dcode;
-			for (dcode = 0; dcode < D_CODES; dcode++) {
-				out_length += (ulg)state.ts.dyn_dtree[dcode].fc.freq*(5L+extra_dbits[dcode]);
-			}
-			out_length >>= 3;
-			Trace("\nlast_lit %u, last_dist %u, in %ld, out ~%ld(%ld%%) ",
-				state.ts.last_lit, state.ts.last_dist, in_length, out_length,
-				100L - out_length*100L/in_length);
-			if (state.ts.last_dist < state.ts.last_lit/2 && out_length < in_length/2) return 1;
-		}
-		return (state.ts.last_lit == LIT_BUFSIZE-1 || state.ts.last_dist == DIST_BUFSIZE);
-		/* We avoid equality with LIT_BUFSIZE because of wraparound at 64K
-		* on 16 bit machines and because stored blocks are restricted to
-		* 64K-1 bytes.
-		*/
-	}
-
-	/* ===========================================================================
-	* Send the block data compressed using the given Huffman trees
-	*/
-	void compress_block(TState &state,ct_data *ltree, ct_data *dtree)
-	{
-		unsigned dist;      /* distance of matched string */
-		int lc;             /* match length or unmatched char (if dist == 0) */
-		unsigned lx = 0;    /* running index in l_buf */
-		unsigned dx = 0;    /* running index in d_buf */
-		unsigned fx = 0;    /* running index in flag_buf */
-		uch flag = 0;       /* current flags */
-		unsigned code;      /* the code to send */
-		int extra;          /* number of extra bits to send */
-
-		if (state.ts.last_lit != 0) do {
-			if ((lx & 7) == 0) flag = state.ts.flag_buf[fx++];
-			lc = state.ts.l_buf[lx++];
-			if ((flag & 1) == 0) {
-				send_code(state,lc, ltree); /* send a literal byte */
-			} else {
-				/* Here, lc is the match length - MIN_MATCH */
-				code = state.ts.length_code[lc];
-				send_code(state,code+LITERALS+1, ltree); /* send the length code */
-				extra = extra_lbits[code];
-				if (extra != 0) {
-					lc -= state.ts.base_length[code];
-					send_bits(state,lc, extra);        /* send the extra length bits */
-				}
-				dist = state.ts.d_buf[dx++];
-				/* Here, dist is the match distance - 1 */
-				code = d_code(dist);
-				Assert(state,code < D_CODES, "bad d_code");
-
-				send_code(state,code, dtree);       /* send the distance code */
-				extra = extra_dbits[code];
-				if (extra != 0) {
-					dist -= state.ts.base_dist[code];
-					send_bits(state,dist, extra);   /* send the extra distance bits */
-				}
-			} /* literal or match pair ? */
-			flag >>= 1;
-		} while (lx < state.ts.last_lit);
-
-		send_code(state,END_BLOCK, ltree);
-	}
-
-	/* ===========================================================================
-	* Set the file type to ASCII or BINARY, using a crude approximation:
-	* binary if more than 20% of the bytes are <= 6 or >= 128, ascii otherwise.
-	* IN assertion: the fields freq of dyn_ltree are set and the total of all
-	* frequencies does not exceed 64K (to fit in an int on 16 bit machines).
-	*/
-	void set_file_type(TState &state)
-	{
-		int n = 0;
-		unsigned ascii_freq = 0;
-		unsigned bin_freq = 0;
-		while (n < 7)        bin_freq += state.ts.dyn_ltree[n++].fc.freq;
-		while (n < 128)    ascii_freq += state.ts.dyn_ltree[n++].fc.freq;
-		while (n < LITERALS) bin_freq += state.ts.dyn_ltree[n++].fc.freq;
-		*state.ts.file_type = (ush)(bin_freq > (ascii_freq >> 2) ? BINARY : ASCII);
-	}
-
-
-	/* ===========================================================================
-	* Initialize the bit string routines.
-	*/
-	void bi_init (TState &state,char *tgt_buf, unsigned tgt_size, int flsh_allowed)
-	{
-		state.bs.out_buf = tgt_buf;
-		state.bs.out_size = tgt_size;
-		state.bs.out_offset = 0;
-		state.bs.flush_flg = flsh_allowed;
-
-		state.bs.bi_buf = 0;
-		state.bs.bi_valid = 0;
-		state.bs.bits_sent = 0L;
-	}
-
-	/* ===========================================================================
-	* Send a value on a given number of bits.
-	* IN assertion: length <= 16 and value fits in length bits.
-	*/
-	void send_bits(TState &state,int value, int length)
-	{
-		Assert(state,length > 0 && length <= 15, "invalid length");
-		state.bs.bits_sent += (ulg)length;
-		/* If not enough room in bi_buf, use (bi_valid) bits from bi_buf and
-		* (Buf_size - bi_valid) bits from value to flush the filled bi_buf,
-		* then fill in the rest of (value), leaving (length - (Buf_size-bi_valid))
-		* unused bits in bi_buf.
-		*/
-		state.bs.bi_buf |= (value << state.bs.bi_valid);
-		state.bs.bi_valid += length;
-		if (state.bs.bi_valid > (int)Buf_size) {
-			PUTSHORT(state,state.bs.bi_buf);
-			state.bs.bi_valid -= Buf_size;
-			state.bs.bi_buf = (unsigned)value >> (length - state.bs.bi_valid);
-		}
-	}
-
-	/* ===========================================================================
-	* Reverse the first len bits of a code, using straightforward code (a faster
-	* method would use a table)
-	* IN assertion: 1 <= len <= 15
-	*/
-	unsigned bi_reverse(unsigned code, int len)
-	{
-		register unsigned res = 0;
-		do {
-			res |= code & 1;
-			code >>= 1, res <<= 1;
-		} while (--len > 0);
-		return res >> 1;
-	}
-
-	/* ===========================================================================
-	* Write out any remaining bits in an incomplete byte.
-	*/
-	void bi_windup(TState &state)
-	{
-		if (state.bs.bi_valid > 8) {
-			PUTSHORT(state,state.bs.bi_buf);
-		} else if (state.bs.bi_valid > 0) {
-			PUTBYTE(state,state.bs.bi_buf);
-		}
-		if (state.bs.flush_flg) {
-			state.flush_outbuf(state.param,state.bs.out_buf, &state.bs.out_offset);
-		}
-		state.bs.bi_buf = 0;
-		state.bs.bi_valid = 0;
-		state.bs.bits_sent = (state.bs.bits_sent+7) & ~7;
-	}
-
-	/* ===========================================================================
-	* Copy a stored block to the zip file, storing first the length and its
-	* one's complement if requested.
-	*/
-	void copy_block(TState &state, char *block, unsigned len, int header)
-	{
-		bi_windup(state);              /* align on byte boundary */
-
-		if (header) {
-			PUTSHORT(state,(ush)len);
-			PUTSHORT(state,(ush)~len);
-			state.bs.bits_sent += 2*16;
-		}
-		if (state.bs.flush_flg) {
-			state.flush_outbuf(state.param,state.bs.out_buf, &state.bs.out_offset);
-			state.bs.out_offset = len;
-			state.flush_outbuf(state.param,block, &state.bs.out_offset);
-		} else if (state.bs.out_offset + len > state.bs.out_size) {
-			Assert(state,false,"output buffer too small for in-memory compression");
-		} else {
-			memcpy(state.bs.out_buf + state.bs.out_offset, block, len);
-			state.bs.out_offset += len;
-		}
-		state.bs.bits_sent += (ulg)len<<3;
-	}
-
-
-
-
-
-
-
-
-	/* ===========================================================================
-	*  Prototypes for functions.
-	*/
-
-	void fill_window  (TState &state);
-	ulg deflate_fast  (TState &state);
-
-	int  longest_match (TState &state,IPos cur_match);
-
-
-	/* ===========================================================================
-	* Update a hash value with the given input byte
-	* IN  assertion: all calls to to UPDATE_HASH are made with consecutive
-	*    input characters, so that a running hash key can be computed from the
-	*    previous key instead of complete recalculation each time.
-	*/
-#define UPDATE_HASH(h,c) (h = (((h)<<H_SHIFT) ^ (c)) & HASH_MASK)
-
-	/* ===========================================================================
-	* Insert string s in the dictionary and set match_head to the previous head
-	* of the hash chain (the most recent string with same hash key). Return
-	* the previous length of the hash chain.
-	* IN  assertion: all calls to to INSERT_STRING are made with consecutive
-	*    input characters and the first MIN_MATCH bytes of s are valid
-	*    (except for the last MIN_MATCH-1 bytes of the input file).
-	*/
-#define INSERT_STRING(s, match_head) \
-	(UPDATE_HASH(state.ds.ins_h, state.ds.window[(s) + (MIN_MATCH-1)]), \
-	state.ds.prev[(s) & WMASK] = match_head = state.ds.head[state.ds.ins_h], \
-	state.ds.head[state.ds.ins_h] = (s))
-
-	/* ===========================================================================
-	* Initialize the "longest match" routines for a new file
-	*
-	* IN assertion: window_size is > 0 if the input file is already read or
-	*    mmap'ed in the window[] array, 0 otherwise. In the first case,
-	*    window_size is sufficient to contain the whole input file plus
-	*    MIN_LOOKAHEAD bytes (to avoid referencing memory beyond the end
-	*    of window[] when looking for matches towards the end).
-	*/
-	void lm_init (TState &state, int pack_level, ush *flags)
-	{
-		register unsigned j;
-
-		Assert(state,pack_level>=1 && pack_level<=8,"bad pack level");
-
-		/* Do not slide the window if the whole input is already in memory
-		* (window_size > 0)
-		*/
-		state.ds.sliding = 0;
-		if (state.ds.window_size == 0L) {
-			state.ds.sliding = 1;
-			state.ds.window_size = (ulg)2L*WSIZE;
-		}
-
-		/* Initialize the hash table (avoiding 64K overflow for 16 bit systems).
-		* prev[] will be initialized on the fly.
-		*/
-		state.ds.head[HASH_SIZE-1] = NIL;
-		memset((char*)state.ds.head, NIL, (unsigned)(HASH_SIZE-1)*sizeof(*state.ds.head));
-
-		/* Set the default configuration parameters:
-		*/
-		state.ds.max_lazy_match   = configuration_table[pack_level].max_lazy;
-		state.ds.good_match       = configuration_table[pack_level].good_length;
-		state.ds.nice_match       = configuration_table[pack_level].nice_length;
-		state.ds.max_chain_length = configuration_table[pack_level].max_chain;
-		if (pack_level <= 2) {
-			*flags |= FAST;
-		} else if (pack_level >= 8) {
-			*flags |= SLOW;
-		}
-		/* ??? reduce max_chain_length for binary files */
-
-		state.ds.strstart = 0;
-		state.ds.block_start = 0L;
-
-		j = WSIZE;
-		j <<= 1; // Can read 64K in one step
-		state.ds.lookahead = state.readfunc(state, (char*)state.ds.window, j);
-
-		if (state.ds.lookahead == 0 || state.ds.lookahead == (unsigned)EOF) {
-			state.ds.eofile = 1, state.ds.lookahead = 0;
-			return;
-		}
-		state.ds.eofile = 0;
-		/* Make sure that we always have enough lookahead. This is important
-		* if input comes from a device such as a tty.
-		*/
-		if (state.ds.lookahead < MIN_LOOKAHEAD) fill_window(state);
-
-		state.ds.ins_h = 0;
-		for (j=0; j<MIN_MATCH-1; j++) UPDATE_HASH(state.ds.ins_h, state.ds.window[j]);
-		/* If lookahead < MIN_MATCH, ins_h is garbage, but this is
-		* not important since only literal bytes will be emitted.
-		*/
-	}
-
-
-	/* ===========================================================================
-	* Set match_start to the longest match starting at the given string and
-	* return its length. Matches shorter or equal to prev_length are discarded,
-	* in which case the result is equal to prev_length and match_start is
-	* garbage.
-	* IN assertions: cur_match is the head of the hash chain for the current
-	*   string (strstart) and its distance is <= MAX_DIST, and prev_length >= 1
-	*/
-	// For 80x86 and 680x0 and ARM, an optimized version is in match.asm or
-	// match.S. The code is functionally equivalent, so you can use the C version
-	// if desired. Which I do so desire!
-	int longest_match(TState &state,IPos cur_match)
-	{
-		unsigned chain_length = state.ds.max_chain_length;   /* max hash chain length */
-		register uch *scan = state.ds.window + state.ds.strstart; /* current string */
-		register uch *match;                    /* matched string */
-		register int len;                           /* length of current match */
-		int best_len = state.ds.prev_length;                 /* best match length so */
-		IPos limit = state.ds.strstart > (IPos)MAX_DIST ? state.ds.strstart - (IPos)MAX_DIST : NIL;
-		/* Stop when cur_match becomes <= limit. To simplify the code,
-		* we prevent matches with the string of window index 0.
-		*/
-
-		// The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
-		// It is easy to get rid of this optimization if necessary.
-		Assert(state,HASH_BITS>=8 && MAX_MATCH==258,"Code too clever");
-
-
-
-		register uch *strend = state.ds.window + state.ds.strstart + MAX_MATCH;
-		register uch scan_end1  = scan[best_len-1];
-		register uch scan_end   = scan[best_len];
-
-		/* Do not waste too much time if we already have a good match: */
-		if (state.ds.prev_length >= state.ds.good_match) {
-			chain_length >>= 2;
-		}
-
-		Assert(state,state.ds.strstart <= state.ds.window_size-MIN_LOOKAHEAD, "insufficient lookahead");
-
-		do {
-			Assert(state,cur_match < state.ds.strstart, "no future");
-			match = state.ds.window + cur_match;
-
-			/* Skip to next match if the match length cannot increase
-			* or if the match length is less than 2:
-			*/
-			if (match[best_len]   != scan_end  ||
-				match[best_len-1] != scan_end1 ||
-				*match            != *scan     ||
-				*++match          != scan[1])      continue;
-
-			/* The check at best_len-1 can be removed because it will be made
-			* again later. (This heuristic is not always a win.)
-			* It is not necessary to compare scan[2] and match[2] since they
-			* are always equal when the other bytes match, given that
-			* the hash keys are equal and that HASH_BITS >= 8.
-			*/
-			scan += 2, match++;
-
-			/* We check for insufficient lookahead only every 8th comparison;
-			* the 256th check will be made at strstart+258.
-			*/
-			do {
-			} while (*++scan == *++match && *++scan == *++match &&
-				*++scan == *++match && *++scan == *++match &&
-				*++scan == *++match && *++scan == *++match &&
-				*++scan == *++match && *++scan == *++match &&
-				scan < strend);
-
-			Assert(state,scan <= state.ds.window+(unsigned)(state.ds.window_size-1), "wild scan");
-
-			len = MAX_MATCH - (int)(strend - scan);
-			scan = strend - MAX_MATCH;
-
-
-			if (len > best_len) {
-				state.ds.match_start = cur_match;
-				best_len = len;
-				if (len >= state.ds.nice_match) break;
-				scan_end1  = scan[best_len-1];
-				scan_end   = scan[best_len];
-			}
-		} while ((cur_match = state.ds.prev[cur_match & WMASK]) > limit
-			&& --chain_length != 0);
-
-		return best_len;
-	}
-
-
-
-#define check_match(state,start, match, length)
-	// or alternatively...
-	//void check_match(TState &state,IPos start, IPos match, int length)
-	//{ // check that the match is indeed a match
-	//    if (memcmp((char*)state.ds.window + match,
-	//                (char*)state.ds.window + start, length) != EQUAL) {
-	//        fprintf(stderr,
-	//            " start %d, match %d, length %d\n",
-	//            start, match, length);
-	//        error("invalid match");
-	//    }
-	//    if (state.verbose > 1) {
-	//        fprintf(stderr,"\\[%d,%d]", start-match, length);
-	//        do { fprintf(stdout,"%c",state.ds.window[start++]); } while (--length != 0);
-	//    }
-	//}
-
-	/* ===========================================================================
-	* Fill the window when the lookahead becomes insufficient.
-	* Updates strstart and lookahead, and sets eofile if end of input file.
-	*
-	* IN assertion: lookahead < MIN_LOOKAHEAD && strstart + lookahead > 0
-	* OUT assertions: strstart <= window_size-MIN_LOOKAHEAD
-	*    At least one byte has been read, or eofile is set; file reads are
-	*    performed for at least two bytes (required for the translate_eol option).
-	*/
-	void fill_window(TState &state)
-	{
-		register unsigned n, m;
-		unsigned more;    /* Amount of free space at the end of the window. */
-
-		do {
-			more = (unsigned)(state.ds.window_size - (ulg)state.ds.lookahead - (ulg)state.ds.strstart);
-
-			/* If the window is almost full and there is insufficient lookahead,
-			* move the upper half to the lower one to make room in the upper half.
-			*/
-			if (more == (unsigned)EOF) {
-				/* Very unlikely, but possible on 16 bit machine if strstart == 0
-				* and lookahead == 1 (input done one byte at time)
-				*/
-				more--;
-
-				/* For MMAP or BIG_MEM, the whole input file is already in memory so
-				* we must not perform sliding. We must however call (*read_buf)() in
-				* order to compute the crc, update lookahead and possibly set eofile.
-				*/
-			} else if (state.ds.strstart >= WSIZE+MAX_DIST && state.ds.sliding) {
-
-				/* By the IN assertion, the window is not empty so we can't confuse
-				* more == 0 with more == 64K on a 16 bit machine.
-				*/
-				memcpy((char*)state.ds.window, (char*)state.ds.window+WSIZE, (unsigned)WSIZE);
-				state.ds.match_start -= WSIZE;
-				state.ds.strstart    -= WSIZE; /* we now have strstart >= MAX_DIST: */
-
-				state.ds.block_start -= (long) WSIZE;
-
-				for (n = 0; n < HASH_SIZE; n++) {
-					m = state.ds.head[n];
-					state.ds.head[n] = (Pos)(m >= WSIZE ? m-WSIZE : NIL);
-				}
-				for (n = 0; n < WSIZE; n++) {
-					m = state.ds.prev[n];
-					state.ds.prev[n] = (Pos)(m >= WSIZE ? m-WSIZE : NIL);
-					/* If n is not on any hash chain, prev[n] is garbage but
-					* its value will never be used.
-					*/
-				}
-				more += WSIZE;
-			}
-			if (state.ds.eofile) return;
-
-			/* If there was no sliding:
-			*    strstart <= WSIZE+MAX_DIST-1 && lookahead <= MIN_LOOKAHEAD - 1 &&
-			*    more == window_size - lookahead - strstart
-			* => more >= window_size - (MIN_LOOKAHEAD-1 + WSIZE + MAX_DIST-1)
-			* => more >= window_size - 2*WSIZE + 2
-			* In the MMAP or BIG_MEM case (not yet supported in gzip),
-			*   window_size == input_size + MIN_LOOKAHEAD  &&
-			*   strstart + lookahead <= input_size => more >= MIN_LOOKAHEAD.
-			* Otherwise, window_size == 2*WSIZE so more >= 2.
-			* If there was sliding, more >= WSIZE. So in all cases, more >= 2.
-			*/
-			Assert(state,more >= 2, "more < 2");
-
-			n = state.readfunc(state, (char*)state.ds.window+state.ds.strstart+state.ds.lookahead, more);
-
-			if (n == 0 || n == (unsigned)EOF) {
-				state.ds.eofile = 1;
-			} else {
-				state.ds.lookahead += n;
-			}
-		} while (state.ds.lookahead < MIN_LOOKAHEAD && !state.ds.eofile);
-	}
-
-	/* ===========================================================================
-	* Flush the current block, with given end-of-file flag.
-	* IN assertion: strstart is set to the end of the current match.
-	*/
-#define FLUSH_BLOCK(state,eof) \
-	flush_block(state,state.ds.block_start >= 0L ? (char*)&state.ds.window[(unsigned)state.ds.block_start] : \
-	(char*)NULL, (long)state.ds.strstart - state.ds.block_start, (eof))
-
-	/* ===========================================================================
-	* Processes a new input file and return its compressed length. This
-	* function does not perform lazy evaluation of matches and inserts
-	* new strings in the dictionary only for unmatched strings or for short
-	* matches. It is used only for the fast compression options.
-	*/
-	ulg deflate_fast(TState &state)
-	{
-		IPos hash_head = NIL;       /* head of the hash chain */
-		int flush;                  /* set if current block must be flushed */
-		unsigned match_length = 0;  /* length of best match */
-
-		state.ds.prev_length = MIN_MATCH-1;
-		while (state.ds.lookahead != 0) {
-			/* Insert the string window[strstart .. strstart+2] in the
-			* dictionary, and set hash_head to the head of the hash chain:
-			*/
-			if (state.ds.lookahead >= MIN_MATCH)
-				INSERT_STRING(state.ds.strstart, hash_head);
-
-			/* Find the longest match, discarding those <= prev_length.
-			* At this point we have always match_length < MIN_MATCH
-			*/
-			if (hash_head != NIL && state.ds.strstart - hash_head <= MAX_DIST) {
-				/* To simplify the code, we prevent matches with the string
-				* of window index 0 (in particular we have to avoid a match
-				* of the string with itself at the start of the input file).
-				*/
-				/* Do not look for matches beyond the end of the input.
-				* This is necessary to make deflate deterministic.
-				*/
-				if ((unsigned)state.ds.nice_match > state.ds.lookahead) state.ds.nice_match = (int)state.ds.lookahead;
-				match_length = longest_match (state,hash_head);
-				/* longest_match() sets match_start */
-				if (match_length > state.ds.lookahead) match_length = state.ds.lookahead;
-			}
-			if (match_length >= MIN_MATCH) {
-				check_match(state,state.ds.strstart, state.ds.match_start, match_length);
-
-				flush = ct_tally(state,state.ds.strstart-state.ds.match_start, match_length - MIN_MATCH);
-
-				state.ds.lookahead -= match_length;
-
-				/* Insert new strings in the hash table only if the match length
-				* is not too large. This saves time but degrades compression.
-				*/
-				if (match_length <= state.ds.max_insert_length
-					&& state.ds.lookahead >= MIN_MATCH) {
-						match_length--; /* string at strstart already in hash table */
-						do {
-							state.ds.strstart++;
-							INSERT_STRING(state.ds.strstart, hash_head);
-							/* strstart never exceeds WSIZE-MAX_MATCH, so there are
-							* always MIN_MATCH bytes ahead.
-							*/
-						} while (--match_length != 0);
-						state.ds.strstart++;
-					} else {
-						state.ds.strstart += match_length;
-						match_length = 0;
-						state.ds.ins_h = state.ds.window[state.ds.strstart];
-						UPDATE_HASH(state.ds.ins_h, state.ds.window[state.ds.strstart+1]);
-						Assert(state,MIN_MATCH==3,"Call UPDATE_HASH() MIN_MATCH-3 more times");
-					}
-			} else {
-				/* No match, output a literal byte */
-				flush = ct_tally (state,0, state.ds.window[state.ds.strstart]);
-				state.ds.lookahead--;
-				state.ds.strstart++;
-			}
-			if (flush) FLUSH_BLOCK(state,0), state.ds.block_start = state.ds.strstart;
-
-			/* Make sure that we always have enough lookahead, except
-			* at the end of the input file. We need MAX_MATCH bytes
-			* for the next match, plus MIN_MATCH bytes to insert the
-			* string following the next match.
-			*/
-			if (state.ds.lookahead < MIN_LOOKAHEAD) fill_window(state);
-		}
-		return FLUSH_BLOCK(state,1); /* eof */
-	}
-
-	/* ===========================================================================
-	* Same as above, but achieves better compression. We use a lazy
-	* evaluation for matches: a match is finally adopted only if there is
-	* no better match at the next window position.
-	*/
-	ulg deflate(TState &state)
-	{
-		IPos hash_head = NIL;       /* head of hash chain */
-		IPos prev_match;            /* previous match */
-		int flush;                  /* set if current block must be flushed */
-		int match_available = 0;    /* set if previous match exists */
-		register unsigned match_length = MIN_MATCH-1; /* length of best match */
-
-		if (state.level <= 3) return deflate_fast(state); /* optimized for speed */
-
-		/* Process the input block. */
-		while (state.ds.lookahead != 0) {
-			/* Insert the string window[strstart .. strstart+2] in the
-			* dictionary, and set hash_head to the head of the hash chain:
-			*/
-			if (state.ds.lookahead >= MIN_MATCH)
-				INSERT_STRING(state.ds.strstart, hash_head);
-
-			/* Find the longest match, discarding those <= prev_length.
-			*/
-			state.ds.prev_length = match_length, prev_match = state.ds.match_start;
-			match_length = MIN_MATCH-1;
-
-			if (hash_head != NIL && state.ds.prev_length < state.ds.max_lazy_match &&
-				state.ds.strstart - hash_head <= MAX_DIST) {
-					/* To simplify the code, we prevent matches with the string
-					* of window index 0 (in particular we have to avoid a match
-					* of the string with itself at the start of the input file).
-					*/
-					/* Do not look for matches beyond the end of the input.
-					* This is necessary to make deflate deterministic.
-					*/
-					if ((unsigned)state.ds.nice_match > state.ds.lookahead) state.ds.nice_match = (int)state.ds.lookahead;
-					match_length = longest_match (state,hash_head);
-					/* longest_match() sets match_start */
-					if (match_length > state.ds.lookahead) match_length = state.ds.lookahead;
-
-					/* Ignore a length 3 match if it is too distant: */
-					if (match_length == MIN_MATCH && state.ds.strstart-state.ds.match_start > TOO_FAR){
-						/* If prev_match is also MIN_MATCH, match_start is garbage
-						* but we will ignore the current match anyway.
-						*/
-						match_length = MIN_MATCH-1;
-					}
-				}
-				/* If there was a match at the previous step and the current
-				* match is not better, output the previous match:
-				*/
-				if (state.ds.prev_length >= MIN_MATCH && match_length <= state.ds.prev_length) {
-					unsigned max_insert = state.ds.strstart + state.ds.lookahead - MIN_MATCH;
-					check_match(state,state.ds.strstart-1, prev_match, state.ds.prev_length);
-					flush = ct_tally(state,state.ds.strstart-1-prev_match, state.ds.prev_length - MIN_MATCH);
-
-					/* Insert in hash table all strings up to the end of the match.
-					* strstart-1 and strstart are already inserted.
-					*/
-					state.ds.lookahead -= state.ds.prev_length-1;
-					state.ds.prev_length -= 2;
-					do {
-						if (++state.ds.strstart <= max_insert) {
-							INSERT_STRING(state.ds.strstart, hash_head);
-							/* strstart never exceeds WSIZE-MAX_MATCH, so there are
-							* always MIN_MATCH bytes ahead.
-							*/
-						}
-					} while (--state.ds.prev_length != 0);
-					state.ds.strstart++;
-					match_available = 0;
-					match_length = MIN_MATCH-1;
-
-					if (flush) FLUSH_BLOCK(state,0), state.ds.block_start = state.ds.strstart;
-
-				} else if (match_available) {
-					/* If there was no match at the previous position, output a
-					* single literal. If there was a match but the current match
-					* is longer, truncate the previous match to a single literal.
-					*/
-					if (ct_tally (state,0, state.ds.window[state.ds.strstart-1])) {
-						FLUSH_BLOCK(state,0), state.ds.block_start = state.ds.strstart;
-					}
-					state.ds.strstart++;
-					state.ds.lookahead--;
-				} else {
-					/* There is no previous match to compare with, wait for
-					* the next step to decide.
-					*/
-					match_available = 1;
-					state.ds.strstart++;
-					state.ds.lookahead--;
-				}
-				//        Assert(state,strstart <= isize && lookahead <= isize, "a bit too far");
-
-				/* Make sure that we always have enough lookahead, except
-				* at the end of the input file. We need MAX_MATCH bytes
-				* for the next match, plus MIN_MATCH bytes to insert the
-				* string following the next match.
-				*/
-				if (state.ds.lookahead < MIN_LOOKAHEAD) fill_window(state);
-		}
-		if (match_available) ct_tally (state,0, state.ds.window[state.ds.strstart-1]);
-
-		return FLUSH_BLOCK(state,1); /* eof */
-	}
-
-
-
-
-
-
-
-
-
+		void *param;
+		int level; bool seekable;
+		READFUNC readfunc; FLUSHFUNC flush_outbuf;
+		TTreeState ts; TBitState bs; TDeflateState ds;
+		const char *err;
+	};
 
 
 
@@ -2043,7 +680,6 @@ const config configuration_table[10] = {
 
 
 
-
 	const ulg crc_table[256] = {
 		0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL, 0x076dc419L,
 			0x706af48fL, 0xe963a535L, 0x9e6495a3L, 0x0edb8832L, 0x79dcb8a4L,
@@ -2106,48 +742,27 @@ const config configuration_table[10] = {
 #define DO8(buf)  DO4(buf); DO4(buf)
 
 	ulg crc32(ulg crc, const uch *buf, extent len)
-	{ if (buf==NULL) return 0L;
-	crc = crc ^ 0xffffffffL;
-	while (len >= 8) {DO8(buf); len -= 8;}
-	if (len) do {DO1(buf);} while (--len);
-	return crc ^ 0xffffffffL;  // (instead of ~c for 64-bit machines)
+	{
+		if (buf==NULL) return 0L;
+		crc = crc ^ 0xffffffffL;
+		while (len >= 8) {DO8(buf); len -= 8;}
+		if (len) do {DO1(buf);} while (--len);
+		return crc ^ 0xffffffffL;  // (instead of ~c for 64-bit machines)
 	}
-
-
-	void update_keys(unsigned long *keys, char c)
-	{ keys[0] = CRC32(keys[0],c);
-	keys[1] += keys[0] & 0xFF;
-	keys[1] = keys[1]*134775813L +1;
-	keys[2] = CRC32(keys[2], keys[1] >> 24);
-	}
-	char decrypt_byte(unsigned long *keys)
-	{ unsigned temp = ((unsigned)keys[2] & 0xffff) | 2;
-	return (char)(((temp * (temp ^ 1)) >> 8) & 0xff);
-	}
-	char zencode(unsigned long *keys, char c)
-	{ int t=decrypt_byte(keys);
-	update_keys(keys,c);
-	return (char)(t^c);
-	}
-
-
 
 
 	class TZip
 	{ 
 	public:
-		TZip(const char *pwd) : pfout(NULL),zfis(0),hfin(0),writ(0),oerr(false),hasputcen(false),ooffset(0),encwriting(false),encbuf(0),password(0), state(0)
+		TZip() : pfout(NULL),zfis(0),hfin(0),writ(0),oerr(false),hasputcen(false),ooffset(0)
 		{
-			if (pwd!=0 && *pwd!=0) {
-				password=new char[strlen(pwd)+1]; 
-				strcpy(password,pwd);
-			}
 		}
-		~TZip() {if (state!=0) delete state; state=0; if (encbuf!=0) delete[] encbuf; encbuf=0; if (password!=0) delete[] password; password=0;}
+		~TZip()
+		{
+		}
 
 		// These variables say about the file we're writing into
 		// We can write to pipe, file-by-handle, file-by-name, memory-to-memmapfile
-		char *password;           // keep a copy of the password
 		RageFile *pfout;             // if valid, we'll write here (for files or pipes)
 		unsigned ooffset;         // for hfout, this is where the pointer was initially
 		ZRESULT oerr;             // did a write operation give rise to an error?
@@ -2155,13 +770,9 @@ const config configuration_table[10] = {
 		unsigned int opos;        // current pos in the mmap
 		unsigned int mapsize;     // the size of the map we created
 		bool hasputcen;           // have we yet placed the central directory?
-		bool encwriting;          // if true, then we'll encrypt stuff using 'keys' before we write it to disk
 		unsigned long keys[3];    // keys are initialised inside Add()
-		char *encbuf;             // if encrypting, then this is a temporary workspace for encrypting the data
-		unsigned int encbufsize;  // (to be used and resized inside write(), and deleted in the destructor)
 		//
 		TZipFileInfo *zfis;       // each file gets added onto this list, for writing the table at the end
-		TState *state;            // we use just one state object per zip, because it's big (500k)
 
 		ZRESULT Create(void *z,unsigned long flags);
 		static unsigned sflush(void *param,const char *buf, unsigned *size);
@@ -2174,7 +785,7 @@ const config configuration_table[10] = {
 		// I haven't done it object-orientedly here, just put them all
 		// together, since OO didn't seem to make the design any clearer.
 		ulg attr; iztimes times; ulg timestamp;  // all open_* methods set these
-		bool iseekable; long isize,ired;         // size is not set until close() on pips
+		long isize,ired;         // size is not set until close() on pips
 		ulg crc;                                 // crc is not set until close(). iwrit is cumulative
 		RageFile *hfin;           // for input files and pipes
 		const char *bufin; unsigned int lenin,posin; // for memory
@@ -2187,7 +798,6 @@ const config configuration_table[10] = {
 		ZRESULT open_file(const TCHAR *fn);
 		ZRESULT open_dir();
 		ZRESULT set_times();
-		static unsigned sread(TState &s,char *buf,unsigned size);
 		unsigned read(char *buf, unsigned size);
 		ZRESULT iclose();
 
@@ -2238,23 +848,6 @@ const config configuration_table[10] = {
 	unsigned int TZip::write(const char *buf,unsigned int size)
 	{ 
 		const char *srcbuf=buf;
-		if (encwriting)
-		{ 
-			if (encbuf!=0 && encbufsize<size) 
-			{
-				delete[] encbuf; 
-				encbuf=0;
-			}
-			if (encbuf==0) 
-			{
-				encbuf=new char[size*2]; 
-				encbufsize=size;
-			}
-			memcpy(encbuf,buf,size);
-			for (unsigned int i=0; i<size; i++) 
-				encbuf[i]=zencode(keys,encbuf[i]);
-			srcbuf=encbuf;
-		}
 		if (pfout != NULL)
 		{
 			unsigned long writ = pfout->Write( srcbuf, size );
@@ -2307,7 +900,6 @@ const config configuration_table[10] = {
 			return ZR_NOFILE;
 		}
 		isize = hfin->GetFileSize();
-		iseekable=true; 
 		attr= ZIP_ATTR_NORMAL_FILE | ZIP_ATTR_READABLE | ZIP_ATTR_WRITEABLE;
 		return set_times();
 	}
@@ -2317,7 +909,6 @@ const config configuration_table[10] = {
 		hfin=0; bufin=0; crc=CRCVAL_INITIAL; isize=0; csize=0; ired=0;
 		attr= ZIP_ATTR_DIRECTORY2 | ZIP_ATTR_READABLE | ZIP_ATTR_WRITEABLE | ZIP_ATTR_DIRECTORY;
 		isize = 0;
-		iseekable=false;
 		return set_times();
 	}
 
@@ -2348,12 +939,6 @@ const config configuration_table[10] = {
 		times.ctime = times.atime;
 		timestamp = (unsigned short)dostime | (((unsigned long)dosdate)<<16);
 		return ZR_OK;
-	}
-
-	unsigned TZip::sread(TState &s,char *buf,unsigned size)
-	{ // static
-		TZip *zip = (TZip*)s.param;
-		return zip->read(buf,size);
 	}
 
 	unsigned TZip::read(char *buf, unsigned size)
@@ -2399,30 +984,6 @@ const config configuration_table[10] = {
 	}
 
 
-
-	ZRESULT TZip::ideflate(TZipFileInfo *zfi)
-	{ 
-		if (state==0) state=new TState();
-		// It's a very big object! 500k! We allocate it on the heap, because PocketPC's
-		// stack breaks if we try to put it all on the stack. It will be deleted lazily
-		state->err=0;
-		state->readfunc=sread; state->flush_outbuf=sflush;
-		state->param=this; state->level=8; state->seekable=iseekable; state->err=NULL;
-		// the following line will make ct_init realise it has to perform the init
-		state->ts.static_dtree[0].dl.len = 0;
-		// Thanks to Alvin77 for this crucial fix:
-		state->ds.window_size=0;
-		//  I think that covers everything that needs to be initted.
-		//
-		bi_init(*state,buf, sizeof(buf), true); // it used to be just 1024-size, not 16384 as here
-		ct_init(*state,&zfi->att);
-		lm_init(*state,state->level, &zfi->flg);
-		ulg sz = deflate(*state);
-		csize=sz;
-		ZRESULT r=ZR_OK; if (state->err!=NULL) r=ZR_FLATE;
-		return r;
-	}
-
 	ZRESULT TZip::istore()
 	{ 
 		ulg size=0;
@@ -2451,11 +1012,6 @@ const config configuration_table[10] = {
 			return ZR_FAILED;
 		if (hasputcen)
 			return ZR_ENDED;
-
-		// if we use password encryption, then every isize and csize is 12 bytes bigger
-		int passex=0;
-		if (password!=0 && flags!=ZIP_FOLDER)
-			passex=12;
 
 		// zip has its own notion of what its names should look like: i.e. dir/file.stuff
 		TCHAR dstzn[MAX_PATH]; _tcscpy(dstzn,odstzn);
@@ -2504,10 +1060,9 @@ const config configuration_table[10] = {
 		// Even though we write the header now, it will have to be rewritten, since we don't know compressed size or crc.
 		zfi.crc = 0;            // to be updated later
 		zfi.flg = 8;            // 8 means 'there is an extra header'. Assume for the moment that we need it.
-		if (password!=0 && !isdir) zfi.flg=9;  // and 1 means 'password-encrypted'
 		zfi.lflg = zfi.flg;     // to be updated later
 		zfi.how = (ush)method;  // to be updated later
-		zfi.siz = (ulg)(method==STORE && isize>=0 ? isize+passex : 0); // to be updated later
+		zfi.siz = (ulg)(method==STORE && isize>=0 ? isize : 0); // to be updated later
 		zfi.len = (ulg)(isize);  // to be updated later
 		zfi.dsk = 0;
 		zfi.atx = attr;
@@ -2556,8 +1111,6 @@ const config configuration_table[10] = {
 		keys[0]=305419896L;
 		keys[1]=591751049L;
 		keys[2]=878082192L;
-		for (const char *cp=password; cp!=0 && *cp!=0; cp++) 
-			update_keys(keys,*cp);
 		// generate some random bytes
 		if (!has_seeded) 
 			srand(0);
@@ -2565,24 +1118,15 @@ const config configuration_table[10] = {
 		for (int i=0; i<12; i++) 
 			encbuf[i]=(char)((rand()>>7)&0xff);
 		encbuf[11] = (char)((zfi.tim>>8)&0xff);
-		for (int ei=0; ei<12; ei++) 
-			encbuf[ei]=zencode(keys,encbuf[ei]);
-		if (password!=0 && !isdir)
-		{
-			swrite(this,encbuf,12); 
-			writ+=12;
-		}
 
 		//(2) Write deflated/stored file to zip file
 		ZRESULT writeres=ZR_OK;
-		encwriting = (password!=0 && !isdir);  // an object member variable to say whether we write to disk encrypted
-		if (!isdir && method==DEFLATE) 
-			writeres=ideflate(&zfi);
-		else if (!isdir && method==STORE) 
+		if (!isdir && method==STORE) 
 			writeres=istore();
 		else if (isdir) 
 			csize=0;
-		encwriting = false;
+		else
+			FAIL_M("deflate removed");
 		iclose();
 		writ += csize;
 		if (oerr!=ZR_OK) 
@@ -2591,9 +1135,9 @@ const config configuration_table[10] = {
 			return ZR_WRITE;
 
 		// (3) Either rewrite the local header with correct information...
-		bool first_header_has_size_right = (zfi.siz==csize+passex);
+		bool first_header_has_size_right = (zfi.siz==csize);
 		zfi.crc = crc;
-		zfi.siz = csize+passex;
+		zfi.siz = csize;
 		zfi.len = isize;
 		// (4) ... or put an updated header at the end
 		if (zfi.how != (ush) method) 
@@ -2630,27 +1174,32 @@ const config configuration_table[10] = {
 		//ulg tot_unc_size=0, tot_compressed_size=0;
 		bool okay=true;
 		for (TZipFileInfo *zfi=zfis; zfi!=NULL; )
-		{ if (okay)
-		{ int res = putcentral(zfi, swrite,this);
-		if (res!=ZE_OK) okay=false;
-		}
-		writ += 4 + CENHEAD + (unsigned int)zfi->nam + (unsigned int)zfi->cext + (unsigned int)zfi->com;
-		//tot_unc_size += zfi->len;
-		//tot_compressed_size += zfi->siz;
-		numentries++;
-		//
-		TZipFileInfo *zfinext = zfi->nxt;
-		if (zfi->cextra!=0) delete[] zfi->cextra;
-		delete zfi;
-		zfi = zfinext;
-		}
-		ulg center_size = writ - pos_at_start_of_central;
-		if (okay)
-		{ int res = putend(numentries, center_size, pos_at_start_of_central+ooffset, 0, NULL, swrite,this);
-		if (res!=ZE_OK) okay=false;
-		writ += 4 + ENDHEAD + 0;
-		}
-		if (!okay) return ZR_WRITE;
+		{
+			if (okay)
+			{
+				int res = putcentral(zfi, swrite,this);
+				if (res!=ZE_OK) 
+					okay=false;
+			}
+			writ += 4 + CENHEAD + (unsigned int)zfi->nam + (unsigned int)zfi->cext + (unsigned int)zfi->com;
+			//tot_unc_size += zfi->len;
+			//tot_compressed_size += zfi->siz;
+			numentries++;
+			//
+			TZipFileInfo *zfinext = zfi->nxt;
+			if (zfi->cextra!=0) delete[] zfi->cextra;
+			delete zfi;
+			zfi = zfinext;
+			}
+			ulg center_size = writ - pos_at_start_of_central;
+			if (okay)
+			{ 
+				int res = putend(numentries, center_size, pos_at_start_of_central+ooffset, 0, NULL, swrite,this);
+				if (res!=ZE_OK) okay=false;
+				writ += 4 + ENDHEAD + 0;
+			}
+			if (!okay) 
+				return ZR_WRITE;
 		return ZR_OK;
 	}
 
@@ -2694,9 +1243,9 @@ const config configuration_table[10] = {
 	}
 
 
-	TZip *CreateZipInternal(void *z,unsigned long flags, const char *password)
+	TZip *CreateZipInternal(void *z,unsigned long flags)
 	{ 
-		TZip *zip = new TZip(password);
+		TZip *zip = new TZip();
 		lasterrorZ = zip->Create(z,flags);
 		if (lasterrorZ!=ZR_OK)
 		{
@@ -2705,9 +1254,9 @@ const config configuration_table[10] = {
 		}
 		return zip;
 	}
-	CreateZip::CreateZip(const TCHAR *fn, const char *password)
+	CreateZip::CreateZip(const TCHAR *fn)
 	{
-		hz=CreateZipInternal((void*)fn,ZIP_FILENAME,password);
+		hz=CreateZipInternal((void*)fn,ZIP_FILENAME);
 	}
 
 

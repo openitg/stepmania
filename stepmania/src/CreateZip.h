@@ -21,7 +21,7 @@ class CreateZip
 {
 	TZip* hz;
 public:
-	CreateZip(const TCHAR *fn, const char *password);
+	CreateZip(const TCHAR *fn);
 // CreateZip - call this to start the creation of a zip file.
 // As the zip is being created, it will be stored somewhere:
 // to a pipe:              CreateZipHandle(hpipe_write);
