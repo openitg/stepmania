@@ -141,8 +141,8 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &
 	{
 		FileTransfer fd;
 		RString sDestFile = SpecialFiles::CACHE_DIR + "Downloads/" + Basename(*s);
-		fd.StartDownload( *s, sDestFile );
-		//fd.StartUpload( "http://www.stepmania.com/api_test.php", SpecialFiles::CACHE_DIR + "Uploads/test.smzip" );
+		//fd.StartDownload( *s, sDestFile );
+		fd.StartUpload( "http://www.stepmaniashare.com/process_upload.php?type=stepmaniashare_song", SpecialFiles::CACHE_DIR + "Uploads/Songs_Plaguemix_Series_Dan__Old_Skool_Mix_.smzip", SpecialFiles::CACHE_DIR + "Downloads/test.smzip" );
 		while( true )
 		{
 			float fSleepSeconds = 0.1f;

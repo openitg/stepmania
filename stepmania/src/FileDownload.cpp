@@ -83,7 +83,7 @@ void FileTransfer::StartDownload( const RString &sURL, const RString &sDestFile 
 	StartTransfer( download, sURL, "", sDestFile );
 }
 
-void FileTransfer::StartUpload( const RString &sURL, const RString &sSrcFile )
+void FileTransfer::StartUpload( const RString &sURL, const RString &sSrcFile, const RString &sDestFile )
 {
 	StartTransfer( upload, sURL, sSrcFile, "" );
 }
@@ -102,12 +102,7 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 		return;
 	}
 
-	//Determine if this is a website, or a package?
-	//Criteria: does it end with *zip?
-	if( sAddress.Right(3).CompareNoCase("zip") == 0 )
-		m_bIsPackage=true;
-	else
-		m_bIsPackage = false;
+	m_bIsPackage = sDestFile != "";
 
 	m_sBaseAddress = "http://" + Server;
 	if( Port != 80 )
@@ -133,15 +128,6 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 	//if we are not talking about a file, let's not worry
 	if( m_sEndName != "" && m_bIsPackage )
 	{
-		vector<RString> AddTo;
-		GetDirListing( "Packages/"+m_sEndName, AddTo, false, false );
-		if ( AddTo.size() > 0 )
-		{
-			m_sStatus = "File Already Exists";
-			UpdateProgress();
-			return;
-		}
-
 		if( !m_fOutputFile.Open( sDestFile, RageFile::WRITE | RageFile::STREAMED ) )
 		{
 			m_sStatus = m_fOutputFile.GetError();
@@ -176,15 +162,16 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 	case download: sAction = "GET"; break;
 	}
 
-	RString sHeader = sAction+" "+sAddress+" HTTP/1.0\r\n";
-	sHeader += "Host: " + Server + "\r\n";
-	sHeader += "Connection: closed\r\n";
+	vector<RString> vsHeaders;
+	vsHeaders.push_back( sAction+" "+sAddress+" HTTP/1.0" );
+	vsHeaders.push_back( "Host: " + Server );
+	vsHeaders.push_back( "Cookie: bblastvisit=1279960370; bblastactivity=0; bbuserid=5810; bbpassword=ed55e80d19cb062cffec8ce771c09ada; bbsessionhash=7e9b09214b4932b097cb737a1c04e67b; bbthread_lastview=afc9bd3d3ba50a428bc14f34f260e5e372f7b705a-3-%7Bi-24151_i-1280345253_i-24210_i-1280500765_i-24309_i-1281899233_%7D; bbforum_view=48d50f563446ff792e9abb335e6c5b494b2e15b9a-2-%7Bi-68_i-1280263624_i-83_i-1280267274_%7D" );
+	vsHeaders.push_back( "Connection: closed" );
+	string sBoundary = "--ZzAaB03x";
+	vsHeaders.push_back( "Content-Type: multipart/form-data; boundary=" + sBoundary );
 	RString sRequestPayload;
 	if( type == upload )
 	{
-		// read request payload
-		//sRequestPayload = "asdasdasdasdjhakdhjkahdjkahdkjashdjksa";
-		
 		RageFile f;
 		if( !f.Open( sSrcFile ) )
 			FAIL_M( f.GetError() );
@@ -193,14 +180,35 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 		if( iBytesRead == -1 )
 			FAIL_M( f.GetError() );
 		
+		sRequestPayload = "--" + sBoundary + "\r\n" + 
+			"Content-Disposition: form-data; name=\"name\"\r\n" +
+			"\r\n" +
+			"Chris\r\n" +
+			"--" + sBoundary + "\r\n" + 
+			"Content-Disposition: form-data; name=\"userfile\"; filename=\"" + Basename(sSrcFile) + "\"\r\n" +
+			"Content-Type: application/zip\r\n" + 
+			"\r\n" +
+			sRequestPayload + "\r\n" +
+			"--" + sBoundary + "--";
 	}
+	/*
 	if( sRequestPayload.size() > 0 )
 	{
 		sHeader += "Content-Type: application/octet-stream\r\n";
-		sHeader += "Content-Length: " + ssprintf("%d",sRequestPayload.size()) + "\r\n";
+		sHeader += "Content-Length: multipart/form-data; boundary=" + sBoundary + "\r\n";
+		//sHeader += "Content-Length: " + ssprintf("%d",sRequestPayload.size()) + "\r\n";
 	}
+	*/
+
+	vsHeaders.push_back( "Content-Length: " + ssprintf("%d",sRequestPayload.size()) );
+
+	RString sHeader;
+	FOREACH_CONST( RString, vsHeaders, h )
+		sHeader += *h + "\r\n";
 	sHeader += "\r\n";
+
 	m_wSocket.SendData( sHeader.c_str(), sHeader.length() );
+	m_wSocket.SendData( "\r\n" );
 
 	m_wSocket.SendData( sRequestPayload.GetBuffer(), sRequestPayload.size() );
 

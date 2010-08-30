@@ -13,11 +13,13 @@ public:
 	~FileTransfer();
 
 	void StartDownload( const RString &sURL, const RString &sDestFile );
-	void StartUpload( const RString &sURL, const RString &sSrcFile );
+	void StartUpload( const RString &sURL, const RString &sSrcFile, const RString &sDestFile );
 	
 	void Cancel( );
 	RString Update(float fDeltaTime);
-	bool IsFinished();
+	bool IsFinished() const;
+	int GetResponseCode() const { return m_iResponseCode; }
+	Response GetResponse() const { return m_sBUFFER; }
 private:
 	enum TransferType { download, upload };
 	void StartTransfer( TransferType type, const RString &sURL, const RString &sSrcFile, const RString &sDestFile );

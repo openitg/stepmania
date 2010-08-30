@@ -90,7 +90,7 @@ RString PublishSong( const Song *pSong )
 		return "Failed to export '" + sDirToExport + "' to '" + sSmzipFile + "'";
 
 	FileTransfer ft;
-	ft.StartUpload( "http://www.stepmania.com/upload/", sSmzipFile );
+	ft.StartUpload( "http://www.stepmania.com/upload/", sSmzipFile, "" );
 	
 	return "Published as '" + sSmzipFile + "'";
 }

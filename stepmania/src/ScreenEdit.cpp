@@ -2772,7 +2772,7 @@ void ScreenEdit::HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAns
 		case save_on_exit:
 		case export:
 		case publish:
-			Save(c);
+			SaveExportPublish(c);
 			break;
 		case revert_to_last_save:
 			ScreenPrompt::Prompt( SM_DoRevertToLastSave, REVERT_LAST_SAVE.GetValue() + "\n\n" + DESTROY_ALL_UNSAVED_CHANGES.GetValue(), PROMPT_YES_NO, ANSWER_NO );
@@ -2836,7 +2836,7 @@ void ScreenEdit::HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAns
 	};
 }
 
-void ScreenEdit::Save(MainMenuChoice c)
+void ScreenEdit::SaveExportPublish(MainMenuChoice c)
 {
 	m_CurrentAction = c;
 

@@ -300,7 +300,7 @@ public:
 	};
 	void HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAnswers );
 	void HandleMainMenuChoice( MainMenuChoice c ) { const vector<int> v; HandleMainMenuChoice( c, v ); }
-	void Save(MainMenuChoice c);
+	void SaveExportPublish(MainMenuChoice c);
 	MainMenuChoice m_CurrentAction;
 
 	enum AreaMenuChoice
