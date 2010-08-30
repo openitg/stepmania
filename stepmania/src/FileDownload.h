@@ -17,9 +17,9 @@ public:
 	
 	void Cancel( );
 	RString Update(float fDeltaTime);
-	bool IsFinished() const;
+	bool IsFinished() const { return m_bFinished; }
 	int GetResponseCode() const { return m_iResponseCode; }
-	Response GetResponse() const { return m_sBUFFER; }
+	RString GetResponse() const { return m_sBUFFER; }
 private:
 	enum TransferType { download, upload };
 	void StartTransfer( TransferType type, const RString &sURL, const RString &sSrcFile, const RString &sDestFile );

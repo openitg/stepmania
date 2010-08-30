@@ -6,6 +6,7 @@
 #include "RageFileManager.h"
 #include "SpecialFiles.h"
 #include "RageLog.h"
+#include "Preference.h"
 
 FileTransfer::FileTransfer()
 {
@@ -85,8 +86,10 @@ void FileTransfer::StartDownload( const RString &sURL, const RString &sDestFile 
 
 void FileTransfer::StartUpload( const RString &sURL, const RString &sSrcFile, const RString &sDestFile )
 {
-	StartTransfer( upload, sURL, sSrcFile, "" );
+	StartTransfer( upload, sURL, sSrcFile, sDestFile );
 }
+
+extern Preference<RString> g_sCookie;
 
 void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const RString &sSrcFile, const RString &sDestFile )
 {
@@ -165,7 +168,7 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 	vector<RString> vsHeaders;
 	vsHeaders.push_back( sAction+" "+sAddress+" HTTP/1.0" );
 	vsHeaders.push_back( "Host: " + Server );
-	vsHeaders.push_back( "Cookie: bblastvisit=1279960370; bblastactivity=0; bbuserid=5810; bbpassword=ed55e80d19cb062cffec8ce771c09ada; bbsessionhash=7e9b09214b4932b097cb737a1c04e67b; bbthread_lastview=afc9bd3d3ba50a428bc14f34f260e5e372f7b705a-3-%7Bi-24151_i-1280345253_i-24210_i-1280500765_i-24309_i-1281899233_%7D; bbforum_view=48d50f563446ff792e9abb335e6c5b494b2e15b9a-2-%7Bi-68_i-1280263624_i-83_i-1280267274_%7D" );
+	vsHeaders.push_back( "Cookie: " + g_sCookie.Get() );
 	vsHeaders.push_back( "Connection: closed" );
 	string sBoundary = "--ZzAaB03x";
 	vsHeaders.push_back( "Content-Type: multipart/form-data; boundary=" + sBoundary );
@@ -360,11 +363,6 @@ bool FileTransfer::ParseHTTPAddress( const RString &URL, RString &sProto, RStrin
 	sAddress = asMatches[5];
 
 	return true;
-}
-
-bool FileTransfer::IsFinished()
-{
-	return m_bFinished;
 }
 
 #endif

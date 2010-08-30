@@ -14,6 +14,7 @@
 #include "SpecialFiles.h"
 #include "FileDownload.h"
 #include "arch/LoadingWindow/LoadingWindow.h"
+#include "Preference.h"
 
 const RString INSTALLER_LANGUAGES_DIR = "Themes/_Installer/Languages/";
 
@@ -97,6 +98,8 @@ struct FileCopyResult
 	RString sFile, sComment;
 };
 
+Preference<RString> g_sCookie( "Cookie", "" );
+
 static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &out )
 {
 	pLW->SetText("Installing " + s );
@@ -114,11 +117,16 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &
 	vector<RString> vsUrls;
 	FOREACH_CONST_Child( &xml, child )
 	{
-		if( child->m_sName != "Install" )
-			continue;
-		RString sUrl;
-		if( child->GetChildValue("URL", sUrl ) )
-			vsUrls.push_back( sUrl );
+		if( child->m_sName == "Cookie" )
+		{
+			g_sCookie.Set( child->m_sValue );
+		}
+		else if( child->m_sName == "Install" )
+		{
+			RString sUrl;
+			if( child->GetChildValue("URL", sUrl ) )
+				vsUrls.push_back( sUrl );
+		}
 	}
 	FILEMAN->Unmount( "dir", sOsDir, TEMP_OS_MOUNT_POINT );
 
@@ -152,6 +160,8 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &
 			if( fd.IsFinished() )
 				break;
 		}
+		int iResponse = fd.GetResponseCode();
+		string sResponse = fd.GetResponse();
 		InstallSmzip( sDestFile, out );
 		FILEMAN->Remove( sDestFile );
 	}
