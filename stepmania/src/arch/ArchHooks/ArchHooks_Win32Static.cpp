@@ -51,13 +51,14 @@ void ArchHooks::MountInitialFilesystems( const RString &sDirOfExecutable )
 	
 	FILEMAN->Mount( "dir", sDir, "/" );
 
-	RString sMyDocumentsDir = SpecialDirs::GetMyDocumentsDir();
-
 	// Mount everything game-writable (not counting the editor) to the user's directory.
+	RString sMyDocumentsDir = SpecialDirs::GetMyDocumentsDir();
 	FILEMAN->Mount( "dir", sMyDocumentsDir + PRODUCT_ID + "/Cache", "/Cache" );
 	FILEMAN->Mount( "dir", sMyDocumentsDir + PRODUCT_ID + "/Logs", "/Logs" );
 	FILEMAN->Mount( "dir", sMyDocumentsDir + PRODUCT_ID + "/Save", "/Save" );
 	FILEMAN->Mount( "dir", sMyDocumentsDir + PRODUCT_ID + "/Screenshots", "/Screenshots" );
+	
+	FILEMAN->Mount( "dir", SpecialDirs::GetDesktopDir(), "/Desktop" );
 }
 
 static RString LangIdToString( LANGID l )
