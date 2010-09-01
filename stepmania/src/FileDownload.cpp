@@ -365,6 +365,18 @@ bool FileTransfer::ParseHTTPAddress( const RString &URL, RString &sProto, RStrin
 	return true;
 }
 
+void FileTransfer::Finish()
+{
+	while( true )
+	{
+		float fSleepSeconds = 0.1f;
+		this->Update( fSleepSeconds );
+		usleep( int( fSleepSeconds * 1000000.0 ) );
+		if( this->IsFinished() )
+			break;
+	}
+}
+
 #endif
 /*
  * (c) 2004 Charles Lohr, Chris Danford

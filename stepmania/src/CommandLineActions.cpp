@@ -149,8 +149,7 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &
 	{
 		FileTransfer fd;
 		RString sDestFile = SpecialFiles::CACHE_DIR + "Downloads/" + Basename(*s);
-		//fd.StartDownload( *s, sDestFile );
-		fd.StartUpload( "http://www.stepmaniashare.com/process_upload.php?type=stepmaniashare_song", SpecialFiles::CACHE_DIR + "Uploads/Songs_Plaguemix_Series_Dan__Old_Skool_Mix_.smzip", SpecialFiles::CACHE_DIR + "Downloads/test.smzip" );
+		fd.StartDownload( *s, sDestFile );
 		while( true )
 		{
 			float fSleepSeconds = 0.1f;
@@ -160,7 +159,7 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &
 			if( fd.IsFinished() )
 				break;
 		}
-		int iResponse = fd.GetResponseCode();
+		//int iResponse = fd.GetResponseCode();
 		string sResponse = fd.GetResponse();
 		InstallSmzip( sDestFile, out );
 		FILEMAN->Remove( sDestFile );

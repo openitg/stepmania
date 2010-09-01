@@ -9,6 +9,9 @@
 #include "FileDownload.h"
 #include "CreateZip.h"
 #include "ScreenPrompt.h"
+#include "FileDownload.h"
+#include "XmlFile.h"
+#include "arch/ArchHooks/ArchHooks.h"
 
 static RString ReplaceInvalidFileNameChars( RString sOldFileName )
 {
@@ -80,6 +83,27 @@ bool ExportDir( RString sSmzipFile, RString sDirToExport, RString &sErrorOut )
 
 RString PublishSong( const Song *pSong )
 {
+	{
+		FileTransfer fd;
+		fd.StartDownload( "http://www.stepmania.com/api.php?action=is_logged_in", "");
+		fd.Finish();
+		if( fd.GetResponseCode() != 200 )
+			return "Bad response code is_logged_in " + fd.GetResponseCode();
+		XNode xml;
+		PARSEINFO pi;
+		xml.Load( fd.GetResponse(), &pi );
+		if( pi.error_occur )
+			return "Error parsing is_logged_in " + pi.error_string;
+		if( xml.m_sName != "is_logged_in" )
+			return "Unexpected response in is_logged_in";
+		bool bIsLoggedIn = xml.m_sValue == "1";
+		if( !bIsLoggedIn )
+		{
+			HOOKS->GoToURL("http://www.stepmania.com/launch.php");
+			return "You must log into StepMania.com. Launching.";
+		}
+	}
+
 	RString sDirToExport = pSong->GetSongDir();
 	RString sPackageName = ReplaceInvalidFileNameChars( sDirToExport + ".smzip" );
 
@@ -89,10 +113,25 @@ RString PublishSong( const Song *pSong )
 	if( !ExportDir(sSmzipFile, sDirToExport, sErrorOut) )
 		return "Failed to export '" + sDirToExport + "' to '" + sSmzipFile + "'";
 
-	FileTransfer ft;
-	ft.StartUpload( "http://www.stepmania.com/upload/", sSmzipFile, "" );
-	
-	return "Published as '" + sSmzipFile + "'";
+	RString sUrl = "unknown url";
+	{
+		FileTransfer ft;
+		ft.StartUpload( "http://www.stepmania.com/api.php?action=upload_song", sSmzipFile, "" );
+		ft.Finish();
+		if( ft.GetResponseCode() != 200 )
+			return "Bad response code upload_song " + ft.GetResponseCode();
+		XNode xml;
+		PARSEINFO pi;
+		xml.Load( ft.GetResponse(), &pi );
+		if( pi.error_occur )
+			return "Error parsing upload_song " + pi.error_string;
+		if( xml.m_sName != "upload_song" )
+			return "Unexpected response in upload_song";
+		if( xml.GetChildValue("url", sUrl) )
+			HOOKS->GoToURL(sUrl);
+	}
+		
+	return "Published as '" + sUrl + "'";
 }
 
 RString ExportSong( const Song *pSong )
