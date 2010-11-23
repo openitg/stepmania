@@ -160,7 +160,7 @@ void SMLoader::LoadTimingFromSMFile( const MsdFile &msd, TimingData &out )
 	out.FixNegativeBpmsAndNegativeStops();
 }
 
-bool LoadFromBGChangesString( BackgroundChange &change, const RString &sBGChangeExpression )
+static bool LoadFromBGChangesString( BackgroundChange &change, const RString &sBGChangeExpression )
 {
 	vector<RString> aBGChangeValues;
 	split( sBGChangeExpression, "=", aBGChangeValues, false );
