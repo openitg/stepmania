@@ -575,7 +575,7 @@ int SongManager::GetNumSelectableAndUnlockedSongs() const
 	{
 		if( UNLOCKMAN->SongIsLocked( *i ) )
 			continue;
-		if( (*i)->m_SelectionDisplay != Song::SHOW_ALWAYS )
+		if( (*i)->m_SelectionDisplay != ShowSong_Always )
 			continue;
 		num++;
 	}
@@ -1392,7 +1392,7 @@ void SongManager::UpdatePopular()
 	{
 		bool bFiltered = false;
 		/* Filter out hidden songs. */
-		if( apBestSongs[j]->GetDisplayed() != Song::SHOW_ALWAYS )
+		if( apBestSongs[j]->GetDisplayed() != ShowSong_Always )
 			bFiltered = true;
 		/* Filter out locked songs. */
 		// XXX Hack, this depends on UNLOCKMAN being around.

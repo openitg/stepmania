@@ -39,19 +39,26 @@ struct LyricSegment
 	RageColor m_Color;
 };
 
+#include "EnumHelper.h"
+
+/* Set when this song should be displayed in the music wheel: */
+enum ShowSong
+{ 
+	ShowSong_Always,	/* all the time */
+	ShowSong_Roulette,	/* only when rouletting */
+	ShowSong_Never,	/* never (unless song hiding is turned off) */
+	NUM_ShowSong,	// leave this at the end
+	ShowSong_Invalid
+};
+const RString& ShowSongToString( ShowSong val );
+
 class Song
 {
 	RString m_sSongDir;
 public:
 	void SetSongDir( const RString sDir ) { m_sSongDir = sDir; }
 
-	/* Set when this song should be displayed in the music wheel: */
-	enum SelectionDisplay
-	{ 
-		SHOW_ALWAYS,	/* all the time */
-		SHOW_ROULETTE,	/* only when rouletting */
-		SHOW_NEVER		/* never (unless song hiding is turned off) */
-	} m_SelectionDisplay;
+	ShowSong m_SelectionDisplay;
 
 	Song();
 	~Song();
@@ -187,7 +194,7 @@ public:
 	bool IsEasy( StepsType st ) const;
 	bool IsTutorial() const;
 	bool HasEdits( StepsType st ) const;
-	SelectionDisplay GetDisplayed() const;
+	ShowSong GetDisplayed() const;
 	bool NormallyDisplayed() const;
 	bool NeverDisplayed() const;
 	bool RouletteDisplayed() const;

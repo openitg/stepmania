@@ -340,9 +340,9 @@ void ScreenNameEntryTraditional::Init()
 			int iScore = ss.m_player[p].iScore;
 			float fPercentDP = ss.m_player[p].GetPercentDancePoints();
 
-			// If this is a SHOW_NEVER song, then it's probably a training.
+			// If this is a ShowSong_Never song, then it's probably a training.
 			// Don't show a high score
-			if( pSong->m_SelectionDisplay == Song::SHOW_NEVER )
+			if( pSong->m_SelectionDisplay == ShowSong_Never )
 				continue;	// skip
 
 			m_FeatDisplay[p].resize( m_FeatDisplay[p].size()+1 );

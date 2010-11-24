@@ -356,11 +356,11 @@ bool SMLoader::LoadFromSMFile( const RString &sPath, Song &out )
 		else if( sValueName=="SELECTABLE" )
 		{
 			if(!stricmp(sParams[1],"YES"))
-				out.m_SelectionDisplay = out.SHOW_ALWAYS;
+				out.m_SelectionDisplay = ShowSong_Always;
 			else if(!stricmp(sParams[1],"NO"))
-				out.m_SelectionDisplay = out.SHOW_NEVER;
+				out.m_SelectionDisplay = ShowSong_Never;
 			else if(!stricmp(sParams[1],"ROULETTE"))
-				out.m_SelectionDisplay = out.SHOW_ROULETTE;
+				out.m_SelectionDisplay = ShowSong_Roulette;
 			else
 				LOG->Warn( "The song file '%s' has an unknown #SELECTABLE value, '%s'; ignored.", sPath.c_str(), sParams[1].c_str());
 		}

@@ -38,6 +38,13 @@ const int FILE_CACHE_VERSION = 145;	// increment this to invalidate cache
 
 const float DEFAULT_MUSIC_SAMPLE_LENGTH = 12.f;
 
+static const char *ShowSongNames[] = {
+	"Always",
+	"Roulette",
+	"Never",
+};
+XToString( ShowSong, NUM_ShowSong );
+
 
 Song::Song()
 {
@@ -52,7 +59,7 @@ Song::Song()
 	m_fMusicLengthSeconds = 0;
 	m_fFirstBeat = -1;
 	m_fLastBeat = -1;
-	m_SelectionDisplay = SHOW_ALWAYS;
+	m_SelectionDisplay = ShowSong_Always;
 	m_DisplayBPMType = DISPLAY_ACTUAL;
 	m_fSpecifiedBPMMin = 0;
 	m_fSpecifiedBPMMax = 0;
@@ -924,15 +931,15 @@ bool Song::HasEdits( StepsType st ) const
 	return false;
 }
 
-Song::SelectionDisplay Song::GetDisplayed() const
+ShowSong Song::GetDisplayed() const
 {
 	if( !PREFSMAN->m_bHiddenSongs )
-		return SHOW_ALWAYS;
+		return ShowSong_Always;
 	return m_SelectionDisplay;
 }
-bool Song::NormallyDisplayed() const { return GetDisplayed() == SHOW_ALWAYS; }
-bool Song::NeverDisplayed() const { return GetDisplayed() == SHOW_NEVER; }
-bool Song::RouletteDisplayed() const { if(IsTutorial()) return false; return GetDisplayed() != SHOW_NEVER; }
+bool Song::NormallyDisplayed() const { return GetDisplayed() == ShowSong_Always; }
+bool Song::NeverDisplayed() const { return GetDisplayed() == ShowSong_Never; }
+bool Song::RouletteDisplayed() const { if(IsTutorial()) return false; return GetDisplayed() != ShowSong_Never; }
 bool Song::ShowInDemonstrationAndRanking() const { return !IsTutorial() && NormallyDisplayed(); }
 
 

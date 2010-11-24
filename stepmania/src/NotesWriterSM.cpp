@@ -58,9 +58,9 @@ void NotesWriterSM::WriteGlobalTags( RageFile &f, const Song &out )
 	f.Write( "#SELECTABLE:" );
 	switch(out.m_SelectionDisplay) {
 	default: ASSERT(0);  /* fallthrough */
-	case Song::SHOW_ALWAYS:		f.Write( "YES" );		break;
-	case Song::SHOW_NEVER:		f.Write( "NO" );		break;
-	case Song::SHOW_ROULETTE:	f.Write( "ROULETTE" );	break;
+	case ShowSong_Always:		f.Write( "YES" );		break;
+	case ShowSong_Never:		f.Write( "NO" );		break;
+	case ShowSong_Roulette:	f.Write( "ROULETTE" );	break;
 	}
 	f.PutLine( ";" );
 

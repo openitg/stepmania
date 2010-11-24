@@ -207,7 +207,7 @@ void MusicWheel::LoadFromMetrics( RString sType )
 	NUM_SECTION_COLORS		.Load(sType,"NumSectionColors");
 	SONG_REAL_EXTRA_COLOR		.Load(sType,"SongRealExtraColor");
 	SORT_MENU_COLOR			.Load(sType,"SortMenuColor");
-	SHOW_ROULETTE			.Load(sType,"ShowRoulette");
+	ShowSong_Roulette			.Load(sType,"ShowRoulette");
 	SHOW_RANDOM			.Load(sType,"ShowRandom");
 	SHOW_PORTAL			.Load(sType,"ShowPortal");
 	RANDOM_PICKS_LOCKED_SONGS	.Load(sType,"RandomPicksLockedSongs");
@@ -582,7 +582,7 @@ void MusicWheel::BuildWheelItemDatas( vector<WheelItemData> &arrayWheelItemDatas
 
 			if( so != SORT_ROULETTE )
 			{
-				if( SHOW_ROULETTE )
+				if( ShowSong_Roulette )
 					arrayWheelItemDatas.push_back( WheelItemData(TYPE_ROULETTE, NULL, "", NULL, RageColor(1,0,0,1)) );
 				/* Only add TYPE_PORTAL if there's at least one song on the list. */
 				bool bFoundAnySong = false;

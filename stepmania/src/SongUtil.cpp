@@ -30,11 +30,11 @@ bool SongCriteria::Matches( const Song *pSong ) const
 	{
 	DEFAULT_FAIL(m_Selectable);
 	case Selectable_Yes:
-		if( pSong->m_SelectionDisplay != Song::SHOW_ALWAYS )
+		if( pSong->m_SelectionDisplay != ShowSong_Always )
 			return false;
 		break;
 	case Selectable_No:
-		if( pSong->m_SelectionDisplay != Song::SHOW_NEVER )
+		if( pSong->m_SelectionDisplay != ShowSong_Never )
 			return false;
 		break;
 	case Selectable_DontCare:
