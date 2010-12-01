@@ -66,16 +66,16 @@ void NotesWriterSM::WriteGlobalTags( RageFile &f, const Song &out )
 
 	switch( out.m_DisplayBPMType )
 	{
-	case Song::DISPLAY_ACTUAL:
+	case DisplayBpmType_Actual:
 		// write nothing
 		break;
-	case Song::DISPLAY_SPECIFIED:
+	case DisplayBpmType_Specified:
 		if( out.m_fSpecifiedBPMMin == out.m_fSpecifiedBPMMax )
 			f.PutLine( ssprintf( "#DISPLAYBPM:%.3f;", out.m_fSpecifiedBPMMin ) );
 		else
 			f.PutLine( ssprintf( "#DISPLAYBPM:%.3f:%.3f;", out.m_fSpecifiedBPMMin, out.m_fSpecifiedBPMMax ) );
 		break;
-	case Song::DISPLAY_RANDOM:
+	case DisplayBpmType_Random:
 		f.PutLine( ssprintf( "#DISPLAYBPM:*;" ) );
 		break;
 	}

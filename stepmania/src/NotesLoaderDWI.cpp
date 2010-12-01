@@ -415,18 +415,18 @@ bool DWILoader::LoadFromDWIFile( const RString &sPath, Song &out )
 			 * worth bothering with since we don't display fractional BPM anyway.) */
 		    if( sscanf( sParams[1], "%i..%i", &iMin, &iMax ) == 2 )
 			{
-				out.m_DisplayBPMType = Song::DISPLAY_SPECIFIED;
+				out.m_DisplayBPMType = DisplayBpmType_Specified;
 				out.m_fSpecifiedBPMMin = (float) iMin;
 				out.m_fSpecifiedBPMMax = (float) iMax;
 			}
 			else if( sscanf( sParams[1], "%i", &iMin ) == 1 )
 			{
-				out.m_DisplayBPMType = Song::DISPLAY_SPECIFIED;
+				out.m_DisplayBPMType = DisplayBpmType_Specified;
 				out.m_fSpecifiedBPMMin = out.m_fSpecifiedBPMMax = (float) iMin;
 			}
 			else
 			{
-				out.m_DisplayBPMType = Song::DISPLAY_RANDOM;
+				out.m_DisplayBPMType = DisplayBpmType_Random;
 			}
 		}
 

@@ -362,16 +362,16 @@ bool NotesWriterDWI::Write( RString sPath, const Song &out )
 		f.PutLine( ssprintf("#CDTITLE:%s;", out.m_sCDTitleFile.c_str()) );
 	switch( out.m_DisplayBPMType )
 	{
-	case Song::DISPLAY_ACTUAL:
+	case DisplayBpmType_Actual:
 		// write nothing
 		break;
-	case Song::DISPLAY_SPECIFIED:
+	case DisplayBpmType_Specified:
 		if( out.m_fSpecifiedBPMMin == out.m_fSpecifiedBPMMax )
 			f.PutLine( ssprintf("#DISPLAYBPM:%i;\n", (int) out.m_fSpecifiedBPMMin) );
 		else
 			f.PutLine( ssprintf("#DISPLAYBPM:%i..%i;\n", (int) out.m_fSpecifiedBPMMin, (int) out.m_fSpecifiedBPMMax) );
 		break;
-	case Song::DISPLAY_RANDOM:
+	case DisplayBpmType_Random:
 		f.PutLine( "#DISPLAYBPM:*" );
 		break;
 	}
