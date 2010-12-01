@@ -128,32 +128,9 @@ public:
 	bool operator == ( const RageColor& other ) const	{ return r==other.r && g==other.g && b==other.b && a==other.a; }
 	bool operator != ( const RageColor& other ) const	{ return !operator==(other); }
 	
-	bool FromString( const RString &str )
-	{
-		int result = sscanf( str, "%f,%f,%f,%f", &r, &g, &b, &a );
-		if( result == 3 )
-		{
-			a = 1;
-			return true;
-		}
-		if( result == 4 )
-			return true;
-		
-		int ir=255, ib=255, ig=255, ia=255;
-		result = sscanf( str, "#%2x%2x%2x%2x", &ir, &ig, &ib, &ia );
-		if( result >= 3 )
-		{
-			r = ir / 255.0f; g = ig / 255.0f; b = ib / 255.0f;
-			if( result == 4 )
-				a = ia / 255.0f;
-			else
-				a = 1;
-			return true;
-		}
-		
-		r=1; b=1; g=1; a=1;
-		return false;
-	}
+	bool FromString( const RString &str );
+	RString ToString() const;
+
 	float r, g, b, a;
 } SM_ALIGN(16);
 
