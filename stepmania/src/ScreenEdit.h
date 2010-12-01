@@ -285,7 +285,7 @@ public:
 		play_current_beat_to_end,
 		save,
 		publish,
-		export,
+		export_song,
 		revert_to_last_save,
 		revert_from_disk,
 		options,
