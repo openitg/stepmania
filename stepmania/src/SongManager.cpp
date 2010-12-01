@@ -217,7 +217,7 @@ void SongManager::LoadStepManiaSongDir( RString sDir, LoadingWindow *ld )
 			if( !pNewSong->LoadFromSongDir( sSongDirName ) )
 			{
 				/* The song failed to load. */
-				delete pNewSong;
+				SAFE_DELETE( pNewSong );
 				continue;
 			}
 			
