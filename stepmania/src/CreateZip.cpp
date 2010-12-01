@@ -338,11 +338,7 @@ typedef unsigned IPos; // A Pos is an index in the character window. Pos is used
 
 
 
-#if defined(_WINDOWS)
-typedef __int64 lutime_t;       // define it ourselves since we don't include time.h
-#else
-typedef long int lutime_t;
-#endif
+typedef int64_t lutime_t;       // define it ourselves since we don't include time.h
 
 typedef struct iztimes {
 	lutime_t atime,mtime,ctime;
