@@ -1,7 +1,15 @@
 #include "global.h"
 
 #include <stdio.h>
+
+#if defined(_WINDOWS)
 #include <tchar.h>
+#else
+#define _tcslen strlen
+#define _tcscpy strcpy
+typedef char TCHAR;
+#endif
+
 #include <time.h>
 #include "CreateZip.h"
 #include "RageFile.h"
@@ -330,8 +338,11 @@ typedef unsigned IPos; // A Pos is an index in the character window. Pos is used
 
 
 
-
+#if defined(_WINDOWS)
 typedef __int64 lutime_t;       // define it ourselves since we don't include time.h
+#else
+typedef long int lutime_t;
+#endif
 
 typedef struct iztimes {
 	lutime_t atime,mtime,ctime;
@@ -359,10 +370,10 @@ typedef struct zlist {
 
 
 
-
+/*
 void __cdecl Trace(const char *x, ...) {va_list paramList; va_start(paramList, x); paramList; va_end(paramList);}
 void __cdecl Tracec(bool ,const char *x, ...) {va_list paramList; va_start(paramList, x); paramList; va_end(paramList);}
-
+*/
 
 
 
