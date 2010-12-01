@@ -35,7 +35,7 @@ public:
 	NoteData();
 	~NoteData();
 	void Init();
-	
+
 	int GetNumTracks() const { return m_TapNotes.size(); }
 	void SetNumTracks( int iNewNumTracks );
 	bool IsComposite() const;
@@ -52,6 +52,7 @@ public:
 			return TAP_EMPTY;
 	}
 
+	const TrackMap &GetTrack( int iTrack ) const { return m_TapNotes[iTrack]; }
 	iterator begin( int iTrack ) { return m_TapNotes[iTrack].begin(); }
 	const_iterator begin( int iTrack ) const { return m_TapNotes[iTrack].begin(); }
 	iterator end( int iTrack ) { return m_TapNotes[iTrack].end(); }

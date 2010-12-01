@@ -51,12 +51,23 @@ enum ShowSong
 	ShowSong_Invalid
 };
 const RString& ShowSongToString( ShowSong val );
+ShowSong StringToShowSong( const RString& val );
+
+enum DisplayBpmType
+{ 
+	DisplayBpmType_Actual, 
+	DisplayBpmType_Specified, 
+	DisplayBpmType_Random,
+	NUM_DisplayBpmType,	// leave this at the end
+	DisplayBpmType_Invalid
+};
+const RString& DisplayBpmTypeToString( DisplayBpmType val );
+DisplayBpmType StringToDisplayBpmType( const RString &);
 
 class Song
 {
-	RString m_sSongDir;
 public:
-	void SetSongDir( const RString sDir ) { m_sSongDir = sDir; }
+	RString m_sSongDir;
 
 	ShowSong m_SelectionDisplay;
 
@@ -71,8 +82,9 @@ public:
 	void ReCalculateRadarValuesAndLastBeat();	// called by TidyUpData, and after saving
 	void TranslateTitles();	// called by TidyUpData
 
-	bool SaveToSMFile( RString sPath, bool bSavingCache );
 	bool Save();	// saves SM and DWI
+	bool SaveToJsonFile( RString sPath, bool bSavingCache );
+	bool SaveToSMFile( RString sPath, bool bSavingCache );
 	void SaveToCacheFile();
 	void SaveToDWIFile();
 
@@ -126,7 +138,7 @@ public:
 	float	m_fLastBeat;	// beat of last note
 	float	m_fMusicSampleStartSeconds;
 	float	m_fMusicSampleLengthSeconds;
-	enum { DISPLAY_ACTUAL, DISPLAY_SPECIFIED, DISPLAY_RANDOM } m_DisplayBPMType;
+	DisplayBpmType m_DisplayBPMType;
 	float	m_fSpecifiedBPMMin;
 	float	m_fSpecifiedBPMMax;	// if a range, then Min != Max
 

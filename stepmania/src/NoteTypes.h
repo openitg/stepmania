@@ -115,12 +115,16 @@ struct TapNote
 	
 	PlayerNumber pn;
 
+
 	// XML
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
 
-	
-	TapNote() {}
+
+	TapNote()
+	{
+		Init();
+	}
 	TapNote( 
 		Type type_,
 		SubType subType_,
@@ -130,6 +134,7 @@ struct TapNote
 		bool bKeysound_,
 		int iKeysoundIndex_ )
 	{
+		Init();
 		type = type_;
 		subType = subType_;
 		source = source_;
@@ -137,6 +142,17 @@ struct TapNote
 		fAttackDurationSeconds = fAttackDurationSeconds_;
 		bKeysound = bKeysound_;
 		iKeysoundIndex = iKeysoundIndex_;
+		iDuration = 0;
+		pn = PLAYER_INVALID;
+	}
+	void Init()
+	{
+		type = TapNote::tap;
+		subType = TapNote::SubType_invalid;	// only used if type == hold_head
+		source = original;
+		fAttackDurationSeconds = 0;
+		bKeysound = false;		// true if this note plays a keysound when hit
+		iKeysoundIndex = 0;	// index into Song's vector of keysound files.  
 		iDuration = 0;
 		pn = PLAYER_INVALID;
 	}
@@ -189,12 +205,6 @@ enum NoteType
 	NOTE_TYPE_16TH,	// sixteenth note
 	NOTE_TYPE_24TH,	// twenty-fourth note
 	NOTE_TYPE_32ND,	// thirty-second note
-
-	// Why is this high of resolution needed?  It's breaking NoteSkins
-	// with note-coloring, and the extra resolution will take up more 
-	// memory.  Does any game actually use this?  -Chris
-
-	// MD 11/02/03 - added finer divisions
 	NOTE_TYPE_48TH, // forty-eighth note
 	NOTE_TYPE_64TH,	// sixty-fourth note
 	NOTE_TYPE_192ND,

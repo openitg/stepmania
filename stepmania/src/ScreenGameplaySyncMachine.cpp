@@ -20,7 +20,7 @@ void ScreenGameplaySyncMachine::Init()
 	SMLoader ld;
 	RString sFile = THEME->GetPathO("ScreenGameplaySyncMachine","music.sm");
 	ld.LoadFromSMFile( sFile, m_Song );
-	m_Song.SetSongDir( Dirname(sFile) );
+	m_Song.m_sSongDir = Dirname(sFile);
 	m_Song.TidyUpData();
 
 	GAMESTATE->m_pCurSong.Set( &m_Song );

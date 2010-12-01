@@ -22,7 +22,6 @@
 #include "NoteData.h"
 #include "GameManager.h"
 #include "NoteDataUtil.h"
-#include "NotesLoaderSM.h"
 
 Steps::Steps()
 {
@@ -197,8 +196,8 @@ void Steps::Decompress() const
 	{
 		/* We have data on disk and not in memory.  Load it. */
 		Song s;
-		SMLoader ld;
-		if( !ld.LoadFromSMFile( m_sFilename, s, true ) )
+		NotesLoaderJson ld;
+		if( !ld.LoadFromJsonFile( m_sFilename, s ) )
 		{
 			LOG->Warn( "Couldn't load \"%s\"", m_sFilename.c_str() );
 			return;

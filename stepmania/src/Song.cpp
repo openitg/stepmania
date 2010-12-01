@@ -24,10 +24,13 @@
 #include "Foreach.h"
 #include "BackgroundUtil.h"
 #include "SpecialFiles.h"
-
+#include "json/value.h"
 #include "NotesLoaderSM.h"
+#include "NotesLoaderJson.h"
 #include "NotesWriterDWI.h"
 #include "NotesWriterSM.h"
+#include "NotesWriterJson.h"
+#include "JsonUtil.h"
 
 #include "LyricsLoader.h"
 
@@ -44,6 +47,15 @@ static const char *ShowSongNames[] = {
 	"Never",
 };
 XToString( ShowSong, NUM_ShowSong );
+StringToX( ShowSong );
+
+static const char *DisplayBpmTypeNames[] = {
+	"Actual",
+	"Specified",
+	"Random",
+};
+XToString( DisplayBpmType, NUM_DisplayBpmType );
+StringToX( DisplayBpmType );
 
 
 Song::Song()
@@ -60,7 +72,7 @@ Song::Song()
 	m_fFirstBeat = -1;
 	m_fLastBeat = -1;
 	m_SelectionDisplay = ShowSong_Always;
-	m_DisplayBPMType = DISPLAY_ACTUAL;
+	m_DisplayBPMType = DisplayBpmType_Actual;
 	m_fSpecifiedBPMMin = 0;
 	m_fSpecifiedBPMMax = 0;
 	m_bIsSymLink = false;
@@ -132,7 +144,7 @@ void Song::AddLyricSegment( LyricSegment seg )
 
 void Song::GetDisplayBpms( DisplayBpms &AddTo ) const
 {
-	if( m_DisplayBPMType == DISPLAY_SPECIFIED )
+	if( m_DisplayBPMType == DisplayBpmType_Specified )
 	{
 		AddTo.Add( m_fSpecifiedBPMMin );
 		AddTo.Add( m_fSpecifiedBPMMax );
@@ -211,9 +223,8 @@ bool Song::LoadFromSongDir( RString sDir )
 	if( bUseCache )
 	{
 //		LOG->Trace( "Loading '%s' from cache file '%s'.", m_sSongDir.c_str(), GetCacheFilePath().c_str() );
-		SMLoader ld;
-		ld.LoadFromSMFile( GetCacheFilePath(), *this, true );
-		ld.TidyUpData( *this, true );
+		NotesLoaderJson ld;
+		ld.LoadFromJsonFile( GetCacheFilePath(), *this );
 	}
 	else
 	{
@@ -767,10 +778,21 @@ bool Song::SaveToSMFile( RString sPath, bool bSavingCache )
 	return wr.Write(sPath, *this, bSavingCache);
 }
 
+bool Song::SaveToJsonFile( RString sPath, bool bSavingCache )
+{
+	LOG->Trace( "Song::SaveToJsonFile('%s')", sPath.c_str() );
+
+	/* If the file exists, make a backup. */
+	if( !bSavingCache && IsAFile(sPath) )
+		FileCopy( sPath, sPath + ".old" );
+
+	return NotesWriterJson::Write(sPath, *this, bSavingCache);
+}
+
 void Song::SaveToCacheFile()
 {
 	SONGINDEX->AddCacheIndex(m_sSongDir, GetHashForDirectory(m_sSongDir));
-	SaveToSMFile( GetCacheFilePath(), true );
+	SaveToJsonFile( GetCacheFilePath(), true );
 }
 
 void Song::SaveToDWIFile()
@@ -1204,7 +1226,7 @@ bool Song::HasSignificantBpmChangesOrStops() const
 
 	// Don't consider BPM changes that only are only for maintaining sync as 
 	// a real BpmChange.
-	if( m_DisplayBPMType == DISPLAY_SPECIFIED )
+	if( m_DisplayBPMType == DisplayBpmType_Specified )
 	{
 		if( m_fSpecifiedBPMMin != m_fSpecifiedBPMMax )
 			return true;
