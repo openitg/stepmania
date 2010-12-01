@@ -22,6 +22,7 @@
 #include "NoteData.h"
 #include "GameManager.h"
 #include "NoteDataUtil.h"
+#include "NotesLoaderJson.h"
 
 Steps::Steps()
 {
