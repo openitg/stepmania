@@ -4,7 +4,7 @@
 !define PRODUCT_FAMILY "StepMania"
 ; ID is used for the install directory and registry locations
 !define PRODUCT_ID "StepMania4"
-!define PRODUCT_VER "4.0.b7"
+!define PRODUCT_VER "4.0.b8"
 !define PRODUCT_DISPLAY "${PRODUCT_FAMILY} ${PRODUCT_VER}"
 !define PRODUCT_BITMAP "sm4"
 
