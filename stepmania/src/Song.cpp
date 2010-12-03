@@ -26,7 +26,6 @@
 #include "SpecialFiles.h"
 #include "json/value.h"
 #include "NotesLoaderSM.h"
-#include "NotesLoaderJson.h"
 #include "NotesWriterDWI.h"
 #include "NotesWriterSM.h"
 #include "NotesWriterJson.h"
@@ -37,7 +36,7 @@
 #include <set>
 #include <float.h>
 
-const int FILE_CACHE_VERSION = 146;	// increment this to invalidate cache
+const int FILE_CACHE_VERSION = 147;	// increment this to invalidate cache
 
 const float DEFAULT_MUSIC_SAMPLE_LENGTH = 12.f;
 
@@ -223,8 +222,9 @@ bool Song::LoadFromSongDir( RString sDir )
 	if( bUseCache )
 	{
 //		LOG->Trace( "Loading '%s' from cache file '%s'.", m_sSongDir.c_str(), GetCacheFilePath().c_str() );
-		NotesLoaderJson ld;
-		ld.LoadFromJsonFile( GetCacheFilePath(), *this );
+		SMLoader ld;
+		ld.LoadFromSMFile( GetCacheFilePath(), *this, true );
+		ld.TidyUpData( *this, true );
 	}
 	else
 	{
@@ -792,7 +792,7 @@ bool Song::SaveToJsonFile( RString sPath, bool bSavingCache )
 void Song::SaveToCacheFile()
 {
 	SONGINDEX->AddCacheIndex(m_sSongDir, GetHashForDirectory(m_sSongDir));
-	SaveToJsonFile( GetCacheFilePath(), true );
+	SaveToSMFile( GetCacheFilePath(), true );
 }
 
 void Song::SaveToDWIFile()
