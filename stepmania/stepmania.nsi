@@ -217,7 +217,12 @@ Section "Main Section" SecMain
 	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\smzipfile\DefaultIcon" "" "$INSTDIR\Program\smpackage.ico"
 	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\smzipfile\shell\open\command" "" '"$INSTDIR\Program\${PRODUCT_FAMILY}.exe" "%1"'
 	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\.smzip" "" "smzipfile"
-	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\.smxml" "" "smzipfile"
+
+	; http://msdn.microsoft.com/en-us/library/aa767914(VS.85).aspx
+	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\stepmania" "" "StepMania protocol handler"
+	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\stepmania" "URL Protocol" ""
+	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\stepmania\DefaultIcon" "" "$INSTDIR\Program\${PRODUCT_FAMILY}.exe"
+	WriteRegStr HKEY_LOCAL_MACHINE "SOFTWARE\Classes\stepmania\shell\open\command" "" '"$INSTDIR\Program\${PRODUCT_FAMILY}.exe" "%1"'
 !endif	
 
 !ifdef INSTALL_NON_PCK_FILES
@@ -616,6 +621,7 @@ Section "Uninstall"
 !ifdef ASSOCIATE_SMZIP
 	DeleteRegKey HKEY_LOCAL_MACHINE "SOFTWARE\Classes\smzipfile"
 	DeleteRegKey HKEY_LOCAL_MACHINE "SOFTWARE\Classes\.smzip"
+	DeleteRegKey HKEY_LOCAL_MACHINE "SOFTWARE\Classes\stepmania"
 !endif
 
 !ifdef INSTALL_NON_PCK_FILES
