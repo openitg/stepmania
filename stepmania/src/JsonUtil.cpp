@@ -12,22 +12,8 @@ bool JsonUtil::LoadFromFileShowErrors( Json::Value &root, RageFileBasic &f )
 	// Optimization opportunity: read this streaming instead of at once
 	RString sData;
 	f.Read( sData, f.GetFileSize() );
-
-	Json::Reader reader;
-
-	bool parsingSuccessful = reader.parse( sData, root );
-	if ( !parsingSuccessful )
-	{
-		string err = reader.getFormatedErrorMessages();
-		RString sWarning = ssprintf( "JSON: LoadFromFileShowErrors failed: %s", err.c_str() );
-		LOG->Warn( sWarning );
-		Dialog::OK( sWarning, "JSON_PARSE_ERROR" );
-		return false;
-	}
-
-	return true;
+	return LoadFromStringShowErrors( root, sData );
 }
-
 
 bool JsonUtil::LoadFromFileShowErrors( Json::Value &root, const RString &sFile )
 {
@@ -38,14 +24,22 @@ bool JsonUtil::LoadFromFileShowErrors( Json::Value &root, const RString &sFile )
 		return false;
 	}
 
-	bool bSuccess = LoadFromFileShowErrors( root, f );
-	if( !bSuccess )
+	return LoadFromFileShowErrors( root, f );
+}
+
+bool JsonUtil::LoadFromStringShowErrors( Json::Value &root, RString sData )
+{
+	Json::Reader reader;
+	bool parsingSuccessful = reader.parse( sData, root );
+	if ( !parsingSuccessful )
 	{
-		RString sWarning = ssprintf( "JSON: LoadFromFileShowErrors failed for file: %s", sFile.c_str() );
+		string err = reader.getFormatedErrorMessages();
+		RString sWarning = ssprintf( "JSON: LoadFromFileShowErrors failed: %s", err.c_str() );
 		LOG->Warn( sWarning );
 		Dialog::OK( sWarning, "JSON_PARSE_ERROR" );
+		return false;
 	}
-	return bSuccess;
+	return true;
 }
 
 bool JsonUtil::WriteFile( const Json::Value &root, const RString &sFile, bool bMinified )
