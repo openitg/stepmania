@@ -15,8 +15,20 @@
 #include "FileDownload.h"
 #include "arch/LoadingWindow/LoadingWindow.h"
 #include "Preference.h"
+#include "JsonUtil.h"
 
 const RString INSTALLER_LANGUAGES_DIR = "Themes/_Installer/Languages/";
+
+void Parse( const RString &sDir, PlayAfterLaunchInfo &out )
+{
+	vector<RString> vsDirParts;
+	split( sDir, "/", vsDirParts, true );
+	if( vsDirParts.size() == 3 && vsDirParts[0].EqualsNoCase("Songs") )
+		out.sSongDir = "/" + sDir;
+	else if( vsDirParts.size() == 2 && vsDirParts[0].EqualsNoCase("Themes") )
+		out.sTheme = vsDirParts[1];
+}
+
 
 static const RString TEMP_ZIP_MOUNT_POINT = "/@temp-zip/";
 const RString TEMP_OS_MOUNT_POINT = "/@temp-os/";
@@ -56,13 +68,7 @@ void InstallSmzip( const RString &sZipFile, PlayAfterLaunchInfo &out )
 		RString sDir, sThrowAway;
 		splitpath( sDestFile, sDir, sThrowAway, sThrowAway );
 
-
-		vector<RString> vsDirParts;
-		split( sDir, "/", vsDirParts, true );
-		if( vsDirParts.size() == 3 && vsDirParts[0].EqualsNoCase("Songs") )
-			out.sSongDir = "/" + sDir;
-		else if( vsDirParts.size() == 2 && vsDirParts[0].EqualsNoCase("Themes") )
-			out.sTheme = vsDirParts[1];
+		Parse( sDir, out );
 
 		FILEMAN->CreateDir( sDir );
 
@@ -100,37 +106,61 @@ struct FileCopyResult
 
 Preference<RString> g_sCookie( "Cookie", "" );
 
-static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &out )
+static RString DownloadFile( const RString &sUri, RString sDestFile, LoadingWindow *pLW )
 {
-	pLW->SetText("Installing " + s );
-
-	vector<RString> vs;
-	RString sOsDir, sFilename, sExt;
-	splitpath( s, sOsDir, sFilename, sExt );
-
-	if( !FILEMAN->Mount( "dir", sOsDir, TEMP_OS_MOUNT_POINT ) )
-		FAIL_M("Failed to mount " + sOsDir );
-
-	XNode xml;
-	if( !XmlFileUtil::LoadFromFileShowErrors( xml, TEMP_OS_MOUNT_POINT + sFilename + sExt ) )
-		return;
-	vector<RString> vsUrls;
-	FOREACH_CONST_Child( &xml, child )
+	FileTransfer fd;
+	fd.StartDownload( sUri, sDestFile );
+	while( true )
 	{
-		if( child->m_sName == "Cookie" )
-		{
-			g_sCookie.Set( child->m_sValue );
-		}
-		else if( child->m_sName == "Install" )
-		{
-			RString sUrl;
-			if( child->GetChildValue("URL", sUrl ) )
-				vsUrls.push_back( sUrl );
-		}
+		float fSleepSeconds = 0.1f;
+		usleep( int( fSleepSeconds * 1000000.0 ) );
+		RString sStatus = fd.Update( fSleepSeconds );
+		pLW->SetText( sUri + "\n" + sStatus );
+		if( fd.IsFinished() )
+			break;
 	}
-	FILEMAN->Unmount( "dir", sOsDir, TEMP_OS_MOUNT_POINT );
+	//int iResponse = fd.GetResponseCode();
+	return fd.GetResponse();
+}
 
-	
+static void HandleStepManiaProtocolArg( const RString &sUri, LoadingWindow *pLW, PlayAfterLaunchInfo &out )
+{
+	pLW->SetText("Installing " + sUri );
+
+	RString sResponse = DownloadFile( sUri, "", pLW );
+	Json::Value root;
+	if( !JsonUtil::LoadFromStringShowErrors( root, sResponse) )
+		return;
+
+	// Parse the JSON response, make a list of all packages need to be downloaded.
+	vector<RString> vsUrls;
+	{
+		if( root["Cookie"].isString() )
+			g_sCookie.Set( root["Cookie"].asString() );
+		Json::Value require = root["Require"];
+		if( require.isArray() )
+		{
+			for( unsigned i=0; i<require.size(); i++)
+			{
+				Json::Value iter = require[i];
+				if( iter["Dir"].isString() )
+				{
+					RString sDir = iter["Dir"].asString();
+					Parse( sDir, out );
+					if( DoesFileExist( sDir ) )
+						continue;
+				}
+
+				RString sUri;
+				if( iter["Uri"].isString() )
+				{
+					sUri = iter["Uri"].asString();
+					vsUrls.push_back( sUri );
+				}
+			}
+		}
+	}	
+
 	/*
 	{
 		// TODO: Validate that this zip contains files for this version of StepMania
@@ -147,22 +177,12 @@ static void HandleSmzmlArg( RString s, LoadingWindow *pLW, PlayAfterLaunchInfo &
 
 	FOREACH_CONST( RString, vsUrls, s )
 	{
-		FileTransfer fd;
 		RString sDestFile = SpecialFiles::CACHE_DIR + "Downloads/" + Basename(*s);
-		fd.StartDownload( *s, sDestFile );
-		while( true )
+		if( DownloadFile( *s, sDestFile, pLW ) )
 		{
-			float fSleepSeconds = 0.1f;
-			usleep( int( fSleepSeconds * 1000000.0 ) );
-			RString sStatus = fd.Update( fSleepSeconds );
-			pLW->SetText( *s + "\n" + sStatus );
-			if( fd.IsFinished() )
-				break;
+			InstallSmzip( sDestFile, out );
 		}
-		//int iResponse = fd.GetResponseCode();
-		string sResponse = fd.GetResponse();
-		InstallSmzip( sDestFile, out );
-		FILEMAN->Remove( sDestFile );
+		FILEMAN->Remove( sDestFile );	// Harmless if this fails because download didn't finish
 	}
 }
 
@@ -200,13 +220,15 @@ static void DoNsis()
 	}
 }
 
-bool IsSmxml(RString ext)
+bool IsStepManiaProtocol(RString arg)
 {
-	return ext.EqualsNoCase("smxml") || ext.EqualsNoCase("xml");
+	// for now, only load from the StepMania domain until the security implications of this feature are better understood.
+	return BeginsWith(arg,"stepmania://beta.stepmania.com/");
 }
 
-bool IsSmzip(RString ext)
+bool IsSmzip(RString arg)
 {
+	RString ext = GetExtension(arg);
 	return ext.EqualsNoCase("smzip") || ext.EqualsNoCase("zip");
 }
 
@@ -216,11 +238,9 @@ PlayAfterLaunchInfo DoInstalls(LoadingWindow *pLW)
 	for( int i = 1; i<g_argc; ++i )
 	{
 		RString s = g_argv[i];
-		
-		RString ext = GetExtension(s);
-		if( IsSmxml(ext) )
-			HandleSmzmlArg(s, pLW, ret);
-		else if( IsSmzip(ext) )
+		if( IsStepManiaProtocol(s) )
+			HandleStepManiaProtocolArg(s, pLW, ret);
+		else if( IsSmzip(s) )
 			InstallSmzipOsArg(s, pLW, ret);
 	}
 	return ret;
