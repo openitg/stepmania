@@ -602,10 +602,10 @@ static LocalizedString UPDATE_IS_AVAILABLE;
 static LocalizedString UPDATE_IS_NOT_AVAILABLE;
 static LocalizedString ERROR_SENDING_REPORT;
 
-// #define AUTOMATED_CRASH_REPORTS
-#define CRASH_REPORT_HOST "example.com"
+#define AUTOMATED_CRASH_REPORTS
+#define CRASH_REPORT_HOST "www.stepmania.com"
 #define CRASH_REPORT_PORT 80
-#define CRASH_REPORT_PATH "/report.cgi"
+#define CRASH_REPORT_PATH "/crash-report.php"
 
 void LoadLocalizedStrings()
 {
@@ -806,13 +806,13 @@ BOOL CrashDialog::HandleMessage( UINT msg, WPARAM wParam, LPARAM lParam )
 					* down the button. */
 					SetWindowText( GetDlgItem(hDlg, IDC_MAIN_TEXT), ERROR_SENDING_REPORT.GetValue() );
 				}
-				else if( xml.GetAttrValue("UpdateAvailable", m_sUpdateURL) )
+				else if( xml.GetChildValue("UpdateAvailable", m_sUpdateURL) )
 				{
 					SetWindowText( GetDlgItem(hDlg, IDC_MAIN_TEXT), UPDATE_IS_AVAILABLE.GetValue() );
 					SetWindowText( GetDlgItem(hDlg, IDC_BUTTON_AUTO_REPORT), VIEW_UPDATE.GetValue() );
 					ShowWindow( GetDlgItem(hDlg, IDC_BUTTON_AUTO_REPORT), true );
 				}
-				else if( xml.GetAttrValue("ReportId", iID) )
+				else if( xml.GetChildValue("ReportId", iID) )
 				{
 					SetWindowText( GetDlgItem(hDlg, IDC_MAIN_TEXT), UPDATE_IS_NOT_AVAILABLE.GetValue() );
 				}
@@ -821,7 +821,7 @@ BOOL CrashDialog::HandleMessage( UINT msg, WPARAM wParam, LPARAM lParam )
 					SetWindowText( GetDlgItem(hDlg, IDC_MAIN_TEXT), ERROR_SENDING_REPORT.GetValue() );
 				}
 
-				if( xml.GetAttrValue("ReportId", iID) )
+				if( xml.GetChildValue("ReportId", iID) )
 				{
 					char sBuf[1024];
 					GetWindowText( hDlg, sBuf, 1024 );
