@@ -49,7 +49,7 @@ private:
 
 	RageFile	m_fOutputFile;
 	RString	m_sEndName;
-	bool	m_bIsPackage;
+	bool	m_bSavingFile;
 
 	RString m_sBaseAddress;
 	//HTTP Header information responce

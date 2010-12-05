@@ -101,11 +101,12 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 	if( !ParseHTTPAddress( sURL, Proto, Server, Port, sAddress ) )
 	{
 		m_sStatus = "Invalid URL.";
+		m_bFinished = true;
 		UpdateProgress();
 		return;
 	}
 
-	m_bIsPackage = sDestFile != "";
+	m_bSavingFile = sDestFile != "";
 
 	m_sBaseAddress = "http://" + Server;
 	if( Port != 80 )
@@ -129,7 +130,7 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 	//XXX: This should be fixed by a prompt or something?
 
 	//if we are not talking about a file, let's not worry
-	if( m_sEndName != "" && m_bIsPackage )
+	if( m_sEndName != "" && m_bSavingFile )
 	{
 		if( !m_fOutputFile.Open( sDestFile, RageFile::WRITE | RageFile::STREAMED ) )
 		{
@@ -290,7 +291,7 @@ void FileTransfer::HTTPUpdate()
 		m_sBUFFER.erase( 0, iHeaderEnd );
 	}
 
-	if( m_bIsPackage )
+	if( m_bSavingFile )
 	{
 		m_iDownloaded += m_sBUFFER.length();
 		m_fOutputFile.Write( m_sBUFFER );
@@ -324,7 +325,7 @@ void FileTransfer::HTTPUpdate()
 		}
 		else
 		{
-			if( m_bIsPackage && m_iResponseCode < 300 )
+			if( m_bSavingFile && m_iResponseCode < 300 )
 			{
 				RString sZipFile = m_fOutputFile.GetRealPath();
 				m_fOutputFile.Close();
