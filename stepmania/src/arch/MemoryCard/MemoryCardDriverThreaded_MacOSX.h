@@ -1,5 +1,5 @@
-#ifndef MEMORY_CARD_DRIVER_THREADED_OSX
-#define MEMORY_CARD_DRIVER_THREADED_OSX
+#ifndef MEMORY_CARD_DRIVER_THREADED_MACOSX
+#define MEMORY_CARD_DRIVER_THREADED_MACOSX
 
 #include "MemoryCardDriver.h"
 #include "RageThreads.h"
@@ -14,11 +14,11 @@ typedef OSStatus (*EventHandlerProcPtr)( EventHandlerCallRef inHandlerCallRef,
 					 EventRef inEvent, void * inUserData );
 typedef EventHandlerProcPtr EventHandlerUPP;
 
-class MemoryCardDriverThreaded_OSX : public MemoryCardDriver
+class MemoryCardDriverThreaded_MacOSX : public MemoryCardDriver
 {
 public:
-	MemoryCardDriverThreaded_OSX();
-	~MemoryCardDriverThreaded_OSX();
+	MemoryCardDriverThreaded_MacOSX();
+	~MemoryCardDriverThreaded_MacOSX();
 	bool Mount( UsbStorageDevice *pDevice ) { return true; }
 	void Unmount( UsbStorageDevice *pDevice );
 	
@@ -39,7 +39,7 @@ private:
 #ifdef ARCH_MEMORY_CARD_DRIVER
 #error "More than one MemoryCardDriver selected."
 #endif
-#define ARCH_MEMORY_CARD_DRIVER MemoryCardDriverThreaded_OSX
+#define ARCH_MEMORY_CARD_DRIVER MemoryCardDriverThreaded_MacOSX
 
 
 #endif

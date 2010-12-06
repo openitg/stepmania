@@ -4,11 +4,11 @@
 #include "ArchHooks.h"
 class RageMutex;
 
-class ArchHooks_darwin : public ArchHooks
+class ArchHooks_MacOSX : public ArchHooks
 {
 public:
-	ArchHooks_darwin();
-	~ArchHooks_darwin();
+	ArchHooks_MacOSX();
+	~ArchHooks_MacOSX();
 	RString GetArchName() { return "OS X"; }
 	RString GetMachineId();
 	void DumpDebugInfo();
@@ -24,7 +24,7 @@ protected:
 #ifdef ARCH_HOOKS
 #error "More than one ArchHooks selected!"
 #endif
-#define ARCH_HOOKS ArchHooks_darwin
+#define ARCH_HOOKS ArchHooks_MacOSX
     
 #endif /* ARCH_HOOKS_DARWIN_H */
 

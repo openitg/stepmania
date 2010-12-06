@@ -75,7 +75,7 @@ static bool DoEmergencyShutdown( int signal, siginfo_t *si, const ucontext_t *us
 	return false;
 }
 
-ArchHooks_darwin::ArchHooks_darwin()
+ArchHooks_MacOSX::ArchHooks_MacOSX()
 {
 	/* First, handle non-fatal termination signals. */
 	SignalHandler::OnClose( DoCleanShutdown );
@@ -138,14 +138,14 @@ ArchHooks_darwin::ArchHooks_darwin()
 	CFRelease( path );
 }
 
-ArchHooks_darwin::~ArchHooks_darwin()
+ArchHooks_MacOSX::~ArchHooks_MacOSX()
 {
 #if REAL_TIME_CRITICAL_SECTION
 	delete TimeCritMutex;
 #endif
 }
 
-RString ArchHooks_darwin::GetMachineId()
+RString ArchHooks_MacOSX::GetMachineId()
 {
 	RString ret;
 	CFMutableDictionaryRef dict = IOServiceMatching( "IOPlatformExpertDevice" );
@@ -223,7 +223,7 @@ RString ArchHooks_darwin::GetMachineId()
 	return ret;
 }
 
-void ArchHooks_darwin::DumpDebugInfo()
+void ArchHooks_MacOSX::DumpDebugInfo()
 {
 	RString systemVersion;
 	OSErr err;
@@ -340,7 +340,7 @@ RString ArchHooks::GetPreferredLanguage()
 	return ret;
 }
 
-void ArchHooks_darwin::EnterTimeCriticalSection()
+void ArchHooks_MacOSX::EnterTimeCriticalSection()
 {
 #if REAL_TIME_CRITICAL_SECTION
 	TimeCritMutex->Lock();
@@ -380,7 +380,7 @@ void ArchHooks_darwin::EnterTimeCriticalSection()
 #endif
 }
 
-void ArchHooks_darwin::ExitTimeCriticalSection()
+void ArchHooks_MacOSX::ExitTimeCriticalSection()
 {
 #if REAL_TIME_CRITICAL_SECTION
 	kern_return_t ret;
@@ -398,7 +398,7 @@ void ArchHooks_darwin::ExitTimeCriticalSection()
 #endif
 }
 
-bool ArchHooks_darwin::GoToURL( RString sUrl )
+bool ArchHooks_MacOSX::GoToURL( RString sUrl )
 {
 	CFURLRef url = CFURLCreateWithBytes( kCFAllocatorDefault, (const UInt8*)sUrl.data(),
 					     sUrl.length(), kCFStringEncodingUTF8, NULL );
