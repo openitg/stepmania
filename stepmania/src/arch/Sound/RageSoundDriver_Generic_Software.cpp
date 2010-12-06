@@ -8,7 +8,7 @@
 #include "RageSoundMixBuffer.h"
 
 static const int channels = 2;
-static const int bytes_per_frame = channels*2; /* 16-bit */
+static const int bytes_per_frame = channels*2; // 16-bit
 
 /* When a sound has fewer than min_fill_frames buffered, buffer at maximum speed.
  * Once beyond that, fill at a limited rate. */
@@ -16,7 +16,7 @@ static const int min_fill_frames = 1024*4;
 static int frames_to_buffer;
 static int min_streaming_buffer_size = 1024*32;
 
-/* 512 is about 10ms, which is big enough for the tolerance of most schedulers. */
+// 512 is about 10ms, which is big enough for the tolerance of most schedulers.
 static int chunksize() { return 512; }
 
 static int underruns = 0, logged_underruns = 0;
@@ -65,11 +65,11 @@ void RageSound_Generic_Software::Mix( int16_t *buf, int frames, int64_t frameno,
 
 	for( unsigned i = 0; i < ARRAYSIZE(sounds); ++i )
 	{
-		/* s.snd can not safely be accessed from here. */
+		// s.snd can not safely be accessed from here.
 		sound &s = sounds[i];
 		if( s.state == sound::HALTING )
 		{
-			/* This indicates that this stream can be reused. */
+			// This indicates that this stream can be reused.
 			s.paused = false;
 			s.state = sound::STOPPED;
 
@@ -80,17 +80,17 @@ void RageSound_Generic_Software::Mix( int16_t *buf, int frames, int64_t frameno,
 		if( s.state != sound::STOPPING && s.state != sound::PLAYING )
 			continue;
 
-		/* STOPPING or PLAYING.  Read sound data. */
+		// STOPPING or PLAYING.  Read sound data.
 		if( sounds[i].paused )
 			continue;
 
 		int got_frames = 0;
 		int frames_left = frames;
 
-		/* Does the sound have a start time? */
+		// Does the sound have a start time?
 		if( !s.start_time.IsZero() && current_frameno != -1 )
 		{
-			/* If the sound is supposed to start at a time past this buffer, insert silence. */
+			// If the sound is supposed to start at a time past this buffer, insert silence.
 			const int64_t iFramesUntilThisBuffer = frameno - current_frameno;
 			const float fSecondsBeforeStart = -s.start_time.Ago();
 			const int64_t iFramesBeforeStart = int64_t(fSecondsBeforeStart * GetSampleRate(0));
@@ -99,12 +99,12 @@ void RageSound_Generic_Software::Mix( int16_t *buf, int frames, int64_t frameno,
 			got_frames += iSilentFramesInThisBuffer;
 			frames_left -= iSilentFramesInThisBuffer;
 
-			/* If we didn't completely fill the buffer, then we've written all of the silence. */
+			// If we didn't completely fill the buffer, then we've written all of the silence.
 			if( frames_left )
 				s.start_time.SetZero();
 		}
 
-		/* Fill actual data. */
+		// Fill actual data.
 		sound_block *p[2];
 		unsigned pSize[2];
 		s.buffer.get_read_pointers( p, pSize );
@@ -113,22 +113,22 @@ void RageSound_Generic_Software::Mix( int16_t *buf, int frames, int64_t frameno,
 		{
 			if( !p[0]->frames_in_buffer )
 			{
-				/* We've processed all of the sound in this block.  Mark it read. */
+				// We've processed all of the sound in this block.  Mark it read.
 				s.buffer.advance_read_pointer( 1 );
 				++p[0];
 				--pSize[0];
 
-				/* If we have more data in p[0], keep going. */
+				// If we have more data in p[0], keep going.
 				if( pSize[0] )
 					continue; // more data
 
-				/* We've used up p[0].  Try p[1]. */
+				// We've used up p[0].  Try p[1].
 				swap( p[0], p[1] );
 				swap( pSize[0], pSize[1] );
 				continue;
 			}
 
-			/* Note that, until we call advance_read_pointer, we can safely write to p[0]. */
+			// Note that, until we call advance_read_pointer, we can safely write to p[0].
 			const int frames_to_read = min( frames_left, p[0]->frames_in_buffer );
 			mix.SetVolume( s.volume );
 			mix.SetWriteOffset( got_frames*channels );
@@ -147,7 +147,7 @@ void RageSound_Generic_Software::Mix( int16_t *buf, int frames, int64_t frameno,
 			frames_left -= frames_to_read;
 		}
 
-		/* If we don't have enough to fill the buffer, we've underrun. */
+		// If we don't have enough to fill the buffer, we've underrun.
 		if( got_frames < frames && s.state == sound::PLAYING )
 			++underruns;
 	}
@@ -168,7 +168,7 @@ void RageSound_Generic_Software::DecodeThread()
 
 	while( !shutdown_decode_thread )
 	{
-		/* Fill each playing sound, round-robin. */
+		// Fill each playing sound, round-robin.
 		usleep( 1000000*chunksize() / GetSampleRate(0) );
 
 		LockMut( m_Mutex );
@@ -220,7 +220,7 @@ void RageSound_Generic_Software::DecodeThread()
 				int wrote = GetDataForSound( *pSound );
 				if( !wrote )
 				{
-					/* This sound is finishing. */
+					// This sound is finishing.
 					pSound->state = sound::STOPPING;
 					break;
 //					LOG->Trace("mixer: (#%i) eof (%p)", i, pSound->snd );
@@ -241,7 +241,7 @@ int RageSound_Generic_Software::GetDataForSound( sound &s )
 	unsigned psize[2];
 	s.buffer.get_write_pointers( p, psize );
 
-	/* If we have no open buffer slot, we have a buffer overflow. */
+	// If we have no open buffer slot, we have a buffer overflow.
 	ASSERT( psize[0] > 0 );
 
 	sound_block *b = p[0];
@@ -295,7 +295,7 @@ void RageSound_Generic_Software::Update(float delta)
 	static float fNext = 0;
 	if( RageTimer::GetTimeSinceStart() >= fNext )
 	{
-		/* Lockless: only Mix() can write to underruns. */
+		// Lockless: only Mix() can write to underruns.
 		int current_underruns = underruns;
 		if( current_underruns > logged_underruns )
 		{
@@ -312,7 +312,7 @@ void RageSound_Generic_Software::Update(float delta)
 
 void RageSound_Generic_Software::StartMixing( RageSoundBase *snd )
 {
-	/* Lock available sounds[], and reserve a slot. */
+	// Lock available sounds[], and reserve a slot.
 	m_SoundListMutex.Lock();
 
 	unsigned i;
@@ -338,7 +338,7 @@ void RageSound_Generic_Software::StartMixing( RageSoundBase *snd )
 	s.volume = snd->GetAbsoluteVolume();
 	s.buffer.clear();
 
-	/* Initialize the sound buffer. */
+	// Initialize the sound buffer.
 	int BufferSize = frames_to_buffer;
 
 	/* If a sound is streaming from disk, use a bigger buffer, so we don't underrun
@@ -353,7 +353,7 @@ void RageSound_Generic_Software::StartMixing( RageSoundBase *snd )
 
 //	LOG->Trace("StartMixing(%s) (%p)", s.snd->GetLoadedFilePath().c_str(), s.snd );
 
-	/* Prebuffer some frames before changing the sound to PLAYING. */
+	// Prebuffer some frames before changing the sound to PLAYING.
 	bool ReachedEOF = false;
 	int frames_filled = 0;
 	while( !ReachedEOF && frames_filled < min_fill_frames && frames_filled < BufferSize )
@@ -368,7 +368,7 @@ void RageSound_Generic_Software::StartMixing( RageSoundBase *snd )
 		}
 	}
 
-	/* If we hit EOF already, while prebuffering, then go right to STOPPING. */
+	// If we hit EOF already, while prebuffering, then go right to STOPPING.
 	s.state = ReachedEOF? sound::STOPPING: sound::PLAYING;
 
 //	LOG->Trace("StartMixing: (#%i) finished prebuffering(%s) (%p)", i, s.snd->GetLoadedFilePath().c_str(), s.snd );
@@ -376,10 +376,10 @@ void RageSound_Generic_Software::StartMixing( RageSoundBase *snd )
 
 void RageSound_Generic_Software::StopMixing( RageSoundBase *snd )
 {
-	/* Lock, to make sure the decoder thread isn't running on this sound while we do this. */
+	// Lock, to make sure the decoder thread isn't running on this sound while we do this.
 	LockMut( m_Mutex );
 
-	/* Find the sound. */
+	// Find the sound.
 	unsigned i;
 	for( i = 0; i < ARRAYSIZE(sounds); ++i )
 		if( sounds[i].state != sound::AVAILABLE && sounds[i].snd == snd )
@@ -390,7 +390,7 @@ void RageSound_Generic_Software::StopMixing( RageSoundBase *snd )
 		return;
 	}
 
-	/* If we're already in STOPPED, there's nothing to do. */
+	// If we're already in STOPPED, there's nothing to do.
 	if( sounds[i].state == sound::STOPPED )
 	{
 		LOG->Trace( "not stopping a sound because it's already in STOPPED" );
@@ -414,7 +414,7 @@ bool RageSound_Generic_Software::PauseMixing( RageSoundBase *snd, bool bStop )
 {
 	LockMut( m_Mutex );
 
-	/* Find the sound. */
+	// Find the sound.
 	unsigned i;
 	for( i = 0; i < ARRAYSIZE(sounds); ++i )
 		if( sounds[i].state != sound::AVAILABLE && sounds[i].snd == snd )
@@ -461,7 +461,7 @@ RageSound_Generic_Software::RageSound_Generic_Software():
 
 RageSound_Generic_Software::~RageSound_Generic_Software()
 {
-	/* Signal the decoding thread to quit. */
+	// Signal the decoding thread to quit.
 	if( m_DecodeThread.IsCreated() )
 	{
 		shutdown_decode_thread = true;

@@ -123,7 +123,7 @@ void MemoryCardDriverThreaded_Linux::GetUSBStorageDevices( vector<UsbStorageDevi
 			RString sPath = sBlockDevicePath + sDevice + "/";
 			usbd.sSysPath = sPath;
 
-			/* Ignore non-removable devices. */
+			// Ignore non-removable devices.
 			RString sBuf;
 			if( !ReadFile( sPath + "removable", sBuf ) )
 				continue; // already warned
@@ -229,7 +229,7 @@ void MemoryCardDriverThreaded_Linux::GetUSBStorageDevices( vector<UsbStorageDevi
 		{
 			switch( f.GetLine(sLine) )
 			{
-			case 0: continue; /* eof */
+			case 0: continue; // eof
 			case -1:
 				LOG->Warn( "error reading '%s': %s", fn.c_str(), f.GetError().c_str() );
 				return;
@@ -267,7 +267,7 @@ void MemoryCardDriverThreaded_Linux::GetUSBStorageDevices( vector<UsbStorageDevi
 				usbd.sProduct.c_str(), usbd.sSerial.c_str(), usbd.sOsMountDir.c_str() );
 	}
 	
-	/* Remove any devices that we couldn't find a mountpoint for. */
+	// Remove any devices that we couldn't find a mountpoint for.
 	for( unsigned i=0; i<vDevicesOut.size(); i++ )
 	{
 		UsbStorageDevice& usbd = vDevicesOut[i];

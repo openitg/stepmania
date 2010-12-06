@@ -72,7 +72,7 @@ void Dialog::Init()
 
 	g_pImpl = MakeDialogDriver();
 
-	/* DialogDriver_Null should have worked, at least. */
+	// DialogDriver_Null should have worked, at least.
 	ASSERT( g_pImpl != NULL );
 }
 
@@ -96,7 +96,7 @@ static bool MessageIsIgnored( RString sID )
 
 void Dialog::IgnoreMessage( RString sID )
 {
-	/* We can't ignore messages before PREFSMAN is around. */
+	// We can't ignore messages before PREFSMAN is around.
 #if !defined(SMPACKAGE)
 	if( PREFSMAN == NULL )
 	{

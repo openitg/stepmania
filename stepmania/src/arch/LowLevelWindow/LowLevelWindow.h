@@ -1,7 +1,7 @@
 #ifndef LOW_LEVEL_WINDOW_H
 #define LOW_LEVEL_WINDOW_H
 
-/* This handles low-level operations that OGL 1.x doesn't give us. */
+// This handles low-level operations that OGL 1.x doesn't give us.
 
 #include <set>
 

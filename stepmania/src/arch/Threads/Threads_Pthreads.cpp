@@ -29,7 +29,7 @@ void ThreadImpl_Pthreads::Halt( bool Kill )
 
 void ThreadImpl_Pthreads::Resume()
 {
-	/* Linux: Send a SIGCONT to the thread. */
+	// Linux: Send a SIGCONT to the thread.
 	ResumeThread( threadHandle );
 }
 
@@ -67,7 +67,7 @@ static void *StartThread( void *pData )
 	pThis->threadHandle = GetCurrentThreadId();
 	*pThis->m_piThreadID = pThis->threadHandle;
 	
-	/* Tell MakeThread that we've set m_piThreadID, so it's safe to return. */
+	// Tell MakeThread that we've set m_piThreadID, so it's safe to return.
 	pThis->m_StartFinishedSem->Post();
 
 	int iRet = pThis->m_pFunc( pThis->m_pData );
@@ -88,7 +88,7 @@ ThreadImpl *MakeThread( int (*pFunc)(void *pData), void *pData, uint64_t *piThre
 	if( ret )
 		FAIL_M( ssprintf( "MakeThread: pthread_create: %s", strerror(errno)) );
 
-	/* Don't return until StartThread sets m_piThreadID. */
+	// Don't return until StartThread sets m_piThreadID.
 	thread->m_StartFinishedSem->Wait();
 	delete thread->m_StartFinishedSem;
 	
@@ -113,7 +113,7 @@ MutexImpl_Pthreads::~MutexImpl_Pthreads()
 static bool UseTimedlock()
 {
 #if defined(LINUX)
-	/* Valgrind crashes and burns on pthread_mutex_timedlock. */
+	// Valgrind crashes and burns on pthread_mutex_timedlock.
 	if( RunningUnderValgrind() )
 		return false;
 #endif
@@ -127,7 +127,7 @@ bool MutexImpl_Pthreads::Lock()
 #if defined(HAVE_PTHREAD_MUTEX_TIMEDLOCK)
 	if( UseTimedlock() )
 	{
-		int len = 10; /* seconds */
+		int len = 10; // seconds
 		int tries = 2;
 
 		while( tries-- )
@@ -147,7 +147,7 @@ bool MutexImpl_Pthreads::Lock()
 				return true;
 
 			case EINTR:
-				/* Ignore it. */
+				// Ignore it.
 				++tries;
 				continue;
 
@@ -250,7 +250,7 @@ namespace
 					break;
 			}
 
-			/* Make sure that we can set up the clock attribute. */
+			// Make sure that we can set up the clock attribute.
 			pthread_condattr_t condattr;
 			pthread_condattr_init( &condattr );
 
@@ -262,7 +262,7 @@ namespace
 			}
 			pthread_condattr_destroy( &condattr );
 
-			/* Everything seems to work. */
+			// Everything seems to work.
 			return;
 		} while(0);
 
@@ -328,7 +328,7 @@ bool EventImpl_Pthreads::Wait( RageTimer *pTimeout )
 	}
 	else
 	{
-		/* The RageTimer clock is different than the wait clock; convert it. */
+		// The RageTimer clock is different than the wait clock; convert it.
 		timeval tv;
 		gettimeofday( &tv, NULL );
 
@@ -419,7 +419,7 @@ bool SemaImpl_Pthreads::TryWait()
 	return true;
 }
 #else
-/* Use conditions, to work around OSX "forgetting" to implement semaphores. */
+// Use conditions, to work around OSX "forgetting" to implement semaphores.
 SemaImpl_Pthreads::SemaImpl_Pthreads( int iInitialValue )
 {
 	int ret = pthread_cond_init( &m_Cond, NULL );
@@ -453,7 +453,7 @@ bool SemaImpl_Pthreads::Wait()
 		timeval tv;
 		gettimeofday( &tv, NULL );
 
-		/* Wait for ten seconds.  If it takes longer than that, we're probably deadlocked. */
+		// Wait for ten seconds.  If it takes longer than that, we're probably deadlocked.
 		timespec ts;
 		ts.tv_sec = tv.tv_sec + 10;
 		ts.tv_nsec = tv.tv_usec * 1000;
@@ -486,7 +486,7 @@ bool SemaImpl_Pthreads::Wait()
 
 		if( !m_iValue )
 		{
-			/* Timed out. */
+			// Timed out.
 			pthread_mutex_unlock( &m_Mutex );
 			return false;
 		}

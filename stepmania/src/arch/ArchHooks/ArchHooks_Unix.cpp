@@ -38,7 +38,7 @@ static bool DoCleanShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 	if( IsFatalSignal(signal) )
 		return false;
 
-	/* ^C. */
+	// ^C. */
 	ArchHooks::SetUserQuit();
 	return true;
 }
@@ -46,7 +46,7 @@ static bool DoCleanShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 #if defined(CRASH_HANDLER)
 static bool DoCrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
 {
-        /* Don't dump a debug file if the user just hit ^C. */
+        // Don't dump a debug file if the user just hit ^C.
 	if( !IsFatalSignal(signal) )
 		return false;
 
@@ -63,10 +63,10 @@ static bool EmergencyShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 	DoEmergencyShutdown();
 
 #if defined(CRASH_HANDLER)
-	/* If we ran the crash handler, then die. */
+	// If we ran the crash handler, then die.
 	kill( getpid(), SIGKILL );
 #else
-	/* We didn't run the crash handler.  Run the default handler, so we can dump core. */
+	// We didn't run the crash handler.  Run the default handler, so we can dump core.
 	SignalHandler::ResetSignalHandlers();
 	raise( signal );
 #endif
@@ -85,11 +85,11 @@ static int TestTLSThread( void *p )
 static void TestTLS()
 {
 #if defined(LINUX)
-	/* TLS won't work on older threads libraries, and may crash. */
+	// TLS won't work on older threads libraries, and may crash.
 	if( !UsingNPTL() )
 		return;
 #endif
-	/* TLS won't work on older Linux kernels.  Do a simple check. */
+	// TLS won't work on older Linux kernels.  Do a simple check.
 	g_iTestTLS = 1;
 
 	RageThread TestThread;
@@ -116,12 +116,12 @@ namespace
 			return;
 		bInitialized = true;
  
-		/* Check whether the clock is actually supported. */
+		// Check whether the clock is actually supported.
 		timespec ts;
 		if( clock_getres(CLOCK_MONOTONIC, &ts) == -1 )
 			return;
 
-		/* If the resolution is worse than a millisecond, fall back on CLOCK_REALTIME. */
+		// If the resolution is worse than a millisecond, fall back on CLOCK_REALTIME.
 		if( ts.tv_sec > 0 || ts.tv_nsec > 1000000 )
 			return;
 		
@@ -166,7 +166,7 @@ int64_t ArchHooks::GetMicrosecondsSinceStart( bool bAccurate )
 
 ArchHooks_Unix::ArchHooks_Unix()
 {
-	/* First, handle non-fatal termination signals. */
+	// First, handle non-fatal termination signals.
 	SignalHandler::OnClose( DoCleanShutdown );
 
 #if defined(CRASH_HANDLER)
@@ -255,7 +255,7 @@ void ArchHooks::MountInitialFilesystems( const RString &sDirOfExecutable )
 	
 	/* We can almost do this, to have machine profiles be system-global to eg. share
 	 * scores.  It would need to handle permissions properly. */
-/*	RageFileManager::Mount( "dir", "/var/lib/games/stepmania", "/Save/Profiles" ); */
+//	RageFileManager::Mount( "dir", "/var/lib/games/stepmania", "/Save/Profiles" );
 	
 	// RString Home = getenv( "HOME" ) + "/" + PRODUCT_ID;
 
@@ -266,11 +266,11 @@ void ArchHooks::MountInitialFilesystems( const RString &sDirOfExecutable )
 	 * directory on our own, it seems like it should be a dot directory, but it
 	 * seems wrong to put lots of data (eg. music) in one.  Hmm. 
 	 */
-	/* XXX: create */
-/*	RageFileManager::Mount( "dir", Home + "." PRODUCT_ID, "/Data" ); */
+	// XXX: create
+//	RageFileManager::Mount( "dir", Home + "." PRODUCT_ID, "/Data" );
 
-	/* Next, search ~/StepMania.  This is where users can put music, themes, etc. */
-	/* RageFileManager::Mount( "dir", Home + PRODUCT_ID, "/" ); */
+	// Next, search ~/StepMania.  This is where users can put music, themes, etc.
+	// RageFileManager::Mount( "dir", Home + PRODUCT_ID, "/" );
 
 	/* Search for a directory with "Songs" in it.  Be careful: the CWD is likely to
 	 * be ~, and it's possible that some users will have a ~/Songs/ directory that
@@ -286,7 +286,7 @@ void ArchHooks::MountInitialFilesystems( const RString &sDirOfExecutable )
 			
 	FILEMAN->Mount( "dir", Root, "/" );
 #else
-	/* Paths relative to the CWD: */
+	// Paths relative to the CWD:
 	FILEMAN->Mount( "dir", ".", "/" );
 #endif
 }

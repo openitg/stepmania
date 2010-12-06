@@ -1,7 +1,7 @@
 #ifndef THREADS_H
 #define THREADS_H
 
-/* This is the low-level implementation; you probably want RageThreads. */
+// This is the low-level implementation; you probably want RageThreads.
 class RageMutex;
 class RageTimer;
 
@@ -61,7 +61,7 @@ public:
 	virtual bool TryWait() = 0;
 };
 
-/* These functions must be implemented by the thread implementation. */
+// These functions must be implemented by the thread implementation.
 ThreadImpl *MakeThread( int (*fn)(void *), void *data, uint64_t *piThreadID );
 ThreadImpl *MakeThisThread();
 MutexImpl *MakeMutex( RageMutex *pParent );

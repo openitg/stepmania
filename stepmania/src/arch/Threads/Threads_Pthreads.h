@@ -18,7 +18,7 @@ public:
 	 */
 	uint64_t threadHandle;
 
-	/* These are only used during initialization. */
+	// These are only used during initialization.
 	int (*m_pFunc)( void *pData );
 	void *m_pData;
 	uint64_t *m_piThreadID;

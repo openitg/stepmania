@@ -12,8 +12,8 @@ class RageSound_Generic_Software: public RageSoundDriver
 public:
 	virtual void Update(float delta);
 
-	void StartMixing( RageSoundBase *snd );		/* used by RageSound */
-	void StopMixing( RageSoundBase *snd );		/* used by RageSound */
+	void StartMixing( RageSoundBase *snd );		// used by RageSound
+	void StopMixing( RageSoundBase *snd );		// used by RageSound
 	bool PauseMixing( RageSoundBase *snd, bool bStop );
 
 	RageSound_Generic_Software();
@@ -116,7 +116,7 @@ private:
 		float volume;
 		CircBuf<sound_block> buffer;
 
-		/* If true, this sound is in STOPPED and available for use. */
+		// If true, this sound is in STOPPED and available for use.
 
 		bool paused;
 
@@ -124,14 +124,14 @@ private:
 		{
 			AVAILABLE,
 			BUFFERING,
-			STOPPED,	/* idle */
+			STOPPED,	// idle
 
 			/* This state is set by the decoder thread, indicating that the sound has just
 			 * reached EOF.  Once the mixing thread finishes flushing buffer, it'll change
 			 * to the STOPPING_FINISH state. */
 			STOPPING,
 
-			HALTING,	/* stop immediately */
+			HALTING,	// stop immediately
 			PLAYING
 		} state;
 
@@ -140,7 +140,7 @@ private:
 		void Deallocate();
 	};
 
-	/* List of currently playing sounds: XXX no vector */
+	// List of currently playing sounds: XXX no vector
 	sound sounds[32];
 
 	bool shutdown_decode_thread;

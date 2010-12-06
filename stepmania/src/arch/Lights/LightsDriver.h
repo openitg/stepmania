@@ -1,4 +1,4 @@
-/* LightsDriver - Controls lights */
+// LightsDriver - Controls lights
 
 #ifndef LightsDriver_H
 #define LightsDriver_H

@@ -3,7 +3,7 @@
 
 #include "arch/arch_platform.h"
 
-/* InputHandler drivers selector. */
+// InputHandler drivers selector.
 #if defined(HAVE_DIRECTX) && !defined(HAVE_XDK)
 #include "InputHandler_DirectInput.h"
 #endif

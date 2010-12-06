@@ -50,7 +50,7 @@ static bool DoCleanShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 	if( IsFatalSignal(signal) )
 		return false;
 
-	/* ^C. */
+	// ^C.
 	ArchHooks::SetUserQuit();
 	return true;
 }
@@ -58,12 +58,12 @@ static bool DoCleanShutdown( int signal, siginfo_t *si, const ucontext_t *uc )
 #if defined(CRASH_HANDLER)
 static bool DoCrashSignalHandler( int signal, siginfo_t *si, const ucontext_t *uc )
 {
-	/* Don't dump a debug file if the user just hit ^C. */
+	// Don't dump a debug file if the user just hit ^C.
 	if( !IsFatalSignal(signal) )
 		return false;
 
 	CrashHandler::CrashSignalHandler( signal, si, uc );
-	/* not reached */
+	// not reached
 	return true;
 }
 #endif
@@ -77,7 +77,7 @@ static bool DoEmergencyShutdown( int signal, siginfo_t *si, const ucontext_t *us
 
 ArchHooks_MacOSX::ArchHooks_MacOSX()
 {
-	/* First, handle non-fatal termination signals. */
+	// First, handle non-fatal termination signals.
 	SignalHandler::OnClose( DoCleanShutdown );
 	
 #if defined(CRASH_HANDLER)
@@ -229,7 +229,7 @@ void ArchHooks_MacOSX::DumpDebugInfo()
 	OSErr err;
 	long code;
 	
-	/* Get system version */
+	// Get system version
 	err = Gestalt( gestaltSystemVersion, &code );
 	if( err == noErr )
 	{
@@ -242,7 +242,7 @@ void ArchHooks_MacOSX::DumpDebugInfo()
 	else
 		systemVersion = "Unknown system version";
 	
-	/* Get memory */
+	// Get memory
 	long ram;
 	long vRam;
 	
@@ -264,7 +264,7 @@ void ArchHooks_MacOSX::DumpDebugInfo()
 		vRam = 0;
 	}
 	
-	/* Get processor information */
+	// Get processor information
 	RString processor;
 	int numProcessors;	
 	struct host_basic_info info;
@@ -286,7 +286,7 @@ void ArchHooks_MacOSX::DumpDebugInfo()
 		processor = cpu_subtype;
 	}
 	
-	/* Get processor speed */
+	// Get processor speed
 	err = Gestalt( gestaltProcClkSpeed, &code );
 	if( err != noErr )
 		code = 0;
@@ -305,7 +305,7 @@ void ArchHooks_MacOSX::DumpDebugInfo()
 		power = 'M';
 	}
 	
-	/* Send all of the information to the log */
+	// Send all of the information to the log
 	LOG->Info( "Processor: %s (%d)", processor.c_str(), numProcessors );
 	LOG->Info( "Clock speed %.2f %cHz", speed, power );
 	LOG->Info( "%s", systemVersion.c_str());

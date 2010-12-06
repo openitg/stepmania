@@ -7,7 +7,7 @@ class RageSoundDriver
 public:
 	friend class RageSoundManager;
 
-	/* Initialize.  On failure, an error message is returned. */
+	// Initialize.  On failure, an error message is returned.
 	virtual RString Init() { return RString(); }
 
 	/* A RageSound calls this to request to be played.
@@ -36,7 +36,7 @@ public:
 	 * the sound has been completely flushed (so GetPosition is no longer meaningful),
 	 * call RageSoundBase::SoundIsFinishedPlaying(). */
 
-	/* Optional, if needed:  */
+	// Optional, if needed:
 	virtual void Update(float delta) { }
 
 	/* Sound startup latency--delay between Play() being called and actually

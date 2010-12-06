@@ -71,7 +71,7 @@ bool DIDevice::Open()
 		Device->EnumObjects( DIJoystick_EnumDevObjectsProc, this, DIDFT_BUTTON | DIDFT_AXIS | DIDFT_POV);
 		break;
 	case KEYBOARD:
-		/* Always 256-button. */
+		// Always 256-button.
 		for( int b = 0; b < 256; ++b )
 		{
 			input_t in;
@@ -112,7 +112,7 @@ bool DIDevice::Open()
 
 void DIDevice::Close()
 {
-	/* Don't try to close a device that isn't open. */
+	// Don't try to close a device that isn't open.
 	ASSERT( Device != NULL );
 
 	Device->Unacquire();
@@ -131,13 +131,13 @@ static BOOL CALLBACK DIJoystick_EnumDevObjectsProc(LPCDIDEVICEOBJECTINSTANCE dev
 	input_t in;
 	const int SupportedMask = DIDFT_BUTTON | DIDFT_POV | DIDFT_AXIS;
 	if(!(dev->dwType & SupportedMask))
-	    return DIENUM_CONTINUE; /* unsupported */
+	    return DIENUM_CONTINUE; // unsupported
 
 	in.ofs = dev->dwOfs;
 
 	if(dev->dwType & DIDFT_BUTTON) {
 		if( device->buttons == 24 )
-			return DIENUM_CONTINUE; /* too many buttons */
+			return DIENUM_CONTINUE; // too many buttons
 
 		in.type = in.BUTTON;
 		in.num = device->buttons;
@@ -146,7 +146,7 @@ static BOOL CALLBACK DIJoystick_EnumDevObjectsProc(LPCDIDEVICEOBJECTINSTANCE dev
 		in.type = in.HAT;
 		in.num = device->hats;
 		device->hats++;
-	} else { /* dev->dwType & DIDFT_AXIS */
+	} else { // dev->dwType & DIDFT_AXIS
 		DIPROPRANGE diprg;
 		DIPROPDWORD dilong;
 		
@@ -162,9 +162,9 @@ static BOOL CALLBACK DIJoystick_EnumDevObjectsProc(LPCDIDEVICEOBJECTINSTANCE dev
 
 		hr = device->Device->SetProperty( DIPROP_RANGE, &diprg.diph );
 		if ( hr != DI_OK )
-			return DIENUM_CONTINUE; /* don't use this axis */
+			return DIENUM_CONTINUE; // don't use this axis
 	
-		/* Set dead zone to 0. */
+		// Set dead zone to 0.
 		dilong.diph.dwSize		= sizeof(dilong);
 		dilong.diph.dwHeaderSize	= sizeof(dilong.diph);
 		dilong.diph.dwObj		= dev->dwOfs;
@@ -172,7 +172,7 @@ static BOOL CALLBACK DIJoystick_EnumDevObjectsProc(LPCDIDEVICEOBJECTINSTANCE dev
 		dilong.dwData = 0;
 		hr = device->Device->SetProperty( DIPROP_DEADZONE, &dilong.diph );
 		if ( hr != DI_OK )
-			return DIENUM_CONTINUE; /* don't use this axis */
+			return DIENUM_CONTINUE; // don't use this axis
 
 		device->axes++;
 	}

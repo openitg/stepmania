@@ -8,7 +8,7 @@ const int channels = 2;
 
 void RageSound_Null::Update( float fDeltaTime )
 {
-	/* "Play" frames. */
+	// "Play" frames.
 	while( m_iLastCursorPos < GetPosition(NULL)+1024*4 )
 	{
 		int16_t buf[256*channels];

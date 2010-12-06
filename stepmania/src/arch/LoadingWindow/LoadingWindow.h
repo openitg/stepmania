@@ -1,4 +1,4 @@
-/* LoadingWindow - opens and displays the loading banner. */
+// LoadingWindow - opens and displays the loading banner.
 
 #ifndef LOADING_WINDOW_H
 #define LOADING_WINDOW_H

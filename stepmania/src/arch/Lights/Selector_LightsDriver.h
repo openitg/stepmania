@@ -3,7 +3,7 @@
 
 #include "arch/arch_platform.h"
 
-/* LightsDriver selector. */
+// LightsDriver selector.
 #if defined(WINDOWS)
 #include "LightsDriver_Win32Parallel.h"
 #endif

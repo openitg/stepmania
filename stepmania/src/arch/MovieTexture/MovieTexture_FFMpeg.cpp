@@ -115,7 +115,7 @@ static int FindCompatibleAVFormat( bool bHighColor )
 				fmt.masks[1],
 				fmt.masks[2],
 				fmt.masks[3],
-				true /* realtime */
+				true // realtime
 				);
 
 		if( pixfmt == PixelFormat_INVALID )
@@ -182,7 +182,7 @@ private:
 
 	avcodec::AVStream *m_pStream;
 	avcodec::AVFrame m_Frame;
-	avcodec::PixelFormat m_AVTexfmt; /* PixelFormat of output surface */
+	avcodec::PixelFormat m_AVTexfmt; // PixelFormat of output surface
 
 	float m_fPTS;
 	avcodec::AVFormatContext *m_fctx;
@@ -227,7 +227,7 @@ void MovieDecoder_FFMpeg::Init()
 	m_fTimestamp = 0;
 	m_fLastFrameDelay = 0;
 	m_fPTS = -1;
-	m_iFrameNumber = -1; /* decode one frame and you're on the 0th */
+	m_iFrameNumber = -1; // decode one frame and you're on the 0th
 	m_fTimestampOffset = 0;
 
 	if( m_iCurrentPacketOffset != -1 )
@@ -237,7 +237,7 @@ void MovieDecoder_FFMpeg::Init()
 	}
 }
 
-/* Read until we get a frame, EOF or error.  Return -1 on error, 0 on EOF, 1 if we have a frame. */
+// Read until we get a frame, EOF or error.  Return -1 on error, 0 on EOF, 1 if we have a frame.
 int MovieDecoder_FFMpeg::GetFrame( RageSurface *pOut, float fTargetTime )
 {
 	while( 1 )
@@ -248,12 +248,12 @@ int MovieDecoder_FFMpeg::GetFrame( RageSurface *pOut, float fTargetTime )
 		if( ret == -1 )
 			return -1;
 		if( ret == 0 && m_iEOF > 0 )
-			return 0; /* eof */
+			return 0; // eof
 
 		ASSERT( ret == 0 );
 		ret = ReadPacket();
 		if( ret < 0 )
-			return ret; /* error */
+			return ret; // error
 	}
 }
 
@@ -267,7 +267,7 @@ float MovieDecoder_FFMpeg::GetFrameDuration() const
 	return m_fLastFrameDelay;
 }
 
-/* Read a packet.  Return -1 on error, 0 on EOF, 1 on OK. */
+// Read a packet.  Return -1 on error, 0 on EOF, 1 on OK.
 int MovieDecoder_FFMpeg::ReadPacket()
 {
 	if( m_iEOF > 0 )
@@ -283,10 +283,10 @@ int MovieDecoder_FFMpeg::ReadPacket()
 		}
 
 		int ret = avcodec::av_read_frame( m_fctx, &m_Packet );
-		/* XXX: why is avformat returning AVERROR_NOMEM on EOF? */
+		// XXX: why is avformat returning AVERROR_NOMEM on EOF?
 		if( ret < 0 )
 		{
-			/* EOF. */
+			// EOF.
 			m_iEOF = 1;
 			m_Packet.size = 0;
 			
@@ -299,7 +299,7 @@ int MovieDecoder_FFMpeg::ReadPacket()
 			return 1;
 		}
 
-		/* It's not for the video stream; ignore it. */
+		// It's not for the video stream; ignore it.
 		avcodec::av_free_packet( &m_Packet );
 	}
 }
@@ -310,7 +310,7 @@ int MovieDecoder_FFMpeg::ReadPacket()
 int MovieDecoder_FFMpeg::DecodePacket( RageSurface *pOut, float fTargetTime )
 {
 	if( m_iEOF == 0 && m_iCurrentPacketOffset == -1 )
-		return 0; /* no packet */
+		return 0; // no packet
 
 	while( m_iEOF == 1 || (m_iEOF == 0 && m_iCurrentPacketOffset < m_Packet.size) )
 	{
@@ -328,7 +328,7 @@ int MovieDecoder_FFMpeg::DecodePacket( RageSurface *pOut, float fTargetTime )
 		 * packet is normal with B-frames, to flush.  This may be unnecessary in newer
 		 * versions of avcodec, but I'm waiting until a new stable release to upgrade. */
 		if( m_Packet.size == 0 && m_iFrameNumber == -1 )
-			return 0; /* eof */
+			return 0; // eof
 
 		bool bSkipThisFrame = 
 			fTargetTime != -1 &&
@@ -374,7 +374,7 @@ int MovieDecoder_FFMpeg::DecodePacket( RageSurface *pOut, float fTargetTime )
 			m_fTimestamp += m_fLastFrameDelay;
 		}
 
-		/* Length of this frame: */
+		// Length of this frame:
 		m_fLastFrameDelay = (float)m_pStream->codec.frame_rate_base / m_pStream->codec.frame_rate;
 		m_fLastFrameDelay += m_Frame.repeat_pict * (m_fLastFrameDelay * 0.5f);
 
@@ -406,7 +406,7 @@ int MovieDecoder_FFMpeg::DecodePacket( RageSurface *pOut, float fTargetTime )
 		return 1;
 	}
 
-	return 0; /* packet done */
+	return 0; // packet done
 }
 
 void MovieDecoder_FFMpeg::ConvertToSurface( RageSurface *pSurface ) const

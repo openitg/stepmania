@@ -25,7 +25,7 @@ protected:
 #error "More than one ArchHooks selected!"
 #endif
 #define ARCH_HOOKS ArchHooks_MacOSX
-    
+
 #endif /* ARCH_HOOKS_DARWIN_H */
 
 /*

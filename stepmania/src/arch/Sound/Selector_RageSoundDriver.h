@@ -3,7 +3,7 @@
 
 #include "arch/arch_platform.h"
 
-/* RageSoundDriver selector. */
+// RageSoundDriver selector.
 #ifdef HAVE_ALSA
 #include "RageSoundDriver_ALSA9.h"
 #include "RageSoundDriver_ALSA9_Software.h"

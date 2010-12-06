@@ -30,7 +30,7 @@ int64_t ArchHooks::FixupTimeIfLooped( int64_t usecs )
 	static int64_t last = 0;
 	static int64_t offset_us = 0;
 
-	/* The time has wrapped if the last time was very high and the current time is very low. */
+	// The time has wrapped if the last time was very high and the current time is very low.
 	const int64_t i32BitMaxMs = uint64_t(1) << 32;
 	const int64_t i32BitMaxUs = i32BitMaxMs*1000;
 	const int64_t one_day = uint64_t(24*60*60)*1000000;
@@ -49,7 +49,7 @@ int64_t ArchHooks::FixupTimeIfBackwards( int64_t usecs )
 
 	if( usecs < last )
 	{
-		/* The time has moved backwards.  Increase the offset by the amount we moved. */
+		// The time has moved backwards.  Increase the offset by the amount we moved.
 		offset_us += last - usecs;
 	}
 

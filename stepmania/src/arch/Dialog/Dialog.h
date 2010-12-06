@@ -17,7 +17,7 @@ namespace Dialog
 	Result AbortRetryIgnore( RString sMessage, RString sID = "" );
 	Result AbortRetry( RString sMessage, RString sID = "" );
 
-	/* for DialogDrivers */
+	// for DialogDrivers
 	void IgnoreMessage( RString sID );
 };
 

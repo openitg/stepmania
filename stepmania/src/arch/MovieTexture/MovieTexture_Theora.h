@@ -1,4 +1,4 @@
-/* MovieTexture_Theora - Ogg Theora movie renderer. */
+// MovieTexture_Theora - Ogg Theora movie renderer.
 
 #ifndef RAGE_MOVIE_TEXTURE_THEORA_H
 #define RAGE_MOVIE_TEXTURE_THEORA_H

@@ -103,7 +103,7 @@ LoadingWindow *MakeLoadingWindow()
 #if defined(LINUX) && !defined(HAVE_GTK)
 	return new LoadingWindow_Null;
 #endif
-	/* Don't load NULL by default. */
+	// Don't load NULL by default.
 	const RString drivers = "xbox,win32,cocoa,gtk";
 	vector<RString> DriversToTry;
 	split( drivers, ",", DriversToTry, true );
@@ -178,7 +178,7 @@ MemoryCardDriver *MakeMemoryCardDriver()
 static Preference<RString> g_sMovieDrivers( "MovieDrivers", "" ); // "" == default
 #include "MovieTexture/Selector_MovieTexture.h"
 static void DumpAVIDebugInfo( const RString& fn );
-/* Try drivers in order of preference until we find one that works. */
+// Try drivers in order of preference until we find one that works.
 static LocalizedString MOVIE_DRIVERS_EMPTY		( "Arch", "Movie Drivers cannot be empty." );
 static LocalizedString COULDNT_CREATE_MOVIE_DRIVER	( "Arch", "Couldn't create a movie driver." );
 RageMovieTexture *MakeRageMovieTexture( RageTextureID ID )

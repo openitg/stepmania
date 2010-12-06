@@ -1,7 +1,7 @@
 #ifndef SELECTOR_LOW_LEVEL_WINDOW_H
 #define SELECTOR_LOW_LEVEL_WINDOW_H
 
-/* LowLevelWindow selector. */
+// LowLevelWindow selector.
 #if defined(WINDOWS)
 #include "LowLevelWindow_Win32.h"
 #elif defined(HAVE_X11)

@@ -33,7 +33,7 @@ struct UsbStorageDevice
 	RString sSysPath;   // Linux: /sys/block name
 	enum State
 	{
-		/* Empty device.  This is used only by MemoryCardManager. */
+		// Empty device.  This is used only by MemoryCardManager.
 		STATE_NONE,
 
 		/* The card has been detected, but we havn't finished write tests, loading
@@ -46,7 +46,7 @@ struct UsbStorageDevice
 		 * that we don't understand, unformatted, etc. */
 		STATE_ERROR,
 
-		/* The device is ready and usable.  sName is filled in, if available. */
+		// The device is ready and usable.  sName is filled in, if available.
 		STATE_READY,
 
 		NUM_State,
@@ -93,7 +93,7 @@ protected:
 	virtual bool USBStorageDevicesChanged() { return true; }
 	virtual void GetUSBStorageDevices( vector<UsbStorageDevice>& vDevicesOut ) { }
 
-	/* Test the device.  On failure, call pDevice->SetError() appropriately, and return false. */
+	// Test the device.  On failure, call pDevice->SetError() appropriately, and return false.
 	virtual bool TestWrite( UsbStorageDevice* pDevice ) { return true; }
 
 private:

@@ -1,4 +1,4 @@
-/* MovieTexture_FFMpeg - FFMpeg movie renderer. */
+// MovieTexture_FFMpeg - FFMpeg movie renderer.
 
 #ifndef RAGE_MOVIE_TEXTURE_FFMPEG_H
 #define RAGE_MOVIE_TEXTURE_FFMPEG_H

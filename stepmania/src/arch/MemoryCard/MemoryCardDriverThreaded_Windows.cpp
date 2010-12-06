@@ -171,7 +171,7 @@ bool MemoryCardDriverThreaded_Windows::Mount( UsbStorageDevice* pDevice )
 
 void MemoryCardDriverThreaded_Windows::Unmount( UsbStorageDevice* pDevice )
 {
-	/* Try to flush the device before returning.  This requires administrator priviliges. */
+	// Try to flush the device before returning.  This requires administrator priviliges.
 	HANDLE hDevice = CreateFile( pDevice->sDevice, GENERIC_WRITE,
 		FILE_SHARE_READ | FILE_SHARE_WRITE,
 		NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );

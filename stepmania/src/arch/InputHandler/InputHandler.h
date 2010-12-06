@@ -60,7 +60,7 @@ protected:
 	 * If the timestamp is set, it'll be left alone. */
 	void ButtonPressed( DeviceInput di, bool Down );
 
-	/* Call this at the end of polling input. */
+	// Call this at the end of polling input.
 	void UpdateTimer();
 
 private:

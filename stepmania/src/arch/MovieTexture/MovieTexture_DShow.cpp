@@ -1,7 +1,7 @@
 #include "global.h"
 
 #if defined(_MSC_VER)
-/* XXX register thread */
+// XXX register thread
 #pragma comment(lib, "winmm.lib") 
  
 // Link with the DirectShow base class libraries
@@ -15,7 +15,7 @@
 #include "MovieTexture_DShowHelper.h"
 #include "MovieTexture_DShow.h"
 
-/* for TEXTUREMAN->GetTextureColorDepth() */
+// for TEXTUREMAN->GetTextureColorDepth()
 #include "RageTextureManager.h"
 #include "RageUtil.h"
 #include "RageLog.h"
@@ -23,7 +23,7 @@
 #include "RageSurface.h"
 #include "arch/Dialog/Dialog.h"
 
-#include <vfw.h> /* for GetVideoCodecDebugInfo */
+#include <vfw.h> // for GetVideoCodecDebugInfo
 #if defined(_MSC_VER)
 #pragma comment(lib, "vfw32.lib")
 #endif
@@ -47,7 +47,7 @@ static void CheckCodecVersion( RString codec, RString desc )
 {
 	if( !codec.CompareNoCase("DIVX") )
 	{
-		/* "DivX 5.0.5 Codec" */
+		// "DivX 5.0.5 Codec"
 		Regex GetDivXVersion;
 
 		int major, minor, rev;
@@ -58,7 +58,7 @@ static void CheckCodecVersion( RString codec, RString desc )
 			return;
 		}
 
-		/* 5.0.0 through 5.0.4 are old and cause crashes. Warn. */
+		// 5.0.0 through 5.0.4 are old and cause crashes. Warn.
 		if( major == 5 && minor == 0 && rev < 5 )
 		{
 			Dialog::OK(
@@ -84,7 +84,7 @@ static void GetVideoCodecDebugInfo()
 		CHECKPOINT;
 		if( FourCCToString(info.fccHandler) == "ASV1" )
 		{
-			/* Broken. */
+			// Broken.
 			LOG->Info("%i: %s: skipped", i, FourCCToString(info.fccHandler).c_str());
 			continue;
 		}
@@ -212,7 +212,7 @@ void MovieTexture_DShow::CheckFrame()
 
 	CHECKPOINT;
 
-	/* Just in case we were invalidated: */
+	// Just in case we were invalidated:
 	CreateTexture();
 
 	// DirectShow feeds us in BGR8
@@ -250,7 +250,7 @@ void MovieTexture_DShow::CheckFrame()
 
 	CHECKPOINT;
 
-	/* Start the decoding thread again. */
+	// Start the decoding thread again.
 	buffer_finished.Post();
 
 	CHECKPOINT;
@@ -374,7 +374,7 @@ RString MovieTexture_DShow::Create()
 	// Pass us to our TextureRenderer.
 	pCTR->SetRenderTarget(this);
 
-	/* Cap the max texture size to the hardware max. */
+	// Cap the max texture size to the hardware max.
 	actualID.iMaxSize = min( actualID.iMaxSize, DISPLAY->GetMaxTextureSize() );
 
 	// The graph is built, now get the set the output video width and height.
@@ -382,11 +382,11 @@ RString MovieTexture_DShow::Create()
 	m_iSourceWidth  = pCTR->GetVidWidth();
 	m_iSourceHeight = pCTR->GetVidHeight();
 
-	/* image size cannot exceed max size */
+	// image size cannot exceed max size
 	m_iImageWidth = min( m_iSourceWidth, actualID.iMaxSize );
 	m_iImageHeight = min( m_iSourceHeight, actualID.iMaxSize );
 
-	/* Texture dimensions need to be a power of two; jump to the next. */
+	// Texture dimensions need to be a power of two; jump to the next.
 	m_iTextureWidth = power_of_two(m_iImageWidth);
 	m_iTextureHeight = power_of_two(m_iImageHeight);
 
@@ -416,7 +416,7 @@ void MovieTexture_DShow::NewData(const char *data)
 {
 	ASSERT(data);
 	
-	/* Try to lock. */
+	// Try to lock.
 	if( buffer_lock.TryWait() )
 	{
 		/* The main thread is doing something uncommon, such as pausing.
@@ -499,7 +499,7 @@ void MovieTexture_DShow::Pause()
 	m_pGB.QueryInterface(&pMC);
 
 	HRESULT hr;
-	/* Use Pause(), so we'll get a still frame in CTextureRenderer::OnReceiveFirstSample. */
+	// Use Pause(), so we'll get a still frame in CTextureRenderer::OnReceiveFirstSample.
 	if( FAILED(hr = pMC->Pause()) )
 		RageException::Throw( hr_ssprintf(hr, "Could not pause the DirectShow graph.") );
 

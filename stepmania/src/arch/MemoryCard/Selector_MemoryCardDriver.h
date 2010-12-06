@@ -1,7 +1,7 @@
 #ifndef SELECTOR_MEMORY_CARD_DRIVER_H
 #define SELECTOR_MEMORY_CARD_DRIVER_H
 
-/* MemoryCardDriver selector. */
+// MemoryCardDriver selector.
 #if defined(LINUX)
 # include "MemoryCardDriverThreaded_Linux.h"
 #elif defined(WINDOWS)

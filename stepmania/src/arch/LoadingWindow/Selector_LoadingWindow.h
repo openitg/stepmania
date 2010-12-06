@@ -3,7 +3,7 @@
 
 #include "arch/arch_platform.h"
 
-/* LoadingWindow driver selector. */
+// LoadingWindow driver selector.
 #include "LoadingWindow_Null.h"
 
 #if defined(MACOSX)

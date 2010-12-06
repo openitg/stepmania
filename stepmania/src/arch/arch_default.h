@@ -8,7 +8,7 @@
  * they are available. (For example, if we're using X11, we don't want
  * InputHandler_SDL to be used.) */
 
-/* InputHandler drivers */
+// InputHandler drivers
 #if defined (HAVE_XDK)
  #define DEFAULT_INPUT_DRIVER_LIST "Xbox"
 #elif defined(HAVE_DIRECTX)
@@ -25,10 +25,10 @@
  #define DEFAULT_INPUT_DRIVER_LIST "Null"
 #endif
 
-/* MovieTexture drivers */
+// MovieTexture drivers
 #define DEFAULT_MOVIE_DRIVER_LIST "Theora,FFMpeg,DShow,Null"
 
-/* RageSoundDrivers */
+// RageSoundDrivers
 #define DEFAULT_SOUND_DRIVER_LIST "ALSA,ALSA-sw,DirectSound-sw,AudioUnit,OSS,WaveOut,Null"
 // Disable DirectSound since -SW is more compatible and we don't need low-latency without keysounds
 //#define DEFAULT_SOUND_DRIVER_LIST "ALSA,DirectSound,ALSA-sw,DirectSound-sw,CoreAudio,OSS,WaveOut,Null"

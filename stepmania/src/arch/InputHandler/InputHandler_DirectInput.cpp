@@ -13,7 +13,7 @@
 
 static vector<DIDevice> Devices;
 
-/* Number of joysticks found: */
+// Number of joysticks found:
 static int g_iNumJoysticks;
 
 static BOOL CALLBACK EnumDevicesCallback( const DIDEVICEINSTANCE *pdidInstance, void *pContext )
@@ -174,7 +174,7 @@ InputHandler_DInput::~InputHandler_DInput()
 
 void InputHandler_DInput::WindowReset()
 {
-	/* We need to reopen keyboards. */
+	// We need to reopen keyboards.
 	ShutdownThread();
 
 	for( unsigned i = 0; i < Devices.size(); ++i )
@@ -184,12 +184,12 @@ void InputHandler_DInput::WindowReset()
 
 		Devices[i].Close();
 
-		/* We lose buffered inputs here, so we need to clear all pressed keys. */
+		// We lose buffered inputs here, so we need to clear all pressed keys.
 		INPUTFILTER->ResetDevice( Devices[i].dev );
 
 		bool ret = Devices[i].Open();
 
-		/* Reopening it should succeed. */
+		// Reopening it should succeed.
 		ASSERT( ret );
 	}
 
@@ -218,13 +218,13 @@ static int TranslatePOV(DWORD value)
 	if( LOWORD(value) == 0xFFFF )
 	    return 0;
 
-	/* Round the value up: */
+	// Round the value up:
 	value += 4500 / 2;
 	value %= 36000;
 	value /= 4500;
 
 	if( value >= 8 )
-	    return 0; /* shouldn't happen */
+	    return 0; // shouldn't happen
 	
 	return HAT_VALS[value];
 }
@@ -284,7 +284,7 @@ void InputHandler_DInput::UpdatePolled( DIDevice &device, const RageTimer &tm )
 			if( hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED )
 				return;
 
-			/* Set each known axis, button and POV. */
+			// Set each known axis, button and POV.
 			for( unsigned i = 0; i < device.Inputs.size(); ++i )
 			{
 				const input_t &in = device.Inputs[i];
@@ -385,7 +385,7 @@ void InputHandler_DInput::UpdateBuffered( DIDevice &device, const RageTimer &tm 
 
 	if( GetForegroundWindow() != GraphicsWindow::GetHwnd() )
 	{
-		/* Discard input when not focused, and release all keys. */
+		// Discard input when not focused, and release all keys.
 		INPUTFILTER->ResetDevice( device.dev );
 		return;
 	}
@@ -501,7 +501,7 @@ void InputHandler_DInput::PollAndAcquireDevices( bool bBuffered )
 
 void InputHandler_DInput::Update()
 {
-	/* Handle polled devices.  Handle buffered, too, if there's no input thread to do it. */
+	// Handle polled devices.  Handle buffered, too, if there's no input thread to do it.
 	PollAndAcquireDevices( false );
 	if( !m_InputThread.IsCreated() )
 		PollAndAcquireDevices( true );
@@ -514,7 +514,7 @@ void InputHandler_DInput::Update()
 		}
 		else if( !m_InputThread.IsCreated() )
 		{
-			/* If we have an input thread, it'll handle buffered devices. */
+			// If we have an input thread, it'll handle buffered devices.
 			UpdateBuffered( Devices[i], RageZeroTimer );
 		}
 	}
@@ -578,7 +578,7 @@ void InputHandler_DInput::InputThreadMain()
 	if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST))
 		LOG->Warn(werr_ssprintf(GetLastError(), "Failed to set DirectInput thread priority"));
 
-	/* Enable priority boosting. */
+	// Enable priority boosting.
 	SetThreadPriorityBoost( GetCurrentThread(), FALSE );
 
 	vector<DIDevice*> BufferedDevices;
@@ -602,7 +602,7 @@ void InputHandler_DInput::InputThreadMain()
 		CHECKPOINT;
 		if( BufferedDevices.size() )
 		{
-			/* Update buffered devices. */
+			// Update buffered devices.
 			PollAndAcquireDevices( true );
 
 			int ret = WaitForSingleObjectEx( Handle, 50, true );
@@ -620,7 +620,7 @@ void InputHandler_DInput::InputThreadMain()
 		}
 		CHECKPOINT;
 
-		/* If we have no buffered devices, we didn't delay at WaitForMultipleObjectsEx. */
+		// If we have no buffered devices, we didn't delay at WaitForMultipleObjectsEx.
 		if( BufferedDevices.size() == 0 )
 			usleep( 50000 );
 		CHECKPOINT;

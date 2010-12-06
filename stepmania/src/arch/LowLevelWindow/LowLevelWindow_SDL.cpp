@@ -72,18 +72,18 @@ RString LowLevelWindow_SDL::TryVideoMode( const VideoModeParams &p, bool &bNewDe
 	{
 		const RString err = mySDL_GetError();
 
-		/* Check for a confusing SDL error message. */
+		// Check for a confusing SDL error message.
 		if( !err.CompareNoCase( "X11 driver not configured with OpenGL" ) )
 			RageException::Throw( "Your installation of SDL was not compiled with OpenGL enabled." );
 		RageException::Throw( "SDL_INIT_VIDEO failed: %s", err.c_str() );
 	}
 	
-	/* Put them back. */
+	// Put them back.
 	for( int i = 0; i < SDL_NUMEVENTS; ++i)
 		mySDL_EventState((Uint8) i, EventEnabled[i]);
 	mySDL_PushEvents(events);
 
-	/* Set SDL window title, icon and cursor -before- creating the window */
+	// Set SDL window title, icon and cursor -before- creating the window
 	SDL_WM_SetCaption( p.sWindowTitle, "");
 	mySDL_WM_SetIcon( p.sIconFile );
 	SDL_ShowCursor( p.windowed ? SDL_ENABLE : SDL_DISABLE );
@@ -140,7 +140,7 @@ RString LowLevelWindow_SDL::TryVideoMode( const VideoModeParams &p, bool &bNewDe
 	}
 
 	{
-		/* Find out what we really got. */
+		// Find out what we really got.
 		int r,g,b,a, colorbits, depth, stencil;
 		
 		SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &r);
@@ -164,7 +164,7 @@ void LowLevelWindow_SDL::SwapBuffers()
 
 void LowLevelWindow_SDL::Update()
 {
-	/* This needs to be called before anything that handles SDL events. */
+	// This needs to be called before anything that handles SDL events.
 	SDL_PumpEvents();
 
 	SDL_Event event;
@@ -176,11 +176,11 @@ void LowLevelWindow_SDL::Update()
 			CurrentParams.width = event.resize.w;
 			CurrentParams.height = event.resize.h;
 
-			/* Let DISPLAY know that our resolution has changed. */
+			// Let DISPLAY know that our resolution has changed.
 			DISPLAY->ResolutionChanged();
 			break;
 		case SDL_ACTIVEEVENT:
-			/* We don't care about mouse focus. */
+			// We don't care about mouse focus.
 			if(event.active.state == SDL_APPMOUSEFOCUS)
 				break;
 

@@ -5,11 +5,11 @@
 #include "RageLog.h"
 #include "RageSurface.h"
 #include "RageUtil.h"
-#include "MovieTexture_FFMpeg.h" /* for AVCodecCreateCompatibleSurface */
+#include "MovieTexture_FFMpeg.h" // for AVCodecCreateCompatibleSurface
 
 namespace avcodec
 {
-#include <ffmpeg/avcodec.h> /* for avcodec::img_convert */
+#include <ffmpeg/avcodec.h> // for avcodec::img_convert
 };
 
 // #define HAVE_THEORAEXP
@@ -57,8 +57,8 @@ private:
 
 	ogg_int64_t m_iGranulepos;
 
-	avcodec::PixelFormat m_InputPixFmt; /* PixelFormat of YUV input surface */
-	avcodec::PixelFormat m_OutputPixFmt; /* PixelFormat of RGB output surface */
+	avcodec::PixelFormat m_InputPixFmt; // PixelFormat of YUV input surface
+	avcodec::PixelFormat m_OutputPixFmt; // PixelFormat of RGB output surface
 };
 
 MovieDecoder_Theora::MovieDecoder_Theora()
@@ -150,13 +150,13 @@ RString MovieDecoder_Theora::ProcessHeaders()
 				continue;
 			}
 
-			/* We've found the Theora stream. */ 
+			// We've found the Theora stream.
 			iTheoraPacketsProcessed++;
 		}
 		else
 			ogg_stream_pagein( &m_OggStream, &OggPage );
 
-		/* Look for more headers in this page. */
+		// Look for more headers in this page.
 		while(1)
 		{
 			ogg_packet op;
@@ -249,7 +249,7 @@ int MovieDecoder_Theora::GetFrame( RageSurface *pOut, float fTargetTime )
 			return 1;
 		}
 
-		/* Read more data. */
+		// Read more data.
 		ogg_page OggPage;
 		RString sError;
 		int ret = ReadPage( &OggPage, sError, false );
@@ -275,7 +275,7 @@ void MovieDecoder_Theora::ConvertToSurface( RageSurface *pSurface ) const
 	yuv_buffer yuv;
 	theora_decode_YUVout( (theora_state *) &m_TheoraState, &yuv );
 
-	/* XXX: non-zero offset untested */
+	// XXX: non-zero offset untested
 	int iUVOffsetX = m_TheoraInfo.offset_x;
 	int iUVOffsetY = m_TheoraInfo.offset_y;
 	if( m_InputPixFmt == avcodec::PIX_FMT_YUV420P || avcodec::PIX_FMT_YUV422P )
@@ -373,10 +373,10 @@ private:
 
 	ogg_int64_t m_iGranulepos;
 
-	avcodec::PixelFormat m_InputPixFmt; /* PixelFormat of YUV input surface */
-	avcodec::PixelFormat m_OutputPixFmt; /* PixelFormat of RGB output surface */
+	avcodec::PixelFormat m_InputPixFmt; // PixelFormat of YUV input surface
+	avcodec::PixelFormat m_OutputPixFmt; // PixelFormat of RGB output surface
 
-	/* This is only set during GetFrame, for DecodeStripe. */
+	// This is only set during GetFrame, for DecodeStripe.
 	RageSurface *m_pSurface;
 };
 
@@ -469,13 +469,13 @@ RString MovieDecoder_Theora::ProcessHeaders( theora_setup_info **pTheoraSetupInf
 				continue;
 			}
 
-			/* We've found the Theora stream. */ 
+			// We've found the Theora stream.
 			iTheoraPacketsProcessed++;
 		}
 		else
 			ogg_stream_pagein( &m_OggStream, &OggPage );
 
-		/* Look for more headers in this page. */
+		// Look for more headers in this page.
 		while(1)
 		{
 			ogg_packet op;
@@ -586,7 +586,7 @@ int MovieDecoder_Theora::GetFrame( RageSurface *pOut, float fTargetTime )
 			return 1;
 		}
 
-		/* Read more data. */
+		// Read more data.
 		ogg_page OggPage;
 		RString sError;
 		int ret = ReadPage( &OggPage, sError, false );
@@ -617,10 +617,10 @@ void MovieDecoder_Theora::DecodeStripe( theora_ycbcr_buffer yuv, int yfrag0, int
 	yfrag0 *= 8;
 	yfrag_end *= 8;
 
-	/* If m_pSurface is NULL, we're skipping this frame. */
+	// If m_pSurface is NULL, we're skipping this frame.
 	if( m_pSurface != NULL )
 	{
-		/* XXX: non-zero offset untested */
+		// XXX: non-zero offset untested
 		int iYOffsetY = m_TheoraInfo.pic_y;
 		int iUVOffsetX = m_TheoraInfo.pic_x;
 		int iUVOffsetY = m_TheoraInfo.pic_y;
@@ -655,7 +655,7 @@ void MovieDecoder_Theora::DecodeStripe( theora_ycbcr_buffer yuv, int yfrag0, int
 	}
 
 	{
-		/* yfrag0 = 0 ... frame_height-1 */
+		// yfrag0 = 0 ... frame_height-1
 		int iHalf = m_TheoraInfo.frame_height / 2;
 		if( yfrag0 < iHalf && yfrag_end+1 >= iHalf )
 		{

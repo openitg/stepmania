@@ -32,7 +32,7 @@ bool MemoryCardDriver::NeedUpdate( bool bMount )
 {
 	if( bMount )
 	{
-		/* Check if any devices need a write test. */
+		// Check if any devices need a write test.
 		for( unsigned i=0; i<m_vDevicesLastSeen.size(); i++ )
 		{
 			const UsbStorageDevice &d = m_vDevicesLastSeen[i];
@@ -78,7 +78,7 @@ bool MemoryCardDriver::DoOneUpdate( bool bMount, vector<UsbStorageDevice>& vStor
 			continue;
 		}
 
-		/* Preserve the state of the device, and any data loaded from previous checks. */
+		// Preserve the state of the device, and any data loaded from previous checks.
 		d.m_State = iter->m_State;
 		d.bIsNameAvailable = iter->bIsNameAvailable;
 		d.sName = iter->sName;
@@ -89,7 +89,7 @@ bool MemoryCardDriver::DoOneUpdate( bool bMount, vector<UsbStorageDevice>& vStor
 		{
 			if( !bMount )
 			{
-				/* We can't check it now.  Keep STATE_CHECKING, and check it when we can. */
+				// We can't check it now.  Keep STATE_CHECKING, and check it when we can.
 				d.m_State = UsbStorageDevice::STATE_CHECKING;
 				continue;
 			}

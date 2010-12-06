@@ -68,7 +68,7 @@ static BOOL CALLBACK OKWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		{
 		case IDOK:
 			g_bHush = !!IsDlgButtonChecked( hWnd, IDC_HUSH );
-			/* fall through */
+			// fall through
 		case IDCANCEL:
 			EndDialog( hWnd, 0 );
 			break;
@@ -177,7 +177,7 @@ static BOOL CALLBACK ErrorWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 			break;
 		case IDC_BUTTON_RESTART:
 			Win32RestartProgram();
-			/* not reached */
+			// not reached
 			ASSERT( 0 );
 			EndDialog( hWnd, 0 );
 			break;

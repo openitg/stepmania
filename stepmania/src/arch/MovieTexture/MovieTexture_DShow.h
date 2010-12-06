@@ -1,14 +1,14 @@
-/* MovieTexture_DShow - DirectShow movie renderer. */
+// MovieTexture_DShow - DirectShow movie renderer.
 
 #ifndef RAGE_MOVIE_TEXTURE_DSHOW_H
 #define RAGE_MOVIE_TEXTURE_DSHOW_H
 
 #include "MovieTexture.h"
 
-/* Don't know why we need this for the headers ... */
+// Don't know why we need this for the headers ...
 typedef char TCHAR, *PTCHAR;
 
-/* Prevent these from using Dbg stuff, which we don't link in. */
+// Prevent these from using Dbg stuff, which we don't link in.
 #ifdef DEBUG
 #undef DEBUG
 #undef _DEBUG
@@ -36,7 +36,7 @@ public:
 	virtual ~MovieTexture_DShow();
 	RString Init();
 
-	/* only called by RageTextureManager::InvalidateTextures */
+	// only called by RageTextureManager::InvalidateTextures
 	void Invalidate() { m_uTexHandle = 0; }
 	void Update( float fDeltaTime );
 

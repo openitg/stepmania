@@ -22,7 +22,7 @@ MovieTexture_Generic::MovieTexture_Generic( RageTextureID ID, MovieDecoder *pDec
 
 	m_uTexHandle = 0;
 	m_bLoop = true;
-	m_State = DECODER_QUIT; /* it's quit until we call StartThread */
+	m_State = DECODER_QUIT; // it's quit until we call StartThread
 	m_pSurface = NULL;
 	m_ImageWaiting = FRAME_NONE;
 	m_fRate = 1;
@@ -41,13 +41,13 @@ RString MovieTexture_Generic::Init()
 	CreateTexture();
 	CreateFrameRects();
 
-	/* Decode one frame, to guarantee that the texture is drawn when this function returns. */
+	// Decode one frame, to guarantee that the texture is drawn when this function returns.
 	int ret = m_pDecoder->GetFrame( m_pSurface, -1 );
 	if( ret == -1 )
 		return ssprintf( "%s: error getting first frame", GetID().filename.c_str() );
 	if( ret == 0 )
 	{
-		/* There's nothing there. */
+		// There's nothing there.
 		return ssprintf( "%s: EOF getting first frame", GetID().filename.c_str() );
 	}
 
@@ -101,19 +101,19 @@ void MovieTexture_Generic::CreateTexture()
 	m_iSourceWidth  = m_pDecoder->GetWidth();
 	m_iSourceHeight = m_pDecoder->GetHeight();
 
-	/* Adjust m_iSourceWidth to support different source aspect ratios. */
+	// Adjust m_iSourceWidth to support different source aspect ratios.
 	float fSourceAspectRatio = m_pDecoder->GetSourceAspectRatio();
 	if( fSourceAspectRatio < 1 )
 		m_iSourceHeight = lrintf( m_iSourceHeight / fSourceAspectRatio );
 	else if( fSourceAspectRatio > 1 )
 		m_iSourceWidth = lrintf( m_iSourceWidth * fSourceAspectRatio );
 
-	/* Cap the max texture size to the hardware max. */
+	// Cap the max texture size to the hardware max.
 	int iMaxSize = min( GetID().iMaxSize, DISPLAY->GetMaxTextureSize() );
 	m_iImageWidth = min( m_iSourceWidth, iMaxSize );
 	m_iImageHeight = min( m_iSourceHeight, iMaxSize );
 
-	/* Texture dimensions need to be a power of two; jump to the next. */
+	// Texture dimensions need to be a power of two; jump to the next.
 	m_iTextureWidth = power_of_two( m_iImageWidth );
 	m_iTextureHeight = power_of_two( m_iImageHeight );
 
@@ -185,7 +185,7 @@ bool MovieTexture_Generic::DecodeFrame()
 			 * so it has a proper delay. */
 			float fDelay = m_pDecoder->GetFrameDuration();
 
-			/* Restart. */
+			// Restart.
 			m_pDecoder->Close();
 			RString sError = m_pDecoder->Open( GetID().filename );
 			if( sError != "" )
@@ -196,7 +196,7 @@ bool MovieTexture_Generic::DecodeFrame()
 
 		CHECKPOINT;
 
-		/* Read a frame. */
+		// Read a frame.
 		float fTargetTime = -1;
 		if( m_bFrameSkipMode && m_fClock > m_pDecoder->GetTimestamp() )
 			fTargetTime = m_fClock;
@@ -206,11 +206,11 @@ bool MovieTexture_Generic::DecodeFrame()
 			return false;
 
 		if( m_bWantRewind && m_pDecoder->GetTimestamp() == 0 )
-			m_bWantRewind = false; /* ignore */
+			m_bWantRewind = false; // ignore
 
 		if( ret == 0 )
 		{
-			/* EOF. */
+			// EOF.
 			if( !m_bLoop )
 				return false;
 
@@ -219,7 +219,7 @@ bool MovieTexture_Generic::DecodeFrame()
 			continue;
 		}
 
-		/* We got a frame. */
+		// We got a frame.
 		m_ImageWaiting = FRAME_DECODED;
 	} while( m_bWantRewind );
 
@@ -241,12 +241,12 @@ float MovieTexture_Generic::CheckFrameTime()
 
 	const float fOffset = (m_pDecoder->GetTimestamp() - m_fClock) / m_fRate;
 
-	/* If we're ahead, we're decoding too fast; delay. */
+	// If we're ahead, we're decoding too fast; delay.
 	if( fOffset > 0.00001f )
 	{
 		if( m_bFrameSkipMode )
 		{
-			/* We're caught up; stop skipping frames. */
+			// We're caught up; stop skipping frames.
 			LOG->Trace( "stopped skipping frames" );
 			m_bFrameSkipMode = false;
 		}
@@ -305,7 +305,7 @@ void MovieTexture_Generic::DecoderThread()
 		if( m_ImageWaiting == FRAME_NONE )
 			DecodeFrame();
 
-		/* If we still have no frame, we're at EOF and we didn't loop. */
+		// If we still have no frame, we're at EOF and we didn't loop.
 		if( m_ImageWaiting != FRAME_DECODED )
 		{
 			usleep( 10000 );
@@ -336,7 +336,7 @@ void MovieTexture_Generic::DecoderThread()
 			 * return for a while. */
 			m_BufferFinished.Wait( false );
 
-			/* If the frame wasn't used, then we must be shutting down. */
+			// If the frame wasn't used, then we must be shutting down.
 			ASSERT_M( m_ImageWaiting == FRAME_NONE || m_State == DECODER_QUIT, ssprintf("%i, %i", m_ImageWaiting, m_State) );
 		}
 	}
@@ -353,11 +353,11 @@ void MovieTexture_Generic::Update(float fDeltaTime)
 	{
 		if( !m_bThreaded )
 		{
-			/* If we don't have a frame decoded, decode one. */
+			// If we don't have a frame decoded, decode one.
 			if( m_ImageWaiting == FRAME_NONE )
 				DecodeFrame();
 
-			/* If we have a frame decoded, see if it's time to display it. */
+			// If we have a frame decoded, see if it's time to display it.
 			if( m_ImageWaiting == FRAME_DECODED )
 			{
 				float fTime = CheckFrameTime();
@@ -390,7 +390,7 @@ void MovieTexture_Generic::UpdateFrame()
 {
 	ASSERT_M( m_ImageWaiting == FRAME_WAITING, ssprintf("%i", m_ImageWaiting) );
 
-	/* Just in case we were invalidated: */
+	// Just in case we were invalidated:
 	CreateTexture();
 
 	CHECKPOINT;
@@ -427,7 +427,7 @@ void MovieTexture_Generic::StopThread()
 
 	m_State = DECODER_QUIT;
 
-	/* Make sure we don't deadlock waiting for m_BufferFinished. */
+	// Make sure we don't deadlock waiting for m_BufferFinished.
 	m_BufferFinished.Post();
 	CHECKPOINT;
 	m_DecoderThread.Wait();
@@ -435,7 +435,7 @@ void MovieTexture_Generic::StopThread()
 	
 	m_ImageWaiting = FRAME_NONE;
 
-	/* Clear the above post, if the thread didn't. */
+	// Clear the above post, if the thread didn't.
 	m_BufferFinished.TryWait();
 
 	LOG->Trace("Decoder thread shut down.");
@@ -458,7 +458,7 @@ void MovieTexture_Generic::SetPosition( float fSeconds )
 	m_bWantRewind = true;
 }
 
-/* This is used to decode data. */
+// This is used to decode data.
 void MovieTexture_Generic::DecodeSeconds( float fSeconds )
 {
 	m_fClock += fSeconds * m_fRate;

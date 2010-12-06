@@ -13,7 +13,7 @@
 #define SUPPORT_OPENGL
 #endif
 
-/* Include this file if you need to create an instance of a driver object.  */
+// Include this file if you need to create an instance of a driver object.
 class ArchHooks;
 ArchHooks *MakeArchHooks();
 

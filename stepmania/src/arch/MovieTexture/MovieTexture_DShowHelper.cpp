@@ -87,7 +87,7 @@ HRESULT CTextureRenderer::DoRenderSample( IMediaSample * pSample )
 
 void CTextureRenderer::OnReceiveFirstSample( IMediaSample * pSample )
 {
-	/* If the main thread is in MovieTexture_DShow::Create, kick: */
+	// If the main thread is in MovieTexture_DShow::Create, kick:
 	if( m_OneFrameDecoded.GetValue() == 0 )
 		m_OneFrameDecoded.Post();
 

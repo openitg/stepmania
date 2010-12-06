@@ -32,7 +32,7 @@ public:
 	virtual int GetWidth() const  = 0;
 	virtual int GetHeight() const  = 0;
 
-	/* Return the aspect ratio of a pixel in the image.  Usually 1. */
+	// Return the aspect ratio of a pixel in the image.  Usually 1.
 	virtual float GetSourceAspectRatio() const { return 1.0f; }
 
 	/* Create a surface acceptable to pass to GetFrame.  This should be
@@ -50,7 +50,7 @@ public:
 	 * displayed.  The first frame will always be 0. */
 	virtual float GetTimestamp() const = 0;
 
-	/* Get the duration, in seconds, to display the current frame. */
+	// Get the duration, in seconds, to display the current frame.
 	virtual float GetFrameDuration() const = 0;
 };
 
@@ -62,7 +62,7 @@ public:
 	virtual ~MovieTexture_Generic();
 	RString Init();
 
-	/* only called by RageTextureManager::InvalidateTextures */
+	// only called by RageTextureManager::InvalidateTextures
 	void Invalidate() { m_uTexHandle = 0; }
 	void Update( float fDeltaTime );
 
@@ -79,9 +79,9 @@ private:
 
 	float m_fRate;
 	enum {
-		FRAME_NONE, /* no frame available; call GetFrame to get one */
-		FRAME_DECODED, /* frame decoded; waiting until it's time to display it */
-		FRAME_WAITING /* frame waiting to be uploaded */
+		FRAME_NONE, // no frame available; call GetFrame to get one
+		FRAME_DECODED, // frame decoded; waiting until it's time to display it
+		FRAME_WAITING // frame waiting to be uploaded
 	} m_ImageWaiting;
 	bool m_bLoop;
 	bool m_bWantRewind;
@@ -106,7 +106,7 @@ private:
 
 	RageSemaphore m_BufferFinished;
 
-	/* The time the movie is actually at: */
+	// The time the movie is actually at:
 	float m_fClock;
 	bool m_bFrameSkipMode;
 

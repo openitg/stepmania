@@ -241,7 +241,7 @@ int64_t RageSoundDriver_AU::GetPosition( const RageSoundBase *sound ) const
 
 void RageSoundDriver_AU::SetupDecodingThread()
 {
-	/* Increase the scheduling precedence of the decoder thread. */
+	// Increase the scheduling precedence of the decoder thread.
 	SetThreadPrecedence( 0.75f );
 }
 
