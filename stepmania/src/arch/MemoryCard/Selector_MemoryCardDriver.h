@@ -7,7 +7,7 @@
 #elif defined(WINDOWS)
 # include "MemoryCardDriverThreaded_Windows.h"
 #elif defined(MACOSX)
-# include "MemoryCardDriverThreaded_OSX.h"
+# include "MemoryCardDriverThreaded_MacOSX.h"
 #endif
 
 #endif

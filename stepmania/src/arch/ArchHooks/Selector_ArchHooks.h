@@ -5,7 +5,7 @@
 
 /* ArchHooks driver selector. */
 #if defined(MACOSX)
-#include "ArchHooks_darwin.h"
+#include "ArchHooks_MacOSX.h"
 
 #elif defined(UNIX)
 #include "ArchHooks_Unix.h"

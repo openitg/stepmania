@@ -1,5 +1,5 @@
 #include "global.h"
-#include "ArchHooks_darwin.h"
+#include "ArchHooks_MacOSX.h"
 #include "RageLog.h"
 #include "RageThreads.h"
 #include "RageTimer.h"
