@@ -455,7 +455,7 @@ void ArchHooks::MountInitialFilesystems( const RString &sDirOfExecutable )
 	
 	// /Desktop -> ~/Desktop
 	PathForFolderType( dir, kDesktopFolderType );
-	FILEMAN->Mount( "dir", ssprintf("%s/", dir), "/Desktop");
+	FILEMAN->Mount( "dir", dir, "/Desktop");
 	
 	// /Screenshots -> ~/Pictures/PRODUCT_ID Screenshots
 	PathForFolderType( dir, kPictureDocumentsFolderType );
