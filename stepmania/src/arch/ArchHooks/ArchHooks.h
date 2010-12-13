@@ -33,7 +33,7 @@ public:
 	 * If this is a second instance, return true.  Optionally, give focus to the existing
 	 * window.
 	 */
-	virtual bool CheckForMultipleInstances() { return false; }
+	virtual bool CheckForMultipleInstances(int argc, char* argv[]) { return false; }
 
 	/*
 	 * Call this to temporarily enter a high-priority or realtime scheduling (depending

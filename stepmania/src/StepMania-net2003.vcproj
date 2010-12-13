@@ -31,6 +31,7 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="global.h"
 				PrecompiledHeaderFile="$(IntDir)/StepMania.pch"
 				AssemblerListingLocation=".\../Debug/"
 				ObjectFile=".\../Debug/"
@@ -204,7 +205,7 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386 &quot;$(intdir)\verstub.obj&quot;"
-				OutputFile="../Program/StepMania-debug.exe"
+				OutputFile="C:\Program Files\StepMania4/Program/StepMania-debug.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories=""
@@ -361,6 +362,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			</File>
 			<File
 				RelativePath="ScreenHowToPlay.h">
+			</File>
+			<File
+				RelativePath=".\ScreenInstallOverlay.cpp">
+			</File>
+			<File
+				RelativePath=".\ScreenInstallOverlay.h">
 			</File>
 			<File
 				RelativePath="ScreenInstructions.cpp">
@@ -1000,6 +1007,12 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 				RelativePath="NotesWriterDWI.h">
 			</File>
 			<File
+				RelativePath=".\NotesWriterJson.cpp">
+			</File>
+			<File
+				RelativePath=".\NotesWriterJson.h">
+			</File>
+			<File
 				RelativePath="NotesWriterSM.cpp">
 			</File>
 			<File
@@ -1064,6 +1077,9 @@ cl /Zl /nologo /c verstub.cpp /Fo&quot;$(IntDir)&quot;\
 			</File>
 			<File
 				RelativePath="RadarValues.h">
+			</File>
+			<File
+				RelativePath=".\RageTypes.cpp">
 			</File>
 			<File
 				RelativePath=".\RandomSample.cpp">

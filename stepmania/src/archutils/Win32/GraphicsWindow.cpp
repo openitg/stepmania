@@ -10,6 +10,7 @@
 #include "archutils/Win32/Crash.h"
 #include "archutils/Win32/WindowIcon.h"
 #include "archutils/Win32/GetFileInformation.h"
+#include "ScreenInstallOverlay.h"
 
 #include <set>
 
@@ -157,6 +158,15 @@ static LRESULT CALLBACK GraphicsWindow_WndProc( HWND hWnd, UINT msg, WPARAM wPar
 			g_CurrentParams.height = iHeight;
 			g_bResolutionChanged = true;
 		}
+		break;
+	}
+	case WM_COPYDATA:
+	{
+		PCOPYDATASTRUCT pMyCDS = (PCOPYDATASTRUCT) lParam;
+		RString sCommandLine( (char*)pMyCDS->lpData, pMyCDS->cbData );
+		ScreenInstallOverlay::CommandLineArgs args;
+		split( sCommandLine, "|", args.argv, false );
+		ScreenInstallOverlay::ToProcess.push_back( args );
 		break;
 	}
 	}

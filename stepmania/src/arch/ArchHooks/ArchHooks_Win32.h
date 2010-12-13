@@ -13,7 +13,7 @@ public:
 	void DumpDebugInfo();
 	void RestartProgram();
 	RString GetMachineId();
-	bool CheckForMultipleInstances();
+	bool CheckForMultipleInstances(int argc, char* argv[]);
 
 	int OldThreadPriority;
 	RageMutex *TimeCritMutex;

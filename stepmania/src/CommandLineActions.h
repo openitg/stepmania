@@ -3,15 +3,9 @@
 
 class LoadingWindow;
 
-struct PlayAfterLaunchInfo
-{
-	RString sSongDir;
-	RString sTheme;
-};
-
 namespace CommandLineActions
 {
-	PlayAfterLaunchInfo Handle(LoadingWindow* pLW);
+	void Handle(LoadingWindow* pLW);
 }
 
 #endif

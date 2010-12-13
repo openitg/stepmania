@@ -812,7 +812,7 @@ int main(int argc, char* argv[])
 	 * so ArchHooks can use a preference to turn this off.  We want to do this before ApplyLogPreferences,
 	 * so if we exit because of another instance, we don't try to clobber its log.  We also want to
 	 * do this before opening the loading window, so if we give focus away, we don't flash the window. */
-	if( !g_bAllowMultipleInstances.Get() && HOOKS->CheckForMultipleInstances() )
+	if( !g_bAllowMultipleInstances.Get() && HOOKS->CheckForMultipleInstances( argc, argv) )
 	{
 		ShutdownGame();
 		return 0;
@@ -889,7 +889,7 @@ int main(int argc, char* argv[])
 	/* Set up the theme and announcer, and switch to the last game type. */
 	ReadGamePrefsFromDisk( true );
 
-	PlayAfterLaunchInfo playAfterLaunchInfo = CommandLineActions::Handle(loading_window);
+	CommandLineActions::Handle(loading_window);
 
 	{
 		/* Now that THEME is loaded, load the icon for the current theme into the
@@ -964,30 +964,8 @@ int main(int argc, char* argv[])
 	/* Now that GAMESTATE is reset, tell SCREENMAN to update the theme (load
 	 * overlay screens and global sounds), and load the initial screen. */
 	SCREENMAN->ThemeChanged();
-	{
-		Song* pSong = NULL;
-		RString sInitialScreen;
-		if( playAfterLaunchInfo.sSongDir.length() > 0 )
-			pSong = SONGMAN->GetSongFromDir( playAfterLaunchInfo.sSongDir );
-		if( pSong )
-		{
-			vector<const Style*> vpStyle;
-			GAMEMAN->GetStylesForGame( GAMESTATE->m_pCurGame, vpStyle, false );
-			GAMESTATE->m_PlayMode.Set( PLAY_MODE_REGULAR );
-			GAMESTATE->m_bSideIsJoined[0] = true;
-			GAMESTATE->m_MasterPlayerNumber = PLAYER_1;
-			GAMESTATE->m_pCurStyle.Set( vpStyle[0] );
-			GAMESTATE->m_pCurSong.Set( pSong );
-			sInitialScreen = CommonMetrics::SELECT_MUSIC_SCREEN; 
-		}
-		else
-		{
-			sInitialScreen = CommonMetrics::INITIAL_SCREEN;
-		}
-		 
-		SCREENMAN->SetNewScreen( sInitialScreen );
-	}
-
+	SCREENMAN->SetNewScreen( CommonMetrics::INITIAL_SCREEN );
+	
 	// Do this after ThemeChanged so that we can show a system message
 	RString sMessage;
 	if( INPUTMAPPER->CheckForChangedInputDevicesAndRemap(sMessage) )
