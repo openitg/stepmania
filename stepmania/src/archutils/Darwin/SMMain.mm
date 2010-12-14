@@ -1,6 +1,7 @@
 #include "global.h"
 #include "RageUtil.h"
 #include "RageThreads.h"
+#include "ScreenInstallOverlay.h"
 
 #import <Cocoa/Cocoa.h>
 #include "ProductInfo.h"
@@ -69,11 +70,33 @@
 	exit( SM_main(m_iArgc, m_pArgv) );
 }
 
+/*
+ * From here:
+ * http://www.cocoadev.com/index.pl?HowToRegisterURLHandler
+ */
+- (void) getUrl:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
+{
+	NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+
+	// I'm not sure this handles everything it needs to. - Colby
+	ScreenInstallOverlay::CommandLineArgs args;
+	args.argv.push_back(RString([[url stringValue] UTF8String]));
+	ScreenInstallOverlay::ToProcess.push_back(args);
+}
+
 // Called when the internal event loop has just started running.
 - (void) applicationDidFinishLaunching:(NSNotification *)note
 {
 	m_bApplicationLaunched = YES;
 	[NSThread detachNewThreadSelector:@selector(startGame:) toTarget:self withObject:nil];
+
+	// Register ourselves as a URL handler.
+	[
+		[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
+		andSelector:@selector(getUrl:withReplyEvent:)
+		forEventClass:kInternetEventClass
+		andEventID:kAEGetURL
+	];
 }
 
 - (BOOL) application:(NSApplication *)app openFile:(NSString *)file
