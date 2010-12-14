@@ -135,10 +135,11 @@ class DownloadTask
 	} m_DownloadState;
 	PlayAfterLaunchInfo m_playAfterLaunchInfo;
 public:
-	DownloadTask(RString sControlFileUri)
+	DownloadTask(const RString &sControlFileUri)
 	{
 		SCREENMAN->SystemMessage( "Installing " + sControlFileUri );
 		m_fd.StartDownload( sControlFileUri, "" );
+		m_DownloadState = control;
 	}
 	bool UpdateAndIsFinished( float fDeltaSeconds, PlayAfterLaunchInfo &playAfterLaunchInfo )
 	{
@@ -233,13 +234,13 @@ public:
 static vector<DownloadTask*> g_pDownloadTasks;
 
 
-static bool IsStepManiaProtocol(RString arg)
+static bool IsStepManiaProtocol(const RString &arg)
 {
 	// for now, only load from the StepMania domain until the security implications of this feature are better understood.
 	return BeginsWith(arg,"stepmania://beta.stepmania.com/");
 }
 
-static bool IsSmzip(RString arg)
+static bool IsSmzip(const RString &arg)
 {
 	RString ext = GetExtension(arg);
 	return ext.EqualsNoCase("smzip") || ext.EqualsNoCase("zip");
