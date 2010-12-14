@@ -204,7 +204,7 @@ void FileTransfer::StartTransfer( TransferType type, const RString &sURL, const 
 	}
 	*/
 
-	vsHeaders.push_back( "Content-Length: " + ssprintf("%d",sRequestPayload.size()) );
+	vsHeaders.push_back( "Content-Length: " + ssprintf("%d",(int)sRequestPayload.size()) );
 
 	RString sHeader;
 	FOREACH_CONST( RString, vsHeaders, h )

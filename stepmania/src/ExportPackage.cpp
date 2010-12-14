@@ -74,7 +74,7 @@ bool ExportDir( RString sSmzipFile, RString sDirToExport, RString &sErrorOut )
 
 	if( !zip.Finish() )
 	{
-		sErrorOut = ssprintf( "Couldn't write to file %s", sSmzipFile.c_str(), f.GetError().c_str() );
+		sErrorOut = ssprintf( "Couldn't write to file %s: %s", sSmzipFile.c_str(), f.GetError().c_str() );
 		return false;
 	}
 	
