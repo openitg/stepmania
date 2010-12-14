@@ -79,7 +79,7 @@
 	NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
 
 	// I'm not sure this handles everything it needs to. - Colby
-	ScreenInstallOverlay::CommandLineArgs args;
+	CommandLineActions::CommandLineArgs args;
 	args.argv.push_back(RString([[url stringValue] UTF8String]));
 	CommandLineActions::ToProcess.push_back(args);
 }
