@@ -8,13 +8,6 @@
 class ScreenInstallOverlay : public Screen
 {
 public:
-	class CommandLineArgs
-	{
-	public:
-		vector<RString> argv;
-	};
-	static vector<CommandLineArgs> ToProcess;
-
 	virtual ~ScreenInstallOverlay();
 	virtual void Init();
 	

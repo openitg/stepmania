@@ -1,7 +1,7 @@
 #include "global.h"
 #include "RageUtil.h"
 #include "RageThreads.h"
-#include "ScreenInstallOverlay.h"
+#include "CommandLineActions.h"
 
 #import <Cocoa/Cocoa.h>
 #include "ProductInfo.h"
@@ -81,7 +81,7 @@
 	// I'm not sure this handles everything it needs to. - Colby
 	ScreenInstallOverlay::CommandLineArgs args;
 	args.argv.push_back(RString([[url stringValue] UTF8String]));
-	ScreenInstallOverlay::ToProcess.push_back(args);
+	CommandLineActions::ToProcess.push_back(args);
 }
 
 // Called when the internal event loop has just started running.

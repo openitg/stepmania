@@ -13,6 +13,7 @@ class Song;
 #include "GameManager.h"
 #include "CommonMetrics.h"
 #include "SongManager.h"
+#include "CommandLineActions.h"
 
 struct PlayAfterLaunchInfo
 {
@@ -243,7 +244,7 @@ static bool IsSmzip(RString arg)
 	return ext.EqualsNoCase("smzip") || ext.EqualsNoCase("zip");
 }
 
-PlayAfterLaunchInfo DoInstalls( ScreenInstallOverlay::CommandLineArgs args )
+PlayAfterLaunchInfo DoInstalls( CommandLineActions::CommandLineArgs args )
 {
 	PlayAfterLaunchInfo ret;
 	for( int i = 1; i<(int)args.argv.size(); ++i )
@@ -257,8 +258,6 @@ PlayAfterLaunchInfo DoInstalls( ScreenInstallOverlay::CommandLineArgs args )
 	return ret;
 }
 
-
-vector<ScreenInstallOverlay::CommandLineArgs> ScreenInstallOverlay::ToProcess;
 
 REGISTER_SCREEN_CLASS( ScreenInstallOverlay );
 
@@ -275,10 +274,10 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 {
 	Screen::Update(fDeltaTime);
 	PlayAfterLaunchInfo playAfterLaunchInfo;
-	while( ScreenInstallOverlay::ToProcess.size() > 0 )
+	while( CommandLineActions::ToProcess.size() > 0 )
 	{
-		CommandLineArgs args = ScreenInstallOverlay::ToProcess.back();
-		ScreenInstallOverlay::ToProcess.pop_back();
+		CommandLineActions::CommandLineArgs args = CommandLineActions::ToProcess.back();
+		CommandLineActions::ToProcess.pop_back();
 		PlayAfterLaunchInfo pali2 = DoInstalls( args );
 		playAfterLaunchInfo.OverlayWith( pali2 );
 	}

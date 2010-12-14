@@ -20,6 +20,7 @@
 
 const RString INSTALLER_LANGUAGES_DIR = "Themes/_Installer/Languages/";
 
+vector<CommandLineActions::CommandLineArgs> CommandLineActions::ToProcess;
 
 static void DoNsis()
 {
@@ -75,10 +76,10 @@ static void DoLuaInformation()
 
 void CommandLineActions::Handle(LoadingWindow* pLW)
 {
-	ScreenInstallOverlay::CommandLineArgs args;
+	CommandLineArgs args;
 	for( int i=0; i<g_argc; ++i )
 		args.argv.push_back( g_argv[i] );
-	ScreenInstallOverlay::ToProcess.push_back( args );
+	ToProcess.push_back( args );
 	
 
 
