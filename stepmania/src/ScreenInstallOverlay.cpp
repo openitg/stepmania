@@ -3,6 +3,7 @@
 #include "RageFileManager.h"
 #include "ScreenManager.h"
 #include "Preference.h"
+#include "RageLog.h"
 #include "FileDownload.h"
 #include "json/Value.h"
 #include "JsonUtil.h"
@@ -247,7 +248,7 @@ static bool IsSmzip(RString arg)
 PlayAfterLaunchInfo DoInstalls( CommandLineActions::CommandLineArgs args )
 {
 	PlayAfterLaunchInfo ret;
-	for( int i = 1; i<(int)args.argv.size(); ++i )
+	for( int i = 0; i<(int)args.argv.size(); i++ )
 	{
 		RString s = args.argv[i];
 		if( IsStepManiaProtocol(s) )
@@ -282,7 +283,7 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 		playAfterLaunchInfo.OverlayWith( pali2 );
 	}
 
-	for(int i=g_pDownloadTasks.size()-1; i>=0; --i)
+	for(int i=g_pDownloadTasks.size(); i>0; i--)
 	{
 		DownloadTask *p = g_pDownloadTasks[i];
 		PlayAfterLaunchInfo pali;
