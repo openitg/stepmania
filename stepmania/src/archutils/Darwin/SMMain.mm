@@ -1,6 +1,7 @@
 #include "global.h"
 #include "RageUtil.h"
 #include "RageThreads.h"
+#include "RageLog.h"
 #include "CommandLineActions.h"
 
 #import <Cocoa/Cocoa.h>
@@ -76,11 +77,14 @@
  */
 - (void) getUrl:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
 {
-	NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+	const char *url = [[[event paramDescriptorForKeyword:keyDirectObject] stringValue] UTF8String];
+
+	LOG->Info("Parsing URL: %s", url);
 
 	// I'm not sure this handles everything it needs to. - Colby
 	CommandLineActions::CommandLineArgs args;
-	args.argv.push_back(RString([[url stringValue] UTF8String]));
+	args.argv.push_back(url);
+
 	CommandLineActions::ToProcess.push_back(args);
 }
 
