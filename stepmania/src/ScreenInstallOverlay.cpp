@@ -277,7 +277,7 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 		playAfterLaunchInfo.OverlayWith( pali2 );
 	}
 
-	for(int i=g_pDownloadTasks.size()-1; --i; )
+	for(int i=g_pDownloadTasks.size()-1; i>0; --i)
 	{
 		DownloadTask *p = g_pDownloadTasks[i];
 		PlayAfterLaunchInfo pali;
