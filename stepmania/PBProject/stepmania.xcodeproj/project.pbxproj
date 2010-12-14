@@ -1841,6 +1841,8 @@
 		EE5A94AC12A663E000FBEFCE /* CreateZip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EE5A94AA12A663E000FBEFCE /* CreateZip.cpp */; };
 		EE5A94AD12A663E000FBEFCE /* CreateZip.h in Headers */ = {isa = PBXBuildFile; fileRef = EE5A94AB12A663E000FBEFCE /* CreateZip.h */; };
 		EE5A94C812A6685900FBEFCE /* RageTypes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EE5A94C712A6685900FBEFCE /* RageTypes.cpp */; };
+		EE945B5D12B7309A0029ADB0 /* ScreenInstallOverlay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EE945B5B12B7309A0029ADB0 /* ScreenInstallOverlay.cpp */; };
+		EE945B5E12B7309A0029ADB0 /* ScreenInstallOverlay.h in Headers */ = {isa = PBXBuildFile; fileRef = EE945B5C12B7309A0029ADB0 /* ScreenInstallOverlay.h */; };
 		F44EE8CC1205597B008AE060 /* CommandLineActions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F44EE8CA1205597B008AE060 /* CommandLineActions.cpp */; };
 		F44EE8CD1205597B008AE060 /* CommandLineActions.h in Headers */ = {isa = PBXBuildFile; fileRef = F44EE8CB1205597B008AE060 /* CommandLineActions.h */; };
 		F44EE8D412055A30008AE060 /* FileDownload.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F44EE8D212055A30008AE060 /* FileDownload.cpp */; };
@@ -2873,6 +2875,8 @@
 		EE5A94AA12A663E000FBEFCE /* CreateZip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CreateZip.cpp; path = ../src/CreateZip.cpp; sourceTree = SOURCE_ROOT; };
 		EE5A94AB12A663E000FBEFCE /* CreateZip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CreateZip.h; path = ../src/CreateZip.h; sourceTree = SOURCE_ROOT; };
 		EE5A94C712A6685900FBEFCE /* RageTypes.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = RageTypes.cpp; path = ../src/RageTypes.cpp; sourceTree = SOURCE_ROOT; };
+		EE945B5B12B7309A0029ADB0 /* ScreenInstallOverlay.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ScreenInstallOverlay.cpp; path = ../src/ScreenInstallOverlay.cpp; sourceTree = SOURCE_ROOT; };
+		EE945B5C12B7309A0029ADB0 /* ScreenInstallOverlay.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ScreenInstallOverlay.h; path = ../src/ScreenInstallOverlay.h; sourceTree = SOURCE_ROOT; };
 		F44EE8CA1205597B008AE060 /* CommandLineActions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CommandLineActions.cpp; sourceTree = "<group>"; };
 		F44EE8CB1205597B008AE060 /* CommandLineActions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommandLineActions.h; sourceTree = "<group>"; };
 		F44EE8D212055A30008AE060 /* FileDownload.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = FileDownload.cpp; path = ../src/FileDownload.cpp; sourceTree = SOURCE_ROOT; };
@@ -3206,6 +3210,8 @@
 				AAB55EB609A7E3D3008FDC69 /* ScreenGameplaySyncMachine.h */,
 				AA6E002F047711F3005F316C /* ScreenHowToPlay.cpp */,
 				AA6E0030047711F3005F316C /* ScreenHowToPlay.h */,
+				EE945B5B12B7309A0029ADB0 /* ScreenInstallOverlay.cpp */,
+				EE945B5C12B7309A0029ADB0 /* ScreenInstallOverlay.h */,
 				AA6E0033047711F3005F316C /* ScreenInstructions.cpp */,
 				AA6E0034047711F3005F316C /* ScreenInstructions.h */,
 				AA6E0037047711F3005F316C /* ScreenJukebox.cpp */,
@@ -4709,6 +4715,7 @@
 				EE5A947A12A65EC700FBEFCE /* ExportPackage.h in Headers */,
 				EE5A947C12A65EC700FBEFCE /* JsonUtil.h in Headers */,
 				EE5A94AD12A663E000FBEFCE /* CreateZip.h in Headers */,
+				EE945B5E12B7309A0029ADB0 /* ScreenInstallOverlay.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5774,6 +5781,7 @@
 				EE5A947B12A65EC700FBEFCE /* JsonUtil.cpp in Sources */,
 				EE5A94AC12A663E000FBEFCE /* CreateZip.cpp in Sources */,
 				EE5A94C812A6685900FBEFCE /* RageTypes.cpp in Sources */,
+				EE945B5D12B7309A0029ADB0 /* ScreenInstallOverlay.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
