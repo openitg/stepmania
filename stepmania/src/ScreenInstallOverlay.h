@@ -4,6 +4,7 @@
 #define ScreenInstallOverlay_H
 
 #include "Screen.h"
+#include "BitmapText.h"
 
 class ScreenInstallOverlay : public Screen
 {
@@ -15,6 +16,8 @@ public:
 
 private:
 	void UpdateText();
+
+	BitmapText m_textStatus;
 };
 
 

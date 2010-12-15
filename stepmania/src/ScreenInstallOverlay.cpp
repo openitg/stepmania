@@ -15,6 +15,7 @@ class Song;
 #include "CommonMetrics.h"
 #include "SongManager.h"
 #include "CommandLineActions.h"
+#include "ScreenDimensions.h"
 
 struct PlayAfterLaunchInfo
 {
@@ -86,6 +87,7 @@ static void InstallSmzip( const RString &sZipFile, PlayAfterLaunchInfo &out )
 		splitpath( sDestFile, sDir, sThrowAway, sThrowAway );
 
 		Parse( sDir, out );
+		out.bAnySongChanged = true;
 
 		FILEMAN->CreateDir( sDir );
 
@@ -137,7 +139,7 @@ class DownloadTask
 public:
 	DownloadTask(const RString &sControlFileUri)
 	{
-		SCREENMAN->SystemMessage( "Downloading " + sControlFileUri );
+		//SCREENMAN->SystemMessage( "Downloading control file." );
 		m_pTransfer = new FileTransfer();
 		m_pTransfer->StartDownload( sControlFileUri, "" );
 		m_DownloadState = control;
@@ -145,6 +147,13 @@ public:
 	~DownloadTask()
 	{
 		SAFE_DELETE(m_pTransfer);
+	}
+	RString GetStatus()
+	{
+		if( m_pTransfer == NULL )
+			return "";
+		else
+			return m_pTransfer->GetStatus();
 	}
 	bool UpdateAndIsFinished( float fDeltaSeconds, PlayAfterLaunchInfo &playAfterLaunchInfo )
 	{
@@ -154,6 +163,8 @@ public:
 		case control:
 			if( m_pTransfer->IsFinished() )
 			{
+				SCREENMAN->SystemMessage( "Downloading required .smzip" );
+
 				RString sResponse = m_pTransfer->GetResponse();
 				SAFE_DELETE( m_pTransfer );
 
@@ -294,6 +305,14 @@ ScreenInstallOverlay::~ScreenInstallOverlay()
 void ScreenInstallOverlay::Init()
 {
 	Screen::Init();
+
+	m_textStatus.LoadFromFont( THEME->GetPathF("Common", "normal") );
+	m_textStatus.SetHorizAlign( Actor::align_left );
+	m_textStatus.SetX( SCREEN_LEFT+20 );
+	m_textStatus.SetY( SCREEN_BOTTOM-20 );
+	m_textStatus.SetZoom( 0.7f );
+	m_textStatus.SetVertAlign( Actor::align_bottom );
+	this->AddChild( &m_textStatus );
 }
 
 void ScreenInstallOverlay::Update( float fDeltaTime )
@@ -320,12 +339,22 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 		}
 	}
 
+	{
+		vector<RString> vsMessages;
+		FOREACH_CONST( DownloadTask*, g_pDownloadTasks, pDT )
+		{
+			vsMessages.push_back( (*pDT)->GetStatus() );			
+		}
+		m_textStatus.SetText( join("\n", vsMessages) );
+	}
+
 	if( playAfterLaunchInfo.bAnySongChanged )
 		SONGMAN->Reload( false, NULL );
 
 	if( !playAfterLaunchInfo.sSongDir.empty() )
 	{
 		Song* pSong = NULL;
+		GAMESTATE->Reset();
 		RString sInitialScreen;
 		if( playAfterLaunchInfo.sSongDir.length() > 0 )
 			pSong = SONGMAN->GetSongFromDir( playAfterLaunchInfo.sSongDir );
