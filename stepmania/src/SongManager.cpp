@@ -1275,8 +1275,9 @@ Course* SongManager::GetRandomCourse()
 	return NULL;
 }
 
-Song* SongManager::GetSongFromDir( RString sDir )
+Song* SongManager::GetSongFromDir( const RString &sDir_ )
 {
+	RString sDir = sDir_;
 	if( sDir.Right(1) != "/" )
 		sDir += "/";
 
@@ -1289,7 +1290,7 @@ Song* SongManager::GetSongFromDir( RString sDir )
 	return NULL;
 }
 
-Course* SongManager::GetCourseFromPath( RString sPath )
+Course* SongManager::GetCourseFromPath( const RString &sPath )
 {
 	if( sPath == "" )
 		return NULL;
@@ -1303,7 +1304,7 @@ Course* SongManager::GetCourseFromPath( RString sPath )
 	return NULL;
 }
 
-Course* SongManager::GetCourseFromName( RString sName )
+Course* SongManager::GetCourseFromName( const RString &sName )
 {
 	if( sName == "" )
 		return NULL;

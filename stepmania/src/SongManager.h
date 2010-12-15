@@ -108,9 +108,9 @@ public:
 
 	void GetExtraStageInfo( bool bExtra2, const Style *s, 
 		Song*& pSongOut, Steps*& pStepsOut, PlayerOptions *pPlayerOptionsOut, SongOptions *pSongOptionsOut );
-	Song* GetSongFromDir( RString sDir );
-	Course* GetCourseFromPath( RString sPath );	// path to .crs file, or path to song group dir
-	Course* GetCourseFromName( RString sName );
+	Song* GetSongFromDir( const RString &sDir );
+	Course* GetCourseFromPath( const RString &sPath );	// path to .crs file, or path to song group dir
+	Course* GetCourseFromName( const RString &sName );
 
 
 	void UpdatePopular();
