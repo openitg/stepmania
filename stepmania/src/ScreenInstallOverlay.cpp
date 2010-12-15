@@ -76,7 +76,7 @@ static void InstallSmzip( const RString &sZipFile, PlayAfterLaunchInfo &out )
 		sort( vsPrettyFiles.begin(), vsPrettyFiles.end() );
 	}
 
-	RString sResult = "Fake Success extracting";
+	RString sResult = "Success installing " + sZipFile;
 	FOREACH_CONST( RString, vsFiles, sSrcFile )
 	{
 		RString sDestFile = *sSrcFile;
@@ -97,7 +97,7 @@ static void InstallSmzip( const RString &sZipFile, PlayAfterLaunchInfo &out )
 	}
 	FILEMAN->Unmount( "zip", sZipFile, TEMP_ZIP_MOUNT_POINT );
 	
-	SCREENMAN->SystemMessage( "Successfully installed " + Basename(sZipFile) );
+	SCREENMAN->SystemMessage( sResult );
 }
 
 void InstallSmzipOsArg( const RString &sOsZipFile, PlayAfterLaunchInfo &out )
@@ -125,8 +125,8 @@ Preference<RString> g_sCookie( "Cookie", "" );
 
 class DownloadTask
 {
-	FileTransfer m_fd;
-	vector<RString> m_vsPackageUrls;
+	FileTransfer *m_pTransfer;
+	vector<RString> m_vsQueuedPackageUrls;
 	RString m_sCurrentPackageTempFile;
 	enum
 	{
@@ -137,23 +137,33 @@ class DownloadTask
 public:
 	DownloadTask(const RString &sControlFileUri)
 	{
-		SCREENMAN->SystemMessage( "Installing " + sControlFileUri );
-		m_fd.StartDownload( sControlFileUri, "" );
+		SCREENMAN->SystemMessage( "Downloading " + sControlFileUri );
+		m_pTransfer = new FileTransfer();
+		m_pTransfer->StartDownload( sControlFileUri, "" );
 		m_DownloadState = control;
+	}
+	~DownloadTask()
+	{
+		SAFE_DELETE(m_pTransfer);
 	}
 	bool UpdateAndIsFinished( float fDeltaSeconds, PlayAfterLaunchInfo &playAfterLaunchInfo )
 	{
-		m_fd.Update( fDeltaSeconds );
+		m_pTransfer->Update( fDeltaSeconds );
 		switch( m_DownloadState )
 		{
 		case control:
-			if( m_fd.IsFinished() )
+			if( m_pTransfer->IsFinished() )
 			{
-				RString sResponse = m_fd.GetResponse();
+				RString sResponse = m_pTransfer->GetResponse();
+				SAFE_DELETE( m_pTransfer );
 
 				Json::Value root;
-				if( !JsonUtil::LoadFromStringShowErrors( root, sResponse) )
+				RString sError;
+				if( !JsonUtil::LoadFromString(root, sResponse, sError) )
+				{
+					SCREENMAN->SystemMessage( sError );
 					return true;
+				}
 
 				// Parse the JSON response, make a list of all packages need to be downloaded.
 				{
@@ -177,7 +187,7 @@ public:
 							if( iter["Uri"].isString() )
 							{
 								sUri = iter["Uri"].asString();
-								m_vsPackageUrls.push_back( sUri );
+								m_vsQueuedPackageUrls.push_back( sUri );
 							}
 						}
 					}
@@ -196,35 +206,49 @@ public:
 				}
 				*/
 				m_DownloadState = packages;
-				if( !m_vsPackageUrls.empty() )
+				if( !m_vsQueuedPackageUrls.empty() )
 				{
-					RString sUrl = m_vsPackageUrls.back();
-					m_vsPackageUrls.pop_back();
+					RString sUrl = m_vsQueuedPackageUrls.back();
+					m_vsQueuedPackageUrls.pop_back();
 					m_sCurrentPackageTempFile = MakeTempFileName(sUrl);
-					m_fd.StartDownload( sUrl, m_sCurrentPackageTempFile );
+					ASSERT(m_pTransfer == NULL);
+					m_pTransfer = new FileTransfer();
+					m_pTransfer->StartDownload( sUrl, m_sCurrentPackageTempFile );
 				}
 			}
 			break;
 		case packages:
 			{
-				if( m_fd.IsFinished() )
+				if( m_pTransfer->IsFinished() )
 				{
+					SAFE_DELETE( m_pTransfer );
 					InstallSmzip( m_sCurrentPackageTempFile, m_playAfterLaunchInfo );
 					FILEMAN->Remove( m_sCurrentPackageTempFile );	// Harmless if this fails because download didn't finish
 				}
-				if( !m_vsPackageUrls.empty() )
+				if( !m_vsQueuedPackageUrls.empty() )
 				{
-					RString sUrl = m_vsPackageUrls.back();
-					m_vsPackageUrls.pop_back();
+					RString sUrl = m_vsQueuedPackageUrls.back();
+					m_vsQueuedPackageUrls.pop_back();
 					m_sCurrentPackageTempFile = MakeTempFileName(sUrl);
-					m_fd.StartDownload( sUrl, m_sCurrentPackageTempFile );
+					ASSERT(m_pTransfer == NULL);
+					m_pTransfer = new FileTransfer();
+					m_pTransfer->StartDownload( sUrl, m_sCurrentPackageTempFile );
 				}
 			}
 			break;
 		}
-		bool bFinsihed = m_DownloadState == packages  &&  m_vsPackageUrls.empty();
-		playAfterLaunchInfo = m_playAfterLaunchInfo;
-		return bFinsihed;
+		bool bFinsihed = m_DownloadState == packages  &&  
+			m_vsQueuedPackageUrls.empty() && 
+			m_pTransfer == NULL;
+		if( bFinsihed )
+		{
+			playAfterLaunchInfo = m_playAfterLaunchInfo;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
 	static RString MakeTempFileName( RString s )
 	{
@@ -280,7 +304,7 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 	{
 		CommandLineActions::CommandLineArgs args = CommandLineActions::ToProcess.back();
 		CommandLineActions::ToProcess.pop_back();
-		PlayAfterLaunchInfo pali2 = DoInstalls( args );
+ 		PlayAfterLaunchInfo pali2 = DoInstalls( args );
 		playAfterLaunchInfo.OverlayWith( pali2 );
 	}
 
@@ -314,6 +338,7 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 			GAMESTATE->m_MasterPlayerNumber = PLAYER_1;
 			GAMESTATE->m_pCurStyle.Set( vpStyle[0] );
 			GAMESTATE->m_pCurSong.Set( pSong );
+			GAMESTATE->m_pPreferredSong = pSong;
 			sInitialScreen = CommonMetrics::SELECT_MUSIC_SCREEN; 
 		}
 		else
