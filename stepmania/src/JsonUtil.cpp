@@ -7,6 +7,20 @@
 #include "json/reader.h"
 #include "json/writer.h"
 
+bool JsonUtil::LoadFromString( Json::Value &root, RString sData, RString &sErrorOut )
+{
+	Json::Reader reader;
+	bool parsingSuccessful = reader.parse( sData, root );
+	if ( !parsingSuccessful )
+	{
+		RString err = reader.getFormatedErrorMessages();
+		sErrorOut = ssprintf( "JSON: LoadFromFileShowErrors failed: %s", err.c_str() );
+		LOG->Warn( sErrorOut );
+		return false;
+	}
+	return true;
+}
+
 bool JsonUtil::LoadFromFileShowErrors( Json::Value &root, RageFileBasic &f )
 {
 	// Optimization opportunity: read this streaming instead of at once
@@ -29,14 +43,10 @@ bool JsonUtil::LoadFromFileShowErrors( Json::Value &root, const RString &sFile )
 
 bool JsonUtil::LoadFromStringShowErrors( Json::Value &root, RString sData )
 {
-	Json::Reader reader;
-	bool parsingSuccessful = reader.parse( sData, root );
-	if ( !parsingSuccessful )
+	RString sError;
+	if( !LoadFromString( root, sData, sError ) )
 	{
-		string err = reader.getFormatedErrorMessages();
-		RString sWarning = ssprintf( "JSON: LoadFromFileShowErrors failed: %s", err.c_str() );
-		LOG->Warn( sWarning );
-		Dialog::OK( sWarning, "JSON_PARSE_ERROR" );
+		Dialog::OK( sError, "JSON_PARSE_ERROR" );
 		return false;
 	}
 	return true;
