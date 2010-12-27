@@ -366,7 +366,7 @@ bool FileTransfer::ParseHTTPAddress( const RString &URL, RString &sProto, RStrin
 	return true;
 }
 
-void FileTransfer::Finish()
+void FileTransfer::BlockUntilFinished()
 {
 	while( true )
 	{

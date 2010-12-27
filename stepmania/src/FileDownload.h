@@ -18,7 +18,7 @@ public:
 	void Cancel( );
 	RString Update(float fDeltaTime);
 	bool IsFinished() const { return m_bFinished; }
-	void Finish();
+	void BlockUntilFinished();
 	int GetResponseCode() const { return m_iResponseCode; }
 	RString GetResponse() const { return m_sBUFFER; }
 	RString GetStatus() const { return m_sStatus; }

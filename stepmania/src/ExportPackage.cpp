@@ -86,7 +86,7 @@ RString PublishSong( const Song *pSong )
 	{
 		FileTransfer fd;
 		fd.StartDownload( "http://www.stepmania.com/api.php?action=is_logged_in", "");
-		fd.Finish();
+		fd.BlockUntilFinished();
 		if( fd.GetResponseCode() != 200 )
 			return "Bad response code is_logged_in " + fd.GetResponseCode();
 		XNode xml;
@@ -117,7 +117,7 @@ RString PublishSong( const Song *pSong )
 	{
 		FileTransfer ft;
 		ft.StartUpload( "http://www.stepmania.com/api.php?action=upload_song", sSmzipFile, "" );
-		ft.Finish();
+		ft.BlockUntilFinished();
 		if( ft.GetResponseCode() != 200 )
 			return "Bad response code upload_song " + ft.GetResponseCode();
 		XNode xml;
