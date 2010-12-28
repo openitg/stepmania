@@ -11,6 +11,7 @@ class Profile;
 class XNode;
 class CourseEntry;
 class Song;
+namespace Json { class Value; }
 
 namespace CourseUtil
 {
@@ -53,6 +54,10 @@ public:
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
+
 	RString ToString() const;
 	bool IsValid() const;
 };

@@ -5,6 +5,8 @@
 #include "ThemeManager.h"
 #include "XmlFile.h"
 #include "Foreach.h"
+#include "Json/Value.h"
+#include "JsonUtil.h"
 
 #define EMPTY_NAME			THEME->GetMetric ("HighScore","EmptyName")
 
@@ -29,6 +31,9 @@ struct HighScoreImpl
 	HighScoreImpl();
 	XNode *CreateNode() const;
 	void LoadFromNode( const XNode *pNode );
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
 
 	bool operator==( const HighScoreImpl& other ) const;
 	bool operator!=( const HighScoreImpl& other ) const { return !(*this == other); }
@@ -140,6 +145,64 @@ void HighScoreImpl::LoadFromNode( const XNode *pNode )
 	grade = clamp( grade, Grade_Tier01, Grade_Failed );
 }
 
+void HighScoreImpl::Serialize( Json::Value &root ) const
+{
+	// Tricky: Don't write "name to fill in" markers.
+	root["Name"] =		IsRankingToFillIn(sName) ? RString() : sName;
+	root["Grade"] =		GradeToString(grade);
+	root["Score"] =		iScore;
+	root["PercentDP"] =	fPercentDP;
+	root["SurviveSeconds"] =fSurviveSeconds;
+	root["Modifiers"] =	sModifiers;
+	root["DateTime"] =	dateTime.GetString();
+	root["PlayerGuid"] =	sPlayerGuid;
+	root["MachineGuid"] =	sMachineGuid;
+	root["ProductID"] =	iProductID;
+	root["LifeRemainingSeconds"] =	fLifeRemainingSeconds;
+	{
+		Json::Value &v = root["TapNoteScores"];
+		FOREACH_TapNoteScore( tns )
+			if( tns != TNS_None ) // don't save meaningless "none" count
+				v[ TapNoteScoreToString(tns) ] = iTapNoteScores[tns];
+	}
+	{
+		Json::Value &v = root["HoldNoteScores"];
+		FOREACH_HoldNoteScore( hns )
+			if( hns != HNS_None ) // don't save meaningless "none" count
+				v[ HoldNoteScoreToString(hns) ] = iHoldNoteScores[hns];
+	}
+	radarValues.Serialize( root["RadarValues"] );
+}
+
+void HighScoreImpl::Deserialize( const Json::Value &root )
+{
+	sName = root["Name"].asString();
+	grade = StringToGrade( root["Grade"].asString() );
+	iScore = root["Score"].asInt();
+	fPercentDP = (float)root["PercentDP"].asDouble();
+	fSurviveSeconds = (float)root["SurviveSeconds"].asDouble();
+	sModifiers = root["Modifiers"].asString();
+	dateTime.FromString( root["DateTime"].asString() );
+	sPlayerGuid = root["PlayerGuid"].asString();
+	sMachineGuid = root["MachineGuid"].asString();
+	iProductID = root["ProductID"].asInt();
+	fLifeRemainingSeconds = (float)root["LifeRemainingSeconds"].asDouble();
+	{
+		const Json::Value &v = root["TapNoteScores"];
+		FOREACH_TapNoteScore( tns )
+			v[ TapNoteScoreToString(tns) ].TryGet( iTapNoteScores[tns] );
+	}
+	{
+		const Json::Value &v = root["HoldNoteScores"];
+		FOREACH_HoldNoteScore( hns )
+			v[ HoldNoteScoreToString(hns) ].TryGet( iHoldNoteScores[hns] );
+	}
+	radarValues.Deserialize( root["RadarValues"] );
+
+	/* Validate input. */
+	grade = clamp( grade, Grade_Tier01, Grade_Failed );
+}
+
 REGISTER_CLASS_TRAITS( HighScoreImpl, new HighScoreImpl(*pCopy) )
 
 HighScore::HighScore()
@@ -211,15 +274,11 @@ bool HighScore::operator==( const HighScore& other ) const
 	return *m_Impl == *other.m_Impl;
 }
 
-XNode* HighScore::CreateNode() const
-{
-	return m_Impl->CreateNode();
-}
+XNode* HighScore::CreateNode() const { return m_Impl->CreateNode(); }
+void HighScore::LoadFromNode( const XNode* pNode ) { m_Impl->LoadFromNode( pNode ); }
 
-void HighScore::LoadFromNode( const XNode* pNode ) 
-{
-	m_Impl->LoadFromNode( pNode );
-}
+void HighScore::Serialize( Json::Value &root ) const { m_Impl->Serialize(root); }
+void HighScore::Deserialize( const Json::Value &root ) { m_Impl->Deserialize(root); }
 
 RString HighScore::GetDisplayName() const
 {
@@ -324,6 +383,23 @@ void HighScoreList::LoadFromNode( const XNode* pHighScoreList )
 		}
 	}
 }
+
+void HighScoreList::Serialize( Json::Value &root ) const
+{
+	root["NumTimesPlayed"] = iNumTimesPlayed;
+	root["LastPlayed"] = dtLastPlayed.GetString();
+	JsonUtil::SerializeArrayObjects( vHighScores, root["HighScores"] );
+}
+
+void HighScoreList::Deserialize( const Json::Value &root )
+{
+	Init();
+
+	root["NumTimesPlayed"].TryGet( iNumTimesPlayed );
+	dtLastPlayed.FromString( root["LastPlayed"].asString() );
+	JsonUtil::DeserializeArrayObjects( vHighScores, root["HighScores"] );
+}
+
 
 void HighScoreList::RemoveAllButOneOfEachName()
 {

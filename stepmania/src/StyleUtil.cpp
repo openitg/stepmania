@@ -4,7 +4,7 @@
 #include "XmlFile.h"
 #include "Game.h"
 #include "Style.h"
-
+#include "Json/Value.h"
 
 void StyleID::FromStyle( const Style *p )
 {
@@ -50,6 +50,18 @@ void StyleID::LoadFromNode( const XNode* pNode )
 
 	sStyle = "";
 	pNode->GetAttrValue("Style", sStyle);
+}
+
+void StyleID::Serialize( Json::Value &root ) const
+{
+	root["Game"] = sGame;
+	root["Style"] = sStyle;
+}
+
+void StyleID::Deserialize( const Json::Value &root )
+{
+	sGame = root["Game"].asString();
+	sStyle = root["Style"].asString();
 }
 
 bool StyleID::IsValid() const

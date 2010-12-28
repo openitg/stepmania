@@ -20,6 +20,7 @@
 class XNode;
 struct lua_State;
 class Character;
+namespace Json { class Value; }
 
 //
 // Current file versions
@@ -108,7 +109,7 @@ public:
 	static RString MakeGuid();
 
 	RString m_sGuid;
-	map<RString,RString> m_sDefaultModifiers;
+	map<RString,RString> m_DefaultModifiersByGame;
 	SortOrder m_SortOrder;
 	Difficulty m_LastDifficulty;
 	CourseDifficulty m_LastCourseDifficulty;
@@ -149,14 +150,13 @@ public:
 	//
 	// Song high scores
 	//
-	struct HighScoresForASteps
-	{
-		HighScoreList hsl;
-	};
 	struct HighScoresForASong
 	{
-		std::map<StepsID,HighScoresForASteps>	m_StepsHighScores;
+		map<StepsID,HighScoreList>	m_StepsHighScores;
 		int GetNumTimesPlayed() const;
+
+		void Serialize( Json::Value &root ) const;
+		void Deserialize( const Json::Value &root );
 	};
 	std::map<SongID,HighScoresForASong>	m_SongHighScores;
 
@@ -175,15 +175,9 @@ public:
 	//
 	// Course high scores
 	//
-	// struct was a typedef'd array of HighScores, but VC6 freaks out 
-	// in processing the templates for map::operator[].
-	struct HighScoresForATrail
-	{
-		HighScoreList hsl;
-	};
 	struct HighScoresForACourse	
 	{
-		std::map<TrailID,HighScoresForATrail>	m_TrailHighScores;
+		std::map<TrailID,HighScoreList>	m_TrailHighScores;
 		int GetNumTimesPlayed() const;
 	};
 	std::map<CourseID,HighScoresForACourse>	m_CourseHighScores;
@@ -249,6 +243,9 @@ public:
 
 		XNode* CreateNode() const;
 		void LoadFromNode( const XNode* pNode );
+
+		void Serialize( Json::Value &root ) const;
+		void Deserialize( const Json::Value &root );
 	};
 	deque<HighScoreForASongAndSteps> m_vRecentStepsScores;
 	void AddStepsRecentScore( const Song* pSong, const Steps* pSteps, HighScore hs );
@@ -317,18 +314,16 @@ public:
 	void LoadRecentCourseScoresFromNode( const XNode* pNode );
 
 	void SaveEditableDataToDir( RString sDir ) const;
-	bool SaveStatsXmlToDir( RString sDir, bool bSignData ) const;
-	XNode* SaveStatsXmlCreateNode() const;
-	XNode* SaveGeneralDataCreateNode() const;
-	XNode* SaveSongScoresCreateNode() const;
-	XNode* SaveCourseScoresCreateNode() const;
-	XNode* SaveCategoryScoresCreateNode() const;
-	XNode* SaveScreenshotDataCreateNode() const;
-	XNode* SaveCalorieDataCreateNode() const;
-	XNode* SaveRecentSongScoresCreateNode() const;
-	XNode* SaveRecentCourseScoresCreateNode() const;
-
-	XNode* SaveCoinDataCreateNode() const;
+	bool SaveStatsJsonToDir( RString sDir, bool bSignData ) const;
+	void SaveGeneral( Json::Value &root ) const;
+	void SaveSongScores( Json::Value &root ) const;
+	void SaveCourseScores( Json::Value &root ) const;
+	void SaveCategoryScores( Json::Value &root ) const;
+	void SaveScreenshotData( Json::Value &root ) const;
+	void SaveCalorieData( Json::Value &root ) const;
+	void SaveRecentSongScores( Json::Value &root ) const;
+	void SaveRecentCourseScores( Json::Value &root ) const;
+	void SaveCoinData( Json::Value &root ) const;
 
 	void SaveStatsWebPageToDir( RString sDir ) const;
 	void SaveMachinePublicKeyToDir( RString sDir ) const;

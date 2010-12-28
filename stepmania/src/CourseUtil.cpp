@@ -11,6 +11,7 @@
 #include "Foreach.h"
 #include "GameState.h"
 #include "LocalizedString.h"
+#include "Json/Value.h"
 
 
 //
@@ -392,6 +393,20 @@ void CourseID::LoadFromNode( const XNode* pNode )
 	ASSERT( pNode->m_sName == "Course" );
 	pNode->GetAttrValue("Path", sPath);
 	pNode->GetAttrValue("FullTitle", sFullTitle);
+}
+
+void CourseID::Serialize( Json::Value &root ) const
+{
+	if( !sPath.empty() )
+		root["Path"] = sPath;
+	if( !sFullTitle.empty() )
+		root["FullTitle"] = sFullTitle;
+}
+
+void CourseID::Deserialize( const Json::Value &root )
+{
+	sPath = root["Path"].asString();
+	sFullTitle = root["FullTitle"].asString();
 }
 
 RString CourseID::ToString() const

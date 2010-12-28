@@ -4,6 +4,7 @@
 #include "RageUtil.h"
 #include "XmlFile.h"
 #include "ThemeManager.h"
+#include "Json/Value.h"
 
 #define WRITE_COMPLEX_VALUES		THEME->GetMetricB("RadarValues","WriteComplexValues")
 #define WRITE_SIMPLE_VALUES			THEME->GetMetricB("RadarValues","WriteSimpleValues")
@@ -56,6 +57,30 @@ void RadarValues::LoadFromNode( const XNode* pNode )
 
 	FOREACH_RadarCategory( rc )
 		pNode->GetChildValue( RadarCategoryToString(rc),	m_Values.f[rc] );
+}
+
+void RadarValues::Serialize( Json::Value &root ) const
+{
+	FOREACH_RadarCategory( rc )
+	{
+		if( rc >= RadarCategory_TapsAndHolds )
+		{
+			if( WRITE_SIMPLE_VALUES )
+				root[ RadarCategoryToString(rc) ] = (int)m_Values.f[rc];
+		}
+		else
+		{
+			if( WRITE_COMPLEX_VALUES )
+				root[ RadarCategoryToString(rc) ] = m_Values.f[rc];
+		}
+	}
+}
+
+void RadarValues::Deserialize( const Json::Value &root )
+{
+	Zero();
+	FOREACH_RadarCategory( rc )
+		root[ RadarCategoryToString(rc) ].TryGet( m_Values.f[rc] );
 }
 
 /* iMaxValues is only used for writing compatibility fields in non-cache

@@ -9,7 +9,7 @@
 #include "XmlFile.h"
 #include "UnlockManager.h"
 #include "SongUtil.h"
-
+#include "Json/Value.h"
 
 bool StepsCriteria::Matches( const Song *pSong, const Steps *pSteps ) const
 {
@@ -292,6 +292,34 @@ void StepsID::LoadFromNode( const XNode* pNode )
 	{
 		pNode->GetAttrValue("Description", sDescription);
 		pNode->GetAttrValue("Hash", uHash);
+	}
+	else
+	{
+		sDescription = "";
+		uHash = 0;
+	}
+}
+
+void StepsID::Serialize( Json::Value &root ) const
+{
+	root[ "StepsType" ] = GameManager::StepsTypeToString(st);
+	root[ "Difficulty" ] = DifficultyToString(dc);
+	if( dc == DIFFICULTY_EDIT )
+	{
+		root[ "Description" ] = sDescription;
+		root[ "Hash" ] = uHash;
+	}
+}
+
+void StepsID::Deserialize( const Json::Value &root )
+{
+	st = GameManager::StringToStepsType( root["StepsType"].asString() );
+	dc = StringToDifficulty( root["Difficulty"].asString() );
+
+	if( dc == DIFFICULTY_EDIT )
+	{
+		root["Description"].TryGet( sDescription );
+		root["Hash"].TryGet( uHash );
 	}
 	else
 	{

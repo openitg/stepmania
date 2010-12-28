@@ -8,6 +8,7 @@
 #define RADAR_VAL_UNKNOWN -1
 
 class XNode;
+namespace Json { class Value; }
 
 struct RadarValues
 {
@@ -60,6 +61,9 @@ struct RadarValues
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
 
 	RString ToString( int iMaxValues = -1 ) const; // default = all
 	void FromString( RString sValues );

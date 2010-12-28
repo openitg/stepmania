@@ -4,6 +4,7 @@
 class Style;
 class Song;
 class XNode;
+namespace Json { class Value; }
 
 class StyleID
 {
@@ -19,6 +20,10 @@ public:
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
+
 	bool IsValid() const;
 	static void FlushCache( Song* pStaleSong );
 };

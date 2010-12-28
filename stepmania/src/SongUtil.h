@@ -10,6 +10,7 @@ class Song;
 class Steps;
 class Profile;
 class XNode;
+namespace Json { class Value; }
 
 class SongCriteria
 {
@@ -116,6 +117,10 @@ public:
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
 	void LoadFromDir( RString _sDir ) { sDir = _sDir; }
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
+
 	RString ToString() const;
 	bool IsValid() const;
 };

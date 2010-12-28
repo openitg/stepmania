@@ -9,6 +9,7 @@ class Song;
 class Profile;
 class XNode;
 class SongCriteria;
+namespace Json { class Value; }
 
 class StepsCriteria
 {
@@ -74,6 +75,10 @@ public:
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
+
 	RString ToString() const;
 	bool IsValid() const;
 	static void ClearCache();

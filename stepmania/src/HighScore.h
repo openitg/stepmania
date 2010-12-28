@@ -8,8 +8,8 @@
 #include "RadarValues.h"
 #include "DateTime.h"
 #include "RageUtil_AutoPtr.h"
-
 class XNode;
+namespace Json { class Value; }
 
 struct HighScoreImpl;
 struct HighScore
@@ -58,6 +58,9 @@ struct HighScore
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
 
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
+
 	RString GetDisplayName() const;
 private:
 	HiddenPtr<HighScoreImpl> m_Impl;
@@ -90,6 +93,9 @@ public:
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
 
 	vector<HighScore> vHighScores;
 private:

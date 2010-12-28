@@ -14,6 +14,7 @@
 #include "ThemeMetric.h"
 #include "LocalizedString.h"
 #include "RageLog.h"
+#include "Json/Value.h"
 
 bool SongCriteria::Matches( const Song *pSong ) const
 {
@@ -849,6 +850,16 @@ void SongID::LoadFromNode( const XNode* pNode )
 {
 	ASSERT( pNode->m_sName == "Song" );
 	pNode->GetAttrValue("Dir", sDir);
+}
+
+void SongID::Serialize( Json::Value &root ) const
+{
+	root = sDir;
+}
+
+void SongID::Deserialize( const Json::Value &root ) 
+{
+	sDir = root.asString();
 }
 
 RString SongID::ToString() const

@@ -25,10 +25,13 @@
 #include "Game.h"
 #include "CharacterManager.h"
 #include "Character.h"
+#include "Json/Value.h"
+#include "JsonUtil.h"
 
 const RString STATS_XSL            = "Stats.xsl";
 const RString COMMON_XSL           = "Common.xsl";
 const RString STATS_XML            = "Stats.xml";
+const RString STATS_JSON           = "Stats.json";
 const RString EDITABLE_INI         = "Editable.ini";
 const RString DONT_SHARE_SIG       = "DontShare.sig";
 const RString PUBLIC_KEY_FILE      = "public.key";
@@ -57,9 +60,9 @@ const unsigned int DEFAULT_WEIGHT_POUNDS	= 120;
 int Profile::HighScoresForASong::GetNumTimesPlayed() const
 {
 	int iCount = 0;
-	FOREACHM_CONST( StepsID, HighScoresForASteps, m_StepsHighScores, i )
+	FOREACHM_CONST( StepsID, HighScoreList, m_StepsHighScores, i )
 	{
-		iCount += i->second.hsl.GetNumTimesPlayed();
+		iCount += i->second.GetNumTimesPlayed();
 	}
 	return iCount;
 }
@@ -67,9 +70,9 @@ int Profile::HighScoresForASong::GetNumTimesPlayed() const
 int Profile::HighScoresForACourse::GetNumTimesPlayed() const
 {
 	int iCount = 0;
-	FOREACHM_CONST( TrailID, HighScoresForATrail, m_TrailHighScores, i )
+	FOREACHM_CONST( TrailID, HighScoreList, m_TrailHighScores, i )
 	{
-		iCount += i->second.hsl.GetNumTimesPlayed();
+		iCount += i->second.GetNumTimesPlayed();
 	}
 	return iCount;
 }
@@ -354,7 +357,7 @@ float Profile::GetSongsActual( StepsType st, Difficulty dc ) const
 		CHECKPOINT_M( ssprintf("Profile::GetSongsActual: song %s", pSong->GetSongDir().c_str()) );
 		const HighScoresForASong &hsfas = i->second;
 		
-		FOREACHM_CONST( StepsID, HighScoresForASteps, hsfas.m_StepsHighScores, j )
+		FOREACHM_CONST( StepsID, HighScoreList, hsfas.m_StepsHighScores, j )
 		{
 			const StepsID &id = j->first;
 			Steps* pSteps = id.ToSteps( pSong, true );
@@ -373,9 +376,7 @@ float Profile::GetSongsActual( StepsType st, Difficulty dc ) const
 				continue;	// skip
 			CHECKPOINT;
 			
-			const HighScoresForASteps& h = j->second;
-			const HighScoreList& hsl = h.hsl;
-			
+			const HighScoreList& hsl = j->second;			
 			fTotalPercents += hsl.GetTopScore().GetPercentDP();
 		}
 		CHECKPOINT;
@@ -478,11 +479,11 @@ int Profile::GetSongNumTimesPlayed( const SongID& songID ) const
 		return 0;
 
 	int iTotalNumTimesPlayed = 0;
-	FOREACHM_CONST( StepsID, HighScoresForASteps, hsSong->m_StepsHighScores, j )
+	FOREACHM_CONST( StepsID, HighScoreList, hsSong->m_StepsHighScores, j )
 	{
-		const HighScoresForASteps &hsSteps = j->second;
+		const HighScoreList &hsSteps = j->second;
 
-		iTotalNumTimesPlayed += hsSteps.hsl.GetNumTimesPlayed();
+		iTotalNumTimesPlayed += hsSteps.GetNumTimesPlayed();
 	}
 	return iTotalNumTimesPlayed;
 }
@@ -499,8 +500,8 @@ int Profile::GetSongNumTimesPlayed( const SongID& songID ) const
 bool Profile::GetDefaultModifiers( const Game* pGameType, RString &sModifiersOut ) const
 {
 	map<RString,RString>::const_iterator it;
-	it = m_sDefaultModifiers.find( pGameType->m_szName );
-	if( it == m_sDefaultModifiers.end() )
+	it = m_DefaultModifiersByGame.find( pGameType->m_szName );
+	if( it == m_DefaultModifiersByGame.end() )
 		return false;
 	sModifiersOut = it->second;
 	return true;
@@ -509,9 +510,9 @@ bool Profile::GetDefaultModifiers( const Game* pGameType, RString &sModifiersOut
 void Profile::SetDefaultModifiers( const Game* pGameType, const RString &sModifiers )
 {
 	if( sModifiers == "" )
-		m_sDefaultModifiers.erase( pGameType->m_szName );
+		m_DefaultModifiersByGame.erase( pGameType->m_szName );
 	else
-		m_sDefaultModifiers[pGameType->m_szName] = sModifiers;
+		m_DefaultModifiersByGame[pGameType->m_szName] = sModifiers;
 }
 
 bool Profile::IsCodeUnlocked( RString sUnlockEntryID ) const
@@ -576,9 +577,9 @@ HighScoreList& Profile::GetStepsHighScoreList( const Song* pSong, const Steps* p
 	stepsID.FromSteps( pSteps );
 	
 	HighScoresForASong &hsSong = m_SongHighScores[songID];	// operator[] inserts into map
-	HighScoresForASteps &hsSteps = hsSong.m_StepsHighScores[stepsID];	// operator[] inserts into map
+	HighScoreList &hsSteps = hsSong.m_StepsHighScores[stepsID];	// operator[] inserts into map
 
-	return hsSteps.hsl;
+	return hsSteps;
 }
 
 int Profile::GetStepsNumTimesPlayed( const Song* pSong, const Steps* pSteps ) const
@@ -597,9 +598,9 @@ DateTime Profile::GetSongLastPlayedDateTime( const Song* pSong ) const
 	ASSERT( !iter->second.m_StepsHighScores.empty() );
 
 	DateTime dtLatest;	// starts out zeroed
-	FOREACHM_CONST( StepsID, HighScoresForASteps, iter->second.m_StepsHighScores, i )
+	FOREACHM_CONST( StepsID, HighScoreList, iter->second.m_StepsHighScores, i )
 	{
-		const HighScoreList &hsl = i->second.hsl;
+		const HighScoreList &hsl = i->second;
 		if( hsl.GetNumTimesPlayed() == 0 )
 			continue;
 		if( dtLatest < hsl.GetLastPlayed() )
@@ -651,14 +652,14 @@ void Profile::GetGrades( const Song* pSong, StepsType st, int iCounts[NUM_Grade]
 
 	FOREACH_Grade(g)
 	{
-		FOREACHM_CONST( StepsID, HighScoresForASteps, hsSong->m_StepsHighScores, it )
+		FOREACHM_CONST( StepsID, HighScoreList, hsSong->m_StepsHighScores, it )
 		{
 			const StepsID &id = it->first;
 			if( !id.MatchesStepsType(st) )
 				continue;
 
-			const HighScoresForASteps &hsSteps = it->second;
-			if( hsSteps.hsl.GetTopScore().GetGrade() == g )
+			const HighScoreList &hsSteps = it->second;
+			if( hsSteps.GetTopScore().GetGrade() == g )
 				iCounts[g]++;
 		}
 	}
@@ -686,9 +687,8 @@ HighScoreList& Profile::GetCourseHighScoreList( const Course* pCourse, const Tra
 	trailID.FromTrail( pTrail );
 
 	HighScoresForACourse &hsCourse = m_CourseHighScores[courseID];	// operator[] inserts into map
-	HighScoresForATrail &hsTrail = hsCourse.m_TrailHighScores[trailID];	// operator[] inserts into map
-
-	return hsTrail.hsl;
+	HighScoreList &hsl = hsCourse.m_TrailHighScores[trailID];	// operator[] inserts into map
+	return hsl;
 }
 
 int Profile::GetCourseNumTimesPlayed( const Course* pCourse ) const
@@ -706,11 +706,10 @@ int Profile::GetCourseNumTimesPlayed( const CourseID &courseID ) const
 		return 0;
 
 	int iTotalNumTimesPlayed = 0;
-	FOREACHM_CONST( TrailID, HighScoresForATrail, hsCourse->m_TrailHighScores, j )
+	FOREACHM_CONST( TrailID, HighScoreList, hsCourse->m_TrailHighScores, j )
 	{
-		const HighScoresForATrail &hsTrail = j->second;
-
-		iTotalNumTimesPlayed += hsTrail.hsl.GetNumTimesPlayed();
+		const HighScoreList &hsl = j->second;
+		iTotalNumTimesPlayed += hsl.GetNumTimesPlayed();
 	}
 	return iTotalNumTimesPlayed;
 }
@@ -726,9 +725,9 @@ DateTime Profile::GetCourseLastPlayedDateTime( const Course* pCourse ) const
 	ASSERT( !iter->second.m_TrailHighScores.empty() );
 
 	DateTime dtLatest;	// starts out zeroed
-	FOREACHM_CONST( TrailID, HighScoresForATrail, iter->second.m_TrailHighScores, i )
+	FOREACHM_CONST( TrailID, HighScoreList, iter->second.m_TrailHighScores, i )
 	{
-		const HighScoreList &hsl = i->second.hsl;
+		const HighScoreList &hsl = i->second;
 		if( hsl.GetNumTimesPlayed() == 0 )
 			continue;
 		if( dtLatest < hsl.GetLastPlayed() )
@@ -905,7 +904,7 @@ bool Profile::SaveAllToDir( RString sDir, bool bSignData ) const
 	// Save editable.ini
 	SaveEditableDataToDir( sDir );
 
-	bool bSaved = SaveStatsXmlToDir( sDir, bSignData );
+	bool bSaved = SaveStatsJsonToDir( sDir, bSignData );
 	
 	SaveStatsWebPageToDir( sDir );
 
@@ -919,38 +918,23 @@ bool Profile::SaveAllToDir( RString sDir, bool bSignData ) const
 	return bSaved;
 }
 
-XNode *Profile::SaveStatsXmlCreateNode() const
+bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
 {
-	XNode *xml = new XNode;
+	Json::Value root;
+	SaveGeneral( root["General"] );
+	SaveSongScores( root["SongScores"] );
+	SaveCourseScores( root["CourseScores"] );
+	SaveCategoryScores( root["CategoryScores"] );
+	SaveScreenshotData( root["ScreenshotData"] );
+	SaveCalorieData( root["CalorieData"] );
+	SaveRecentSongScores( root["RecentSongScores"] );
+	SaveRecentCourseScores( root["RecentCourseScores"] );
 
-	xml->m_sName = "Stats";
-	xml->AppendChild( SaveGeneralDataCreateNode() );
-	xml->AppendChild( SaveSongScoresCreateNode() );
-	xml->AppendChild( SaveCourseScoresCreateNode() );
-	xml->AppendChild( SaveCategoryScoresCreateNode() );
-	xml->AppendChild( SaveScreenshotDataCreateNode() );
-	xml->AppendChild( SaveCalorieDataCreateNode() );
-	xml->AppendChild( SaveRecentSongScoresCreateNode() );
-	xml->AppendChild( SaveRecentCourseScoresCreateNode() );
 	if( SHOW_COIN_DATA.GetValue() && IsMachine() )
-		xml->AppendChild( SaveCoinDataCreateNode() );
+		SaveCoinData( root["CoinData"] );
 
-	return xml;
-}
-
-bool Profile::SaveStatsXmlToDir( RString sDir, bool bSignData ) const
-{
-	XNode *xml = SaveStatsXmlCreateNode();
-
-	// Save stats.xml
-	RString fn = sDir + STATS_XML;
-
-	DISP_OPT opts;
-	opts.stylesheet = STATS_XSL;
-	opts.write_tabs = false;
-	bool bSaved = xml->SaveToFile( fn, opts );
-
-	SAFE_DELETE( xml );
+	RString fn = sDir + STATS_JSON;
+	bool bSaved = JsonUtil::WriteFile( root, fn, false );
 	
 	// Update file cache, or else IsAFile in CryptManager won't see this new file.
 	FILEMAN->FlushDirCache( sDir );
@@ -983,134 +967,127 @@ void Profile::SaveEditableDataToDir( RString sDir ) const
 	ini.WriteFile( sDir + EDITABLE_INI );
 }
 
-XNode* Profile::SaveGeneralDataCreateNode() const
+void Profile::SaveGeneral( Json::Value &root ) const
 {
-	XNode* pGeneralDataNode = new XNode;
-	pGeneralDataNode->m_sName = "GeneralData";
-
-	// TRICKY: These are write-only elements that are normally never read again.
+	// These are write-only elements that are normally never read again.
 	// This data is required by other apps (like internet ranking), but is 
 	// redundant to the game app.
-	pGeneralDataNode->AppendChild( "DisplayName",			GetDisplayNameOrHighScoreName() );
-	pGeneralDataNode->AppendChild( "CharacterID",			m_sCharacterID );
-	pGeneralDataNode->AppendChild( "LastUsedHighScoreName",		m_sLastUsedHighScoreName );
-	pGeneralDataNode->AppendChild( "WeightPounds",			m_iWeightPounds );
-	pGeneralDataNode->AppendChild( "IsMachine",			IsMachine() );
-	pGeneralDataNode->AppendChild( "IsWeightSet",			m_iWeightPounds != 0 );
+	root["DisplayName"] =			GetDisplayNameOrHighScoreName();
+	root["CharacterID"] = 			m_sCharacterID;
+	root["LastUsedHighScoreName"] = 	m_sLastUsedHighScoreName;
+	root["WeightPounds"] = 			m_iWeightPounds;
+	root["IsMachine"] = 			IsMachine();
+	root["IsWeightSet"] = 			m_iWeightPounds != 0;
 
-	pGeneralDataNode->AppendChild( "Guid",				m_sGuid );
-	pGeneralDataNode->AppendChild( "SortOrder",			SortOrderToString(m_SortOrder) );
-	pGeneralDataNode->AppendChild( "LastDifficulty",		DifficultyToString(m_LastDifficulty) );
-	pGeneralDataNode->AppendChild( "LastCourseDifficulty",		CourseDifficultyToString(m_LastCourseDifficulty) );
-	pGeneralDataNode->AppendChild( m_lastSong.CreateNode() );
-	pGeneralDataNode->AppendChild( m_lastCourse.CreateNode() );
-	pGeneralDataNode->AppendChild( "TotalPlays",			m_iTotalPlays );
-	pGeneralDataNode->AppendChild( "TotalPlaySeconds",		m_iTotalPlaySeconds );
-	pGeneralDataNode->AppendChild( "TotalGameplaySeconds",		m_iTotalGameplaySeconds );
-	pGeneralDataNode->AppendChild( "CurrentCombo",			m_iCurrentCombo );
-	pGeneralDataNode->AppendChild( "TotalCaloriesBurned",		m_fTotalCaloriesBurned );
-	pGeneralDataNode->AppendChild( "GoalType",			m_GoalType );
-	pGeneralDataNode->AppendChild( "GoalCalories",			m_iGoalCalories );
-	pGeneralDataNode->AppendChild( "GoalSeconds",			m_iGoalSeconds );
-	pGeneralDataNode->AppendChild( "LastPlayedMachineGuid",		m_sLastPlayedMachineGuid );
-	pGeneralDataNode->AppendChild( "LastPlayedDate",		m_LastPlayedDate );
-	pGeneralDataNode->AppendChild( "TotalDancePoints",		m_iTotalDancePoints );
-	pGeneralDataNode->AppendChild( "NumExtraStagesPassed",		m_iNumExtraStagesPassed );
-	pGeneralDataNode->AppendChild( "NumExtraStagesFailed",		m_iNumExtraStagesFailed );
-	pGeneralDataNode->AppendChild( "NumToasties",			m_iNumToasties );
-	pGeneralDataNode->AppendChild( "TotalTapsAndHolds",		m_iTotalTapsAndHolds );
-	pGeneralDataNode->AppendChild( "TotalJumps",			m_iTotalJumps );
-	pGeneralDataNode->AppendChild( "TotalHolds",			m_iTotalHolds );
-	pGeneralDataNode->AppendChild( "TotalRolls",			m_iTotalRolls );
-	pGeneralDataNode->AppendChild( "TotalMines",			m_iTotalMines );
-	pGeneralDataNode->AppendChild( "TotalHands",			m_iTotalHands );
-	pGeneralDataNode->AppendChild( "Data",				m_SavedLuaData.Serialize() );
+	root["Guid"] = 				m_sGuid;
+	root["SortOrder"] = 			SortOrderToString(m_SortOrder);
+	root["LastDifficulty"] = 		DifficultyToString(m_LastDifficulty);
+	root["LastCourseDifficulty"] = 		CourseDifficultyToString(m_LastCourseDifficulty);
+	m_lastSong.Serialize( root["LastSong"] );
+	m_lastCourse.Serialize( root["LastCourse"] );
+	root["TotalPlays"] = 			m_iTotalPlays;
+	root["TotalPlaySeconds"] = 		m_iTotalPlaySeconds;
+	root["TotalGameplaySeconds"] = 		m_iTotalGameplaySeconds;
+	root["CurrentCombo"] = 			m_iCurrentCombo;
+	root["TotalCaloriesBurned"] = 		m_fTotalCaloriesBurned;
+	root["GoalType"] = 			m_GoalType;
+	root["GoalCalories"] = 			m_iGoalCalories;
+	root["GoalSeconds"] = 			m_iGoalSeconds;
+	root["LastPlayedMachineGuid"] = 	m_sLastPlayedMachineGuid;
+	root["LastPlayedDate"] = 		m_LastPlayedDate.GetString();
+	root["TotalDancePoints"] = 		m_iTotalDancePoints;
+	root["NumExtraStagesPassed"] = 		m_iNumExtraStagesPassed;
+	root["NumExtraStagesFailed"] = 		m_iNumExtraStagesFailed;
+	root["NumToasties"] = 			m_iNumToasties;
+	root["TotalTapsAndHolds"] = 		m_iTotalTapsAndHolds;
+	root["TotalJumps"] = 			m_iTotalJumps;
+	root["TotalHolds"] = 			m_iTotalHolds;
+	root["TotalRolls"] = 			m_iTotalRolls;
+	root["TotalMines"] = 			m_iTotalMines;
+	root["TotalHands"] = 			m_iTotalHands;
+	root["Data"] = 				m_SavedLuaData.Serialize();
+	root["NumTotalSongsPlayed"] =		m_iNumTotalSongsPlayed;
 
-	// Keep declared variables in a very local scope so they aren't 
-	// accidentally used where they're not intended.  There's a lot of
-	// copying and pasting in this code.
+	// Keep declared variables in a very local scope so they aren't accidentally used where they're 
+	// not intended.  There's a lot of copying and pasting in this code.
 
 	{
-		XNode* pDefaultModifiers = pGeneralDataNode->AppendChild("DefaultModifiers");
-		FOREACHM_CONST( RString, RString, m_sDefaultModifiers, it )
-			pDefaultModifiers->AppendChild( it->first, it->second );
+		Json::Value &v = root["DefaultModifiersByGame"];
+		FOREACHM_CONST( RString, RString, m_DefaultModifiersByGame, it )
+			v[ it->first ] = it->second;
 	}
 
 	{
-		XNode* pUnlocks = pGeneralDataNode->AppendChild("Unlocks");
-		FOREACHS_CONST( RString, m_UnlockedEntryIDs, it )
-			pUnlocks->AppendChild("UnlockEntry")->AppendAttr( "UnlockEntryID", it->c_str() );
+		JsonUtil::SerializeArrayValues( m_UnlockedEntryIDs, root["UnlockEntryIDs"] );
 	}
 
 	{
-		XNode* pNumSongsPlayedByPlayMode = pGeneralDataNode->AppendChild("NumSongsPlayedByPlayMode");
+		Json::Value &v = root["NumSongsPlayedByPlayMode"];
 		FOREACH_PlayMode( pm )
 		{
 			/* Don't save unplayed PlayModes. */
 			if( !m_iNumSongsPlayedByPlayMode[pm] )
 				continue;
-			pNumSongsPlayedByPlayMode->AppendChild( PlayModeToString(pm), m_iNumSongsPlayedByPlayMode[pm] );
+			v[PlayModeToString(pm)] = m_iNumSongsPlayedByPlayMode[pm];
 		}
 	}
 
 	{
-		XNode* pNumSongsPlayedByStyle = pGeneralDataNode->AppendChild("NumSongsPlayedByStyle");
+		Json::Value &v = root["NumSongsPlayedByStyle"];
+		v = Json::Value( Json::arrayValue );
+		v.resize( m_iNumSongsPlayedByStyle.size() );
+		int i=0;
 		FOREACHM_CONST( StyleID, int, m_iNumSongsPlayedByStyle, iter )
 		{
 			const StyleID &s = iter->first;
 			int iNumPlays = iter->second;
 
-			XNode *pStyleNode = s.CreateNode();
-			pStyleNode->SetValue( iNumPlays );
-
-			pNumSongsPlayedByStyle->AppendChild( pStyleNode );
+			Json::Value &v2 = v[i++];
+			s.Serialize( v2["Style"] );
+			v2["NumPlays"] = iNumPlays;
 		}
 	}
 
 	{
-		XNode* pNumSongsPlayedByDifficulty = pGeneralDataNode->AppendChild("NumSongsPlayedByDifficulty");
+		Json::Value &v = root["NumSongsPlayedByDifficulty"];
 		FOREACH_Difficulty( dc )
 		{
 			if( !m_iNumSongsPlayedByDifficulty[dc] )
 				continue;
-			pNumSongsPlayedByDifficulty->AppendChild( DifficultyToString(dc), m_iNumSongsPlayedByDifficulty[dc] );
+			v[ DifficultyToString(dc) ] = m_iNumSongsPlayedByDifficulty[dc];
 		}
 	}
 
 	{
-		XNode* pNumSongsPlayedByMeter = pGeneralDataNode->AppendChild("NumSongsPlayedByMeter");
+		Json::Value &v = root["NumSongsPlayedByMeter"];
 		for( int i=0; i<MAX_METER+1; i++ )
 		{
 			if( !m_iNumSongsPlayedByMeter[i] )
 				continue;
-			pNumSongsPlayedByMeter->AppendChild( ssprintf("Meter%d",i), m_iNumSongsPlayedByMeter[i] );
+			v[ ssprintf("%d",i) ] = m_iNumSongsPlayedByMeter[i];
 		}
 	}
 
-	pGeneralDataNode->AppendChild( "NumTotalSongsPlayed", m_iNumTotalSongsPlayed );
-
 	{
-		XNode* pNumStagesPassedByPlayMode = pGeneralDataNode->AppendChild("NumStagesPassedByPlayMode");
+		Json::Value &v = root["NumStagesPassedByPlayMode"];
 		FOREACH_PlayMode( pm )
 		{
 			/* Don't save unplayed PlayModes. */
 			if( !m_iNumStagesPassedByPlayMode[pm] )
 				continue;
-			pNumStagesPassedByPlayMode->AppendChild( PlayModeToString(pm), m_iNumStagesPassedByPlayMode[pm] );
+			v[ PlayModeToString(pm) ] = m_iNumStagesPassedByPlayMode[pm];
 		}
 	}
 
 	{
-		XNode* pNumStagesPassedByGrade = pGeneralDataNode->AppendChild("NumStagesPassedByGrade");
+		Json::Value &v = root["NumStagesPassedByGrade"];
 		FOREACH_Grade( g )
 		{
 			if( !m_iNumStagesPassedByGrade[g] )
 				continue;
-			pNumStagesPassedByGrade->AppendChild( GradeToString(g), m_iNumStagesPassedByGrade[g] );
+			v[ GradeToString(g) ] = m_iNumStagesPassedByGrade[g];
 		}
 	}
-
-	return pGeneralDataNode;
 }
 
 ProfileLoadResult Profile::LoadEditableDataFromDir( RString sDir )
@@ -1210,7 +1187,7 @@ void Profile::LoadGeneralDataFromNode( const XNode* pNode )
 		{
 			FOREACH_CONST_Child( pDefaultModifiers, game_type )
 			{
-				m_sDefaultModifiers[game_type->m_sName] = game_type->m_sValue;
+				m_DefaultModifiersByGame[game_type->m_sName] = game_type->m_sValue;
 			}
 		}
 	}
@@ -1266,7 +1243,7 @@ void Profile::LoadGeneralDataFromNode( const XNode* pNode )
 		const XNode* pNumSongsPlayedByMeter = pNode->GetChild("NumSongsPlayedByMeter");
 		if( pNumSongsPlayedByMeter )
 			for( int i=0; i<MAX_METER+1; i++ )
-				pNumSongsPlayedByMeter->GetChildValue( ssprintf("Meter%d",i), m_iNumSongsPlayedByMeter[i] );
+				pNumSongsPlayedByMeter->GetChildValue( ssprintf("%d",i), m_iNumSongsPlayedByMeter[i] );
 	}
 
 	pNode->GetChildValue("NumTotalSongsPlayed", m_iNumTotalSongsPlayed );
@@ -1303,49 +1280,22 @@ void Profile::AddStepTotals( int iTotalTapsAndHolds, int iTotalJumps, int iTotal
 	m_mapDayToCaloriesBurned[date].fCals += fCaloriesBurned;
 }
 
-XNode* Profile::SaveSongScoresCreateNode() const
+void Profile::HighScoresForASong::Serialize( Json::Value &root ) const
+{
+	JsonUtil::SerializeMapAsArray( m_StepsHighScores, "Steps", "HighScoreList", root );
+}
+
+void Profile::HighScoresForASong::Deserialize( const Json::Value &root )
+{
+	FAIL_M("unfinished");
+}
+
+void Profile::SaveSongScores( Json::Value &root ) const
 {
 	CHECKPOINT;
+	ASSERT( this );
 
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "SongScores";
-
-	FOREACHM_CONST( SongID, HighScoresForASong, m_SongHighScores, i )
-	{	
-		const SongID &songID = i->first;
-		const HighScoresForASong &hsSong = i->second;
-
-		// skip songs that have never been played
-		if( pProfile->GetSongNumTimesPlayed(songID) == 0 )
-			continue;
-
-		XNode* pSongNode = pNode->AppendChild( songID.CreateNode() );
-
-		int jCheck2 = hsSong.m_StepsHighScores.size();
-		int jCheck1 = 0;
-		FOREACHM_CONST( StepsID, HighScoresForASteps, hsSong.m_StepsHighScores, j )
-		{	
-			jCheck1++;
-			ASSERT( jCheck1 <= jCheck2 );
-			const StepsID &stepsID = j->first;
-			const HighScoresForASteps &hsSteps = j->second;
-
-			const HighScoreList &hsl = hsSteps.hsl;
-
-			// skip steps that have never been played
-			if( hsl.GetNumTimesPlayed() == 0 )
-				continue;
-
-			XNode* pStepsNode = pSongNode->AppendChild( stepsID.CreateNode() );
-
-			pStepsNode->AppendChild( hsl.CreateNode() );
-		}
-	}
-	
-	return pNode;
+	JsonUtil::SerializeMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root );
 }
 
 void Profile::LoadSongScoresFromNode( const XNode* pSongScores )
@@ -1378,14 +1328,14 @@ void Profile::LoadSongScoresFromNode( const XNode* pSongScores )
 			if( pHighScoreListNode == NULL )
 				WARN_AND_CONTINUE;
 			
-			HighScoreList &hsl = m_SongHighScores[songID].m_StepsHighScores[stepsID].hsl;
+			HighScoreList &hsl = m_SongHighScores[songID].m_StepsHighScores[stepsID];
 			hsl.LoadFromNode( pHighScoreListNode );
 		}
 	}
 }
 
 
-XNode* Profile::SaveCourseScoresCreateNode() const
+void Profile::SaveCourseScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 
@@ -1407,12 +1357,10 @@ XNode* Profile::SaveCourseScoresCreateNode() const
 
 		XNode* pCourseNode = pNode->AppendChild( courseID.CreateNode() );
 
-		FOREACHM_CONST( TrailID, HighScoresForATrail, hsCourse.m_TrailHighScores, j )
+		FOREACHM_CONST( TrailID, HighScoreList, hsCourse.m_TrailHighScores, j )
 		{
 			const TrailID &trailID = j->first;
-			const HighScoresForATrail &hsTrail = j->second;
-
-			const HighScoreList &hsl = hsTrail.hsl;
+			const HighScoreList &hsl = j->second;
 
 			// skip steps that have never been played
 			if( hsl.GetNumTimesPlayed() == 0 )
@@ -1423,8 +1371,6 @@ XNode* Profile::SaveCourseScoresCreateNode() const
 			pTrailNode->AppendChild( hsl.CreateNode() );
 		}
 	}
-
-	return pNode;
 }
 
 void Profile::LoadCourseScoresFromNode( const XNode* pCourseScores )
@@ -1489,13 +1435,13 @@ void Profile::LoadCourseScoresFromNode( const XNode* pCourseScores )
 			if( pHighScoreListNode == NULL )
 				WARN_AND_CONTINUE;
 			
-			HighScoreList &hsl = m_CourseHighScores[courseID].m_TrailHighScores[trailID].hsl;
+			HighScoreList &hsl = m_CourseHighScores[courseID].m_TrailHighScores[trailID];
 			hsl.LoadFromNode( pHighScoreListNode );
 		}
 	}
 }
 
-XNode* Profile::SaveCategoryScoresCreateNode() const
+void Profile::SaveCategoryScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 
@@ -1528,8 +1474,6 @@ XNode* Profile::SaveCategoryScoresCreateNode() const
 			pRankingCategoryNode->AppendChild( hsl.CreateNode() );
 		}
 	}
-
-	return pNode;
 }
 
 void Profile::LoadCategoryScoresFromNode( const XNode* pCategoryScores )
@@ -1609,7 +1553,7 @@ void Profile::LoadScreenshotDataFromNode( const XNode* pScreenshotData )
 	}	
 }
 
-XNode* Profile::SaveScreenshotDataCreateNode() const
+void Profile::SaveScreenshotData( Json::Value &root ) const
 {
 	CHECKPOINT;
 
@@ -1623,8 +1567,6 @@ XNode* Profile::SaveScreenshotDataCreateNode() const
 	{
 		pNode->AppendChild( ss->CreateNode() );
 	}
-
-	return pNode;
 }
 
 void Profile::LoadCalorieDataFromNode( const XNode* pCalorieData )
@@ -1652,7 +1594,7 @@ void Profile::LoadCalorieDataFromNode( const XNode* pCalorieData )
 	}	
 }
 
-XNode* Profile::SaveCalorieDataCreateNode() const
+void Profile::SaveCalorieData( Json::Value &root ) const
 {
 	CHECKPOINT;
 
@@ -1668,8 +1610,6 @@ XNode* Profile::SaveCalorieDataCreateNode() const
 
 		pCaloriesBurned->AppendAttr( "Date", i->first.GetString() );
 	}
-
-	return pNode;
 }
 
 float Profile::GetCaloriesBurnedForDay( DateTime day ) const
@@ -1708,6 +1648,20 @@ void Profile::HighScoreForASongAndSteps::LoadFromNode( const XNode* pNode )
 		hs.LoadFromNode( p );
 }
 
+void Profile::HighScoreForASongAndSteps::Serialize( Json::Value &root ) const
+{
+	songID.Serialize( root["Song"] );
+	stepsID.Serialize( root["Steps"] );
+	hs.Serialize( root["HighScore"] );
+}
+
+void Profile::HighScoreForASongAndSteps::Deserialize( const Json::Value &root )
+{
+	songID.Deserialize( root["Song"] );
+	stepsID.Deserialize( root["Steps"] );
+	hs.Deserialize( root["HighScore"] );
+}
+
 void Profile::LoadRecentSongScoresFromNode( const XNode* pRecentSongScores )
 {
 	CHECKPOINT;
@@ -1729,20 +1683,11 @@ void Profile::LoadRecentSongScoresFromNode( const XNode* pRecentSongScores )
 	}	
 }
 
-XNode* Profile::SaveRecentSongScoresCreateNode() const
+void Profile::SaveRecentSongScores( Json::Value &root ) const
 {
 	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "RecentSongScores";
-
-	FOREACHD_CONST( HighScoreForASongAndSteps, m_vRecentStepsScores, i )
-		pNode->AppendChild( i->CreateNode() );
-
-	return pNode;
+	ASSERT( this );
+	JsonUtil::SerializeArrayObjects( m_vRecentStepsScores, root );
 }
 
 void Profile::AddStepsRecentScore( const Song* pSong, const Steps* pSteps, HighScore hs )
@@ -1807,7 +1752,7 @@ void Profile::LoadRecentCourseScoresFromNode( const XNode* pRecentCourseScores )
 	}	
 }
 
-XNode* Profile::SaveRecentCourseScoresCreateNode() const
+void Profile::SaveRecentCourseScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 
@@ -1819,8 +1764,6 @@ XNode* Profile::SaveRecentCourseScoresCreateNode() const
 
 	FOREACHD_CONST( HighScoreForACourseAndTrail, m_vRecentCourseScores, i )
 		pNode->AppendChild( i->CreateNode() );
-
-	return pNode;
 }
 
 void Profile::AddCourseRecentScore( const Course* pCourse, const Trail* pTrail, HighScore hs )
@@ -1870,7 +1813,7 @@ bool Profile::IsMachine() const
 }
 
 
-XNode* Profile::SaveCoinDataCreateNode() const
+void Profile::SaveCoinData( Json::Value &root ) const
 {
 	CHECKPOINT;
 
@@ -1908,8 +1851,6 @@ XNode* Profile::SaveCoinDataCreateNode() const
 		for( int i=0; i<HOURS_IN_DAY; i++ )
 			p->AppendChild( HourInDayToString(i), coins[i] );
 	}
-
-	return pNode;
 }
 
 void Profile::MoveBackupToDir( RString sFromDir, RString sToDir )
