@@ -1,10 +1,11 @@
+#include "global.h"
 #include <iostream>
 #include <json/value.h>
 #include <json/writer.h>
 #include <utility>
 #include <stdexcept>
 #include <cstring>
-#include <cassert>
+
 #ifdef JSON_USE_CPPTL
 # include <cpptl/conststring.h>
 #endif
@@ -13,9 +14,9 @@
 # include "json_batchallocator.h"
 #endif // #ifndef JSON_USE_SIMPLE_INTERNAL_ALLOCATOR
 
-#define JSON_ASSERT_UNREACHABLE assert( false )
-#define JSON_ASSERT( condition ) assert( condition );  // @todo <= change this into an exception throw
-#define JSON_ASSERT_MESSAGE( condition, message ) if (!( condition )) assert(false); /* throw std::runtime_error( message ); */
+#define JSON_ASSERT_UNREACHABLE FAIL_M("")
+#define JSON_ASSERT( condition ) ASSERT( condition );
+#define JSON_ASSERT_MESSAGE( condition, message ) ASSERT_M(condition,message)
 
 namespace Json {
 
@@ -963,7 +964,7 @@ Value::resize( UInt newSize )
    {
       for ( UInt index = newSize; index < oldSize; ++index )
          value_.map_->erase( index );
-      assert( size() == newSize );
+      JSON_ASSERT( size() == newSize );
    }
 #else
    value_.array_->resize( newSize );
