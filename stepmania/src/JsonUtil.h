@@ -34,15 +34,50 @@ namespace JsonUtil
 			fn( *v[i], root[i] );
 	}
 
-	template<class T>
-	static void SerializeVectorValues(const vector<T> &v, Json::Value &root)
+	template<typename V, typename T>
+	static void SerializeArray(const V &v, void fn(const T &, Json::Value &), Json::Value &root)
 	{
 		root = Json::Value(Json::arrayValue);
 		root.resize( v.size() );
-		for( unsigned i=0; i<v.size(); i++ )
-			root[i] = v[i];
+		int i=0;
+		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+			fn( *iter, root[i++] );
 	}
 
+	template <typename V>
+	static void SerializeArrayValues(const V &v, Json::Value &root)
+	{
+		root = Json::Value(Json::arrayValue);
+		root.resize( v.size() );
+		int i=0;
+		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+			root[i++] = *iter;
+	}
+
+	template <typename V>
+	static void SerializeArrayObjects(const V &v, Json::Value &root)
+	{
+		root = Json::Value(Json::arrayValue);
+		root.resize( v.size() );
+		int i=0;
+		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+			iter->Serialize( root[i++] );
+	}
+
+	// Serialize a map that has a non-string key type
+	template <typename V>
+	static void SerializeMapAsArray(const V &v, const RString &sKeyName, const RString &sValueName, Json::Value &root)
+	{
+		root = Json::Value(Json::arrayValue);
+		root.resize( v.size() );
+		int i=0;
+		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+		{
+			Json::Value &v = root[i++];
+			iter->first.Serialize( v[sKeyName] );
+			iter->second.Serialize( v[sValueName] );
+		}
+	}
 
 	template<class T>
 	static void DeserializeVectorObjects(vector<T> &v, void fn(T &, const Json::Value &), const Json::Value &root)
@@ -50,6 +85,14 @@ namespace JsonUtil
 		v.resize( root.size() );
 		for( unsigned i=0; i<v.size(); i++ )
 			fn( v[i], root[i] );
+	}
+
+	template <typename V>
+	static void DeserializeArrayObjects( V &v, const Json::Value &root)
+	{
+		v.resize( root.size() );
+		for( unsigned i=0; i<v.size(); i++ )
+			v[i].Deserialize( root[i] );
 	}
 
 	template<class T>

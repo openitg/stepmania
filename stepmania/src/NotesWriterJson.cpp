@@ -170,7 +170,7 @@ bool NotesWriterJson::Write( RString sFile, const Song &out, bool bSavingCache )
 		JsonUtil::SerializeVectorObjects( vBgc, Serialize, root["ForegroundChanges"] );
 	}
 
-	JsonUtil::SerializeVectorValues( out.m_vsKeysoundFile, root["KeySounds"] );
+	JsonUtil::SerializeArrayValues( out.m_vsKeysoundFile, root["KeySounds"] );
 
 	{
 		vector<const Steps*> vpSteps;
