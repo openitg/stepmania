@@ -58,10 +58,11 @@ void StyleID::Serialize( Json::Value &root ) const
 	root["Style"] = sStyle;
 }
 
-void StyleID::Deserialize( const Json::Value &root )
+bool StyleID::Deserialize( const Json::Value &root )
 {
 	sGame = root["Game"].asString();
 	sStyle = root["Style"].asString();
+	return true;
 }
 
 bool StyleID::IsValid() const

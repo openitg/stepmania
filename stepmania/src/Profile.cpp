@@ -30,7 +30,6 @@
 
 const RString STATS_XSL            = "Stats.xsl";
 const RString COMMON_XSL           = "Common.xsl";
-const RString STATS_XML            = "Stats.xml";
 const RString STATS_JSON           = "Stats.json";
 const RString EDITABLE_INI         = "Editable.ini";
 const RString DONT_SHARE_SIG       = "DontShare.sig";
@@ -41,10 +40,10 @@ const RString EDIT_COURSES_SUBDIR  = "EditCourses/";
 
 #define GUID_SIZE_BYTES 8
 
-#define MAX_EDITABLE_INI_SIZE_BYTES			2*1024		// 2KB
-#define MAX_PLAYER_STATS_XML_SIZE_BYTES	\
-	100 /* Songs */						\
-	* 3 /* Steps per Song */			\
+#define MAX_EDITABLE_INI_SIZE_BYTES		2*1024		// 2KB
+#define MAX_PLAYER_STATS_JSON_SIZE_BYTES	\
+	100 /* Songs */				\
+	* 3 /* Steps per Song */		\
 	* 10 /* HighScores per Steps */		\
 	* 1024 /* size in bytes of a HighScores XNode */
 
@@ -127,16 +126,13 @@ void Profile::InitGeneralData()
 	m_iTotalMines = 0;
 	m_iTotalHands = 0;
 
-	FOREACH_PlayMode( i )
-		m_iNumSongsPlayedByPlayMode[i] = 0;
+	m_iNumSongsPlayedByPlayMode.clear();
 	m_iNumSongsPlayedByStyle.clear();
-	FOREACH_Difficulty( i )
-		m_iNumSongsPlayedByDifficulty[i] = 0;
-	for( int i=0; i<MAX_METER+1; i++ )
-		m_iNumSongsPlayedByMeter[i] = 0;
+	m_iNumSongsPlayedByDifficulty.clear();
+	m_iNumSongsPlayedByMeter.clear();
 	m_iNumTotalSongsPlayed = 0;
-	ZERO( m_iNumStagesPassedByPlayMode );
-	ZERO( m_iNumStagesPassedByGrade );
+	m_iNumStagesPassedByPlayMode.clear();
+	m_iNumStagesPassedByGrade.clear();
 
 	Lua *L = LUA->Get();
 	lua_newtable( L );
@@ -234,8 +230,8 @@ float Profile::GetCaloriesBurnedToday() const
 int Profile::GetTotalNumSongsPassed() const
 {
 	int iTotal = 0;
-	FOREACH_PlayMode( i )
-		iTotal += m_iNumStagesPassedByPlayMode[i];
+	FOREACHM_CONST( PlayMode, int, m_iNumStagesPassedByPlayMode, iter )
+		iTotal += iter->second;
 	return iTotal;
 }
 
@@ -786,10 +782,6 @@ void Profile::IncrementCategoryPlayCount( StepsType st, RankingCategory rc )
 #define WARN_AND_RETURN_M(m) { WARN_M(m); return; }
 #define WARN_AND_CONTINUE_M(m) { WARN_M(m); continue; }
 #define WARN_AND_BREAK_M(m) { WARN_M(m); break; }
-#define LOAD_NODE(X)	{ \
-	const XNode* X = xml->GetChild(#X); \
-	if( X==NULL ) LOG->Warn("Failed to read section " #X); \
-	else Load##X##FromNode(X); }
 
 ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature )
 {
@@ -805,7 +797,7 @@ ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature 
 	LoadEditableDataFromDir( sDir );
 	
 	// Check for the existance of stats.xml
-	RString fn = sDir + STATS_XML;
+	RString fn = sDir + STATS_JSON;
 	if( !IsAFile(fn) )
 		return ProfileLoadResult_FailedNoProfile;
 
@@ -815,7 +807,7 @@ ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature 
 	if( !IsMachine() )	// only check stats coming from the player
 	{
 		int iBytes = FILEMAN->GetFileSizeInBytes( fn );
-		if( iBytes > MAX_PLAYER_STATS_XML_SIZE_BYTES )
+		if( iBytes > MAX_PLAYER_STATS_JSON_SIZE_BYTES )
 		{
 			LOG->Warn( "The file '%s' is unreasonably large.  It won't be loaded.", fn.c_str() );
 			return ProfileLoadResult_FailedTampered;
@@ -847,27 +839,27 @@ ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature 
 	}
 
 	LOG->Trace( "Loading %s", fn.c_str() );
-	XNode xml;
-	if( !XmlFileUtil::LoadFromFileShowErrors(xml, fn) )
+	Json::Value root;
+	if( !JsonUtil::LoadFromFileShowErrors(root, fn) )
 		return ProfileLoadResult_FailedTampered;
 	LOG->Trace( "Done." );
 
-	return LoadStatsXmlFromNode( &xml );
+	return LoadStatsJson( root );
 }
 
-ProfileLoadResult Profile::LoadStatsXmlFromNode( const XNode *xml, bool bIgnoreEditable )
+RString DateTimeToString( const DateTime &dt )
 {
-	/* The placeholder stats.xml file has an <html> tag.  Don't load it, but don't
-	 * warn about it. */
-	if( xml->m_sName == "html" )
-		return ProfileLoadResult_FailedNoProfile;
+	return dt.GetString();
+}
+DateTime StringToDateTime( const RString &s )
+{
+	DateTime dt;
+	dt.FromString(s);
+	return dt;
+}
 
-	if( xml->m_sName != "Stats" )
-	{
-		WARN_M( xml->m_sName );
-		return ProfileLoadResult_FailedTampered;
-	}
-
+ProfileLoadResult Profile::LoadStatsJson( const Json::Value &root, bool bIgnoreEditable )
+{
 	/* These are loaded from Editable, so we usually want to ignore them
 	 * here. */
 	RString sName = m_sDisplayName;
@@ -875,14 +867,14 @@ ProfileLoadResult Profile::LoadStatsXmlFromNode( const XNode *xml, bool bIgnoreE
 	RString sLastUsedHighScoreName = m_sLastUsedHighScoreName;
 	int iWeightPounds = m_iWeightPounds;
 
-	LOAD_NODE( GeneralData );
-	LOAD_NODE( SongScores );
-	LOAD_NODE( CourseScores );
-	LOAD_NODE( CategoryScores );
-	LOAD_NODE( ScreenshotData );
-	LOAD_NODE( CalorieData );
-	LOAD_NODE( RecentSongScores );
-	LOAD_NODE( RecentCourseScores );
+	LoadGeneral( root["General"] );
+	JsonUtil::DeserializeObjectToObjectMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root["SongScores"] );
+	JsonUtil::DeserializeObjectToObjectMapAsArray( m_CourseHighScores, "Course", "HighScoresForACourse", root["CourseScores"] );
+	JsonUtil::DeserializeStringToObjectMap( m_CategoryHighScores, StringToStepsType, root["CategoryScores"] );
+	JsonUtil::DeserializeArrayObjects( m_vScreenshots, root["ScreenshotData"] );
+	JsonUtil::DeserializeStringToValueMap( m_mapDayToCaloriesBurned, StringToDateTime, root["CalorieData"] );
+	JsonUtil::DeserializeArrayObjects( m_vRecentStepsScores, root["RecentSongScores"] );
+	JsonUtil::DeserializeArrayObjects( m_vRecentCourseScores, root["RecentCourseScores"] );
 		
 	if( bIgnoreEditable )
 	{
@@ -920,31 +912,24 @@ bool Profile::SaveAllToDir( RString sDir, bool bSignData ) const
 
 void Profile::RankingCategoryToHighScoreList::Serialize( Json::Value &root ) const
 {
-	JsonUtil::SerializeEnumToObjectMap( m_v, RankingCategoryToString, root );
+	JsonUtil::SerializeStringToObjectMap( m_v, RankingCategoryToString, root );
 }
 
 void Profile::RankingCategoryToHighScoreList::Deserialize( const Json::Value &root )
 {
-	FAIL_M("unfinished");
+	JsonUtil::DeserializeStringToObjectMap( m_v, StringToRankingCategory, root );
 }
 
 bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
 {
 	Json::Value root;
 	SaveGeneral( root["General"] );
-	
-	JsonUtil::SerializeMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root["SongScores"] );
-
-	JsonUtil::SerializeMapAsArray( m_CourseHighScores, "Course", "HighScoresForACourse", root["CourseScores"] );
-
-	JsonUtil::SerializeEnumToObjectMap( m_CategoryHighScores, StepsTypeToString, root["CategoryScores"] );
-	
+	JsonUtil::SerializeObjectToObjectMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root["SongScores"] );
+	JsonUtil::SerializeObjectToObjectMapAsArray( m_CourseHighScores, "Course", "HighScoresForACourse", root["CourseScores"] );
+	JsonUtil::SerializeStringToObjectMap( m_CategoryHighScores, StepsTypeToString, root["CategoryScores"] );
 	JsonUtil::SerializeArrayObjects( m_vScreenshots, root["ScreenshotData"] );
-
-	JsonUtil::SerializeValueToValueMap( m_mapDayToCaloriesBurned, root["CalorieData"] );
-
+	JsonUtil::SerializeStringToValueMap( m_mapDayToCaloriesBurned, DateTimeToString, root["CalorieData"] );
 	JsonUtil::SerializeArrayObjects( m_vRecentStepsScores, root["RecentSongScores"] );
-	
 	JsonUtil::SerializeArrayObjects( m_vRecentCourseScores, root["RecentCourseScores"] );
 
 	RString fn = sDir + STATS_JSON;
@@ -979,6 +964,16 @@ void Profile::SaveEditableDataToDir( RString sDir ) const
 	ini.SetValue( "Editable", "WeightPounds",			m_iWeightPounds );
 
 	ini.WriteFile( sDir + EDITABLE_INI );
+}
+
+const RString MeterToString(int i)
+{
+	return ssprintf("%d",i);
+}
+
+int StringToMeter(const RString &s)
+{
+	return atoi(s);
 }
 
 void Profile::SaveGeneral( Json::Value &root ) const
@@ -1019,89 +1014,17 @@ void Profile::SaveGeneral( Json::Value &root ) const
 	root["TotalRolls"] = 			m_iTotalRolls;
 	root["TotalMines"] = 			m_iTotalMines;
 	root["TotalHands"] = 			m_iTotalHands;
-	root["Data"] = 				m_SavedLuaData.Serialize();
+	root["SavedLuaData"] = 			m_SavedLuaData.Serialize();
 	root["NumTotalSongsPlayed"] =		m_iNumTotalSongsPlayed;
 
-	// Keep declared variables in a very local scope so they aren't accidentally used where they're 
-	// not intended.  There's a lot of copying and pasting in this code.
-
-	{
-		Json::Value &v = root["DefaultModifiersByGame"];
-		FOREACHM_CONST( RString, RString, m_DefaultModifiersByGame, it )
-			v[ it->first ] = it->second;
-	}
-
-	{
-		JsonUtil::SerializeArrayValues( m_UnlockedEntryIDs, root["UnlockEntryIDs"] );
-	}
-
-	{
-		Json::Value &v = root["NumSongsPlayedByPlayMode"];
-		FOREACH_PlayMode( pm )
-		{
-			/* Don't save unplayed PlayModes. */
-			if( !m_iNumSongsPlayedByPlayMode[pm] )
-				continue;
-			v[PlayModeToString(pm)] = m_iNumSongsPlayedByPlayMode[pm];
-		}
-	}
-
-	{
-		Json::Value &v = root["NumSongsPlayedByStyle"];
-		v = Json::Value( Json::arrayValue );
-		v.resize( m_iNumSongsPlayedByStyle.size() );
-		int i=0;
-		FOREACHM_CONST( StyleID, int, m_iNumSongsPlayedByStyle, iter )
-		{
-			const StyleID &s = iter->first;
-			int iNumPlays = iter->second;
-
-			Json::Value &v2 = v[i++];
-			s.Serialize( v2["Style"] );
-			v2["NumPlays"] = iNumPlays;
-		}
-	}
-
-	{
-		Json::Value &v = root["NumSongsPlayedByDifficulty"];
-		FOREACH_Difficulty( dc )
-		{
-			if( !m_iNumSongsPlayedByDifficulty[dc] )
-				continue;
-			v[ DifficultyToString(dc) ] = m_iNumSongsPlayedByDifficulty[dc];
-		}
-	}
-
-	{
-		Json::Value &v = root["NumSongsPlayedByMeter"];
-		for( int i=0; i<MAX_METER+1; i++ )
-		{
-			if( !m_iNumSongsPlayedByMeter[i] )
-				continue;
-			v[ ssprintf("%d",i) ] = m_iNumSongsPlayedByMeter[i];
-		}
-	}
-
-	{
-		Json::Value &v = root["NumStagesPassedByPlayMode"];
-		FOREACH_PlayMode( pm )
-		{
-			/* Don't save unplayed PlayModes. */
-			if( !m_iNumStagesPassedByPlayMode[pm] )
-				continue;
-			v[ PlayModeToString(pm) ] = m_iNumStagesPassedByPlayMode[pm];
-		}
-	}
-
-	{
-		Json::Value &v = root["NumStagesPassedByGrade"];
-		FOREACH_Grade( g )
-		{
-			if( !m_iNumStagesPassedByGrade[g] )
-				continue;
-			v[ GradeToString(g) ] = m_iNumStagesPassedByGrade[g];
-		}
-	}
+	JsonUtil::SerializeValueToValueMap( m_DefaultModifiersByGame, root["DefaultModifiersByGame"] );
+	JsonUtil::SerializeArrayValues( m_UnlockedEntryIDs, root["UnlockEntryIDs"] );
+	JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByPlayMode, PlayModeToString, root["NumSongsPlayedByPlayMode"] );
+	JsonUtil::SerializeObjectToValueMapAsArray(m_iNumSongsPlayedByStyle, "Style", "NumPlays", root["NumSongsPlayedByStyle"] );
+	JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByDifficulty, DifficultyToString, root["NumSongsPlayedByDifficulty"] );
+	JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByMeter, MeterToString, root["NumSongsPlayedByMeter"] );
+	JsonUtil::SerializeStringToValueMap( m_iNumStagesPassedByPlayMode, PlayModeToString, root["NumStagesPassedByPlayMode"] );
+	JsonUtil::SerializeStringToValueMap( m_iNumStagesPassedByGrade, GradeToString, root["NumStagesPassedByGrade"] );
 }
 
 ProfileLoadResult Profile::LoadEditableDataFromDir( RString sDir )
@@ -1141,142 +1064,60 @@ ProfileLoadResult Profile::LoadEditableDataFromDir( RString sDir )
 	return ProfileLoadResult_Success;
 }
 
-void Profile::LoadGeneralDataFromNode( const XNode* pNode )
+void Profile::LoadGeneral( const Json::Value &root )
 {
-	ASSERT( pNode->m_sName == "GeneralData" );
-
-	RString s;
-	const XNode* pTemp;
-
-	pNode->GetChildValue( "DisplayName",				m_sDisplayName );
-	pNode->GetChildValue( "CharacterID",				m_sCharacterID );
-	pNode->GetChildValue( "LastUsedHighScoreName",			m_sLastUsedHighScoreName );
-	pNode->GetChildValue( "WeightPounds",				m_iWeightPounds );
-	pNode->GetChildValue( "Guid",					m_sGuid );
-	pNode->GetChildValue( "SortOrder",				s );	m_SortOrder = StringToSortOrder( s );
-	pNode->GetChildValue( "LastDifficulty",				s );	m_LastDifficulty = StringToDifficulty( s );
-	pNode->GetChildValue( "LastCourseDifficulty",			s );	m_LastCourseDifficulty = StringToCourseDifficulty( s );
-	pTemp = pNode->GetChild( "Song" );				if( pTemp ) m_lastSong.LoadFromNode( pTemp );
-	pTemp = pNode->GetChild( "Course" );				if( pTemp ) m_lastCourse.LoadFromNode( pTemp );
-	pNode->GetChildValue( "TotalPlays",				m_iTotalPlays );
-	pNode->GetChildValue( "TotalPlaySeconds",			m_iTotalPlaySeconds );
-	pNode->GetChildValue( "TotalGameplaySeconds",			m_iTotalGameplaySeconds );
-	pNode->GetChildValue( "CurrentCombo",				m_iCurrentCombo );
-	pNode->GetChildValue( "TotalCaloriesBurned",			m_fTotalCaloriesBurned );
-	pNode->GetChildValue( "GoalType",				(int&)m_GoalType );
-	pNode->GetChildValue( "GoalCalories",				m_iGoalCalories );
-	pNode->GetChildValue( "GoalSeconds",				m_iGoalSeconds );
-	pNode->GetChildValue( "LastPlayedMachineGuid",			m_sLastPlayedMachineGuid );
-	pNode->GetChildValue( "LastPlayedDate",				m_LastPlayedDate );
-	pNode->GetChildValue( "TotalDancePoints",			m_iTotalDancePoints );
-	pNode->GetChildValue( "NumExtraStagesPassed",			m_iNumExtraStagesPassed );
-	pNode->GetChildValue( "NumExtraStagesFailed",			m_iNumExtraStagesFailed );
-	pNode->GetChildValue( "NumToasties",				m_iNumToasties );
-	pNode->GetChildValue( "TotalTapsAndHolds",			m_iTotalTapsAndHolds );
-	pNode->GetChildValue( "TotalJumps",				m_iTotalJumps );
-	pNode->GetChildValue( "TotalHolds",				m_iTotalHolds );
-	pNode->GetChildValue( "TotalRolls",				m_iTotalRolls );
-	pNode->GetChildValue( "TotalMines",				m_iTotalMines );
-	pNode->GetChildValue( "TotalHands",				m_iTotalHands );
+	root["DisplayName"].TryGet(		m_sDisplayName );
+	root["CharacterID"].TryGet(		m_sCharacterID );
+	root["LastUsedHighScoreName"].TryGet(	m_sLastUsedHighScoreName );
+	root["WeightPounds"].TryGet(		m_iWeightPounds );
+	root["Guid"].TryGet(			m_sGuid );
+	m_SortOrder = StringToSortOrder( root["SortOrder"].asString() );
+	m_LastDifficulty = StringToDifficulty( root["LastDifficulty"].asString() );
+	m_LastCourseDifficulty = StringToCourseDifficulty( root["LastCourseDifficulty"].asString() );
+	m_lastSong.Deserialize( root["LastSong"] );
+	m_lastCourse.Deserialize( root["LastCourse"] );
+	root["TotalPlays"].TryGet(		m_iTotalPlays );
+	root["TotalPlaySeconds"].TryGet(	m_iTotalPlaySeconds );
+	root["TotalGameplaySeconds"].TryGet(	m_iTotalGameplaySeconds );
+	root["CurrentCombo"].TryGet(		m_iCurrentCombo );
+	root["TotalCaloriesBurned"].TryGet(	m_fTotalCaloriesBurned );
+	root["GoalType"].TryGet(		(int&)m_GoalType );
+	root["GoalCalories"].TryGet(		m_iGoalCalories );
+	root["GoalSeconds"].TryGet(		m_iGoalSeconds );
+	root["LastPlayedMachineGuid"].TryGet(	m_sLastPlayedMachineGuid );
+	m_LastPlayedDate.FromString( root["LastPlayedDate"].asString() );
+	root["TotalDancePoints"].TryGet(	m_iTotalDancePoints );
+	root["NumExtraStagesPassed"].TryGet(	m_iNumExtraStagesPassed );
+	root["NumExtraStagesFailed"].TryGet(	m_iNumExtraStagesFailed );
+	root["NumToasties"].TryGet(		m_iNumToasties );
+	root["TotalTapsAndHolds"].TryGet(	m_iTotalTapsAndHolds );
+	root["TotalJumps"].TryGet(		m_iTotalJumps );
+	root["TotalHolds"].TryGet(		m_iTotalHolds );
+	root["TotalRolls"].TryGet(		m_iTotalRolls );
+	root["TotalMines"].TryGet(		m_iTotalMines );
+	root["TotalHands"].TryGet(		m_iTotalHands );
+	root["NumTotalSongsPlayed"].TryGet(	m_iNumTotalSongsPlayed );
 
 	{
-		RString sData;
-		if( pNode->GetChildValue( "Data", sData ) )
+		m_SavedLuaData.LoadFromString( root["SavedLuaData"].asString() );
+		if( m_SavedLuaData.GetLuaType() != LUA_TTABLE )
 		{
-			m_SavedLuaData.LoadFromString( sData );
-			if( m_SavedLuaData.GetLuaType() != LUA_TTABLE )
-			{
-				LOG->Warn( "Profile data did not evaluate to a table" );
-				Lua *L = LUA->Get();
-				lua_newtable( L );
-				m_SavedLuaData.SetFromStack( L );
-				LUA->Release( L );
-			}
+			LOG->Warn( "Profile data did not evaluate to a table" );
+			Lua *L = LUA->Get();
+			lua_newtable( L );
+			m_SavedLuaData.SetFromStack( L );
+			LUA->Release( L );
 		}
 	}
 
-	{
-		const XNode* pDefaultModifiers = pNode->GetChild("DefaultModifiers");
-		if( pDefaultModifiers )
-		{
-			FOREACH_CONST_Child( pDefaultModifiers, game_type )
-			{
-				m_DefaultModifiersByGame[game_type->m_sName] = game_type->m_sValue;
-			}
-		}
-	}
-
-	{
-		const XNode* pUnlocks = pNode->GetChild("Unlocks");
-		if( pUnlocks )
-		{
-			FOREACH_CONST_Child( pUnlocks, unlock )
-			{
-				RString sUnlockEntryID;
-				if( unlock->GetAttrValue("UnlockEntryID",sUnlockEntryID) )
-					m_UnlockedEntryIDs.insert( sUnlockEntryID );
-			}
-		}
-	}
-
-	{
-		const XNode* pNumSongsPlayedByPlayMode = pNode->GetChild("NumSongsPlayedByPlayMode");
-		if( pNumSongsPlayedByPlayMode )
-			FOREACH_PlayMode( pm )
-				pNumSongsPlayedByPlayMode->GetChildValue( PlayModeToString(pm), m_iNumSongsPlayedByPlayMode[pm] );
-	}
-
-	{
-		const XNode* pNumSongsPlayedByStyle = pNode->GetChild("NumSongsPlayedByStyle");
-		if( pNumSongsPlayedByStyle )
-		{
-			FOREACH_CONST_Child( pNumSongsPlayedByStyle, style )
-			{
-				if( style->m_sName != "Style" )
-					continue;
-
-				StyleID s;
-				s.LoadFromNode( style );
-
-				if( !s.IsValid() )
-					WARN_AND_CONTINUE;
-
-				style->GetValue( m_iNumSongsPlayedByStyle[s] );
-			}
-		}
-	}
-
-	{
-		const XNode* pNumSongsPlayedByDifficulty = pNode->GetChild("NumSongsPlayedByDifficulty");
-		if( pNumSongsPlayedByDifficulty )
-			FOREACH_Difficulty( dc )
-				pNumSongsPlayedByDifficulty->GetChildValue( DifficultyToString(dc), m_iNumSongsPlayedByDifficulty[dc] );
-	}
-
-	{
-		const XNode* pNumSongsPlayedByMeter = pNode->GetChild("NumSongsPlayedByMeter");
-		if( pNumSongsPlayedByMeter )
-			for( int i=0; i<MAX_METER+1; i++ )
-				pNumSongsPlayedByMeter->GetChildValue( ssprintf("%d",i), m_iNumSongsPlayedByMeter[i] );
-	}
-
-	pNode->GetChildValue("NumTotalSongsPlayed", m_iNumTotalSongsPlayed );
-
-	{
-		const XNode* pNumStagesPassedByGrade = pNode->GetChild("NumStagesPassedByGrade");
-		if( pNumStagesPassedByGrade )
-			FOREACH_Grade( g )
-				pNumStagesPassedByGrade->GetChildValue( GradeToString(g), m_iNumStagesPassedByGrade[g] );
-	}
-
-	{
-		const XNode* pNumStagesPassedByPlayMode = pNode->GetChild("NumStagesPassedByPlayMode");
-		if( pNumStagesPassedByPlayMode )
-			FOREACH_PlayMode( pm )
-				pNumStagesPassedByPlayMode->GetChildValue( PlayModeToString(pm), m_iNumStagesPassedByPlayMode[pm] );
-	
-	}
-
+	JsonUtil::DeserializeValueToValueMap( m_DefaultModifiersByGame, root["DefaultModifiersByGame"] );
+	JsonUtil::DeserializeArrayValuesIntoSet<set<RString>, RString>( m_UnlockedEntryIDs, root["UnlockedEntryID"] );
+	JsonUtil::DeserializeStringToValueMap( m_iNumSongsPlayedByPlayMode, StringToPlayMode, root["NumSongsPlayedByPlayMode"] );
+	JsonUtil::DeserializeObjectToValueMapAsArray( m_iNumSongsPlayedByStyle, "Style", "NumPlays", root["NumSongsPlayedByStyle"] );
+	JsonUtil::DeserializeStringToValueMap( m_iNumSongsPlayedByDifficulty, StringToDifficulty, root["NumSongsPlayedByDifficulty"] );
+	JsonUtil::DeserializeStringToValueMap( m_iNumSongsPlayedByMeter, StringToMeter, root["NumSongsPlayedByMeter"] );
+	JsonUtil::DeserializeStringToValueMap( m_iNumStagesPassedByPlayMode, StringToPlayMode, root["NumStagesPassedByPlayMode"] );
+	JsonUtil::DeserializeStringToValueMap( m_iNumStagesPassedByGrade, StringToGrade, root["NumStagesPassedByGrade"] );
 }
 
 void Profile::AddStepTotals( int iTotalTapsAndHolds, int iTotalJumps, int iTotalHolds, int iTotalRolls, int iTotalMines, int iTotalHands, float fCaloriesBurned )
@@ -1296,179 +1137,24 @@ void Profile::AddStepTotals( int iTotalTapsAndHolds, int iTotalJumps, int iTotal
 
 void Profile::HighScoresForASong::Serialize( Json::Value &root ) const
 {
-	JsonUtil::SerializeMapAsArray( m_StepsHighScores, "Steps", "HighScoreList", root );
+	JsonUtil::SerializeObjectToObjectMapAsArray( m_StepsHighScores, "Steps", "HighScoreList", root );
 }
 
-void Profile::HighScoresForASong::Deserialize( const Json::Value &root )
+bool Profile::HighScoresForASong::Deserialize( const Json::Value &root )
 {
-	FAIL_M("unfinished");
-}
-
-void Profile::SaveSongScores( Json::Value &root ) const
-{
-	CHECKPOINT;
-	ASSERT( this );
-}
-
-void Profile::LoadSongScoresFromNode( const XNode* pSongScores )
-{
-	CHECKPOINT;
-
-	ASSERT( pSongScores->m_sName == "SongScores" );
-
-	FOREACH_CONST_Child( pSongScores, pSong )
-	{
-		if( pSong->m_sName != "Song" )
-			continue;
-
-		SongID songID;
-		songID.LoadFromNode( pSong );
-		if( !songID.IsValid() )
-			WARN_AND_CONTINUE;
-
-		FOREACH_CONST_Child( pSong, pSteps )
-		{
-			if( pSteps->m_sName != "Steps" )
-				continue;
-
-			StepsID stepsID;
-			stepsID.LoadFromNode( pSteps );
-			if( !stepsID.IsValid() )
-				WARN_AND_CONTINUE;
-
-			const XNode *pHighScoreListNode = pSteps->GetChild("HighScoreList");
-			if( pHighScoreListNode == NULL )
-				WARN_AND_CONTINUE;
-			
-			HighScoreList &hsl = m_SongHighScores[songID].m_StepsHighScores[stepsID];
-			hsl.LoadFromNode( pHighScoreListNode );
-		}
-	}
+	JsonUtil::DeserializeObjectToObjectMapAsArray( m_StepsHighScores, "Steps", "HighScoreList", root );
+	return true;
 }
 
 void Profile::HighScoresForACourse::Serialize( Json::Value &root ) const
 {
-	JsonUtil::SerializeMapAsArray( m_TrailHighScores, "Trail", "HighScoreList", root );
+	JsonUtil::SerializeObjectToObjectMapAsArray( m_TrailHighScores, "Trail", "HighScoreList", root );
 }
 
-void Profile::SaveCourseScores( Json::Value &root ) const
+bool Profile::HighScoresForACourse::Deserialize( const Json::Value &root )
 {
-	CHECKPOINT;
-	ASSERT( this );
-}
-
-void Profile::LoadCourseScoresFromNode( const XNode* pCourseScores )
-{
-	CHECKPOINT;
-
-	ASSERT( pCourseScores->m_sName == "CourseScores" );
-
-	vector<Course*> vpAllCourses;
-	SONGMAN->GetAllCourses( vpAllCourses, true );
-
-	FOREACH_CONST_Child( pCourseScores, pCourse )
-	{
-		if( pCourse->m_sName != "Course" )
-			continue;
-
-		CourseID courseID;
-		courseID.LoadFromNode( pCourse );
-		if( !courseID.IsValid() )
-			WARN_AND_CONTINUE;
-		
-
-		// Backward compatability hack to fix importing scores of old style 
-		// courses that weren't in group folder but have now been moved into
-		// a group folder: 
-		// If the courseID doesn't resolve, then take the file name part of sPath
-		// and search for matches of just the file name.
-		{
-			Course *pC = courseID.ToCourse();
-			if( pC == NULL )
-			{
-				RString sDir, sFName, sExt;
-				splitpath( courseID.sPath, sDir, sFName, sExt );
-				RString sFullFileName = sFName + sExt;
-
-				FOREACH_CONST( Course*, vpAllCourses, c )
-				{
-					RString sOther = (*c)->m_sPath.Right(sFullFileName.size());
-
-					if( sFullFileName.CompareNoCase(sOther) == 0 )
-					{
-						pC = *c;
-						courseID.FromCourse( pC );
-						break;
-					}
-				}
-			}
-		}
-
-
-		FOREACH_CONST_Child( pCourse, pTrail )
-		{
-			if( pTrail->m_sName != "Trail" )
-				continue;
-			
-			TrailID trailID;
-			trailID.LoadFromNode( pTrail );
-			if( !trailID.IsValid() )
-				WARN_AND_CONTINUE;
-
-			const XNode *pHighScoreListNode = pTrail->GetChild("HighScoreList");
-			if( pHighScoreListNode == NULL )
-				WARN_AND_CONTINUE;
-			
-			HighScoreList &hsl = m_CourseHighScores[courseID].m_TrailHighScores[trailID];
-			hsl.LoadFromNode( pHighScoreListNode );
-		}
-	}
-}
-
-void Profile::SaveCategoryScores( Json::Value &root ) const
-{
-	CHECKPOINT;
-	ASSERT( this );
-
-}
-
-void Profile::LoadCategoryScoresFromNode( const XNode* pCategoryScores )
-{
-	CHECKPOINT;
-
-	ASSERT( pCategoryScores->m_sName == "CategoryScores" );
-
-	FOREACH_CONST_Child( pCategoryScores, pStepsType )
-	{
-		if( pStepsType->m_sName != "StepsType" )
-			continue;
-
-		RString str;
-		if( !pStepsType->GetAttrValue( "Type", str ) )
-			WARN_AND_CONTINUE;
-		StepsType st = GameManager::StringToStepsType( str );
-		if( st == STEPS_TYPE_INVALID )
-			WARN_AND_CONTINUE_M( str );
-
-		FOREACH_CONST_Child( pStepsType, pRadarCategory )
-		{
-			if( pRadarCategory->m_sName != "RankingCategory" )
-				continue;
-
-			if( !pRadarCategory->GetAttrValue( "Type", str ) )
-				WARN_AND_CONTINUE;
-			RankingCategory rc = StringToRankingCategory( str );
-			if( rc == RANKING_INVALID )
-				WARN_AND_CONTINUE_M( str );
-
-			const XNode *pHighScoreListNode = pRadarCategory->GetChild("HighScoreList");
-			if( pHighScoreListNode == NULL )
-				WARN_AND_CONTINUE;
-			
-			HighScoreList &hsl = this->GetCategoryHighScoreList( st, rc );
-			hsl.LoadFromNode( pHighScoreListNode );
-		}
-	}
+	JsonUtil::DeserializeObjectToObjectMapAsArray( m_TrailHighScores, "Trail", "HighScoreList", root );
+	return true;
 }
 
 void Profile::SaveStatsWebPageToDir( RString sDir ) const
@@ -1490,61 +1176,6 @@ void Profile::SaveMachinePublicKeyToDir( RString sDir ) const
 void Profile::AddScreenshot( const Screenshot &screenshot )
 {
 	m_vScreenshots.push_back( screenshot );
-}
-
-void Profile::LoadScreenshotDataFromNode( const XNode* pScreenshotData )
-{
-	CHECKPOINT;
-
-	ASSERT( pScreenshotData->m_sName == "ScreenshotData" );
-	FOREACH_CONST_Child( pScreenshotData, pScreenshot )
-	{
-		if( pScreenshot->m_sName != "Screenshot" )
-			WARN_AND_CONTINUE_M( pScreenshot->m_sName );
-
-		Screenshot ss;
-		ss.LoadFromNode( pScreenshot );
-
-		m_vScreenshots.push_back( ss );
-	}	
-}
-
-
-void Profile::SaveScreenshotData( Json::Value &root ) const
-{
-	CHECKPOINT;
-}
-
-void Profile::LoadCalorieDataFromNode( const XNode* pCalorieData )
-{
-	CHECKPOINT;
-
-	ASSERT( pCalorieData->m_sName == "CalorieData" );
-	FOREACH_CONST_Child( pCalorieData, pCaloriesBurned )
-	{
-		if( pCaloriesBurned->m_sName != "CaloriesBurned" )
-			WARN_AND_CONTINUE_M( pCaloriesBurned->m_sName );
-
-		RString sDate;
-		if( !pCaloriesBurned->GetAttrValue("Date",sDate) )
-			WARN_AND_CONTINUE;
-		DateTime date;
-		if( !date.FromString(sDate) )
-			WARN_AND_CONTINUE_M( sDate );
-
-		float fCaloriesBurned = 0;
-
-		pCaloriesBurned->GetValue(fCaloriesBurned);
-
-		m_mapDayToCaloriesBurned[date] = fCaloriesBurned;
-	}	
-}
-
-void Profile::SaveCalorieData( Json::Value &root ) const
-{
-	CHECKPOINT;
-	ASSERT( this );
-
 }
 
 float Profile::GetCaloriesBurnedForDay( DateTime day ) const
@@ -1595,33 +1226,6 @@ void Profile::HighScoreForASongAndSteps::Deserialize( const Json::Value &root )
 	songID.Deserialize( root["Song"] );
 	stepsID.Deserialize( root["Steps"] );
 	hs.Deserialize( root["HighScore"] );
-}
-
-void Profile::LoadRecentSongScoresFromNode( const XNode* pRecentSongScores )
-{
-	CHECKPOINT;
-
-	ASSERT( pRecentSongScores->m_sName == "RecentSongScores" );
-	FOREACH_CONST_Child( pRecentSongScores, p )
-	{
-		if( p->m_sName == "HighScoreForASongAndSteps" )
-		{
-			HighScoreForASongAndSteps h;
-			h.LoadFromNode( p );
-
-			m_vRecentStepsScores.push_back( h );
-		}
-		else
-		{
-			WARN_AND_CONTINUE_M( p->m_sName );
-		}
-	}	
-}
-
-void Profile::SaveRecentSongScores( Json::Value &root ) const
-{
-	CHECKPOINT;
-	ASSERT( this );
 }
 
 void Profile::AddStepsRecentScore( const Song* pSong, const Steps* pSteps, HighScore hs )
@@ -1679,33 +1283,6 @@ void Profile::HighScoreForACourseAndTrail::Deserialize( const Json::Value &root 
 	hs.Deserialize( root["HighScore"] );
 }
 
-void Profile::LoadRecentCourseScoresFromNode( const XNode* pRecentCourseScores )
-{
-	CHECKPOINT;
-
-	ASSERT( pRecentCourseScores->m_sName == "RecentCourseScores" );
-	FOREACH_CONST_Child( pRecentCourseScores, p )
-	{
-		if( p->m_sName == "HighScoreForACourseAndTrail" )
-		{
-			HighScoreForACourseAndTrail h;
-			h.LoadFromNode( p );
-
-			m_vRecentCourseScores.push_back( h );
-		}
-		else
-		{
-			WARN_AND_CONTINUE_M( p->m_sName );
-		}
-	}	
-}
-
-void Profile::SaveRecentCourseScores( Json::Value &root ) const
-{
-	CHECKPOINT;
-	ASSERT( this );
-}
-
 void Profile::AddCourseRecentScore( const Course* pCourse, const Trail* pTrail, HighScore hs )
 {
 	HighScoreForACourseAndTrail h;
@@ -1754,10 +1331,10 @@ bool Profile::IsMachine() const
 
 void Profile::MoveBackupToDir( RString sFromDir, RString sToDir )
 {
-	FILEMAN->Move( sFromDir+EDITABLE_INI,				sToDir+EDITABLE_INI );
-	FILEMAN->Move( sFromDir+STATS_XML,					sToDir+STATS_XML );
-	FILEMAN->Move( sFromDir+STATS_XML+SIGNATURE_APPEND,	sToDir+STATS_XML+SIGNATURE_APPEND );
-	FILEMAN->Move( sFromDir+DONT_SHARE_SIG,				sToDir+DONT_SHARE_SIG );
+	FILEMAN->Move( sFromDir+EDITABLE_INI,			sToDir+EDITABLE_INI );
+	FILEMAN->Move( sFromDir+STATS_JSON,			sToDir+STATS_JSON );
+	FILEMAN->Move( sFromDir+STATS_JSON+SIGNATURE_APPEND,	sToDir+STATS_JSON+SIGNATURE_APPEND );
+	FILEMAN->Move( sFromDir+DONT_SHARE_SIG,			sToDir+DONT_SHARE_SIG );
 }
 
 // lua start

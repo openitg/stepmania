@@ -391,13 +391,14 @@ void HighScoreList::Serialize( Json::Value &root ) const
 	JsonUtil::SerializeArrayObjects( vHighScores, root["HighScores"] );
 }
 
-void HighScoreList::Deserialize( const Json::Value &root )
+bool HighScoreList::Deserialize( const Json::Value &root )
 {
 	Init();
 
 	root["NumTimesPlayed"].TryGet( iNumTimesPlayed );
 	dtLastPlayed.FromString( root["LastPlayed"].asString() );
 	JsonUtil::DeserializeArrayObjects( vHighScores, root["HighScores"] );
+	return true;
 }
 
 

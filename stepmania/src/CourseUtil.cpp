@@ -403,10 +403,11 @@ void CourseID::Serialize( Json::Value &root ) const
 		root["FullTitle"] = sFullTitle;
 }
 
-void CourseID::Deserialize( const Json::Value &root )
+bool CourseID::Deserialize( const Json::Value &root )
 {
 	sPath = root["Path"].asString();
 	sFullTitle = root["FullTitle"].asString();
+	return true;
 }
 
 RString CourseID::ToString() const

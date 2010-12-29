@@ -65,10 +65,11 @@ void TrailID::Serialize( Json::Value &root ) const
 	root["CourseDifficulty"] = CourseDifficultyToString(cd);
 }
 
-void TrailID::Deserialize( const Json::Value &root )
+bool TrailID::Deserialize( const Json::Value &root )
 {
 	st = GameManager::StringToStepsType( root["StepsType"].asString() );
 	cd = StringToCourseDifficulty( root["CourseDifficulty"].asString() );
+	return true;
 }
 
 RString TrailID::ToString() const

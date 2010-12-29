@@ -190,15 +190,15 @@ const UnlockEntry *UnlockManager::FindModifier( const RString &sOneMod ) const
 
 static float GetArcadePoints( const Profile *pProfile )
 {
-	float fAP =	0;
+	float fAP = 0;
 
 	FOREACH_Grade(g)
 	{
 		switch(g)
 		{
 		case Grade_Tier01:
-		case Grade_Tier02:	fAP += 9 * pProfile->m_iNumStagesPassedByGrade[g]; break;
-		default:			fAP += 1 * pProfile->m_iNumStagesPassedByGrade[g]; break;
+		case Grade_Tier02:	fAP += 9 * pProfile->GetNumStagesPassedByGrade(g); break;
+		default:		fAP += 1 * pProfile->GetNumStagesPassedByGrade(g); break;
 
 		case Grade_Failed:
 		case Grade_NoData:
@@ -214,7 +214,7 @@ static float GetArcadePoints( const Profile *pProfile )
 		case PLAY_MODE_NONSTOP:
 		case PLAY_MODE_ONI:
 		case PLAY_MODE_ENDLESS:
-			fAP += pProfile->m_iNumSongsPlayedByPlayMode[pm];
+			fAP += pProfile->GetNumSongsPlayedByPlayMode(pm);
 			break;
 		}
 
@@ -231,13 +231,13 @@ static float GetSongPoints( const Profile *pProfile )
 	{
 		switch( g )
 		{
-		case Grade_Tier01:/*AAAA*/	fSP += 20 * pProfile->m_iNumStagesPassedByGrade[g];	break;
-		case Grade_Tier02:/*AAA*/	fSP += 10* pProfile->m_iNumStagesPassedByGrade[g];	break;
-		case Grade_Tier03:/*AA*/	fSP += 5* pProfile->m_iNumStagesPassedByGrade[g];	break;
-		case Grade_Tier04:/*A*/		fSP += 4* pProfile->m_iNumStagesPassedByGrade[g];	break;
-		case Grade_Tier05:/*B*/		fSP += 3* pProfile->m_iNumStagesPassedByGrade[g];	break;
-		case Grade_Tier06:/*C*/		fSP += 2* pProfile->m_iNumStagesPassedByGrade[g];	break;
-		case Grade_Tier07:/*D*/		fSP += 1* pProfile->m_iNumStagesPassedByGrade[g];	break;
+		case Grade_Tier01:/*AAAA*/	fSP += 20 * pProfile->GetNumStagesPassedByGrade(g);	break;
+		case Grade_Tier02:/*AAA*/	fSP += 10* pProfile->GetNumStagesPassedByGrade(g);	break;
+		case Grade_Tier03:/*AA*/	fSP += 5* pProfile->GetNumStagesPassedByGrade(g);	break;
+		case Grade_Tier04:/*A*/		fSP += 4* pProfile->GetNumStagesPassedByGrade(g);	break;
+		case Grade_Tier05:/*B*/		fSP += 3* pProfile->GetNumStagesPassedByGrade(g);	break;
+		case Grade_Tier06:/*C*/		fSP += 2* pProfile->GetNumStagesPassedByGrade(g);	break;
+		case Grade_Tier07:/*D*/		fSP += 1* pProfile->GetNumStagesPassedByGrade(g);	break;
 		case Grade_Failed:
 		case Grade_NoData:
 			;	// no points
@@ -252,7 +252,7 @@ static float GetSongPoints( const Profile *pProfile )
 		case PLAY_MODE_NONSTOP:
 		case PLAY_MODE_ONI:
 		case PLAY_MODE_ENDLESS:
-			fSP += pProfile->m_iNumSongsPlayedByPlayMode[pm];
+			fSP += pProfile->GetNumSongsPlayedByPlayMode(pm);
 			break;
 		}
 

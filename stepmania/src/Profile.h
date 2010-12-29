@@ -25,7 +25,7 @@ namespace Json { class Value; }
 //
 // Current file versions
 //
-extern const RString STATS_XML;
+extern const RString STATS_JSON;
 
 extern const RString EDITABLE_INI;
 
@@ -138,14 +138,29 @@ public:
 	mutable DateTime m_LastPlayedDate;
 	/* These stats count twice in the machine profile if two players are playing;
 	 * that's the only approach that makes sense for ByDifficulty and ByMeter. */
-	int m_iNumSongsPlayedByPlayMode[NUM_PlayMode];
+	map<PlayMode,int> m_iNumSongsPlayedByPlayMode;
+	int GetNumSongsPlayedByPlayMode(PlayMode i) const
+	{
+		map<PlayMode,int>::const_iterator iter = m_iNumSongsPlayedByPlayMode.find(i);
+		if( iter == m_iNumSongsPlayedByPlayMode.end() )
+			return 0;
+		return iter->second;
+	}
 	map<StyleID,int> m_iNumSongsPlayedByStyle;
-	int m_iNumSongsPlayedByDifficulty[NUM_Difficulty];
-	int m_iNumSongsPlayedByMeter[MAX_METER+1];
+	map<Difficulty,int> m_iNumSongsPlayedByDifficulty;
+	map<int,int> m_iNumSongsPlayedByMeter;
 	/* This stat counts once per song, even if two players are active. */
 	int m_iNumTotalSongsPlayed;
-	int m_iNumStagesPassedByPlayMode[NUM_PlayMode];
-	int m_iNumStagesPassedByGrade[NUM_Grade];
+	map<PlayMode,int> m_iNumStagesPassedByPlayMode;
+	map<Grade,int> m_iNumStagesPassedByGrade;
+	int GetNumStagesPassedByGrade(Grade i) const
+	{
+		map<Grade,int>::const_iterator iter = m_iNumStagesPassedByGrade.find(i);
+		if( iter == m_iNumStagesPassedByGrade.end() )
+			return 0;
+		return iter->second;
+	}
+
 
 	//
 	// Song high scores
@@ -156,7 +171,7 @@ public:
 		int GetNumTimesPlayed() const;
 
 		void Serialize( Json::Value &root ) const;
-		void Deserialize( const Json::Value &root );
+		bool Deserialize( const Json::Value &root );
 	};
 	std::map<SongID,HighScoresForASong>	m_SongHighScores;
 
@@ -181,7 +196,7 @@ public:
 		int GetNumTimesPlayed() const;
 
 		void Serialize( Json::Value &root ) const;
-		void Deserialize( const Json::Value &root );
+		bool Deserialize( const Json::Value &root );
 	};
 	map<CourseID,HighScoresForACourse>	m_CourseHighScores;
 
@@ -311,26 +326,12 @@ public:
 	bool SaveAllToDir( RString sDir, bool bSignData ) const;
 
 	ProfileLoadResult LoadEditableDataFromDir( RString sDir );
-	ProfileLoadResult LoadStatsXmlFromNode( const XNode* pNode, bool bIgnoreEditable = true );
-	void LoadGeneralDataFromNode( const XNode* pNode );
-	void LoadSongScoresFromNode( const XNode* pNode );
-	void LoadCourseScoresFromNode( const XNode* pNode );
-	void LoadCategoryScoresFromNode( const XNode* pNode );
-	void LoadScreenshotDataFromNode( const XNode* pNode );
-	void LoadCalorieDataFromNode( const XNode* pNode );
-	void LoadRecentSongScoresFromNode( const XNode* pNode );
-	void LoadRecentCourseScoresFromNode( const XNode* pNode );
+	ProfileLoadResult LoadStatsJson( const Json::Value &root, bool bIgnoreEditable = true );
+	void LoadGeneral( const Json::Value &root );
 
 	void SaveEditableDataToDir( RString sDir ) const;
 	bool SaveStatsJsonToDir( RString sDir, bool bSignData ) const;
 	void SaveGeneral( Json::Value &root ) const;
-	void SaveSongScores( Json::Value &root ) const;
-	void SaveCourseScores( Json::Value &root ) const;
-	void SaveCategoryScores( Json::Value &root ) const;
-	void SaveScreenshotData( Json::Value &root ) const;
-	void SaveCalorieData( Json::Value &root ) const;
-	void SaveRecentSongScores( Json::Value &root ) const;
-	void SaveRecentCourseScores( Json::Value &root ) const;
 
 	void SaveStatsWebPageToDir( RString sDir ) const;
 	void SaveMachinePublicKeyToDir( RString sDir ) const;

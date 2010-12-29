@@ -119,7 +119,7 @@ public:
 	void LoadFromDir( RString _sDir ) { sDir = _sDir; }
 
 	void Serialize( Json::Value &root ) const;
-	void Deserialize( const Json::Value &root );
+	bool Deserialize( const Json::Value &root );
 
 	RString ToString() const;
 	bool IsValid() const;

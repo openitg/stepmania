@@ -175,7 +175,7 @@ static void Deserialize( Song &out, const Json::Value &root )
 		JsonUtil::DeserializeVectorObjects( vBgc, Deserialize, root["ForegroundChanges"] );
 	}
 
-	JsonUtil::DeserializeVectorValues( out.m_vsKeysoundFile, root["KeySounds"] );
+	JsonUtil::DeserializeArrayValuesIntoVector( out.m_vsKeysoundFile, root["KeySounds"] );
 
 	{
 		vector<Steps*> vpSteps;

@@ -311,7 +311,7 @@ void StepsID::Serialize( Json::Value &root ) const
 	}
 }
 
-void StepsID::Deserialize( const Json::Value &root )
+bool StepsID::Deserialize( const Json::Value &root )
 {
 	st = GameManager::StringToStepsType( root["StepsType"].asString() );
 	dc = StringToDifficulty( root["Difficulty"].asString() );
@@ -326,6 +326,7 @@ void StepsID::Deserialize( const Json::Value &root )
 		sDescription = "";
 		uHash = 0;
 	}
+	return true;
 }
 
 RString StepsID::ToString() const

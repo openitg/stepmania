@@ -56,7 +56,7 @@ public:
 	void LoadFromNode( const XNode* pNode );
 
 	void Serialize( Json::Value &root ) const;
-	void Deserialize( const Json::Value &root );
+	bool Deserialize( const Json::Value &root );
 
 	RString ToString() const;
 	bool IsValid() const;

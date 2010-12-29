@@ -857,9 +857,10 @@ void SongID::Serialize( Json::Value &root ) const
 	root = sDir;
 }
 
-void SongID::Deserialize( const Json::Value &root ) 
+bool SongID::Deserialize( const Json::Value &root ) 
 {
 	sDir = root.asString();
+	return true;
 }
 
 RString SongID::ToString() const
