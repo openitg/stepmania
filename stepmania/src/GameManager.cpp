@@ -65,39 +65,37 @@ const int TECHNO_VERSUS_COL_SPACING = 33;
 const int POPN5_COL_SPACING = 32; 
 const int POPN9_COL_SPACING = 32; 
 
-static struct {
-	char *name;
-	int NumTracks;
-} const StepsTypes[NUM_STEPS_TYPES] = {
-	{ "dance-single",	4 },
-	{ "dance-double",	8 },
-	{ "dance-couple",	8 },
-	{ "dance-solo",		6 },
-	{ "dance-routine",	8 },
-	{ "pump-single",	5 },
-	{ "pump-halfdouble",6 },
-	{ "pump-double",	10 },
-	{ "pump-couple",	10 },
-	{ "ez2-single",		5 },	// Single: TL,LHH,D,RHH,TR
-	{ "ez2-double",		10 },	// Double: Single x2
-	{ "ez2-real",		7 },	// Real: TL,LHH,LHL,D,RHL,RHH,TR
-	{ "para-single",	5 },
-	{ "para-versus",	10 },
-	{ "ds3ddx-single",	8 },
-	{ "bm-single5",		6 },	// called "bm" for backward compat
-	{ "bm-double5",      12 },	// called "bm" for backward compat
-	{ "bm-single7",   8 },		// called "bm" for backward compat
-	{ "bm-double7",   16 },		// called "bm" for backward compat
-	{ "maniax-single",	4 },
-	{ "maniax-double",	8 },
-	{ "techno-single4", 4 },
-	{ "techno-single5", 5 },
-	{ "techno-single8", 8 },
-	{ "techno-double4", 8 },
-	{ "techno-double5", 10 },
-	{ "pnm-five",		5 },	// called "pnm" for backward compat
-	{ "pnm-nine",		9 },	// called "pnm" for backward compat
-	{ "lights-cabinet",	NUM_CABINET_LIGHTS },
+static const int g_iNumTracks[NUM_StepsType] = 
+{
+	4,  // dance-single
+	8,  // dance-double
+	8,  // dance-couple
+	6,  // dance-solo",	
+	8,  // dance-routine",
+	5,  // pump-single",
+	6,  // pump-halfdouble
+	10,  // pump-double",,
+	10,  // pump-couple",,
+	5,  // ez2-single",		// Single: TL,LHH,D,RHH,TR
+	10,  // ez2-double",	,	// Double: Single x2
+	7,  // ez2-real",		// Real: TL,LHH,LHL,D,RHL,RHH,TR
+	5,  // para-single",
+	10,  // para-versus",,
+	8,  // ds3ddx-single",
+	6,  // bm-single5",		// called "bm" for backward compat
+	12,  // bm-double5",   	// called "bm" for backward compat
+	8,  // bm-single7",   	// called "bm" for backward compat
+	16,  // bm-double7",   	// called "bm" for backward compat
+	4,  // maniax-single",
+	8,  // maniax-double",
+	4,  // techno-single4"
+	5,  // techno-single5"
+	8,  // techno-single8"
+	8,  // techno-double4"
+	10,  // techno-double5"
+	5,  // pnm-five",		// called "pnm" for backward compat
+	9,  // pnm-nine",		// called "pnm" for backward compat
+	NUM_CABINET_LIGHTS, // lights-cabinet
 };
 
 //
@@ -2762,12 +2760,13 @@ bool GameManager::IsGameEnabled( const Game *pGame ) const
 
 int GameManager::StepsTypeToNumTracks( StepsType st )
 {
-	ASSERT_M( st < NUM_STEPS_TYPES, ssprintf("%i", st) );
-	return StepsTypes[st].NumTracks;
+	ASSERT_M( st < NUM_StepsType, ssprintf("%i", st) );
+	return g_iNumTracks[st];
 }
 
 StepsType GameManager::StringToStepsType( RString sStepsType )
 {
+	// HACK
 	sStepsType.MakeLower();
 
 	// HACK!  We elminitated "ez2-single-hard", but we should still handle it.
@@ -2778,19 +2777,12 @@ StepsType GameManager::StringToStepsType( RString sStepsType )
 	if( sStepsType == "para" )
 		sStepsType = "para-single";
 
-	for( int i=0; i<NUM_STEPS_TYPES; i++ )
-		if( StepsTypes[i].name == sStepsType )
-			return StepsType(i);
-	
-	// invalid StepsType
-	LOG->Warn( "Invalid StepsType string '%s' encountered.  Assuming this is 'dance-single'.", sStepsType.c_str() );
-	return STEPS_TYPE_DANCE_SINGLE;
+	return ::StringToStepsType( sStepsType );
 }
 
 RString GameManager::StepsTypeToString( StepsType st )
 {
-	ASSERT_M( st < NUM_STEPS_TYPES, ssprintf("%i", st) );
-	return StepsTypes[st].name;
+	return ::StepsTypeToString(st);
 }
 
 RString GameManager::StepsTypeToLocalizedString( StepsType st )

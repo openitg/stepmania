@@ -67,10 +67,12 @@ enum StepsType
 	STEPS_TYPE_POPN_FIVE,
 	STEPS_TYPE_POPN_NINE,
 	STEPS_TYPE_LIGHTS_CABINET,
-	NUM_STEPS_TYPES,		// leave this at the end
+	NUM_StepsType,		// leave this at the end
 	STEPS_TYPE_INVALID,
 };
-#define FOREACH_StepsType( st ) FOREACH_ENUM( StepsType, NUM_STEPS_TYPES, st )
+#define FOREACH_StepsType( st ) FOREACH_ENUM( StepsType, NUM_StepsType, st )
+const RString& StepsTypeToString( StepsType v );
+StepsType StringToStepsType( const RString& s );
 
 //
 // Play mode stuff

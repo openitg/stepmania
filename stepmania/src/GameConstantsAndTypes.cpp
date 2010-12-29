@@ -43,6 +43,40 @@ static void LuaRadarCategory(lua_State* L)
 }
 REGISTER_WITH_LUA_FUNCTION( LuaRadarCategory );
 
+static const char *StepsTypeNames[] = {
+	"dance-single",
+	"dance-double",
+	"dance-couple",
+	"dance-solo",
+	"dance-routine",
+	"pump-single",
+	"pump-halfdouble",
+	"pump-double",
+	"pump-couple",
+	"ez2-single",	// Single: TL,LHH,D,RHH,TR
+	"ez2-double",	// Double: Single x2
+	"ez2-real",	// Real: TL,LHH,LHL,D,RHL,RHH,TR
+	"para-single",
+	"para-versus",
+	"ds3ddx-single",
+	"bm-single5",	// called "bm" for backward compat
+	"bm-double5",	// called "bm" for backward compat
+	"bm-single7",	// called "bm" for backward compat
+	"bm-double7",	// called "bm" for backward compat
+	"maniax-single",
+	"maniax-double",
+	"techno-single4",
+	"techno-single5",
+	"techno-single8",
+	"techno-double4",
+	"techno-double5",
+	"pnm-five",
+	"pnm-nine",
+	"lights-cabinet",
+};
+XToString( StepsType, NUM_StepsType );
+StringToX( StepsType );
+
 static void LuaStepsType(lua_State* L)
 {
 	FOREACH_StepsType( st )
