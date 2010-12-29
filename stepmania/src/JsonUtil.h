@@ -64,6 +64,20 @@ namespace JsonUtil
 			iter->Serialize( root[i++] );
 	}
 
+	template <typename M, typename E>
+	static void SerializeEnumToObjectMap(const M &m, const RString &fnEnumToString(E e), Json::Value &root)
+	{
+		for( M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
+			iter->second.Serialize( root[ fnEnumToString(iter->first) ] );
+	}
+
+	template <typename M>
+	static void SerializeValueToValueMap(const M &m, Json::Value &root)
+	{
+		for( M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
+			root[ (iter->first).GetString() ] = iter->second;
+	}
+
 	// Serialize a map that has a non-string key type
 	template <typename V>
 	static void SerializeMapAsArray(const V &v, const RString &sKeyName, const RString &sValueName, Json::Value &root)

@@ -183,7 +183,7 @@ public:
 		void Serialize( Json::Value &root ) const;
 		void Deserialize( const Json::Value &root );
 	};
-	std::map<CourseID,HighScoresForACourse>	m_CourseHighScores;
+	map<CourseID,HighScoresForACourse>	m_CourseHighScores;
 
 	void AddCourseHighScore( const Course* pCourse, const Trail* pTrail, HighScore hs, int &iIndexOut );
 	HighScoreList& GetCourseHighScoreList( const Course* pCourse, const Trail* pTrail );
@@ -197,7 +197,14 @@ public:
 	//
 	// Category high scores
 	//
-	HighScoreList m_CategoryHighScores[NUM_STEPS_TYPES][NUM_RANKING_CATEGORIES];
+	struct RankingCategoryToHighScoreList
+	{
+		map<RankingCategory,HighScoreList> m_v;
+
+		void Serialize( Json::Value &root ) const;
+		void Deserialize( const Json::Value &root );
+	};
+	map<StepsType,RankingCategoryToHighScoreList>	m_CategoryHighScores;
 
 	void AddCategoryHighScore( StepsType st, RankingCategory rc, HighScore hs, int &iIndexOut );
 	HighScoreList& GetCategoryHighScoreList( StepsType st, RankingCategory rc );

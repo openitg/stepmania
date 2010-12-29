@@ -156,9 +156,7 @@ void Profile::InitCourseScores()
 
 void Profile::InitCategoryScores()
 {
-	for( int st=0; st<NUM_STEPS_TYPES; st++ )
-		for( int rc=0; rc<NUM_RANKING_CATEGORIES; rc++ )
-			m_CategoryHighScores[st][rc].Init();
+	m_CategoryHighScores.clear();
 }
 
 void Profile::InitScreenshotData()
@@ -745,31 +743,34 @@ void Profile::IncrementCoursePlayCount( const Course* pCourse, const Trail* pTra
 //
 void Profile::AddCategoryHighScore( StepsType st, RankingCategory rc, HighScore hs, int &iIndexOut )
 {
-	m_CategoryHighScores[st][rc].AddHighScore( hs, iIndexOut, IsMachine() );
+	m_CategoryHighScores[st].m_v[rc].AddHighScore( hs, iIndexOut, IsMachine() );
 }
 
 const HighScoreList& Profile::GetCategoryHighScoreList( StepsType st, RankingCategory rc ) const
 {
-	return ((Profile *)this)->m_CategoryHighScores[st][rc];
+	return ((Profile *)this)->m_CategoryHighScores[st].m_v[rc];
 }
 
 HighScoreList& Profile::GetCategoryHighScoreList( StepsType st, RankingCategory rc )
 {
-	return m_CategoryHighScores[st][rc];
+	return m_CategoryHighScores[st].m_v[rc];
 }
 
 int Profile::GetCategoryNumTimesPlayed( StepsType st ) const
 {
 	int iNumTimesPlayed = 0;
-	FOREACH_RankingCategory( rc )
-		iNumTimesPlayed += m_CategoryHighScores[st][rc].GetNumTimesPlayed();
+	map<StepsType,RankingCategoryToHighScoreList>::const_iterator iter1 = m_CategoryHighScores.find(st);
+	if( iter1 == m_CategoryHighScores.end() )
+		return 0;
+	FOREACHM_CONST( RankingCategory, HighScoreList, iter1->second.m_v, iter2 )
+		iNumTimesPlayed += iter2->second.GetNumTimesPlayed();
 	return iNumTimesPlayed;
 }
 
 void Profile::IncrementCategoryPlayCount( StepsType st, RankingCategory rc )
 {
 	DateTime now = DateTime::GetNowDate();
-	m_CategoryHighScores[st][rc].IncrementPlayCount( now );
+	m_CategoryHighScores[st].m_v[rc].IncrementPlayCount( now );
 }
 
 
@@ -916,17 +917,35 @@ bool Profile::SaveAllToDir( RString sDir, bool bSignData ) const
 	return bSaved;
 }
 
+
+void Profile::RankingCategoryToHighScoreList::Serialize( Json::Value &root ) const
+{
+	JsonUtil::SerializeEnumToObjectMap( m_v, RankingCategoryToString, root );
+}
+
+void Profile::RankingCategoryToHighScoreList::Deserialize( const Json::Value &root )
+{
+	FAIL_M("unfinished");
+}
+
 bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
 {
 	Json::Value root;
 	SaveGeneral( root["General"] );
-	SaveSongScores( root["SongScores"] );
-	SaveCourseScores( root["CourseScores"] );
-	SaveCategoryScores( root["CategoryScores"] );
-	SaveScreenshotData( root["ScreenshotData"] );
-	SaveCalorieData( root["CalorieData"] );
-	SaveRecentSongScores( root["RecentSongScores"] );
-	SaveRecentCourseScores( root["RecentCourseScores"] );
+	
+	JsonUtil::SerializeMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root["SongScores"] );
+
+	JsonUtil::SerializeMapAsArray( m_CourseHighScores, "Course", "HighScoresForACourse", root["CourseScores"] );
+
+	JsonUtil::SerializeEnumToObjectMap( m_CategoryHighScores, StepsTypeToString, root["CategoryScores"] );
+	
+	JsonUtil::SerializeArrayObjects( m_vScreenshots, root["ScreenshotData"] );
+
+	JsonUtil::SerializeValueToValueMap( m_mapDayToCaloriesBurned, root["CalorieData"] );
+
+	JsonUtil::SerializeArrayObjects( m_vRecentStepsScores, root["RecentSongScores"] );
+	
+	JsonUtil::SerializeArrayObjects( m_vRecentCourseScores, root["RecentCourseScores"] );
 
 	RString fn = sDir + STATS_JSON;
 	bool bSaved = JsonUtil::WriteFile( root, fn, false );
@@ -1289,7 +1308,6 @@ void Profile::SaveSongScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 	ASSERT( this );
-	JsonUtil::SerializeMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root );
 }
 
 void Profile::LoadSongScoresFromNode( const XNode* pSongScores )
@@ -1337,7 +1355,6 @@ void Profile::SaveCourseScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 	ASSERT( this );
-	JsonUtil::SerializeMapAsArray( m_CourseHighScores, "Course", "HighScoresForACourse", root );
 }
 
 void Profile::LoadCourseScoresFromNode( const XNode* pCourseScores )
@@ -1413,24 +1430,6 @@ void Profile::SaveCategoryScores( Json::Value &root ) const
 	CHECKPOINT;
 	ASSERT( this );
 
-	FOREACH_StepsType( st )
-	{
-		// skip steps types that have never been played
-		if( GetCategoryNumTimesPlayed( st ) == 0 )
-			continue;
-
-		Json::Value &v = root[ GameManager::StepsTypeToString(st) ];
-
-		FOREACH_RankingCategory( rc )
-		{
-			// skip steps types/categories that have never been played
-			if( GetCategoryHighScoreList(st,rc).GetNumTimesPlayed() == 0 )
-				continue;
-
-			const HighScoreList &hsl = GetCategoryHighScoreList( (StepsType)st, (RankingCategory)rc );
-			hsl.Serialize( v[ RankingCategoryToString(rc) ] );
-		}
-	}
 }
 
 void Profile::LoadCategoryScoresFromNode( const XNode* pCategoryScores )
@@ -1514,7 +1513,6 @@ void Profile::LoadScreenshotDataFromNode( const XNode* pScreenshotData )
 void Profile::SaveScreenshotData( Json::Value &root ) const
 {
 	CHECKPOINT;
-	JsonUtil::SerializeArrayObjects( m_vScreenshots, root );
 }
 
 void Profile::LoadCalorieDataFromNode( const XNode* pCalorieData )
@@ -1547,8 +1545,6 @@ void Profile::SaveCalorieData( Json::Value &root ) const
 	CHECKPOINT;
 	ASSERT( this );
 
-	FOREACHM_CONST( DateTime, float, m_mapDayToCaloriesBurned, iter )
-		root[ iter->first.GetString() ] = iter->second;
 }
 
 float Profile::GetCaloriesBurnedForDay( DateTime day ) const
@@ -1626,7 +1622,6 @@ void Profile::SaveRecentSongScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 	ASSERT( this );
-	JsonUtil::SerializeArrayObjects( m_vRecentStepsScores, root );
 }
 
 void Profile::AddStepsRecentScore( const Song* pSong, const Steps* pSteps, HighScore hs )
@@ -1709,7 +1704,6 @@ void Profile::SaveRecentCourseScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 	ASSERT( this );
-	JsonUtil::SerializeArrayObjects( m_vRecentCourseScores, root );
 }
 
 void Profile::AddCourseRecentScore( const Course* pCourse, const Trail* pTrail, HighScore hs )
