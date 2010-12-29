@@ -179,6 +179,9 @@ public:
 	{
 		std::map<TrailID,HighScoreList>	m_TrailHighScores;
 		int GetNumTimesPlayed() const;
+
+		void Serialize( Json::Value &root ) const;
+		void Deserialize( const Json::Value &root );
 	};
 	std::map<CourseID,HighScoresForACourse>	m_CourseHighScores;
 
@@ -220,12 +223,7 @@ public:
 	// a mis-set clock could wipe out all your past data.  With this scheme, 
 	// the worst that could happen is that playing on a mis-set machine will 
 	// insert some garbage entries into the map.
-	struct Calories
-	{
-		Calories() { fCals = 0; }
-		float fCals;
-	};
-	map<DateTime,Calories> m_mapDayToCaloriesBurned;
+	map<DateTime,float> m_mapDayToCaloriesBurned;
 	float GetCaloriesBurnedForDay( DateTime day ) const;
 	
 
@@ -267,6 +265,9 @@ public:
 
 		XNode* CreateNode() const;
 		void LoadFromNode( const XNode* pNode );
+
+		void Serialize( Json::Value &root ) const;
+		void Deserialize( const Json::Value &root );
 	};
 	deque<HighScoreForACourseAndTrail> m_vRecentCourseScores;	// add to back, erase from front
 	void AddCourseRecentScore( const Course* pCourse, const Trail* pTrail, HighScore hs );
@@ -323,7 +324,6 @@ public:
 	void SaveCalorieData( Json::Value &root ) const;
 	void SaveRecentSongScores( Json::Value &root ) const;
 	void SaveRecentCourseScores( Json::Value &root ) const;
-	void SaveCoinData( Json::Value &root ) const;
 
 	void SaveStatsWebPageToDir( RString sDir ) const;
 	void SaveMachinePublicKeyToDir( RString sDir ) const;

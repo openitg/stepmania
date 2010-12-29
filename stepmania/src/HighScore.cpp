@@ -430,7 +430,6 @@ XNode* Screenshot::CreateNode() const
 	XNode* pNode = new XNode;
 	pNode->m_sName = "Screenshot";
 
-	// TRICKY:  Don't write "name to fill in" markers.
 	pNode->AppendChild( "FileName",		sFileName );
 	pNode->AppendChild( "MD5",			sMD5 );
 	pNode->AppendChild( highScore.CreateNode() );
@@ -447,6 +446,20 @@ void Screenshot::LoadFromNode( const XNode* pNode )
 	const XNode* pHighScore = pNode->GetChild( "HighScore" );
 	if( pHighScore )
 		highScore.LoadFromNode( pHighScore );
+}
+
+void Screenshot::Serialize( Json::Value &root ) const
+{
+	root["FileName"] = sFileName;
+	root["MD5"] = sMD5;
+	highScore.Serialize( root["HighScore"] );
+}
+
+void Screenshot::Deserialize( const Json::Value &root )
+{
+	root["FileName"].TryGet( sFileName );
+	root["MD5"].TryGet( sMD5 );
+	highScore.Deserialize( root["HighScore"] );
 }
 
 /*

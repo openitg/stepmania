@@ -4,6 +4,7 @@
 #include "Course.h"
 #include "XmlFile.h"
 #include "GameManager.h"
+#include "Json/Value.h"
 
 
 void TrailID::FromTrail( const Trail *p )
@@ -56,6 +57,18 @@ void TrailID::LoadFromNode( const XNode* pNode )
 
 	pNode->GetAttrValue("CourseDifficulty", sTemp);
 	cd = StringToCourseDifficulty( sTemp );
+}
+
+void TrailID::Serialize( Json::Value &root ) const
+{
+	root["StepsType"] = GameManager::StepsTypeToString(st);
+	root["CourseDifficulty"] = CourseDifficultyToString(cd);
+}
+
+void TrailID::Deserialize( const Json::Value &root )
+{
+	st = GameManager::StringToStepsType( root["StepsType"].asString() );
+	cd = StringToCourseDifficulty( root["CourseDifficulty"].asString() );
 }
 
 RString TrailID::ToString() const

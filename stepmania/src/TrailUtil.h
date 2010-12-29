@@ -8,6 +8,7 @@ class Song;
 class Trail;
 class Course;
 class XNode;
+namespace Json { class Value; }
 
 class TrailID
 {
@@ -24,6 +25,10 @@ public:
 
 	XNode* CreateNode() const;
 	void LoadFromNode( const XNode* pNode );
+
+	void Serialize( Json::Value &root ) const;
+	void Deserialize( const Json::Value &root );
+
 	RString ToString() const;
 	bool IsValid() const;
 	static void Invalidate( Song* pStaleSong );

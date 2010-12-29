@@ -39,8 +39,6 @@ const RString SCREENSHOTS_SUBDIR   = "Screenshots/";
 const RString EDIT_STEPS_SUBDIR    = "Edits/";
 const RString EDIT_COURSES_SUBDIR  = "EditCourses/";
 
-ThemeMetric<bool> SHOW_COIN_DATA( "Profile", "ShowCoinData" );
-
 #define GUID_SIZE_BYTES 8
 
 #define MAX_EDITABLE_INI_SIZE_BYTES			2*1024		// 2KB
@@ -930,9 +928,6 @@ bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
 	SaveRecentSongScores( root["RecentSongScores"] );
 	SaveRecentCourseScores( root["RecentCourseScores"] );
 
-	if( SHOW_COIN_DATA.GetValue() && IsMachine() )
-		SaveCoinData( root["CoinData"] );
-
 	RString fn = sDir + STATS_JSON;
 	bool bSaved = JsonUtil::WriteFile( root, fn, false );
 	
@@ -1277,7 +1272,7 @@ void Profile::AddStepTotals( int iTotalTapsAndHolds, int iTotalJumps, int iTotal
 	m_fTotalCaloriesBurned += fCaloriesBurned;
 
 	DateTime date = DateTime::GetNowDate();
-	m_mapDayToCaloriesBurned[date].fCals += fCaloriesBurned;
+	m_mapDayToCaloriesBurned[date] = GetCaloriesBurnedForDay(date) + fCaloriesBurned;	// GetCaloriesBurnedForDay returns 0 if date not already in map
 }
 
 void Profile::HighScoresForASong::Serialize( Json::Value &root ) const
@@ -1294,7 +1289,6 @@ void Profile::SaveSongScores( Json::Value &root ) const
 {
 	CHECKPOINT;
 	ASSERT( this );
-
 	JsonUtil::SerializeMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root );
 }
 
@@ -1334,43 +1328,16 @@ void Profile::LoadSongScoresFromNode( const XNode* pSongScores )
 	}
 }
 
+void Profile::HighScoresForACourse::Serialize( Json::Value &root ) const
+{
+	JsonUtil::SerializeMapAsArray( m_TrailHighScores, "Trail", "HighScoreList", root );
+}
 
 void Profile::SaveCourseScores( Json::Value &root ) const
 {
 	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "CourseScores";
-
-	
-	FOREACHM_CONST( CourseID, HighScoresForACourse, m_CourseHighScores, i )
-	{
-		const CourseID &courseID = i->first;
-		const HighScoresForACourse &hsCourse = i->second;
-
-		// skip courses that have never been played
-		if( pProfile->GetCourseNumTimesPlayed(courseID) == 0 )
-			continue;
-
-		XNode* pCourseNode = pNode->AppendChild( courseID.CreateNode() );
-
-		FOREACHM_CONST( TrailID, HighScoreList, hsCourse.m_TrailHighScores, j )
-		{
-			const TrailID &trailID = j->first;
-			const HighScoreList &hsl = j->second;
-
-			// skip steps that have never been played
-			if( hsl.GetNumTimesPlayed() == 0 )
-				continue;
-
-			XNode* pTrailNode = pCourseNode->AppendChild( trailID.CreateNode() );
-
-			pTrailNode->AppendChild( hsl.CreateNode() );
-		}
-	}
+	ASSERT( this );
+	JsonUtil::SerializeMapAsArray( m_CourseHighScores, "Course", "HighScoresForACourse", root );
 }
 
 void Profile::LoadCourseScoresFromNode( const XNode* pCourseScores )
@@ -1444,34 +1411,24 @@ void Profile::LoadCourseScoresFromNode( const XNode* pCourseScores )
 void Profile::SaveCategoryScores( Json::Value &root ) const
 {
 	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "CategoryScores";
+	ASSERT( this );
 
 	FOREACH_StepsType( st )
 	{
 		// skip steps types that have never been played
-		if( pProfile->GetCategoryNumTimesPlayed( st ) == 0 )
+		if( GetCategoryNumTimesPlayed( st ) == 0 )
 			continue;
 
-		XNode* pStepsTypeNode = pNode->AppendChild( "StepsType" );
-		pStepsTypeNode->AppendAttr( "Type", GameManager::StepsTypeToString(st) );
+		Json::Value &v = root[ GameManager::StepsTypeToString(st) ];
 
 		FOREACH_RankingCategory( rc )
 		{
 			// skip steps types/categories that have never been played
-			if( pProfile->GetCategoryHighScoreList(st,rc).GetNumTimesPlayed() == 0 )
+			if( GetCategoryHighScoreList(st,rc).GetNumTimesPlayed() == 0 )
 				continue;
 
-			XNode* pRankingCategoryNode = pStepsTypeNode->AppendChild( "RankingCategory" );
-			pRankingCategoryNode->AppendAttr( "Type", RankingCategoryToString(rc) );
-
-			const HighScoreList &hsl = pProfile->GetCategoryHighScoreList( (StepsType)st, (RankingCategory)rc );
-
-			pRankingCategoryNode->AppendChild( hsl.CreateNode() );
+			const HighScoreList &hsl = GetCategoryHighScoreList( (StepsType)st, (RankingCategory)rc );
+			hsl.Serialize( v[ RankingCategoryToString(rc) ] );
 		}
 	}
 }
@@ -1553,20 +1510,11 @@ void Profile::LoadScreenshotDataFromNode( const XNode* pScreenshotData )
 	}	
 }
 
+
 void Profile::SaveScreenshotData( Json::Value &root ) const
 {
 	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "ScreenshotData";
-
-	FOREACH_CONST( Screenshot, m_vScreenshots, ss )
-	{
-		pNode->AppendChild( ss->CreateNode() );
-	}
+	JsonUtil::SerializeArrayObjects( m_vScreenshots, root );
 }
 
 void Profile::LoadCalorieDataFromNode( const XNode* pCalorieData )
@@ -1590,36 +1538,27 @@ void Profile::LoadCalorieDataFromNode( const XNode* pCalorieData )
 
 		pCaloriesBurned->GetValue(fCaloriesBurned);
 
-		m_mapDayToCaloriesBurned[date].fCals = fCaloriesBurned;
+		m_mapDayToCaloriesBurned[date] = fCaloriesBurned;
 	}	
 }
 
 void Profile::SaveCalorieData( Json::Value &root ) const
 {
 	CHECKPOINT;
+	ASSERT( this );
 
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "CalorieData";
-
-	FOREACHM_CONST( DateTime, Calories, m_mapDayToCaloriesBurned, i )
-	{
-		XNode* pCaloriesBurned = pNode->AppendChild( "CaloriesBurned", i->second.fCals );
-
-		pCaloriesBurned->AppendAttr( "Date", i->first.GetString() );
-	}
+	FOREACHM_CONST( DateTime, float, m_mapDayToCaloriesBurned, iter )
+		root[ iter->first.GetString() ] = iter->second;
 }
 
 float Profile::GetCaloriesBurnedForDay( DateTime day ) const
 {
 	day.StripTime();
-	map<DateTime,Calories>::const_iterator i = m_mapDayToCaloriesBurned.find( day );
+	map<DateTime,float>::const_iterator i = m_mapDayToCaloriesBurned.find( day );
 	if( i == m_mapDayToCaloriesBurned.end() )
 		return 0;
 	else
-		return i->second.fCals;
+		return i->second;
 }
 
 XNode* Profile::HighScoreForASongAndSteps::CreateNode() const
@@ -1731,6 +1670,20 @@ void Profile::HighScoreForACourseAndTrail::LoadFromNode( const XNode* pNode )
 		hs.LoadFromNode( p );
 }
 
+void Profile::HighScoreForACourseAndTrail::Serialize( Json::Value &root ) const
+{
+	courseID.Serialize( root["Course"] );
+	trailID.Serialize( root["Trail"] );
+	hs.Serialize( root["HighScore"] );
+}
+
+void Profile::HighScoreForACourseAndTrail::Deserialize( const Json::Value &root )
+{
+	courseID.Deserialize( root["Course"] );
+	trailID.Deserialize( root["Trail"] );
+	hs.Deserialize( root["HighScore"] );
+}
+
 void Profile::LoadRecentCourseScoresFromNode( const XNode* pRecentCourseScores )
 {
 	CHECKPOINT;
@@ -1755,15 +1708,8 @@ void Profile::LoadRecentCourseScoresFromNode( const XNode* pRecentCourseScores )
 void Profile::SaveRecentCourseScores( Json::Value &root ) const
 {
 	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "RecentCourseScores";
-
-	FOREACHD_CONST( HighScoreForACourseAndTrail, m_vRecentCourseScores, i )
-		pNode->AppendChild( i->CreateNode() );
+	ASSERT( this );
+	JsonUtil::SerializeArrayObjects( m_vRecentCourseScores, root );
 }
 
 void Profile::AddCourseRecentScore( const Course* pCourse, const Trail* pTrail, HighScore hs )
@@ -1810,47 +1756,6 @@ bool Profile::IsMachine() const
 {
 	// TODO: Think of a better way to handle this
 	return this == PROFILEMAN->GetMachineProfile();
-}
-
-
-void Profile::SaveCoinData( Json::Value &root ) const
-{
-	CHECKPOINT;
-
-	const Profile* pProfile = this;
-	ASSERT( pProfile );
-
-	XNode* pNode = new XNode;
-	pNode->m_sName = "CoinData";
-
-	{
-		int coins[NUM_LAST_DAYS];
-		BOOKKEEPER->GetCoinsLastDays( coins );
-		XNode* p = pNode->AppendChild( "LastDays" );
-		for( int i=0; i<NUM_LAST_DAYS; i++ )
-			p->AppendChild( LastDayToString(i), coins[i] );
-	}
-	{
-		int coins[NUM_LAST_WEEKS];
-		BOOKKEEPER->GetCoinsLastWeeks( coins );
-		XNode* p = pNode->AppendChild( "LastWeeks" );
-		for( int i=0; i<NUM_LAST_WEEKS; i++ )
-			p->AppendChild( LastWeekToString(i), coins[i] );
-	}
-	{
-		int coins[DAYS_IN_WEEK];
-		BOOKKEEPER->GetCoinsByDayOfWeek( coins );
-		XNode* p = pNode->AppendChild( "DayOfWeek" );
-		for( int i=0; i<DAYS_IN_WEEK; i++ )
-			p->AppendChild( DayOfWeekToString(i), coins[i] );
-	}
-	{
-		int coins[HOURS_IN_DAY];
-		BOOKKEEPER->GetCoinsByHour( coins );
-		XNode* p = pNode->AppendChild( "Hour" );
-		for( int i=0; i<HOURS_IN_DAY; i++ )
-			p->AppendChild( HourInDayToString(i), coins[i] );
-	}
 }
 
 void Profile::MoveBackupToDir( RString sFromDir, RString sToDir )
