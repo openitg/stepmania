@@ -54,6 +54,17 @@ bool JsonUtil::LoadFromStringShowErrors( Json::Value &root, RString sData )
 
 bool JsonUtil::WriteFile( const Json::Value &root, const RString &sFile, bool bMinified )
 {
+	RageFile f;
+	if( !f.Open(sFile, RageFile::WRITE) )
+	{
+		LOG->Warn("Couldn't open %s for reading: %s", sFile.c_str(), f.GetError().c_str() );
+		return false;
+	}
+	return WriteFile( root, f, bMinified );
+}
+
+bool JsonUtil::WriteFile( const Json::Value &root, RageFileBasic &f, bool bMinified )
+{
 	std::string s;
 	if( !bMinified )
 	{
@@ -66,12 +77,6 @@ bool JsonUtil::WriteFile( const Json::Value &root, const RString &sFile, bool bM
 		s = writer.write(root);
 	}
 
-	RageFile f;
-	if( !f.Open(sFile, RageFile::WRITE) )
-	{
-		LOG->Warn("Couldn't open %s for reading: %s", sFile.c_str(), f.GetError().c_str() );
-		return false;
-	}
 	f.Write(s);
 	return true;
 }

@@ -15,6 +15,7 @@ namespace JsonUtil
 	bool LoadFromFileShowErrors( Json::Value &root, RageFileBasic &f );
 
 	bool WriteFile( const Json::Value &root, const RString &sFile, bool bMinified );
+	bool WriteFile( const Json::Value &root, RageFileBasic &f, bool bMinified );
 
 	template<class T>
 	static void SerializeVectorObjects(const vector<T> &v, void fn(const T &, Json::Value &), Json::Value &root)

@@ -27,10 +27,12 @@
 #include "Character.h"
 #include "Json/Value.h"
 #include "JsonUtil.h"
+#include "RageFile.h"
+#include "RageFileDriverDeflate.h"
 
 const RString STATS_XSL            = "Stats.xsl";
 const RString COMMON_XSL           = "Common.xsl";
-const RString STATS_JSON           = "Stats.json";
+const RString STATS_JSON_GZ        = "Stats.json.gz";
 const RString EDITABLE_INI         = "Editable.ini";
 const RString DONT_SHARE_SIG       = "DontShare.sig";
 const RString PUBLIC_KEY_FILE      = "public.key";
@@ -41,12 +43,7 @@ const RString EDIT_COURSES_SUBDIR  = "EditCourses/";
 #define GUID_SIZE_BYTES 8
 
 #define MAX_EDITABLE_INI_SIZE_BYTES		2*1024		// 2KB
-#define MAX_PLAYER_STATS_JSON_SIZE_BYTES	\
-	100 /* Songs */				\
-	* 3 /* Steps per Song */		\
-	* 10 /* HighScores per Steps */		\
-	* 1024 /* size in bytes of a HighScores XNode */
-
+#define MAX_PLAYER_STATS_JSON_GZ_SIZE_BYTES	100*1024	// 100KB
 const unsigned int DEFAULT_WEIGHT_POUNDS	= 120;
 
 #if defined(_MSC_VER)
@@ -797,40 +794,27 @@ ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature 
 	LoadEditableDataFromDir( sDir );
 	
 	// Check for the existance of stats.xml
-	RString fn = sDir + STATS_JSON;
+	RString fn = sDir + STATS_JSON_GZ;
 	if( !IsAFile(fn) )
 		return ProfileLoadResult_FailedNoProfile;
 
-	//
-	// Don't unreasonably large stats.xml files.
-	//
-	if( !IsMachine() )	// only check stats coming from the player
-	{
-		int iBytes = FILEMAN->GetFileSizeInBytes( fn );
-		if( iBytes > MAX_PLAYER_STATS_JSON_SIZE_BYTES )
-		{
-			LOG->Warn( "The file '%s' is unreasonably large.  It won't be loaded.", fn.c_str() );
-			return ProfileLoadResult_FailedTampered;
-		}
-	}
-
 	if( bRequireSignature )
 	{ 
-		RString sStatsXmlSigFile = fn+SIGNATURE_APPEND;
+		RString sSigFile = fn+SIGNATURE_APPEND;
 		RString sDontShareFile = sDir + DONT_SHARE_SIG;
 
 		LOG->Trace( "Verifying don't share signature" );
 		// verify the stats.xml signature with the "don't share" file
-		if( !CryptManager::VerifyFileWithFile(sStatsXmlSigFile, sDontShareFile) )
+		if( !CryptManager::VerifyFileWithFile(sSigFile, sDontShareFile) )
 		{
-			LOG->Warn( "The don't share check for '%s' failed.  Data will be ignored.", sStatsXmlSigFile.c_str() );
+			LOG->Warn( "The don't share check for '%s' failed.  Data will be ignored.", sSigFile.c_str() );
 			return ProfileLoadResult_FailedTampered;
 		}
 		LOG->Trace( "Done." );
 
 		// verify stats.xml
 		LOG->Trace( "Verifying stats.xml signature" );
-		if( !CryptManager::VerifyFileWithFile(fn, sStatsXmlSigFile) )
+		if( !CryptManager::VerifyFileWithFile(fn, sSigFile) )
 		{
 			LOG->Warn( "The signature check for '%s' failed.  Data will be ignored.", fn.c_str() );
 			return ProfileLoadResult_FailedTampered;
@@ -838,11 +822,45 @@ ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature 
 		LOG->Trace( "Done." );
 	}
 
+	int iError;
+	auto_ptr<RageFileBasic> pFile( FILEMAN->Open(fn, RageFile::READ, iError) );
+	if( pFile.get() == NULL )
+	{
+		LOG->Trace( "Error opening %s: %s", fn.c_str(), strerror(iError) );
+		return ProfileLoadResult_FailedTampered;
+	}
+
+	RString sError;
+	uint32_t iCRC32;
+	RageFileBasic *pInflateTemp = GunzipFile( *pFile, sError, &iCRC32 );
+	if( pInflateTemp == NULL )
+	{
+		LOG->Trace( "Error opening %s: %s", fn.c_str(), sError.c_str() );
+		return ProfileLoadResult_FailedTampered;
+	}
+	auto_ptr<RageFileBasic> pInflate( pInflateTemp );
+
+
+	//
+	// Don't read unreasonably large stats.xml files.
+	//
+	if( !IsMachine() )	// only check stats coming from the player
+	{
+		int iBytes = FILEMAN->GetFileSizeInBytes( fn );
+		if( iBytes > MAX_PLAYER_STATS_JSON_GZ_SIZE_BYTES )
+		{
+			LOG->Warn( "The file '%s' is unreasonably large.  It won't be loaded.", fn.c_str() );
+			return ProfileLoadResult_FailedTampered;
+		}
+	}
+
 	LOG->Trace( "Loading %s", fn.c_str() );
 	Json::Value root;
-	if( !JsonUtil::LoadFromFileShowErrors(root, fn) )
+	if( !JsonUtil::LoadFromFileShowErrors(root, *pFile.get()) )
 		return ProfileLoadResult_FailedTampered;
 	LOG->Trace( "Done." );
+
+	pInflate.release();
 
 	return LoadStatsJson( root );
 }
@@ -932,26 +950,38 @@ bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
 	JsonUtil::SerializeArrayObjects( m_vRecentStepsScores, root["RecentSongScores"] );
 	JsonUtil::SerializeArrayObjects( m_vRecentCourseScores, root["RecentCourseScores"] );
 
-	RString fn = sDir + STATS_JSON;
-	bool bSaved = JsonUtil::WriteFile( root, fn, false );
+	RString fn = sDir + STATS_JSON_GZ;
+	RageFile f;
+	if( !f.Open(fn, RageFile::WRITE) )
+	{
+		LOG->Warn( "Couldn't open %s for writing: %s", fn.c_str(), f.GetError().c_str() );
+		return false;
+	}
+
+	RageFileObjGzip gzip( &f );
+	gzip.Start();
+	if( !JsonUtil::WriteFile( root, gzip, true ) )
+		return false;
+	if( gzip.Finish() == -1 )
+		return false;
 	
 	// Update file cache, or else IsAFile in CryptManager won't see this new file.
 	FILEMAN->FlushDirCache( sDir );
 	
-	if( bSaved && bSignData )
+	if( bSignData )
 	{
-		RString sStatsXmlSigFile = fn+SIGNATURE_APPEND;
-		CryptManager::SignFileToFile(fn, sStatsXmlSigFile);
+		RString sSigFile = fn+SIGNATURE_APPEND;
+		CryptManager::SignFileToFile(fn, sSigFile);
 
-		// Update file cache, or else IsAFile in CryptManager won't see sStatsXmlSigFile.
+		// Update file cache, or else IsAFile in CryptManager won't see sSigFile.
 		FILEMAN->FlushDirCache( sDir );
 
 		// Save the "don't share" file
 		RString sDontShareFile = sDir + DONT_SHARE_SIG;
-		CryptManager::SignFileToFile(sStatsXmlSigFile, sDontShareFile);
+		CryptManager::SignFileToFile(sSigFile, sDontShareFile);
 	}
 
-	return bSaved;
+	return true;
 }
 
 void Profile::SaveEditableDataToDir( RString sDir ) const
@@ -1332,8 +1362,8 @@ bool Profile::IsMachine() const
 void Profile::MoveBackupToDir( RString sFromDir, RString sToDir )
 {
 	FILEMAN->Move( sFromDir+EDITABLE_INI,			sToDir+EDITABLE_INI );
-	FILEMAN->Move( sFromDir+STATS_JSON,			sToDir+STATS_JSON );
-	FILEMAN->Move( sFromDir+STATS_JSON+SIGNATURE_APPEND,	sToDir+STATS_JSON+SIGNATURE_APPEND );
+	FILEMAN->Move( sFromDir+STATS_JSON_GZ,			sToDir+STATS_JSON_GZ );
+	FILEMAN->Move( sFromDir+STATS_JSON_GZ+SIGNATURE_APPEND,	sToDir+STATS_JSON_GZ+SIGNATURE_APPEND );
 	FILEMAN->Move( sFromDir+DONT_SHARE_SIG,			sToDir+DONT_SHARE_SIG );
 }
 
