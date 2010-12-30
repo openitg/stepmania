@@ -478,7 +478,7 @@ static MenuDef g_MainMenu(
 	MenuRowDef( ScreenEdit::play_current_beat_to_end,	"Play current beat to end",	true, EditMode_Practice, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::save,				"Save",				true, EditMode_Home, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::publish,			"Publish to StepMania.com",	true, EditMode_Home, true, true, 0, NULL ),
-	MenuRowDef( ScreenEdit::export_song,				"Export .smzip to Desktop",	true, EditMode_Home, true, true, 0, NULL ),
+	MenuRowDef( ScreenEdit::export_song,			"Export .smzip to Desktop",	true, EditMode_Home, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::revert_to_last_save,		"Revert to last save",		true, EditMode_Home, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::revert_from_disk,		"Revert from disk",		true, EditMode_Full, true, true, 0, NULL ),
 	MenuRowDef( ScreenEdit::options,			"Editor options",		true, EditMode_Practice, true, true, 0, NULL ),
