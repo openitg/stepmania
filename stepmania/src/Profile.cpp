@@ -856,7 +856,7 @@ ProfileLoadResult Profile::LoadAllFromDir( RString sDir, bool bRequireSignature 
 
 	LOG->Trace( "Loading %s", fn.c_str() );
 	Json::Value root;
-	if( !JsonUtil::LoadFromFileShowErrors(root, *pFile.get()) )
+	if( !JsonUtil::LoadFromFileShowErrors(root, *pInflate.get()) )
 		return ProfileLoadResult_FailedTampered;
 	LOG->Trace( "Done." );
 
