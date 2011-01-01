@@ -41,7 +41,7 @@ namespace JsonUtil
 		root = Json::Value(Json::arrayValue);
 		root.resize( v.size() );
 		int i=0;
-		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+		for( typename V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
 			fn( *iter, root[i++] );
 	}
 
@@ -51,7 +51,7 @@ namespace JsonUtil
 		root = Json::Value(Json::arrayValue);
 		root.resize( v.size() );
 		int i=0;
-		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+		for( typename V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
 			root[i++] = *iter;
 	}
 
@@ -61,28 +61,28 @@ namespace JsonUtil
 		root = Json::Value(Json::arrayValue);
 		root.resize( v.size() );
 		int i=0;
-		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+		for( typename V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
 			iter->Serialize( root[i++] );
 	}
 
 	template <typename M, typename E, typename F>
 	static void SerializeStringToObjectMap(const M &m, F fnEnumToString(E e), Json::Value &root)
 	{
-		for( M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
+		for( typename M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
 			iter->second.Serialize( root[ fnEnumToString(iter->first) ] );
 	}
 
 	template <typename M, typename E, typename F>
 	static void SerializeStringToValueMap(const M &m, F fnToString(E e), Json::Value &root)
 	{
-		for( M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
+		for( typename M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
 			root[ fnToString(iter->first) ] = iter->second;
 	}
 
 	template <typename M>
 	static void SerializeValueToValueMap(const M &m, Json::Value &root)
 	{
-		for( M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
+		for( typename M::const_iterator iter=m.begin(); iter!=m.end(); iter++ )
 			root[ (iter->first) ] = iter->second;
 	}
 
@@ -93,7 +93,7 @@ namespace JsonUtil
 		root = Json::Value(Json::arrayValue);
 		root.resize( v.size() );
 		int i=0;
-		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+		for( typename V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
 		{
 			Json::Value &v = root[i++];
 			iter->first.Serialize( v[sKeyName] );
@@ -107,7 +107,7 @@ namespace JsonUtil
 		root = Json::Value(Json::arrayValue);
 		root.resize( v.size() );
 		int i=0;
-		for( V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
+		for( typename V::const_iterator iter=v.begin(); iter!=v.end(); iter++ )
 		{
 			Json::Value &v = root[i++];
 			iter->first.Serialize( v[sKeyName] );
