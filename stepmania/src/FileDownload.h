@@ -22,6 +22,8 @@ public:
 	int GetResponseCode() const { return m_iResponseCode; }
 	RString GetResponse() const { return m_sBUFFER; }
 	RString GetStatus() const { return m_sStatus; }
+
+	static RString DecodeUrl(const RString &sUrl);
 private:
 	enum TransferType { download, upload };
 	void StartTransfer( TransferType type, const RString &sURL, const RString &sSrcFile, const RString &sDestFile );

@@ -16,6 +16,10 @@ class Song;
 #include "SongManager.h"
 #include "CommandLineActions.h"
 #include "ScreenDimensions.h"
+#include "InputEventPlus.h"
+#include "arch/ArchHooks/ArchHooks.h"
+#include "LuaFunctions.h"
+#include "FileDownload.h"
 
 struct PlayAfterLaunchInfo
 {
@@ -123,26 +127,33 @@ struct FileCopyResult
 	RString sFile, sComment;
 };
 
+Preference<RString> g_sUsername( "Username", "" );
 Preference<RString> g_sCookie( "Cookie", "" );
+static LocalizedString LOGGED_IN_AS	( "ScreenInstallOverlay", "Logged in as %s" );
+static LocalizedString PRESS_TO_LOG_IN	( "ScreenInstallOverlay", "Press %s to log in" );
+static const DeviceButton g_buttonLogin = KEY_F11;
+RString GetStepManiaLoginMessage()
+{
+	if( g_sUsername.Get().length() > 0 )
+		return ssprintf(LOGGED_IN_AS.GetValue(), g_sUsername.Get().c_str());
+	const RString &sKey = DeviceButtonToString( g_buttonLogin );
+	return ssprintf( PRESS_TO_LOG_IN.GetValue(), sKey.c_str() );
+}
+LuaFunction( GetStepManiaLoginMessage, GetStepManiaLoginMessage() );
+
+class DownloadTask;
+static vector<DownloadTask*> g_pDownloadTasks;
+PlayAfterLaunchInfo g_playAfterLaunchInfo;
+void HandleLaunch( RString sJson );
 
 class DownloadTask
 {
+protected:
 	FileTransfer *m_pTransfer;
-	vector<RString> m_vsQueuedPackageUrls;
-	RString m_sCurrentPackageTempFile;
-	enum
-	{
-		control,
-		packages
-	} m_DownloadState;
-	PlayAfterLaunchInfo m_playAfterLaunchInfo;
 public:
-	DownloadTask(const RString &sControlFileUri)
+	DownloadTask()
 	{
-		//SCREENMAN->SystemMessage( "Downloading control file." );
-		m_pTransfer = new FileTransfer();
-		m_pTransfer->StartDownload( sControlFileUri, "" );
-		m_DownloadState = control;
+		m_pTransfer = NULL;
 	}
 	~DownloadTask()
 	{
@@ -155,102 +166,86 @@ public:
 		else
 			return m_pTransfer->GetStatus();
 	}
+	virtual bool UpdateAndIsFinished( float fDeltaSeconds, PlayAfterLaunchInfo &playAfterLaunchInfo ) = 0;
+};
+class DownloadLaunchTask : public DownloadTask
+{
+public:
+	DownloadLaunchTask( const RString &sUrl )
+	{
+		m_pTransfer = new FileTransfer();
+		m_pTransfer->StartDownload( sUrl, "" );
+	}
 	bool UpdateAndIsFinished( float fDeltaSeconds, PlayAfterLaunchInfo &playAfterLaunchInfo )
 	{
 		m_pTransfer->Update( fDeltaSeconds );
-		switch( m_DownloadState )
+		if( m_pTransfer->IsFinished() )
 		{
-		case control:
-			if( m_pTransfer->IsFinished() )
-			{
-				SCREENMAN->SystemMessage( "Downloading required .smzip" );
-
-				RString sResponse = m_pTransfer->GetResponse();
-				SAFE_DELETE( m_pTransfer );
-
-				Json::Value root;
-				RString sError;
-				if( !JsonUtil::LoadFromString(root, sResponse, sError) )
-				{
-					SCREENMAN->SystemMessage( sError );
-					return true;
-				}
-
-				// Parse the JSON response, make a list of all packages need to be downloaded.
-				{
-					if( root["Cookie"].isString() )
-						g_sCookie.Set( root["Cookie"].asString() );
-					Json::Value require = root["Require"];
-					if( require.isArray() )
-					{
-						for( unsigned i=0; i<require.size(); i++)
-						{
-							Json::Value iter = require[i];
-							if( iter["Dir"].isString() )
-							{
-								RString sDir = iter["Dir"].asString();
-								Parse( sDir, m_playAfterLaunchInfo );
-								if( DoesFileExist( sDir ) )
-									continue;
-							}
-
-							RString sUri;
-							if( iter["Uri"].isString() )
-							{
-								sUri = iter["Uri"].asString();
-								m_vsQueuedPackageUrls.push_back( sUri );
-							}
-						}
-					}
-				}	
-
-				/*
-				{
-					// TODO: Validate that this zip contains files for this version of StepMania
-
-					bool bFileExists = DoesFileExist( SpecialFiles::PACKAGES_DIR + sFilename + sExt );
-					if( FileCopy( TEMP_MOUNT_POINT + sFilename + sExt, SpecialFiles::PACKAGES_DIR + sFilename + sExt ) )
-						vSucceeded.push_back( FileCopyResult(*s,bFileExists ? "overwrote existing file" : "") );
-					else
-						vFailed.push_back( FileCopyResult(*s,ssprintf("error copying file to '%s'",sOsDir.c_str())) );
-
-				}
-				*/
-				m_DownloadState = packages;
-				if( !m_vsQueuedPackageUrls.empty() )
-				{
-					RString sUrl = m_vsQueuedPackageUrls.back();
-					m_vsQueuedPackageUrls.pop_back();
-					m_sCurrentPackageTempFile = MakeTempFileName(sUrl);
-					ASSERT(m_pTransfer == NULL);
-					m_pTransfer = new FileTransfer();
-					m_pTransfer->StartDownload( sUrl, m_sCurrentPackageTempFile );
-				}
-			}
-			break;
-		case packages:
-			{
-				if( m_pTransfer->IsFinished() )
-				{
-					SAFE_DELETE( m_pTransfer );
-					InstallSmzip( m_sCurrentPackageTempFile, m_playAfterLaunchInfo );
-					FILEMAN->Remove( m_sCurrentPackageTempFile );	// Harmless if this fails because download didn't finish
-				}
-				if( !m_vsQueuedPackageUrls.empty() )
-				{
-					RString sUrl = m_vsQueuedPackageUrls.back();
-					m_vsQueuedPackageUrls.pop_back();
-					m_sCurrentPackageTempFile = MakeTempFileName(sUrl);
-					ASSERT(m_pTransfer == NULL);
-					m_pTransfer = new FileTransfer();
-					m_pTransfer->StartDownload( sUrl, m_sCurrentPackageTempFile );
-				}
-			}
-			break;
+			RString sJsonResponse = m_pTransfer->GetResponse();
+			SAFE_DELETE( m_pTransfer );
+			HandleLaunch( sJsonResponse );
+			return true;
 		}
-		bool bFinsihed = m_DownloadState == packages  &&  
-			m_vsQueuedPackageUrls.empty() && 
-			m_pTransfer == NULL;
+		return false;
+	}
+};
+class DownloadPackagesTask : public DownloadTask
+{
+	vector<RString> m_vsQueuedPackageUrls;
+	RString m_sCurrentPackageTempFile;
+	PlayAfterLaunchInfo m_playAfterLaunchInfo;
+public:
+	DownloadPackagesTask( vector<RString> vsQueuedPackageUrls, PlayAfterLaunchInfo pali )
+	{
+		m_vsQueuedPackageUrls = vsQueuedPackageUrls;
+		m_playAfterLaunchInfo = pali;
+
+		if( m_vsQueuedPackageUrls.size() > 0 )
+			SCREENMAN->SystemMessage( "Downloading required .smzip" );
+
+		/*
+		{
+			// TODO: Validate that this zip contains files for this version of StepMania
+
+			bool bFileExists = DoesFileExist( SpecialFiles::PACKAGES_DIR + sFilename + sExt );
+			if( FileCopy( TEMP_MOUNT_POINT + sFilename + sExt, SpecialFiles::PACKAGES_DIR + sFilename + sExt ) )
+				vSucceeded.push_back( FileCopyResult(*s,bFileExists ? "overwrote existing file" : "") );
+			else
+				vFailed.push_back( FileCopyResult(*s,ssprintf("error copying file to '%s'",sOsDir.c_str())) );
+
+		}
+		*/
+		if( !m_vsQueuedPackageUrls.empty() )
+		{
+			RString sUrl = m_vsQueuedPackageUrls.back();
+			m_vsQueuedPackageUrls.pop_back();
+			m_sCurrentPackageTempFile = MakeTempFileName(sUrl);
+			ASSERT(m_pTransfer == NULL);
+			m_pTransfer = new FileTransfer();
+			m_pTransfer->StartDownload( sUrl, m_sCurrentPackageTempFile );
+		}
+	}
+
+	bool UpdateAndIsFinished( float fDeltaSeconds, PlayAfterLaunchInfo &playAfterLaunchInfo )
+	{
+		m_pTransfer->Update( fDeltaSeconds );
+		if( m_pTransfer->IsFinished() )
+		{
+			SAFE_DELETE( m_pTransfer );
+			InstallSmzip( m_sCurrentPackageTempFile, m_playAfterLaunchInfo );
+			FILEMAN->Remove( m_sCurrentPackageTempFile );	// Harmless if this fails because download didn't finish
+		}
+		if( !m_vsQueuedPackageUrls.empty() )
+		{
+			RString sUrl = m_vsQueuedPackageUrls.back();
+			m_vsQueuedPackageUrls.pop_back();
+			m_sCurrentPackageTempFile = MakeTempFileName(sUrl);
+			ASSERT(m_pTransfer == NULL);
+			m_pTransfer = new FileTransfer();
+			m_pTransfer->StartDownload( sUrl, m_sCurrentPackageTempFile );
+		}
+
+		bool bFinsihed = m_vsQueuedPackageUrls.empty() && m_pTransfer == NULL;
 		if( bFinsihed )
 		{
 			playAfterLaunchInfo = m_playAfterLaunchInfo;
@@ -266,10 +261,67 @@ public:
 		return SpecialFiles::CACHE_DIR + "Downloads/" + Basename(s);
 	}
 };
-static vector<DownloadTask*> g_pDownloadTasks;
 
+void HandleLaunch( RString sJson )
+{
+	Json::Value root;
+	RString sError;
+	if( !JsonUtil::LoadFromString(root, sJson, sError) )
+	{
+		SCREENMAN->SystemMessage( sError );
+		return;
+	}
 
-static bool IsStepManiaProtocol(const RString &arg)
+	// Parse the JSON response, make a list of all packages need to be downloaded.
+	if( root["Username"].isString() )
+	{
+		g_sUsername.Set( root["Username"].asString() );
+		SCREENMAN->SystemMessage("Logged in as " + g_sUsername.Get() );
+	}
+	if( root["Cookie"].isString() )
+		g_sCookie.Set( root["Cookie"].asString() );
+	Json::Value require = root["Require"];
+	vector<RString> vsQueuedPackageUrls;
+	PlayAfterLaunchInfo pali;
+	if( require.isArray() )
+	{
+		for( unsigned i=0; i<require.size(); i++)
+		{
+			Json::Value iter = require[i];
+			if( iter["Dir"].isString() )
+			{
+				RString sDir = iter["Dir"].asString();
+				Parse( sDir, pali );
+				if( DoesFileExist( sDir ) )
+					continue;
+			}
+
+			RString sUri;
+			if( iter["Uri"].isString() )
+			{
+				sUri = iter["Uri"].asString();
+				vsQueuedPackageUrls.push_back( sUri );
+			}
+		}
+	}
+	if( vsQueuedPackageUrls.size() > 0 )
+		g_pDownloadTasks.push_back( new DownloadPackagesTask(vsQueuedPackageUrls, pali) );
+	else
+		g_playAfterLaunchInfo.OverlayWith( pali );
+}
+
+static bool HandleStepManiaProtocolLaunch(const RString &arg)
+{
+	static const RString sBeginning = "stepmania://launch/?";	// "launch" is a dummy server name.  There's a slash after it because browsers will insert it if we leave out the slash between server and '?'
+	if( !BeginsWith(arg,sBeginning) )
+		return false;
+	RString sQueryString = arg.Right( arg.size() - sBeginning.size() );
+	RString sJson = FileTransfer::DecodeUrl(sQueryString);
+	HandleLaunch(sJson);
+	return true;
+}
+
+static bool IsStepManiaProtocolFile(const RString &arg)
 {
 	// for now, only load from the StepMania domain until the security implications of this feature are better understood.
 	return BeginsWith(arg,"stepmania://beta.stepmania.com/");
@@ -287,8 +339,10 @@ PlayAfterLaunchInfo DoInstalls( CommandLineActions::CommandLineArgs args )
 	for( int i = 0; i<(int)args.argv.size(); i++ )
 	{
 		RString s = args.argv[i];
-		if( IsStepManiaProtocol(s) )
-			g_pDownloadTasks.push_back( new DownloadTask(s) );
+		if( HandleStepManiaProtocolLaunch(s) )
+			;
+		else if( IsStepManiaProtocolFile(s) )
+			g_pDownloadTasks.push_back( new DownloadLaunchTask(s) );
 		else if( IsSmzip(s) )
 			InstallSmzipOsArg(s, ret);
 	}
@@ -315,16 +369,27 @@ void ScreenInstallOverlay::Init()
 	this->AddChild( &m_textStatus );
 }
 
+bool ScreenInstallOverlay::OverlayInput( const InputEventPlus &input )
+{
+	if( input.DeviceI.button == g_buttonLogin )
+	{
+		HOOKS->GoToURL("http://www.stepmania.com/launch.php");
+			return true;
+	}
+
+	return false;
+}
+
+
 void ScreenInstallOverlay::Update( float fDeltaTime )
 {
 	Screen::Update(fDeltaTime);
-	PlayAfterLaunchInfo playAfterLaunchInfo;
 	while( CommandLineActions::ToProcess.size() > 0 )
 	{
 		CommandLineActions::CommandLineArgs args = CommandLineActions::ToProcess.back();
 		CommandLineActions::ToProcess.pop_back();
  		PlayAfterLaunchInfo pali2 = DoInstalls( args );
-		playAfterLaunchInfo.OverlayWith( pali2 );
+		g_playAfterLaunchInfo.OverlayWith( pali2 );
 	}
 
 	for(int i=g_pDownloadTasks.size()-1; i>=0; --i)
@@ -333,7 +398,7 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 		PlayAfterLaunchInfo pali;
 		if( p->UpdateAndIsFinished( fDeltaTime, pali) )
 		{
-			playAfterLaunchInfo.OverlayWith(pali);
+			g_playAfterLaunchInfo.OverlayWith(pali);
 			SAFE_DELETE(p);
 			g_pDownloadTasks.erase( g_pDownloadTasks.begin()+i );
 		}
@@ -348,17 +413,17 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 		m_textStatus.SetText( join("\n", vsMessages) );
 	}
 
-	if( playAfterLaunchInfo.bAnySongChanged )
+	if( g_playAfterLaunchInfo.bAnySongChanged )
 		SONGMAN->Reload( false, NULL );
 
-	if( !playAfterLaunchInfo.sSongDir.empty() )
+	if( !g_playAfterLaunchInfo.sSongDir.empty() )
 	{
 		Song* pSong = NULL;
 		GAMESTATE->Reset();
 				
 		RString sInitialScreen;
-		if( playAfterLaunchInfo.sSongDir.length() > 0 )
-			pSong = SONGMAN->GetSongFromDir( playAfterLaunchInfo.sSongDir );
+		if( g_playAfterLaunchInfo.sSongDir.length() > 0 )
+			pSong = SONGMAN->GetSongFromDir( g_playAfterLaunchInfo.sSongDir );
 		if( pSong )
 		{
 			vector<const Style*> vpStyle;
@@ -375,7 +440,9 @@ void ScreenInstallOverlay::Update( float fDeltaTime )
 		{
 			sInitialScreen = CommonMetrics::INITIAL_SCREEN;
 		}
-		 
+
+		g_playAfterLaunchInfo = PlayAfterLaunchInfo();
+
 		SCREENMAN->SetNewScreen( sInitialScreen );
 	}
 }

@@ -378,6 +378,33 @@ void FileTransfer::BlockUntilFinished()
 	}
 }
 
+RString FileTransfer::DecodeUrl(const RString &sUrl)
+{
+	string buffer;
+	int len = sUrl.length();
+
+	for (int i = 0; i < len; i++)
+	{
+		int j = i ;
+		char ch = sUrl.at(j);
+		if (ch == '%')
+		{
+			char tmpstr[] = "0x0__";
+			int chnum;
+			tmpstr[3] = sUrl.at(j+1);
+			tmpstr[4] = sUrl.at(j+2);
+			chnum = strtol(tmpstr, NULL, 16);
+			buffer += (char)chnum;
+			i += 2;
+		}
+		else
+		{
+			buffer += ch;
+		}
+	}
+	return buffer;
+}
+
 #endif
 /*
  * (c) 2004 Charles Lohr, Chris Danford
