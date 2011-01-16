@@ -12,6 +12,8 @@
 #include "FileDownload.h"
 #include "XmlFile.h"
 #include "arch/ArchHooks/ArchHooks.h"
+#include "Json/Value.h"
+#include "JsonUtil.h"
 
 static RString ReplaceInvalidFileNameChars( RString sOldFileName )
 {
@@ -120,15 +122,12 @@ RString PublishSong( const Song *pSong )
 		ft.BlockUntilFinished();
 		if( ft.GetResponseCode() != 200 )
 			return "Bad response code upload_song " + ft.GetResponseCode();
-		XNode xml;
-		PARSEINFO pi;
-		xml.Load( ft.GetResponse(), &pi );
-		if( pi.error_occur )
-			return "Error parsing upload_song " + pi.error_string;
-		if( xml.m_sName != "upload_song" )
-			return "Unexpected response in upload_song";
-		if( xml.GetChildValue("url", sUrl) )
-			HOOKS->GoToURL(sUrl);
+		RString sResponse = ft.GetResponse();
+		Json::Value root;
+		RString sError;
+		if( !JsonUtil::LoadFromString(root,sResponse,sError) )
+			return "Error parsing response: " + sError;
+		HOOKS->GoToURL(root["url"].asString());
 	}
 		
 	return "Published as '" + sUrl + "'";
