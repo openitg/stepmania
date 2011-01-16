@@ -383,6 +383,26 @@ void GameState::PlayersFinalized()
 		ApplyModifiers( pn, CommonMetrics::DEFAULT_CPU_MODIFIERS );
 }
 
+void SaveAllProfiles( bool bEndGame )
+{
+	PROFILEMAN->SaveMachineProfile();
+	PROFILEMAN->UploadMachineProfie();
+	FOREACH_HumanPlayer( pn )
+	{
+		if( !PROFILEMAN->IsPersistentProfile(pn) )
+			continue;
+
+		bool bWasMemoryCard = PROFILEMAN->ProfileWasLoadedFromMemoryCard(pn);
+		if( bEndGame && bWasMemoryCard )
+			MEMCARDMAN->MountCard( pn );
+		PROFILEMAN->SaveProfile( pn );
+		if( bEndGame && bWasMemoryCard )
+			MEMCARDMAN->UnmountCard( pn );
+
+		PROFILEMAN->UnloadProfile( pn );
+	}
+}
+
 void GameState::EndGame()
 {
 	LOG->Trace( "GameState::EndGame" );
@@ -415,22 +435,7 @@ void GameState::EndGame()
 
 	BOOKKEEPER->WriteToDisk();
 
-	FOREACH_HumanPlayer( pn )
-	{
-		if( !PROFILEMAN->IsPersistentProfile(pn) )
-			continue;
-
-		bool bWasMemoryCard = PROFILEMAN->ProfileWasLoadedFromMemoryCard(pn);
-		if( bWasMemoryCard )
-			MEMCARDMAN->MountCard( pn );
-		PROFILEMAN->SaveProfile( pn );
-		if( bWasMemoryCard )
-			MEMCARDMAN->UnmountCard( pn );
-
-		PROFILEMAN->UnloadProfile( pn );
-	}
-
-	PROFILEMAN->SaveMachineProfile();
+	SaveAllProfiles( true );
 
 	// make sure we don't execute EndGame twice.
 	m_timeGameStarted.SetZero();
@@ -534,7 +539,7 @@ void GameState::FinishStage()
 		if( iOldStageIndex/iSaveProfileEvery < m_iCurrentStageIndex/iSaveProfileEvery )
 		{
 			LOG->Trace( "Played %i stages; saving profiles ...", iSaveProfileEvery );
-			PROFILEMAN->SaveAllProfiles();
+			SaveAllProfiles(false);
 		}
 	}
 }

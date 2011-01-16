@@ -14,6 +14,7 @@ namespace JsonUtil
 	bool LoadFromFileShowErrors( Json::Value &root, const RString &sFile );
 	bool LoadFromFileShowErrors( Json::Value &root, RageFileBasic &f );
 
+	RString WriteString( const Json::Value &root, bool bMinified);
 	bool WriteFile( const Json::Value &root, const RString &sFile, bool bMinified );
 	bool WriteFile( const Json::Value &root, RageFileBasic &f, bool bMinified );
 

@@ -23,6 +23,8 @@
 #include "HighScore.h"
 #include "Character.h"
 #include "CharacterManager.h"
+#include "FileDownload.h"
+#include "ScreenManager.h"
 
 
 ProfileManager*	PROFILEMAN = NULL;	// global and accessable from anywhere in our program
@@ -288,18 +290,6 @@ bool ProfileManager::FastLoadProfileNameFromMemoryCard( RString sRootDir, RStrin
 	return false;
 }
 
-void ProfileManager::SaveAllProfiles() const
-{
-	this->SaveMachineProfile();
-
-	FOREACH_HumanPlayer( pn )
-	{
-		if( !IsPersistentProfile(pn) )
-			continue;
-
-		this->SaveProfile( pn );
-	}
-}
 
 bool ProfileManager::SaveProfile( PlayerNumber pn ) const
 {
@@ -517,6 +507,21 @@ void ProfileManager::SaveMachineProfile() const
 	const_cast<ProfileManager *> (this)->m_pMachineProfile->m_sDisplayName = PREFSMAN->m_sMachineName;
 
 	m_pMachineProfile->SaveAllToDir( MACHINE_PROFILE_DIR, false ); /* don't sign machine profiles */
+}
+
+void ProfileManager::UploadMachineProfie() const
+{
+	//TODO: Copy the stats file to temp before uploaing
+	RString sFile = MACHINE_PROFILE_DIR+"Stats.json.gz";
+	RString sUrl = "unknown url";
+	{
+		FileTransfer ft;
+		// TODO: Don't stream file because it will block future writes.  
+		ft.StartUpload( "http://www.stepmania.com/api.php?action=upload_stats", sFile, "" );
+		ft.BlockUntilFinished();
+		if( ft.GetResponseCode() != 200 )
+			SCREENMAN->SystemMessage( "Bad response code upload_stats " + ft.GetResponseCode() );
+	}
 }
 
 void ProfileManager::LoadMachineProfile()

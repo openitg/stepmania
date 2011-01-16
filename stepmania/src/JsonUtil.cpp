@@ -63,20 +63,25 @@ bool JsonUtil::WriteFile( const Json::Value &root, const RString &sFile, bool bM
 	return WriteFile( root, f, bMinified );
 }
 
-bool JsonUtil::WriteFile( const Json::Value &root, RageFileBasic &f, bool bMinified )
+RString JsonUtil::WriteString( const Json::Value &root, bool bMinified)
 {
-	std::string s;
 	if( !bMinified )
 	{
 		Json::StyledWriter writer;
-		s = writer.write(root);
+		return writer.write(root);
 	}
 	else 
 	{
 		Json::FastWriter writer;
-		s = writer.write(root);
+		return writer.write(root);
 	}
 
+}
+
+bool JsonUtil::WriteFile( const Json::Value &root, RageFileBasic &f, bool bMinified )
+{
+	// Optimization Opportunity: Write to the file stream as we serialize
+	RString s = WriteString(root, bMinified);
 	f.Write(s);
 	return true;
 }

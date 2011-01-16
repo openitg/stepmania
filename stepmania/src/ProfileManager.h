@@ -66,6 +66,7 @@ public:
 	//
 	void LoadMachineProfile();
 	void SaveMachineProfile() const;
+	void UploadMachineProfie() const;
 
 	bool IsPersistentProfile( PlayerNumber pn ) const { return !m_sProfileDir[pn].empty(); }
 	bool IsPersistentProfile( ProfileSlot slot ) const;

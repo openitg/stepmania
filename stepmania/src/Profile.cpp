@@ -938,10 +938,67 @@ void Profile::RankingCategoryToHighScoreList::Deserialize( const Json::Value &ro
 	JsonUtil::DeserializeStringToObjectMap( m_v, StringToRankingCategory, root );
 }
 
-bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
+const RString MeterToString(int i)
 {
-	Json::Value root;
-	SaveGeneral( root["General"] );
+	return ssprintf("%d",i);
+}
+
+int StringToMeter(const RString &s)
+{
+	return atoi(s);
+}
+
+void Profile::SaveStatsJson( Json::Value &root ) const
+{
+	{
+		// These are write-only elements that are normally never read again.
+		// This data is required by other apps (like internet ranking), but is 
+		// redundant to the game app.
+		root["DisplayName"] =			GetDisplayNameOrHighScoreName();
+		root["CharacterID"] = 			m_sCharacterID;
+		root["LastUsedHighScoreName"] = 	m_sLastUsedHighScoreName;
+		root["WeightPounds"] = 			m_iWeightPounds;
+		root["IsMachine"] = 			IsMachine();
+		root["IsWeightSet"] = 			m_iWeightPounds != 0;
+
+		root["Guid"] = 				m_sGuid;
+		root["SortOrder"] = 			SortOrderToString(m_SortOrder);
+		root["LastDifficulty"] = 		DifficultyToString(m_LastDifficulty);
+		root["LastCourseDifficulty"] = 		CourseDifficultyToString(m_LastCourseDifficulty);
+		m_lastSong.Serialize( root["LastSong"] );
+		m_lastCourse.Serialize( root["LastCourse"] );
+		root["TotalPlays"] = 			m_iTotalPlays;
+		root["TotalPlaySeconds"] = 		m_iTotalPlaySeconds;
+		root["TotalGameplaySeconds"] = 		m_iTotalGameplaySeconds;
+		root["CurrentCombo"] = 			m_iCurrentCombo;
+		root["TotalCaloriesBurned"] = 		m_fTotalCaloriesBurned;
+		root["GoalType"] = 			m_GoalType;
+		root["GoalCalories"] = 			m_iGoalCalories;
+		root["GoalSeconds"] = 			m_iGoalSeconds;
+		root["LastPlayedMachineGuid"] = 	m_sLastPlayedMachineGuid;
+		root["LastPlayedDate"] = 		m_LastPlayedDate.GetString();
+		root["TotalDancePoints"] = 		m_iTotalDancePoints;
+		root["NumExtraStagesPassed"] = 		m_iNumExtraStagesPassed;
+		root["NumExtraStagesFailed"] = 		m_iNumExtraStagesFailed;
+		root["NumToasties"] = 			m_iNumToasties;
+		root["TotalTapsAndHolds"] = 		m_iTotalTapsAndHolds;
+		root["TotalJumps"] = 			m_iTotalJumps;
+		root["TotalHolds"] = 			m_iTotalHolds;
+		root["TotalRolls"] = 			m_iTotalRolls;
+		root["TotalMines"] = 			m_iTotalMines;
+		root["TotalHands"] = 			m_iTotalHands;
+		root["SavedLuaData"] = 			m_SavedLuaData.Serialize();
+		root["NumTotalSongsPlayed"] =		m_iNumTotalSongsPlayed;
+
+		JsonUtil::SerializeValueToValueMap( m_DefaultModifiersByGame, root["DefaultModifiersByGame"] );
+		JsonUtil::SerializeArrayValues( m_UnlockedEntryIDs, root["UnlockEntryIDs"] );
+		JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByPlayMode, PlayModeToString, root["NumSongsPlayedByPlayMode"] );
+		JsonUtil::SerializeObjectToValueMapAsArray(m_iNumSongsPlayedByStyle, "Style", "NumPlays", root["NumSongsPlayedByStyle"] );
+		JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByDifficulty, DifficultyToString, root["NumSongsPlayedByDifficulty"] );
+		JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByMeter, MeterToString, root["NumSongsPlayedByMeter"] );
+		JsonUtil::SerializeStringToValueMap( m_iNumStagesPassedByPlayMode, PlayModeToString, root["NumStagesPassedByPlayMode"] );
+		JsonUtil::SerializeStringToValueMap( m_iNumStagesPassedByGrade, GradeToString, root["NumStagesPassedByGrade"] );
+	}
 	JsonUtil::SerializeObjectToObjectMapAsArray( m_SongHighScores, "Song", "HighScoresForASong", root["SongScores"] );
 	JsonUtil::SerializeObjectToObjectMapAsArray( m_CourseHighScores, "Course", "HighScoresForACourse", root["CourseScores"] );
 	JsonUtil::SerializeStringToObjectMap( m_CategoryHighScores, StepsTypeToString, root["CategoryScores"] );
@@ -949,6 +1006,12 @@ bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
 	JsonUtil::SerializeStringToValueMap( m_mapDayToCaloriesBurned, DateTimeToString, root["CalorieData"] );
 	JsonUtil::SerializeArrayObjects( m_vRecentStepsScores, root["RecentSongScores"] );
 	JsonUtil::SerializeArrayObjects( m_vRecentCourseScores, root["RecentCourseScores"] );
+}
+
+bool Profile::SaveStatsJsonToDir( RString sDir, bool bSignData ) const
+{
+	Json::Value root;
+	SaveStatsJson( root );
 
 	RString fn = sDir + STATS_JSON_GZ;
 	RageFile f;
@@ -994,67 +1057,6 @@ void Profile::SaveEditableDataToDir( RString sDir ) const
 	ini.SetValue( "Editable", "WeightPounds",			m_iWeightPounds );
 
 	ini.WriteFile( sDir + EDITABLE_INI );
-}
-
-const RString MeterToString(int i)
-{
-	return ssprintf("%d",i);
-}
-
-int StringToMeter(const RString &s)
-{
-	return atoi(s);
-}
-
-void Profile::SaveGeneral( Json::Value &root ) const
-{
-	// These are write-only elements that are normally never read again.
-	// This data is required by other apps (like internet ranking), but is 
-	// redundant to the game app.
-	root["DisplayName"] =			GetDisplayNameOrHighScoreName();
-	root["CharacterID"] = 			m_sCharacterID;
-	root["LastUsedHighScoreName"] = 	m_sLastUsedHighScoreName;
-	root["WeightPounds"] = 			m_iWeightPounds;
-	root["IsMachine"] = 			IsMachine();
-	root["IsWeightSet"] = 			m_iWeightPounds != 0;
-
-	root["Guid"] = 				m_sGuid;
-	root["SortOrder"] = 			SortOrderToString(m_SortOrder);
-	root["LastDifficulty"] = 		DifficultyToString(m_LastDifficulty);
-	root["LastCourseDifficulty"] = 		CourseDifficultyToString(m_LastCourseDifficulty);
-	m_lastSong.Serialize( root["LastSong"] );
-	m_lastCourse.Serialize( root["LastCourse"] );
-	root["TotalPlays"] = 			m_iTotalPlays;
-	root["TotalPlaySeconds"] = 		m_iTotalPlaySeconds;
-	root["TotalGameplaySeconds"] = 		m_iTotalGameplaySeconds;
-	root["CurrentCombo"] = 			m_iCurrentCombo;
-	root["TotalCaloriesBurned"] = 		m_fTotalCaloriesBurned;
-	root["GoalType"] = 			m_GoalType;
-	root["GoalCalories"] = 			m_iGoalCalories;
-	root["GoalSeconds"] = 			m_iGoalSeconds;
-	root["LastPlayedMachineGuid"] = 	m_sLastPlayedMachineGuid;
-	root["LastPlayedDate"] = 		m_LastPlayedDate.GetString();
-	root["TotalDancePoints"] = 		m_iTotalDancePoints;
-	root["NumExtraStagesPassed"] = 		m_iNumExtraStagesPassed;
-	root["NumExtraStagesFailed"] = 		m_iNumExtraStagesFailed;
-	root["NumToasties"] = 			m_iNumToasties;
-	root["TotalTapsAndHolds"] = 		m_iTotalTapsAndHolds;
-	root["TotalJumps"] = 			m_iTotalJumps;
-	root["TotalHolds"] = 			m_iTotalHolds;
-	root["TotalRolls"] = 			m_iTotalRolls;
-	root["TotalMines"] = 			m_iTotalMines;
-	root["TotalHands"] = 			m_iTotalHands;
-	root["SavedLuaData"] = 			m_SavedLuaData.Serialize();
-	root["NumTotalSongsPlayed"] =		m_iNumTotalSongsPlayed;
-
-	JsonUtil::SerializeValueToValueMap( m_DefaultModifiersByGame, root["DefaultModifiersByGame"] );
-	JsonUtil::SerializeArrayValues( m_UnlockedEntryIDs, root["UnlockEntryIDs"] );
-	JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByPlayMode, PlayModeToString, root["NumSongsPlayedByPlayMode"] );
-	JsonUtil::SerializeObjectToValueMapAsArray(m_iNumSongsPlayedByStyle, "Style", "NumPlays", root["NumSongsPlayedByStyle"] );
-	JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByDifficulty, DifficultyToString, root["NumSongsPlayedByDifficulty"] );
-	JsonUtil::SerializeStringToValueMap( m_iNumSongsPlayedByMeter, MeterToString, root["NumSongsPlayedByMeter"] );
-	JsonUtil::SerializeStringToValueMap( m_iNumStagesPassedByPlayMode, PlayModeToString, root["NumStagesPassedByPlayMode"] );
-	JsonUtil::SerializeStringToValueMap( m_iNumStagesPassedByGrade, GradeToString, root["NumStagesPassedByGrade"] );
 }
 
 ProfileLoadResult Profile::LoadEditableDataFromDir( RString sDir )

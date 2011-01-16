@@ -330,8 +330,8 @@ public:
 	void LoadGeneral( const Json::Value &root );
 
 	void SaveEditableDataToDir( RString sDir ) const;
+	void SaveStatsJson( Json::Value &root ) const;
 	bool SaveStatsJsonToDir( RString sDir, bool bSignData ) const;
-	void SaveGeneral( Json::Value &root ) const;
 
 	void SaveStatsWebPageToDir( RString sDir ) const;
 	void SaveMachinePublicKeyToDir( RString sDir ) const;
